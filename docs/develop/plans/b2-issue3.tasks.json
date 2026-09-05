@@ -25,7 +25,7 @@
    "files": ["benchmark/runs/README.md"]},
   {"id": "T13", "title": "Captured run: this bundle's own execution", "depends_on": ["T11"], "kind": "docs",
    "files": ["benchmark/runs/run-20260905T153704Z-praxis-bootstrap/report.md"]},
-  {"id": "T14", "title": "Baseline report", "depends_on": ["T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T13"], "kind": "docs",
+  {"id": "T14", "title": "Baseline report", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T13"], "kind": "docs",
    "files": ["benchmark/baseline/baseline-report.md"]},
   {"id": "T15", "title": "Acceptance thresholds for Praxis migration", "depends_on": ["T10"], "kind": "docs",
    "files": ["benchmark/baseline/acceptance-thresholds.md"]},

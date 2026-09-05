@@ -76,8 +76,9 @@ string such as `compute-slot` or `memory` — not a fixed enum, and never a spec
 hardware model), a positive `quantity`, and an optional `unit`.
 
 This shape exists so that later issues (#7, resource/scheduling) have a contract to build
-against; it defines the shape of a resource claim only, not how claims are reconciled, reserved,
-or scheduled — that scheduling logic is out of scope for this issue.
+against; it defines the shape of a resource claim only. Issue #7 (see
+[`docs/resources.md`](resources.md)) now defines that scheduling/lease layer on top of this same
+schema.
 
 ## How matching is intended to work (contract level only)
 

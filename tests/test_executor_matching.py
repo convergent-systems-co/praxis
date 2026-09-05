@@ -3,13 +3,11 @@
 Dict fixtures follow schemas/v1/requirement.schema.json and
 schemas/v1/capability-advertisement.schema.json.
 
-This suite is the permanent regression coverage for logic already implemented
-in T4 (see tasks/T4/tdd-writer.result.json for that task's own RED proof,
-taken against a fresh module that did not yet exist). T4's adversarial-tester
-round flagged that the "required kind's only advertisement is disqualified by
-a prohibited kind" fix (`test_prohibited_kind_disqualifies_only_candidate_and_
-explains_required_gap` below) had no permanent test yet; this file is where
-that coverage lives going forward.
+This suite is the permanent regression coverage for the matching algorithm,
+including the case where a required kind's only qualifying advertisement is
+disqualified because it also satisfies a prohibited kind (see
+`test_prohibited_kind_disqualifies_only_candidate_and_explains_required_gap`
+below).
 """
 
 from __future__ import annotations
@@ -17,6 +15,14 @@ from __future__ import annotations
 from praxis_executors.matching import match
 
 _SPEC_VERSION = "1.0.0"
+
+_FORBIDDEN_DOC_TERMS = ("tdd-writer", "adversarial-tester", "RED proof", "tasks/T4")
+
+
+def test_module_docstring_has_no_dev_pipeline_vocabulary():
+    docstring = __doc__ or ""
+    for term in _FORBIDDEN_DOC_TERMS:
+        assert term not in docstring, f"module docstring must not reference {term!r}"
 
 
 def _requirement(*, required=(), preferred=(), prohibited=()) -> dict:

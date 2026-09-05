@@ -91,7 +91,8 @@ def test_cancel_on_long_running_process_reaches_terminal_state_promptly():
     executor.cancel(handle)
 
     status = _wait_for_terminal(executor, handle, timeout=5.0)
-    assert status in (ExecutorStatus.FAILED, ExecutorStatus.CANCELLED)
+    assert status == ExecutorStatus.CANCELLED
+    assert executor.result(handle).status == ExecutorStatus.CANCELLED
 
 
 def test_capabilities_advertisement_validates_against_schema():

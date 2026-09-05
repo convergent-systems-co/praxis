@@ -31,6 +31,7 @@ class SubprocessExecutor(Executor):
         self._satisfies_kinds = list(satisfies_kinds)
         self._processes: dict[str, subprocess.Popen] = {}
         self._results: dict[str, ExecutionResult] = {}
+        self._cancelled: set[str] = set()
 
     def capabilities(self) -> dict:
         return {
@@ -76,11 +77,17 @@ class SubprocessExecutor(Executor):
         returncode = self._process_for(handle).poll()
         if returncode is None:
             return ExecutorStatus.RUNNING
+        return self._terminal_status(handle.handle_id, returncode)
+
+    def _terminal_status(self, handle_id: str, returncode: int) -> ExecutorStatus:
+        if handle_id in self._cancelled:
+            return ExecutorStatus.CANCELLED
         return ExecutorStatus.SUCCEEDED if returncode == 0 else ExecutorStatus.FAILED
 
     def cancel(self, handle: ExecutionHandle) -> None:
         process = self._process_for(handle)
         if process.poll() is None:
+            self._cancelled.add(handle.handle_id)
             process.terminate()
 
     def result(self, handle: ExecutionHandle) -> ExecutionResult:
@@ -93,7 +100,7 @@ class SubprocessExecutor(Executor):
         stdout, stderr = process.communicate()
         returncode = process.returncode
         result = ExecutionResult(
-            status=ExecutorStatus.SUCCEEDED if returncode == 0 else ExecutorStatus.FAILED,
+            status=self._terminal_status(handle.handle_id, returncode),
             evidence={"process-exit-status": returncode == 0},
             payload={"stdout": stdout, "stderr": stderr, "returncode": returncode},
         )

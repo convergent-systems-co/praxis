@@ -1,12 +1,15 @@
 # Praxis Runtime
 
 See also: [`docs/ontology.md`](ontology.md) for the Promise/Capability/Requirement/Evidence
-Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`).
+Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`), and
+[`docs/evidence.md`](evidence.md) for the `ProofRecord`/`GateResult`/`Grader` subsystem that
+grades evidence against a node's evidence requirement.
 
 This document describes `src/praxis_runtime/` — the generic graph, run-state, event, checkpoint,
 and transition engine. It covers each module's purpose, its public interface, the atomicity/
-append-only guarantees the implementation provides, and how the still-unbuilt issues #5
-(matching), #6 (evidence grading), and #7 (resource scheduling) are expected to depend on it.
+append-only guarantees the implementation provides, and how issue #6 (evidence grading, now
+delivered) uses it, plus how the still-unbuilt issues #5 (matching) and #7 (resource scheduling)
+are expected to depend on it.
 
 ## `praxis_runtime.graph`
 
@@ -84,10 +87,15 @@ transition legality" true by construction.
 
 - `class NodeStatus(enum.Enum)`: `PENDING`, `RUNNING`, `BLOCKED`, `HANDOFF`, `RECOVERING`, `TERMINAL_SUCCESS`, `TERMINAL_FAILED`.
 - `class TransitionError(Exception)`.
-- `class TransitionEngine(graph: Graph, state_store: RunStateStore, event_log: EventLog)`:
+- `class TransitionEngine(graph: Graph, state_store: RunStateStore, event_log: EventLog, *, grader_registry: GraderRegistry | None = None)`:
+  the optional `grader_registry` (`praxis_evidence.graders.GraderRegistry`) is how a domain
+  overlay supplies its own registered graders; omitting it defaults to a fresh, empty
+  `praxis_evidence.graders.default_registry()`.
   - `def current_state(self) -> RunState`.
   - `def legal_next(self, node_id: str) -> set[str]`.
-  - `def apply(self, node_id: str, event_type: str, *, evidence: dict | None = None) -> RunState`.
+  - `def apply(self, node_id: str, event_type: str, *, evidence: list[dict] | None = None) -> RunState`:
+    `evidence` is a list of raw proof-record documents (see
+    [`docs/evidence.md`](evidence.md)), not a single evidence dict.
 
 **Fail-closed guarantee:** `apply` checks the requested transition against the current
 `RunState` and the graph's edges before anything is written; a rejected transition never
@@ -99,9 +107,18 @@ shared successor cursor once every incoming edge's source has reported `TERMINAL
 impossible/corrupt state, so it raises `TransitionError` (fail closed) rather than proceeding
 against a checkpoint the log cannot substantiate.
 
-**Evidence audit trail:** evidence supplied to `apply()` is persisted onto the committed
-`Event`'s `payload` under the `"evidence"` key (in addition to being checked against the node's
-evidence requirement), giving a durable audit trail of what evidence satisfied a gate.
+**Evidence audit trail:** the `evidence` list of raw proof-record documents supplied to `apply()`
+is persisted verbatim onto the committed `Event`'s `payload` under the `"evidence"` key, giving a
+durable audit trail of what evidence satisfied a gate. When a transition targets a terminal
+status, a node's own `evidence_requirement` (if any) is graded via
+`praxis_evidence.gates.evaluate_gate` against that `evidence`, using the engine's
+`grader_registry`; an unsatisfied `GateResult` raises `TransitionError` before anything is
+written (fail-closed). For a node reached via one or more join edges, each incoming source's own
+`GateResult` is re-derived from that source's previously stored evidence and its own
+`evidence_requirement`, then combined with this node's own result via
+`praxis_evidence.aggregate.aggregate_gate_results` — see [`docs/evidence.md`](evidence.md) — so a
+join can never advance past an upstream branch whose gate is unsatisfied even if that branch
+already reached `TERMINAL_SUCCESS`.
 
 **Concurrency guarantee:** `apply()` holds an exclusive `flock` on a sidecar lock file next to
 the run-state checkpoint for the duration of its read-check-append-save sequence, so two
@@ -144,7 +161,7 @@ A deterministic fake-executor test harness, exposed via
 `praxis_runtime.testing.fake_executor`.
 
 - `class FakeExecutor(engine: TransitionEngine, script: dict[str, dict])`: `script` maps
-  `node_id -> {"event_type": str, "evidence": dict | None}`, a fully predetermined,
+  `node_id -> {"event_type": str, "evidence": list[dict] | None}`, a fully predetermined,
   deterministic outcome per node (no randomness, no wall-clock, no external call).
   - `def run_to_completion(self, *, max_steps: int = 1000) -> RunState`.
 
@@ -159,10 +176,13 @@ scripted decision.
 - **#5 (matching)** builds on top of `Graph`'s node `metadata`/`kind` vocabulary and
   `TransitionEngine` — a matching algorithm reads `Requirement`/`Capability` shapes out of node
   `metadata` and decides what an executor may run, but does not need a new core interface here.
-- **#6 (evidence grading)** builds on top of `TransitionEngine.apply`'s existing evidence-key
-  presence check (`_check_evidence`) and `RunState`/`Event` shapes — grading *how good* a piece
-  of evidence is extends the `evidence_requirement` vocabulary already read from node
-  `metadata`, it does not require a new transition or storage interface.
+- **#6 (evidence grading)** is delivered: `TransitionEngine.apply`'s `_check_evidence` hook now
+  grades a node's `evidence_requirement` (read from node `metadata`) against the supplied
+  `evidence` via `praxis_evidence.gates.evaluate_gate`, using the `grader_registry` passed to the
+  engine's constructor, and combines per-source results for join nodes via
+  `praxis_evidence.aggregate.aggregate_gate_results`. An unsatisfied gate raises `TransitionError`
+  before any event or checkpoint is written. No new transition or storage interface was needed —
+  see [`docs/evidence.md`](evidence.md) for the full `ProofRecord`/`GateResult`/`Grader` shape.
 - **#7 (resource scheduling)** builds on top of the same `Graph`/`RunState`/`Event` shapes —
   resource claims are expected to live in node `metadata` alongside evidence requirements, and
   scheduling decisions are expected to be enforced through `TransitionEngine.apply`, the single

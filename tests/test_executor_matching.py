@@ -53,6 +53,70 @@ def _advertisement(
     }
 
 
+def _multi_capability_advertisement(executor_id: str, capabilities: list[dict]) -> dict:
+    """Build an advertisement with more than one Capability entry.
+
+    Each item in `capabilities` is `{"id": ..., "kinds": [...], "cost": ...}`
+    (`id`/`cost` optional) -- unlike `_advertisement()`, which only ever
+    builds a single-capability advertisement.
+    """
+    built = []
+    for spec in capabilities:
+        satisfies = []
+        for kind in spec["kinds"]:
+            entry = {"kind": kind}
+            if "cost" in spec:
+                entry["parameters"] = {"cost": spec["cost"]}
+            satisfies.append(entry)
+        capability: dict = {"spec_version": _SPEC_VERSION, "satisfies": satisfies}
+        if "id" in spec:
+            capability["id"] = spec["id"]
+        built.append(capability)
+    return {
+        "spec_version": _SPEC_VERSION,
+        "executor_id": executor_id,
+        "capabilities": built,
+    }
+
+
+def test_capability_id_is_scoped_to_the_capability_satisfying_the_matched_kind():
+    requirement = _requirement(required=["kind-a"])
+    advertisement = _multi_capability_advertisement(
+        "executor-1",
+        [
+            {"id": "cap-unrelated", "kinds": ["kind-x"]},
+            {"id": "cap-match", "kinds": ["kind-a"]},
+        ],
+    )
+
+    result = match(requirement, [advertisement])
+
+    assert result.selected is not None
+    assert result.selected.capability_id == "cap-match"
+
+
+def test_cost_hint_is_scoped_to_the_capability_satisfying_the_matched_kind():
+    requirement = _requirement(required=["kind-a"])
+    # executor-1's kind-x capability has a low cost (1), but kind-x is not the
+    # matched kind -- only its kind-a capability's cost (9) may be used. If
+    # the cost hint were not scoped to the matched capability, the unrelated
+    # cost=1 would make executor-1 look cheaper than executor-2 (cost=5) and
+    # win the tie-break incorrectly.
+    misleadingly_cheap = _multi_capability_advertisement(
+        "executor-1",
+        [
+            {"id": "cap-unrelated", "kinds": ["kind-x"], "cost": 1},
+            {"id": "cap-match", "kinds": ["kind-a"], "cost": 9},
+        ],
+    )
+    actually_cheaper = _advertisement("executor-2", ["kind-a"], cost=5)
+
+    result = match(requirement, [misleadingly_cheap, actually_cheaper])
+
+    assert result.selected is not None
+    assert result.selected.executor_id == "executor-2"
+
+
 def test_required_kind_satisfied_by_exactly_one_advertisement_selects_it():
     requirement = _requirement(required=["kind-a"])
     ads = [

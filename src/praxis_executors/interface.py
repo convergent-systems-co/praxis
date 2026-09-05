@@ -58,7 +58,6 @@ class ExecutionResult:
     status: ExecutorStatus
     evidence: dict = field(default_factory=dict)
     payload: dict = field(default_factory=dict)
-    error: str | None = None
 
 
 class ExecutorError(Exception):

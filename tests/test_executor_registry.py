@@ -279,9 +279,10 @@ def test_execute_launches_polls_to_terminal_and_returns_result_unchanged():
     # Loop must run until it observes the terminal SUCCEEDED status, i.e. once
     # per entry in the scripted sequence -- not stop early on QUEUED/RUNNING.
     assert executor.status_calls == 3
-    # "calling poll once per iteration" is satisfied whether or not the final
-    # (already-terminal) iteration also invokes poll before returning.
-    assert len(poll_calls) in (2, 3)
+    # The loop polls status() once per non-terminal entry (QUEUED, RUNNING)
+    # and calls poll() after each; it breaks before polling again once
+    # status() reports the terminal SUCCEEDED, so poll() runs exactly twice.
+    assert len(poll_calls) == 2
 
 
 def test_execute_works_without_a_poll_callback():

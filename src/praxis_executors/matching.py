@@ -44,17 +44,21 @@ def _satisfied_kinds(advertisement: dict) -> frozenset[str]:
     return frozenset(kinds)
 
 
-def _capability_id(advertisement: dict) -> str | None:
+def _capability_id(advertisement: dict, matched_kinds: frozenset[str]) -> str | None:
     for capability in advertisement["capabilities"]:
-        if "id" in capability:
+        if "id" not in capability:
+            continue
+        if any(entry["kind"] in matched_kinds for entry in capability["satisfies"]):
             return capability["id"]
     return None
 
 
-def _cost_hint(advertisement: dict) -> float:
+def _cost_hint(advertisement: dict, matched_kinds: frozenset[str]) -> float:
     for key in _COST_HINT_KEYS:
         for capability in advertisement["capabilities"]:
             for entry in capability["satisfies"]:
+                if entry["kind"] not in matched_kinds:
+                    continue
                 parameters = entry.get("parameters")
                 if parameters and key in parameters:
                     return parameters[key]
@@ -115,13 +119,15 @@ def match(
             continue
         if not set(required_kinds) <= satisfied:
             continue
+        relevant_kinds = set(required_kinds) | preferred_kinds
+        matched_kinds = frozenset(satisfied & relevant_kinds) if relevant_kinds else satisfied
         candidate = MatchCandidate(
             executor_id=advertisement["executor_id"],
-            capability_id=_capability_id(advertisement),
+            capability_id=_capability_id(advertisement, matched_kinds),
             satisfied_kinds=satisfied,
         )
         preferred_score = len(satisfied & preferred_kinds)
-        cost = _cost_hint(advertisement)
+        cost = _cost_hint(advertisement, matched_kinds)
         scored.append(((-preferred_score, cost, advertisement["executor_id"]), candidate))
 
     scored.sort(key=lambda pair: pair[0])

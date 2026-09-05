@@ -17,7 +17,7 @@ The corpus ([`benchmark/corpus/README.md`](../corpus/README.md)) defines 8 repre
 | --- | --- |
 | [`01-simple-bug-fix.md`](../corpus/01-simple-bug-fix.md) | Not yet captured — see [`benchmark/runs/README.md`](../runs/README.md)'s "Current coverage" |
 | [`02-feature-implementation.md`](../corpus/02-feature-implementation.md) | Captured — close fit, via T13 (see below) |
-| [`03-multi-file-change.md`](../corpus/03-multi-file-change.md) | Captured — closest available candidate, but deviates (see below) |
+| [`03-multi-file-change.md`](../corpus/03-multi-file-change.md) | No usable baseline sample — closest available candidate, but provides no genuine evidence for this scenario's defining property (see below and [`acceptance-thresholds.md`](acceptance-thresholds.md)) |
 | [`04-security-remediation.md`](../corpus/04-security-remediation.md) | Not yet captured — see [`benchmark/runs/README.md`](../runs/README.md)'s "Current coverage" |
 | [`05-iac-change.md`](../corpus/05-iac-change.md) | Not yet captured — see [`benchmark/runs/README.md`](../runs/README.md)'s "Current coverage" |
 | [`06-dependency-upgrade.md`](../corpus/06-dependency-upgrade.md) | Not yet captured — see [`benchmark/runs/README.md`](../runs/README.md)'s "Current coverage" |

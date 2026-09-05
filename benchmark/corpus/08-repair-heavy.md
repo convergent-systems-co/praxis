@@ -48,7 +48,7 @@ task whose task cursor visits `repair_task` at least once before
 
 ```
 plan_bundle        (owner: planner)           -> PLAN_DONE       -> task_scheduler
-task_scheduler     (owner: tech-lead)         -> TASKS_SCHEDULED -> write_tdd
+task_scheduler     (owner: tech-lead)         -> TASK_STARTED -> write_tdd
 write_tdd          (owner: tdd-writer)        -> TDD_DONE        -> implement
 implement          (owner: developer)         -> IMPLEMENT_DONE  -> verify
 verify             (owner: tester + adversarial-tester, parallel) -> CONCERN_TRIAGED (actionable) -> repair_task

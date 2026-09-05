@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/budget-requirement.schema.json",
+  "title": "Budget Requirement",
+  "description": "The shape a graph node uses to declare optional per-node ceilings on retry/repair counts, cost, and wall-clock time. A node without this metadata key has no per-node cap -- the selected policy profile's default budget applies unmodified. A declared field can only tighten the profile's default, never loosen it (see praxis_policy.budgets.effective_budget).",
+  "type": "object",
+  "required": ["spec_version"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "max_retries": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "max_repairs": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "max_cost": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "max_time_seconds": {
+      "type": ["number", "null"],
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

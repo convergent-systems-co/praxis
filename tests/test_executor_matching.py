@@ -229,3 +229,58 @@ def test_cost_parameter_tie_breaks_equally_preferred_candidates_to_lower_cost():
 
     assert result.selected is not None
     assert result.selected.executor_id == "executor-z"
+
+
+def test_two_required_kinds_split_across_non_overlapping_advertisements_explains_the_gap():
+    # Each required kind is satisfied by some advertisement, but no single
+    # advertisement satisfies both together -- this must not be confused
+    # with "no advertisement satisfies this kind at all" or "disqualified by
+    # a prohibited kind"; it needs its own "together with every other
+    # required kind" explanation for each required kind.
+    requirement = _requirement(required=["kind-a", "kind-b"])
+    ads = [
+        _advertisement("executor-1", ["kind-a"]),
+        _advertisement("executor-2", ["kind-b"]),
+    ]
+
+    result = match(requirement, ads)
+
+    assert result.selected is None
+    by_kind = {u.kind: u for u in result.unsatisfied}
+    assert set(by_kind) == {"kind-a", "kind-b"}
+    for kind in ("kind-a", "kind-b"):
+        assert by_kind[kind].constraint == "required"
+        assert "together with every other required kind" in by_kind[kind].reason
+
+
+def test_required_kind_gap_is_distinguished_from_prohibited_disqualification():
+    # kind-a is satisfied both by a clean advertisement (missing kind-b) and
+    # by a prohibited-tainted one that would otherwise cover both required
+    # kinds. The gap explanation for kind-a must come from the clean
+    # advertisement's missing kind-b, not be swallowed by the prohibited
+    # disqualification of the other advertisement.
+    requirement = _requirement(required=["kind-a", "kind-b"], prohibited=["kind-x"])
+    ads = [
+        _advertisement("executor-tainted", ["kind-a", "kind-b", "kind-x"]),
+        _advertisement("executor-clean", ["kind-a"]),
+    ]
+
+    result = match(requirement, ads)
+
+    assert result.selected is None
+    by_kind = {u.kind: u for u in result.unsatisfied if u.constraint == "required"}
+    assert "together with every other required kind" in by_kind["kind-a"].reason
+    assert "also satisfies a prohibited kind" in by_kind["kind-b"].reason
+
+
+def test_selected_candidate_satisfied_kinds_includes_every_kind_the_advertisement_satisfies():
+    # satisfied_kinds is the full set an advertisement satisfies, not just
+    # the kinds relevant to the requirement -- distinct from capability_id's
+    # narrower scoping to the matched capability.
+    requirement = _requirement(required=["kind-a"])
+    ads = [_advertisement("executor-1", ["kind-a", "kind-c"])]
+
+    result = match(requirement, ads)
+
+    assert result.selected is not None
+    assert result.selected.satisfied_kinds == frozenset({"kind-a", "kind-c"})

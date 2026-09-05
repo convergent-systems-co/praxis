@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/evidence-requirement.schema.json",
+  "title": "Evidence Requirement",
+  "description": "The shape a graph node uses to declare what proof it needs before accepting a claimed outcome, without naming a specific domain's proof vocabulary.",
+  "type": "object",
+  "required": ["spec_version", "evidence"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["proof_type", "constraint"],
+        "properties": {
+          "proof_type": {
+            "type": "string",
+            "description": "An abstract proof category, e.g. 'test-pass' or 'peer-attestation' — illustrative only, not a fixed enum."
+          },
+          "constraint": {
+            "enum": ["required", "preferred", "prohibited"]
+          },
+          "min_confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

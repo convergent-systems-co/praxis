@@ -18,7 +18,10 @@ legitimately succeeded.
 resume() is the process-restart entrypoint: it loads the last checkpoint (if
 any), replays only the events appended after it via the same fold, persists
 the reconciled state as the new checkpoint, and returns a TransitionEngine
-bound to the real state_store and event_log. This covers a crash between an
+bound to the real state_store and event_log, constructed with whatever
+grader_registry the caller passed in (so a domain overlay's registered
+graders survive a crash/restart instead of the returned engine silently
+falling back to an empty registry). This covers a crash between an
 event append and its checkpoint save, since the reconciliation happens
 before the returned engine is used for anything else.
 """
@@ -31,6 +34,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
+import praxis_evidence.graders
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.state import Cursor, RunState, RunStateStore
@@ -120,7 +124,13 @@ def replay(event_log: EventLog, graph: Graph) -> RunState:
     return _fold_events(graph, seed_state, events)
 
 
-def resume(graph: Graph, state_store: RunStateStore, event_log: EventLog) -> TransitionEngine:
+def resume(
+    graph: Graph,
+    state_store: RunStateStore,
+    event_log: EventLog,
+    *,
+    grader_registry: "praxis_evidence.graders.GraderRegistry | None" = None,
+) -> TransitionEngine:
     checkpoint = state_store.load()
     last_applied_seq = checkpoint.last_applied_seq if checkpoint is not None else -1
 
@@ -130,4 +140,4 @@ def resume(graph: Graph, state_store: RunStateStore, event_log: EventLog) -> Tra
         reconciled = _fold_events(graph, seed_state, pending)
         state_store.save(reconciled)
 
-    return TransitionEngine(graph, state_store, event_log)
+    return TransitionEngine(graph, state_store, event_log, grader_registry=grader_registry)

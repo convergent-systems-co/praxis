@@ -40,7 +40,6 @@ evidence requirement against the proof records collected for it, mirroring
 `schemas/v1/gate-result.schema.json`. It carries `node_id`, `satisfied: bool`, `reasons: tuple[str, ...]`
 (human-readable explanations for any unsatisfied or contradictory `proof_type`), and
 `evaluated: tuple[str, ...]` (every `proof_type` named in the requirement, in order).
-`gate_result_to_document` converts it to the schema-validated document shape.
 
 ## The `Grader` / `GraderRegistry` extension point
 
@@ -71,7 +70,7 @@ know the new `proof_type`'s name in advance.
 
 ## `evaluate_gate`
 
-`evaluate_gate(requirement, records, *, graph_version, registry) -> GateResult`
+`evaluate_gate(requirement, records, *, node_id, graph_version, registry) -> GateResult`
 (`src/praxis_evidence/gates.py`) grades one node's raw proof-record documents against its
 `EvidenceRequirement` dict. Each record is validated (a malformed record is excluded with a
 `"malformed: <proof_type or index>"` reason) and checked for staleness against `graph_version`

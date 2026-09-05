@@ -37,7 +37,7 @@ class _CountingEngine:
     def legal_next(self, node_id: str):
         return self._engine.legal_next(node_id)
 
-    def apply(self, node_id: str, event_type: str, *, evidence: dict | None = None):
+    def apply(self, node_id: str, event_type: str, *, evidence: list[dict] | None = None):
         self.apply_count += 1
         return self._engine.apply(node_id, event_type, evidence=evidence)
 

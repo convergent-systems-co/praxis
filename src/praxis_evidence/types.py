@@ -14,7 +14,6 @@ from pathlib import Path
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1"
 PROOF_RECORD_SCHEMA_PATH = SCHEMA_DIR / "proof-record.schema.json"
-GATE_RESULT_SCHEMA_PATH = SCHEMA_DIR / "gate-result.schema.json"
 
 
 @dataclass(frozen=True)

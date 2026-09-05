@@ -61,7 +61,9 @@ def evaluate_gate(
       `"missing: <proof_type>"` reason, distinct from malformed/stale --
       but only when no raw record for that `proof_type` was submitted at
       all; a `proof_type` whose only submissions were malformed or stale
-      relies on those reasons instead.
+      relies on those reasons instead. A `"prohibited"` item with zero
+      surviving records never gets a `"missing"` reason -- absence is its
+      desired, passing state, not something to flag.
     - `constraint` semantics: `"required"` must be satisfied per the above
       or the gate blocks; `"preferred"` is graded for informational reasons
       but never blocks; `"prohibited"` blocks if any authoritative grade for
@@ -108,7 +110,12 @@ def evaluate_gate(
 
         group = by_proof_type.get(proof_type, [])
         item_satisfied, pass_exists, item_reasons = _evaluate_item(
-            proof_type, group, registry, min_confidence, seen_raw=proof_type in raw_proof_types
+            proof_type,
+            group,
+            registry,
+            min_confidence,
+            seen_raw=proof_type in raw_proof_types,
+            constraint=constraint,
         )
         reasons.extend(item_reasons)
 
@@ -132,11 +139,16 @@ def _evaluate_item(
     min_confidence: float | None,
     *,
     seen_raw: bool,
+    constraint: str,
 ) -> tuple[bool, bool, list[str]]:
     reasons: list[str] = []
 
     if not group:
-        if not seen_raw:
+        # Absence is the desired, passing state for a "prohibited" item, not
+        # a blocking or even informational problem -- do not report it as
+        # "missing" (that label is reserved for "required"/"preferred" items,
+        # where a submitter genuinely failed to supply something expected).
+        if not seen_raw and constraint != "prohibited":
             reasons.append(f"missing: {proof_type}")
         return False, False, reasons
 

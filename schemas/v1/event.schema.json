@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/event.schema.json",
+  "title": "Event",
+  "description": "A single append-only event-log entry recording a runtime occurrence for a run/node, keyed for idempotency by event_id.",
+  "type": "object",
+  "required": ["spec_version", "seq", "run_id", "node_id", "event_type", "event_id", "payload"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "node_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

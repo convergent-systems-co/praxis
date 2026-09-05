@@ -1,0 +1,100 @@
+{
+  "bundle": "b7-issue8",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Policy profiles: schema, resolution, minimum enforcement",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/__init__.py",
+        "src/praxis_policy/profiles.py",
+        "schemas/v1/policy-profile.schema.json",
+        "schemas/v1/policy-requirement.schema.json",
+        "tests/test_policy_profiles.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Authority boundaries",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/authority.py",
+        "schemas/v1/authority-requirement.schema.json",
+        "tests/test_authority_boundaries.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Retry and repair budgets",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/budgets.py",
+        "schemas/v1/budget-requirement.schema.json",
+        "tests/test_retry_budgets.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Transient vs substantive failure classification",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/failure_classification.py",
+        "tests/test_failure_classification.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Policy gate: profiles + authority + budgets + classification",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/gate.py",
+        "tests/test_policy_gate_core.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Auditable policy-decision receipts",
+      "depends_on": ["T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/receipts.py",
+        "tests/test_policy_receipts.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Escalation integration tests (exhausted budgets, authority denial, policy escalation)",
+      "depends_on": ["T5", "T6"],
+      "kind": "code",
+      "files": [
+        "tests/test_policy_gate_escalation.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Alternate-executor retry fallback integration test",
+      "depends_on": ["T5"],
+      "kind": "code",
+      "files": [
+        "tests/test_policy_gate_alternate_executor.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Policy documentation",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+      "kind": "docs",
+      "files": [
+        "docs/policy.md",
+        "docs/runtime.md",
+        "docs/executors.md",
+        "docs/ontology.md"
+      ]
+    }
+  ]
+}

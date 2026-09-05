@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/authority-requirement.schema.json",
+  "title": "Authority Requirement",
+  "description": "The shape a graph node uses to declare which authority scopes a claimed outcome touches, without naming a specific domain's scope vocabulary. Reuses the ontology's existing three-value required/preferred/prohibited constraint vocabulary (see docs/ontology.md, 'this same three-value constraint vocabulary ... is reused', and schemas/v1/evidence-requirement.schema.json for the sibling shape it mirrors).",
+  "type": "object",
+  "required": ["spec_version", "scopes"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["scope", "constraint"],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "An open, illustrative authority scope, e.g. 'destructive', 'credential-access', 'billing', 'production-deploy', 'legal-compliance' -- not a fixed enum."
+          },
+          "constraint": {
+            "enum": ["required", "preferred", "prohibited"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

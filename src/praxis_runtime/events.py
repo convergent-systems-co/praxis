@@ -7,9 +7,11 @@ never double-apply an event. Every append flushes and `os.fsync`s so a crash
 immediately after `append()` returns is guaranteed durable. Re-opening an
 EventLog over the same directory replays the file to reconstruct `seq` and
 the seen `event_id`s, so a restarted process can resume purely from
-persisted events. Callers that construct scratch/short-lived EventLogs
-should `close()` them (or use the context-manager protocol) to release the
-underlying file handle.
+persisted events. Each stored document is passed through
+praxis_runtime.migrations.migrate_document before being parsed, so an event
+written by an older schema minor version is upgraded in place on read.
+Callers that construct scratch/short-lived EventLogs should `close()` them
+(or use the context-manager protocol) to release the underlying file handle.
 """
 
 from __future__ import annotations
@@ -21,10 +23,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from praxis_contracts.validator import ContractValidationError, validate_document
+from praxis_runtime.migrations import migrate_document
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "event.schema.json"
 
 LOG_FILENAME = "events.jsonl"
+_KIND = "event"
 
 
 class EventLogError(Exception):
@@ -63,7 +67,12 @@ class EventLog:
                 line = line.strip()
                 if not line:
                     continue
-                events.append(Event(**json.loads(line)))
+                document = json.loads(line)
+                try:
+                    document = migrate_document(document, _KIND)
+                except ContractValidationError as exc:
+                    raise EventLogError(str(exc)) from exc
+                events.append(Event(**document))
         return events
 
     def append(self, event: Event) -> Event:

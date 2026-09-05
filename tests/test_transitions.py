@@ -9,6 +9,8 @@ Python -- the same inline-graph convention the crash/restart suite uses.
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,7 @@ import pytest
 from conftest import _linear_graph
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Edge, Graph, Node
+from praxis_runtime.replay import replay
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
@@ -247,3 +250,99 @@ def test_legal_next_reflects_current_status_without_mutating_state(tmp_path: Pat
 
     after = engine.legal_next("n1")
     assert "start" not in after
+
+
+def test_module_docstring_does_not_overclaim_edge_derived_status_legality():
+    import praxis_runtime.transitions as transitions_module
+
+    doc = transitions_module.__doc__
+    assert doc, "transitions.py must have a module docstring"
+
+    lowered = doc.lower()
+    assert "checked against the current runstate and the graph's edges" not in lowered, (
+        "the docstring claims every status change is checked against the "
+        "graph's edges, but a node's own status-transition legality is "
+        "governed solely by the per-status _TRANSITIONS table -- graph "
+        "edges are consulted only afterward, to decide which successor "
+        "cursors to create, not to decide whether the requested transition "
+        "itself is legal"
+    )
+
+
+def test_concurrent_transition_engine_instances_do_not_race_on_apply(
+    tmp_path: Path, monkeypatch
+):
+    graph = _linear_graph()
+    events_dir = tmp_path / "events"
+    state_path = tmp_path / "run-state.json"
+
+    seed_log = EventLog(events_dir)
+    seed_store = RunStateStore(state_path)
+    TransitionEngine(graph, seed_store, seed_log).apply("n1", "start")
+    seed_log.close()
+
+    # Two separate TransitionEngine instances, each with their own
+    # RunStateStore/EventLog objects, pointed at the same on-disk run --
+    # the "concurrent instances" scenario the finding describes.
+    log_one = EventLog(events_dir)
+    engine_one = TransitionEngine(graph, RunStateStore(state_path), log_one)
+
+    log_two = EventLog(events_dir)
+    engine_two = TransitionEngine(graph, RunStateStore(state_path), log_two)
+
+    original_save = RunStateStore.save
+    save_intervals: list[tuple[float, float]] = []
+    save_intervals_lock = threading.Lock()
+
+    def slow_save(self, state):
+        start = time.monotonic()
+        time.sleep(0.05)
+        original_save(self, state)
+        with save_intervals_lock:
+            save_intervals.append((start, time.monotonic()))
+
+    monkeypatch.setattr(RunStateStore, "save", slow_save)
+
+    outcomes: dict[str, tuple[str, object]] = {}
+
+    def worker(name: str, engine: TransitionEngine, event_type: str) -> None:
+        try:
+            outcomes[name] = ("ok", engine.apply("n1", event_type))
+        except TransitionError as exc:
+            outcomes[name] = ("error", exc)
+
+    thread_one = threading.Thread(target=worker, args=("one", engine_one, "complete"))
+    thread_two = threading.Thread(target=worker, args=("two", engine_two, "fail"))
+    thread_one.start()
+    time.sleep(0.01)
+    thread_two.start()
+    thread_one.join(timeout=5)
+    thread_two.join(timeout=5)
+    log_one.close()
+    log_two.close()
+
+    assert not thread_one.is_alive() and not thread_two.is_alive()
+    assert len(outcomes) == 2
+
+    for i in range(len(save_intervals)):
+        for j in range(i + 1, len(save_intervals)):
+            start_i, end_i = save_intervals[i]
+            start_j, end_j = save_intervals[j]
+            assert start_i >= end_j or start_j >= end_i, (
+                "two concurrent TransitionEngine instances both saved run "
+                "state in overlapping windows -- apply()'s read-check-"
+                "append-save sequence must be serialized across concurrent "
+                "instances, not race on state_store.save()"
+            )
+
+    # A race that let both "complete" and "fail" apply from the same stale
+    # RUNNING snapshot would leave the event log with two conflicting events
+    # for the same node, which raises TransitionError when replayed from
+    # scratch -- replay must reconstruct a single, unambiguous final status.
+    replay_log = EventLog(events_dir)
+    replayed = replay(replay_log, graph)
+    replay_log.close()
+    assert replayed.cursors["n1"].status in (
+        NodeStatus.TERMINAL_SUCCESS.value,
+        NodeStatus.TERMINAL_FAILED.value,
+    )

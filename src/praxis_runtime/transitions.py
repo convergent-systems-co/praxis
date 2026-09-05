@@ -1,20 +1,32 @@
 """Deterministic transition engine.
 
 TransitionEngine.apply is the single mutation entrypoint for a run: every
-status change is checked against the current RunState and the graph's edges
-before anything is written, and a rejected transition never appends an event
-or persists a checkpoint (fail-closed, no partial write). Fan-out edges each
-create an independent successor cursor as soon as their source completes;
-join edges only create their shared successor cursor once every incoming
-edge's source has reported TERMINAL_SUCCESS. Evidence supplied to apply()
-is persisted onto the committed Event's payload under the "evidence" key,
-giving a durable audit trail of what evidence satisfied a gate.
+status change is checked against the node's current status via the fixed,
+per-status _TRANSITIONS table before anything is written, and a rejected
+transition never appends an event or persists a checkpoint (fail-closed, no
+partial write). The graph's edges play no part in that per-node legality
+check -- they are consulted only afterward, once a transition to
+TERMINAL_SUCCESS is committed, to decide which successor cursors to create
+next. Fan-out edges each create an independent successor cursor as soon as
+their source completes; join edges only create their shared successor
+cursor once every incoming edge's source has reported TERMINAL_SUCCESS.
+Evidence supplied to apply() is persisted onto the committed Event's payload
+under the "evidence" key, giving a durable audit trail of what evidence
+satisfied a gate. apply() holds an exclusive flock on a sidecar file next
+to the run-state checkpoint for the duration of its read-check-append-save
+sequence, so two TransitionEngine instances (same process or different
+processes) pointed at the same checkpoint serialize their applies instead
+of both legally checking a transition against the same stale state and
+racing to append conflicting events or overwrite each other's checkpoint
+save.
 """
 
 from __future__ import annotations
 
 import enum
+import fcntl
 import uuid
+from pathlib import Path
 
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
@@ -92,6 +104,22 @@ class TransitionEngine:
         return set(_TRANSITIONS.get(NodeStatus(cursor.status), {}).keys())
 
     def apply(self, node_id: str, event_type: str, *, evidence: dict | None = None) -> RunState:
+        lock_path = self._lock_path()
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock_path, "a", encoding="utf-8") as lock_handle:
+            fcntl.flock(lock_handle, fcntl.LOCK_EX)
+            try:
+                return self._apply_locked(node_id, event_type, evidence=evidence)
+            finally:
+                fcntl.flock(lock_handle, fcntl.LOCK_UN)
+
+    def _lock_path(self) -> Path:
+        state_path = self._state_store._path
+        return state_path.with_name(state_path.name + ".lock")
+
+    def _apply_locked(
+        self, node_id: str, event_type: str, *, evidence: dict | None = None
+    ) -> RunState:
         state = self.current_state()
         cursor = state.cursors.get(node_id)
         if cursor is None:

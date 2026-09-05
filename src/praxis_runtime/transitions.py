@@ -55,6 +55,12 @@ class TransitionEngine:
     def current_state(self) -> RunState:
         state = self._state_store.load()
         if state is not None:
+            events = self._event_log.read_all()
+            if events and state.last_applied_seq > events[-1].seq:
+                raise TransitionError(
+                    f"checkpoint last_applied_seq={state.last_applied_seq} is ahead of "
+                    f"the event log (max seq={events[-1].seq})"
+                )
             return state
         entry = self._graph.entry_node
         return RunState(

@@ -148,7 +148,7 @@ def test_duplicate_event_id_through_apply_does_not_double_apply(
 # -- Illegal transitions -----------------------------------------------------
 
 
-def test_transition_not_in_graph_edges_from_current_status_raises(tmp_path: Path):
+def test_illegal_event_type_for_current_status_raises(tmp_path: Path):
     graph = _linear_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")

@@ -17,19 +17,33 @@ Each test reproduces one finding before its fix and must pass after it:
    `tests/test_transitions.py`, `tests/test_fail_closed_cases.py`,
    `tests/test_checkpoint_resume.py`, and this file instead of living once in
    `tests/conftest.py` and being imported everywhere it's needed.
+4. `src/praxis_runtime/state.py` computed its schema path as a module-private
+   `_SCHEMA_PATH`, inconsistent with `graph.py`/`events.py`'s public
+   `SCHEMA_PATH` for the identical purpose.
+5. `Cursor`/`RunState` in `src/praxis_runtime/state.py` were plain (mutable)
+   dataclasses while `Node`/`Edge`/`Graph`/`Event` are frozen, despite no
+   in-place mutation of either anywhere in the codebase.
+6. `TransitionEngine.apply`'s evidence-requirement check runs on transitions
+   to `TERMINAL_FAILED` as well as `TERMINAL_SUCCESS`, but no test exercised
+   the `TERMINAL_FAILED` path.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections import defaultdict
 from pathlib import Path
 
+import pytest
+
 from conftest import _linear_graph
+from praxis_runtime import state as state_module
 from praxis_runtime.events import EventLog
+from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay
-from praxis_runtime.state import RunStateStore
-from praxis_runtime.transitions import TransitionEngine
+from praxis_runtime.state import Cursor, RunState, RunStateStore
+from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_GRAPH_PATH = REPO_ROOT / "examples" / "sample-graph.json"
@@ -91,3 +105,52 @@ def test_linear_graph_helper_is_shared_from_conftest():
     assert test_transitions._linear_graph is conftest._linear_graph
     assert test_fail_closed_cases._linear_graph is conftest._linear_graph
     assert test_checkpoint_resume._linear_graph is conftest._linear_graph
+
+
+def test_state_module_exposes_public_schema_path():
+    assert state_module.SCHEMA_PATH == (
+        REPO_ROOT / "schemas" / "v1" / "run-state.schema.json"
+    )
+
+
+def test_cursor_and_run_state_are_frozen():
+    cursor = Cursor(node_id="n1", status="pending")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        cursor.status = "running"
+
+    state = RunState(spec_version="1.0.0", run_id="run-1", cursors={}, last_applied_seq=-1)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        state.last_applied_seq = 0
+
+
+def test_evidence_required_enforced_on_transition_to_terminal_failed(tmp_path: Path):
+    graph = Graph(
+        spec_version="1.0.0",
+        nodes={
+            "n1": Node(
+                id="n1",
+                kind="gate",
+                metadata={
+                    "evidence_requirement": {
+                        "spec_version": "1.0.0",
+                        "evidence": [
+                            {"proof_type": "incident-report", "constraint": "required"},
+                        ],
+                    }
+                },
+            ),
+        },
+        edges=[],
+        entry_node="n1",
+        terminal_nodes={"n1"},
+    )
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "fail", evidence=None)
+
+    state = engine.apply("n1", "fail", evidence={"incident-report": {"ref": "r1"}})
+    assert state.cursors["n1"].status == NodeStatus.TERMINAL_FAILED.value

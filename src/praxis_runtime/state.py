@@ -18,7 +18,7 @@ from pathlib import Path
 from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_runtime.migrations import migrate_document
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "v1" / "run-state.schema.json"
+SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "run-state.schema.json"
 _KIND = "run-state"
 
 
@@ -26,13 +26,13 @@ class RunStateError(Exception):
     """Raised when a run-state checkpoint cannot be validated, read, or written."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class Cursor:
     node_id: str
     status: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class RunState:
     spec_version: str
     run_id: str
@@ -80,7 +80,7 @@ class RunStateStore:
     def save(self, state: RunState) -> None:
         document = _to_document(state)
         try:
-            validate_document(document, _SCHEMA_PATH)
+            validate_document(document, SCHEMA_PATH)
         except ContractValidationError as exc:
             raise RunStateError(str(exc)) from exc
 

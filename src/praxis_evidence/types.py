@@ -16,8 +16,6 @@ SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1"
 PROOF_RECORD_SCHEMA_PATH = SCHEMA_DIR / "proof-record.schema.json"
 GATE_RESULT_SCHEMA_PATH = SCHEMA_DIR / "gate-result.schema.json"
 
-_SPEC_VERSION = "1.0.0"
-
 
 @dataclass(frozen=True)
 class ProofRecord:
@@ -93,13 +91,3 @@ def proof_record_from_document(doc: dict) -> ProofRecord:
         inputs=tuple(doc.get("inputs", ())),
         produced_at=doc.get("produced_at"),
     )
-
-
-def gate_result_to_document(result: GateResult) -> dict:
-    return {
-        "spec_version": _SPEC_VERSION,
-        "node_id": result.node_id,
-        "satisfied": result.satisfied,
-        "reasons": list(result.reasons),
-        "evaluated": list(result.evaluated),
-    }

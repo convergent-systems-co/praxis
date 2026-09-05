@@ -204,21 +204,27 @@ class TransitionEngine:
 
     def _check_evidence(self, node: Node, evidence: list[dict] | None) -> None:
         requirement = node.metadata.get("evidence_requirement")
-        if not requirement:
-            return
-
-        result = evaluate_gate(
-            requirement,
-            evidence or [],
-            graph_version=self._graph.spec_version,
-            registry=self._grader_registry,
-        )
 
         join_sources = [
             edge.source
             for edge in self._graph.edges
             if edge.target == node.id and edge.kind == "join"
         ]
+
+        if not requirement and not join_sources:
+            return
+
+        if requirement:
+            result = evaluate_gate(
+                requirement,
+                evidence or [],
+                node_id=node.id,
+                graph_version=self._graph.spec_version,
+                registry=self._grader_registry,
+            )
+        else:
+            result = GateResult(node_id=node.id, satisfied=True, reasons=(), evaluated=())
+
         if join_sources:
             source_results = [self._source_gate_result(source) for source in join_sources]
             result = aggregate_gate_results(node.id, [*source_results, result])
@@ -235,6 +241,7 @@ class TransitionEngine:
         return evaluate_gate(
             requirement,
             self._stored_evidence(source_node_id),
+            node_id=source_node_id,
             graph_version=self._graph.spec_version,
             registry=self._grader_registry,
         )

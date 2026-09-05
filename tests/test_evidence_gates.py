@@ -102,7 +102,9 @@ def test_missing_evidence_for_required_proof_type_blocks():
     registry.register("test-pass", "deterministic", _PassthroughGrader())
     requirement = _requirement(_item("test-pass", "required"))
 
-    result = evaluate_gate(requirement, [], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert "missing: test-pass" in result.reasons
@@ -126,7 +128,7 @@ def test_malformed_evidence_blocks_and_does_not_count():
     }
 
     result = evaluate_gate(
-        requirement, [malformed], graph_version=_GRAPH_VERSION, registry=registry
+        requirement, [malformed], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
     )
 
     assert result.satisfied is False
@@ -139,7 +141,9 @@ def test_stale_evidence_graph_version_mismatch_blocks():
     requirement = _requirement(_item("test-pass", "required"))
     stale = _record("test-pass", "pass", graph_version="0.9.0")
 
-    result = evaluate_gate(requirement, [stale], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [stale], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert any(reason.startswith("stale:") for reason in result.reasons)
@@ -154,7 +158,9 @@ def test_contradictory_evidence_blocks():
         _record("test-pass", "fail"),
     ]
 
-    result = evaluate_gate(requirement, records, graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, records, node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert any(reason.startswith("contradictory:") for reason in result.reasons)
@@ -166,7 +172,9 @@ def test_false_success_deterministic_grading_overrides_submitted_status():
     requirement = _requirement(_item("test-pass", "required"))
     record = _record("test-pass", "pass")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
 
@@ -182,7 +190,9 @@ def test_deterministic_preferred_over_model_advisory():
     requirement = _requirement(_item("test-pass", "required"))
     record = _record("test-pass", "pass", grader_kind="model")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert any("advisory" in reason.lower() for reason in result.reasons)
@@ -193,7 +203,9 @@ def test_human_review_gate_blocks_without_human_record():
     registry.register("human-review", "human", _PassthroughGrader(grader_kind="human"))
     requirement = _requirement(_item("human-review", "required"))
 
-    result = evaluate_gate(requirement, [], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
 
@@ -204,7 +216,9 @@ def test_human_review_gate_satisfied_with_passing_human_record():
     requirement = _requirement(_item("human-review", "required"))
     record = _record("human-review", "pass", grader_kind="human")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is True
 
@@ -218,7 +232,9 @@ def test_human_review_gate_blocks_when_only_non_human_record_present():
     # actual human record must never be default-approved.
     record = _record("human-review", "pass", grader_kind="deterministic")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert "missing human review: human-review" in result.reasons
@@ -230,7 +246,9 @@ def test_prohibited_constraint_blocks_when_matching_pass_exists():
     requirement = _requirement(_item("banned-check", "prohibited"))
     record = _record("banned-check", "pass")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
 
@@ -239,7 +257,9 @@ def test_preferred_constraint_never_blocks_even_when_ungraded():
     registry = GraderRegistry()
     requirement = _requirement(_item("nice-to-have", "preferred"))
 
-    result = evaluate_gate(requirement, [], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is True
     assert "nice-to-have" in result.evaluated
@@ -250,7 +270,9 @@ def test_no_grader_registered_blocks_with_reason():
     requirement = _requirement(_item("unregistered-check", "required"))
     record = _record("unregistered-check", "pass")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert "no grader registered: unregistered-check" in result.reasons
@@ -262,7 +284,9 @@ def test_below_min_confidence_blocks():
     requirement = _requirement(_item("test-pass", "required", min_confidence=0.9))
     record = _record("test-pass", "pass", confidence=0.5)
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is False
     assert any(reason.startswith("below min_confidence:") for reason in result.reasons)
@@ -274,7 +298,9 @@ def test_required_proof_type_satisfied_by_deterministic_pass():
     requirement = _requirement(_item("test-pass", "required"))
     record = _record("test-pass", "pass")
 
-    result = evaluate_gate(requirement, [record], graph_version=_GRAPH_VERSION, registry=registry)
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
 
     assert result.satisfied is True
     assert tuple(result.evaluated) == ("test-pass",)

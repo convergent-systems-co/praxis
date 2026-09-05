@@ -17,6 +17,7 @@ def evaluate_gate(
     requirement: dict,
     records: list[dict],
     *,
+    node_id: str,
     graph_version: str,
     registry: GraderRegistry,
 ) -> GateResult:
@@ -50,11 +51,12 @@ def evaluate_gate(
       individual passing record. A single (non-contradictory) authoritative
       grade whose status is anything other than `"pass"` is unsatisfied with
       reason `"failed: <proof_type> (status=<status>)"`.
-    - If the requirement item sets `min_confidence` and the authoritative
-      grade's confidence is present and below it, the `proof_type` is
-      unsatisfied with reason `"below min_confidence: <proof_type>"`. When
-      multiple surviving records agree on status, the lowest confidence
-      among them is used (fail-closed).
+    - If the requirement item sets `min_confidence`, the `proof_type` is
+      unsatisfied with reason `"below min_confidence: <proof_type>"` whenever
+      the authoritative grade's confidence is below it, *or absent entirely*
+      (fail-closed: a grader that reports no confidence can never satisfy a
+      minimum-confidence requirement). When multiple surviving records agree
+      on status, the lowest confidence among them is used (fail-closed).
     - A `proof_type` with zero surviving records produces a
       `"missing: <proof_type>"` reason, distinct from malformed/stale --
       but only when no raw record for that `proof_type` was submitted at
@@ -95,8 +97,6 @@ def evaluate_gate(
     by_proof_type: dict[str, list[ProofRecord]] = {}
     for record in parsed:
         by_proof_type.setdefault(record.proof_type, []).append(record)
-
-    node_id = next((record.node_id for record in parsed), "")
 
     satisfied = True
     evaluated: list[str] = []

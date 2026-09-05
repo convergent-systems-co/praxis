@@ -47,6 +47,18 @@ Each test reproduces one finding before its fix and must pass after it:
 10. `TransitionEngine.apply` in `src/praxis_runtime/transitions.py` checks
     `evidence` but never persists it onto the committed `Event`, leaving no
     durable audit trail of what evidence satisfied a gate.
+11. `docs/runtime.md` is stale relative to three repair commits on
+    `events.py`/`state.py`/`transitions.py`: it omits `EventLog.close()`/the
+    context-manager protocol, `append()`'s `flock`-based concurrency
+    serialization, `migrate_document`-on-read for both `EventLog` and
+    `RunStateStore`, `TransitionEngine`'s checkpoint-ahead-of-log fail-closed
+    check, and that `TransitionEngine.apply` now persists evidence onto the
+    committed `Event` for a durable audit trail.
+12. `EventLog.read_all()` returns a cache refreshed only by `append()` or
+    `__init__`, so a long-lived instance that never appends does not observe
+    events appended concurrently by another instance/process on the same
+    directory -- inconsistent with the concurrency hardening just added to
+    `append()`.
 """
 
 from __future__ import annotations
@@ -69,6 +81,7 @@ from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionE
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_GRAPH_PATH = REPO_ROOT / "examples" / "sample-graph.json"
+RUNTIME_DOC_PATH = REPO_ROOT / "docs" / "runtime.md"
 
 
 def test_replay_closes_its_scratch_event_log(monkeypatch, tmp_path: Path):
@@ -305,3 +318,56 @@ def test_evidence_supplied_to_apply_is_persisted_on_the_event(tmp_path: Path):
         "Event so there is a durable audit trail of what evidence satisfied "
         "a gate"
     )
+
+
+def test_runtime_doc_documents_recent_repair_additions():
+    text = RUNTIME_DOC_PATH.read_text()
+    lowered = text.lower()
+
+    assert "close()" in text or "context manager" in lowered or "context-manager" in lowered, (
+        "docs/runtime.md must document EventLog.close()/the context-manager "
+        "protocol for releasing the underlying file handle"
+    )
+    assert "flock" in lowered, (
+        "docs/runtime.md must document append()'s flock-based concurrency "
+        "serialization across EventLog instances/processes"
+    )
+    assert lowered.count("migrate_document") >= 2, (
+        "docs/runtime.md must document migrate_document-on-read for both "
+        "EventLog and RunStateStore, not just the migrations module itself"
+    )
+    assert "last_applied_seq" in text and "ahead" in lowered, (
+        "docs/runtime.md must document TransitionEngine's checkpoint-ahead-"
+        "of-log fail-closed check"
+    )
+    assert "audit trail" in lowered, (
+        "docs/runtime.md must document that TransitionEngine.apply persists "
+        "evidence onto the committed Event for a durable audit trail"
+    )
+
+
+def test_read_all_observes_concurrent_appends_from_another_instance(tmp_path: Path):
+    log_a = EventLog(tmp_path / "events")
+    log_b = EventLog(tmp_path / "events")
+
+    log_a.append(
+        Event(
+            spec_version="1.0.0",
+            seq=0,
+            run_id="run-1",
+            node_id="node-a",
+            event_type="transition-attempted",
+            payload={},
+            event_id="evt-a",
+        )
+    )
+
+    assert len(log_b.read_all()) == 1, (
+        "EventLog.read_all() must observe events appended by another "
+        "instance/process on the same directory, not only refresh its cache "
+        "on append()/__init__ -- inconsistent with the concurrency hardening "
+        "already added to append()"
+    )
+
+    log_a.close()
+    log_b.close()

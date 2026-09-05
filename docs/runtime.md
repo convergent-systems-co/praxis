@@ -30,23 +30,39 @@ outright via `EventLogError`, so a caller retry after a crash can never double-a
 Every append flushes and `os.fsync`s so a crash immediately after `append()` returns is
 guaranteed durable. Re-opening an `EventLog` over the same directory replays the file to
 reconstruct `seq` and the seen `event_id`s, so a restarted process can resume purely from
-persisted events.
+persisted events. Each stored document is passed through
+`praxis_runtime.migrations.migrate_document` before being parsed (on construction, on every
+`append()`, and on every `read_all()`), so an event written by an older schema minor version is
+upgraded in place on read.
 
 - `class Event`: `spec_version: str`, `seq: int`, `run_id: str`, `node_id: str`, `event_type: str`, `payload: dict`, `event_id: str`.
 - `class EventLog(directory: Path)`:
   - `def append(self, event: Event) -> Event`.
   - `def read_all(self) -> list[Event]`.
+  - `def close(self) -> None`. Callers that construct scratch/short-lived `EventLog`s should
+    call this (or use the context-manager protocol, i.e. `with EventLog(directory) as log:`) to
+    release the underlying file handle.
 - `class EventLogError(Exception)`.
 
 **Append-only guarantee:** events are written in append mode only, one per line, flushed and
 `fsync`ed before `append()` returns; `seq` is monotonically assigned by the log itself, never by
 the caller, so ordering and duplicate-submission are both checkable from the log alone.
 
+**Concurrency guarantee:** `append()` holds an exclusive `flock` on a sidecar lock file and
+re-derives `seq`/the seen `event_id`s from the on-disk log while holding it, and `read_all()`
+holds a shared `flock` on the same sidecar file while doing the same re-derivation. This means
+two `EventLog` instances (same process or different processes) opened concurrently on the same
+directory serialize their appends instead of racing on state cached at construction time, and a
+long-lived instance that never appends still observes events appended by another instance via
+its next `read_all()` call.
+
 ## `praxis_runtime.state`
 
 The run-state store and checkpoint model. `RunStateStore` persists a `RunState` checkpoint to a
 single file, validating against `run-state.schema.json` before every write, then atomically
-replacing the target file so a crash mid-write can never leave a torn checkpoint.
+replacing the target file so a crash mid-write can never leave a torn checkpoint. On `load()`,
+the stored document is passed through `praxis_runtime.migrations.migrate_document` before being
+parsed, so a checkpoint written by an older schema minor version is upgraded in place.
 
 - `class Cursor`: `node_id: str`, `status: str`.
 - `class RunState`: `spec_version: str`, `run_id: str`, `cursors: dict[str, Cursor]`, `last_applied_seq: int`.
@@ -78,6 +94,14 @@ transition legality" true by construction.
 appends an event or persists a checkpoint (no partial write). Fan-out edges each create an
 independent successor cursor as soon as their source completes; join edges only create their
 shared successor cursor once every incoming edge's source has reported `TERMINAL_SUCCESS`.
+`current_state()` also validates a loaded checkpoint against the event log: if the checkpoint's
+`last_applied_seq` is ahead of the highest `seq` the event log actually contains, that is an
+impossible/corrupt state, so it raises `TransitionError` (fail closed) rather than proceeding
+against a checkpoint the log cannot substantiate.
+
+**Evidence audit trail:** evidence supplied to `apply()` is persisted onto the committed
+`Event`'s `payload` under the `"evidence"` key (in addition to being checked against the node's
+evidence requirement), giving a durable audit trail of what evidence satisfied a gate.
 
 ## `praxis_runtime.replay`
 

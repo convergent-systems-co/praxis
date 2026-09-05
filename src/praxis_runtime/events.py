@@ -119,6 +119,19 @@ class EventLog:
         return stored
 
     def read_all(self) -> list[Event]:
+        fcntl.flock(self._lock_handle, fcntl.LOCK_SH)
+        try:
+            # Re-derive from disk while holding the lock: another EventLog
+            # instance (this process or another one) may have appended since
+            # this instance's construction or last append/read, and a stale
+            # in-memory cache would hide those events from a long-lived
+            # instance that never appends itself.
+            self._events = list(self._read_from_disk())
+            self._seen_event_ids = {event.event_id for event in self._events}
+            self._next_seq = len(self._events)
+        finally:
+            fcntl.flock(self._lock_handle, fcntl.LOCK_UN)
+
         return list(self._events)
 
     def close(self) -> None:

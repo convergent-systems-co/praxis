@@ -264,13 +264,15 @@ class TransitionEngine:
             # transition that ultimately never commits (fail-closed, no
             # partial write).
             dynamic_grants = self._check_observed_resources(node, declared_claims, observed_claims)
+            resource_leases = None
             if declared_claims:
-                self._revalidate_declared_claims(node, declared_claims)
+                resource_leases = self._start_event_resource_leases(node.id)
+                self._revalidate_declared_claims(node, declared_claims, resource_leases)
 
             if dynamic_grants:
                 self._record_dynamic_grants(node, dynamic_grants)
             if declared_claims:
-                self._release_declared_claims(node, declared_claims)
+                self._release_declared_claims(node, declared_claims, resource_leases)
 
         return None
 
@@ -333,21 +335,39 @@ class TransitionEngine:
             for _, lease in acquired
         }
 
-    def _acquired_epoch(self, node_id: str, resource_type: str, identifier: str) -> int:
-        key = self._lease_key(resource_type, identifier)
+    def _start_event_resource_leases(self, node_id: str) -> dict[str, int]:
+        # A single reversed scan of the event log locates node_id's own most
+        # recent "start" event once per terminal transition; _acquired_epoch
+        # below then does an in-memory dict lookup per declared claim instead
+        # of each claim re-scanning the whole log itself (that scan is O(log
+        # length) and was previously repeated once per declared claim, in
+        # both _revalidate_declared_claims and _release_declared_claims).
         for event in reversed(self._event_log.read_all()):
             if event.node_id == node_id and event.event_type == "start":
-                epoch = event.payload.get("resource_leases", {}).get(key)
-                if epoch is None:
-                    raise TransitionError(
-                        f"no recorded lease acquisition for ({resource_type!r}, "
-                        f"{identifier!r}) on node {node_id!r}"
-                    )
-                return epoch
+                return event.payload.get("resource_leases", {})
         raise TransitionError(f"no start event recorded for node {node_id!r}")
 
+    def _acquired_epoch(
+        self,
+        resource_leases: dict[str, int],
+        node_id: str,
+        resource_type: str,
+        identifier: str,
+    ) -> int:
+        key = self._lease_key(resource_type, identifier)
+        epoch = resource_leases.get(key)
+        if epoch is None:
+            raise TransitionError(
+                f"no recorded lease acquisition for ({resource_type!r}, "
+                f"{identifier!r}) on node {node_id!r}"
+            )
+        return epoch
+
     def _revalidate_declared_claims(
-        self, node: Node, declared_claims: list[claims.ResourceClaim]
+        self,
+        node: Node,
+        declared_claims: list[claims.ResourceClaim],
+        resource_leases: dict[str, int],
     ) -> None:
         """Read-only check: raises if any declared claim's lease is no longer
         live. Never releases -- see the ordering note in _check_resource_claims."""
@@ -357,7 +377,9 @@ class TransitionEngine:
             # now: reloading the current epoch here and revalidating against
             # itself would be tautological and could never detect that the
             # lease moved to a new generation between acquire and settle.
-            epoch = self._acquired_epoch(node.id, claim.resource_type, claim.identifier)
+            epoch = self._acquired_epoch(
+                resource_leases, node.id, claim.resource_type, claim.identifier
+            )
             try:
                 leases.revalidate(
                     self._resource_lease_store,
@@ -372,12 +394,17 @@ class TransitionEngine:
                 raise TransitionError(str(exc)) from exc
 
     def _release_declared_claims(
-        self, node: Node, declared_claims: list[claims.ResourceClaim]
+        self,
+        node: Node,
+        declared_claims: list[claims.ResourceClaim],
+        resource_leases: dict[str, int],
     ) -> None:
         """Mutating: only called after every check in this terminal
         transition has already passed (see _check_resource_claims)."""
         for claim in declared_claims:
-            epoch = self._acquired_epoch(node.id, claim.resource_type, claim.identifier)
+            epoch = self._acquired_epoch(
+                resource_leases, node.id, claim.resource_type, claim.identifier
+            )
             try:
                 leases.release(
                     self._resource_lease_store,

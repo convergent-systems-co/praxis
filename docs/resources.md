@@ -49,27 +49,49 @@ A heartbeat-renewed lease store used to detect and reclaim abandoned resource cl
   `heartbeat_deadline: float`, `status: str` (one of `"active"`, `"expired"`, `"released"`).
 - `class LeaseStore(path: Path)`: persists one `Lease` document per `(resource_type, identifier)`
   pair under a filesystem-safe filename (URL-quoted and joined with `__`), so leases for
-  independent resources never serialize on a single shared file.
-  - `def load(self, resource_type: str, identifier: str) -> Lease | None`.
-  - `def save(self, lease: Lease) -> None`: validates against `schemas/v1/lease.schema.json`
-    (raising `LeaseError` on failure) and writes atomically via a temp file + `os.replace`,
-    mirroring `RunStateStore.save` in `praxis_runtime.state`.
+  independent resources never serialize on a single shared file. A `"read"` acquire is instead
+  recorded in its own per-`(resource_type, identifier, owner)` file, so multiple owners can each
+  hold an active read lease on the same identifier concurrently.
+  - `def load(self, resource_type: str, identifier: str) -> Lease | None`: the canonical
+    write/exclusive lease for `(resource_type, identifier)`, if any.
+  - `def load_reader(self, resource_type: str, identifier: str, owner: str) -> Lease | None`: the
+    given `owner`'s own read lease for `(resource_type, identifier)`, if any.
+  - `def active_writer_leases(self, resource_type: str, now: float) -> list[Lease]`: every active,
+    unexpired canonical write/exclusive lease for `resource_type`, across all identifiers.
+  - `def active_reader_leases(self, resource_type: str, now: float) -> list[Lease]`: every active,
+    unexpired per-owner read lease for `resource_type`, across all identifiers/owners.
+  - `def save(self, lease: Lease, *, reader: bool = False) -> None`: validates against
+    `schemas/v1/lease.schema.json` (raising `LeaseError` on failure) and writes atomically via a
+    temp file + `os.replace`, mirroring `RunStateStore.save` in `praxis_runtime.state`. `reader=True`
+    writes to the per-owner read-lease file instead of the canonical write/exclusive file.
+  - `def lock(self, resource_type: str, identifier: str)`: context manager holding an exclusive
+    `flock` scoped to this `(resource_type, identifier)`'s own lock file, so two `LeaseStore`
+    instances (same process or different processes) pointed at the same path serialize their
+    load-check-save sequences instead of racing.
 - `class LeaseError(Exception)`: raised fail-closed on any owner/epoch mismatch or expiry —
   `acquire`/`renew`/`release`/`revalidate` never silently succeed against a lease they don't
   legitimately hold.
 - `def is_expired(lease: Lease, now: float) -> bool`: `now >= lease.heartbeat_deadline`.
-- `def acquire(store, resource_type, identifier, owner, *, now, ttl) -> Lease`: raises
-  `LeaseError` if an existing lease is not `"released"` and not expired; otherwise creates a new
-  lease with `epoch` one greater than any existing lease's `epoch` (starting at `0`) and
-  `heartbeat_deadline = now + ttl`.
-- `def renew(store, resource_type, identifier, owner, epoch, *, now, ttl) -> Lease`: requires the
-  stored lease's `owner`/`epoch` to match exactly and be `"active"` and unexpired (`LeaseError`
-  otherwise), then extends `heartbeat_deadline` to `now + ttl` without changing `epoch`.
-- `def release(store, resource_type, identifier, owner, epoch) -> None`: requires an
-  owner/epoch match on an `"active"` lease, then marks it `"released"`.
-- `def revalidate(store, resource_type, identifier, owner, epoch, *, now) -> None`: requires an
-  owner/epoch match on a lease that is `"active"` and unexpired; raises `LeaseError` otherwise.
-  Used to confirm a lease is still legitimately held immediately before releasing it.
+- `def acquire(store, resource_type, identifier, owner, *, now, ttl, access_mode="exclusive", conflict_fn=None) -> Lease`:
+  raises `LeaseError` if an existing lease is not `"released"` and not expired; otherwise creates a
+  new lease with `epoch` one greater than any existing lease's `epoch` (starting at `0`) and
+  `heartbeat_deadline = now + ttl`. `access_mode="read"` acquires (and blocks/is blocked by) the
+  per-owner reader lease file instead of the canonical write/exclusive one — a write/exclusive
+  acquire is blocked by any other owner's active writer *or* reader, while a read acquire is only
+  blocked by an active writer. `conflict_fn(existing_identifier, requested_identifier) -> bool`
+  lets a caller with a domain-specific notion of identifier overlap (e.g. the filesystem adapter's
+  glob-aware `paths_overlap`) detect conflicts between differently-spelled but overlapping
+  identifiers; it defaults to identifier equality with the workspace-wide `"*"` fallback always
+  treated as overlapping, mirroring `claims.claims_conflict`'s own `"*"` handling.
+- `def renew(store, resource_type, identifier, owner, epoch, *, now, ttl, access_mode="exclusive") -> Lease`:
+  requires the stored lease's `owner`/`epoch` to match exactly and be `"active"` and unexpired
+  (`LeaseError` otherwise), then extends `heartbeat_deadline` to `now + ttl` without changing
+  `epoch`.
+- `def release(store, resource_type, identifier, owner, epoch, *, access_mode="exclusive") -> None`:
+  requires an owner/epoch match on an `"active"` lease, then marks it `"released"`.
+- `def revalidate(store, resource_type, identifier, owner, epoch, *, now, access_mode="exclusive") -> None`:
+  requires an owner/epoch match on a lease that is `"active"` and unexpired; raises `LeaseError`
+  otherwise. Used to confirm a lease is still legitimately held immediately before releasing it.
 
 **Owner/epoch/heartbeat contract:** every mutating call (`renew`/`release`/`revalidate`) requires
 the caller to present both the current `owner` and the current `epoch` it observed; a mismatch on
@@ -141,6 +163,23 @@ exact-identifier match.
   `literal_prefix`/`prefixes_conflict` in `~/.claude/skills/develop/runtime/schedule.py`).
 - `def claims_from_footprints(node_id_to_globs: dict[str, list[str]], access_mode: str = "write") -> dict[str, list[ResourceClaim]]`:
   bulk-builds a `plan_claims`-shaped mapping of filesystem claims from a footprint mapping.
+- `def footprint_conflict(a: ResourceClaim, b: ResourceClaim) -> bool`: the glob-aware analogue of
+  `claims.claims_conflict` for filesystem claims — same `resource_type`/`READ`-`READ` rules, but
+  uses `paths_overlap` instead of exact identifier equality, so overlapping-but-non-identical globs
+  (e.g. `"src/a/**"` vs `"src/a/file.py"`) are detected as conflicting.
+- `def plan_footprint_claims(claim_sets: dict[str, list[ResourceClaim]]) -> list[tuple[str, str]]`:
+  the `footprint_conflict`-based analogue of `claims.plan_claims`, for static planning over
+  filesystem footprint claim sets (e.g. produced by `claims_from_footprints`).
+- `def new_footprint_scheduler() -> ResourceScheduler`: a `ResourceScheduler` constructed with
+  `conflict_fn=footprint_conflict`, so filesystem footprint claims park/grant correctly against
+  overlapping-but-non-identical globs instead of `ResourceScheduler`'s generic exact-identifier
+  default.
+
+`footprint_conflict`/`plan_footprint_claims`/`new_footprint_scheduler` are provided as building
+blocks for a caller that needs glob-aware static planning or FIFO parking/retry over filesystem
+footprint claims; as landed, nothing in `src/` outside this adapter's own tests calls them —
+`TransitionEngine`'s own filesystem-claim gating goes through `leases.acquire`'s `conflict_fn`
+parameter (see "Wiring into `TransitionEngine`" below) rather than through `ResourceScheduler`.
 
 **`paths_overlap` vs. `claims_conflict`:** `claims_conflict` is generic and resource-type-agnostic
 and only treats two claims as conflicting when their `identifier`s match exactly (or either is

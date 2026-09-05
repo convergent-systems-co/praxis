@@ -23,7 +23,9 @@ lease on the same identifier concurrently -- only a canonical writer, or
 another writer's overlapping identifier, blocks a read acquire; a write/
 exclusive acquire is blocked by any other owner's active writer or reader.
 acquire also takes an optional conflict_fn(existing_identifier, requested_
-identifier) -> bool, defaulting to plain equality, so a caller with a
+identifier) -> bool, defaulting to identifier equality with the
+workspace-wide "*" fallback always treated as overlapping (mirroring
+claims.claims_conflict's own "*" handling), so a caller with a
 domain-specific notion of identifier overlap (e.g. the filesystem adapter's
 glob-aware paths_overlap) can detect conflicts between differently-spelled
 but overlapping identifiers instead of only exact matches.
@@ -203,6 +205,18 @@ def is_expired(lease: Lease, now: float) -> bool:
     return now >= lease.heartbeat_deadline
 
 
+def _identifiers_conflict(a: str, b: str) -> bool:
+    # The workspace-wide fallback identifier "*" must conflict with every
+    # other identifier of the same resource_type regardless of which
+    # conflict_fn a caller supplies (or omits) -- otherwise a fallback claim
+    # acquired for a resource_type with no domain-specific conflict_fn (e.g.
+    # anything other than "filesystem", whose paths_overlap already treats
+    # "*" as overlapping everything) would only ever be checked for exact
+    # identifier equality, silently letting a differently-identified,
+    # conflicting claim of the same resource_type through.
+    return a == b or a == "*" or b == "*"
+
+
 def acquire(
     store: LeaseStore,
     resource_type: str,
@@ -214,7 +228,7 @@ def acquire(
     access_mode: str = "exclusive",
     conflict_fn: "Callable[[str, str], bool] | None" = None,
 ) -> Lease:
-    overlaps = conflict_fn if conflict_fn is not None else (lambda a, b: a == b)
+    overlaps = conflict_fn if conflict_fn is not None else _identifiers_conflict
     with store.lock(resource_type, identifier):
         if access_mode == "read":
             blocking_writer = store.load(resource_type, identifier)

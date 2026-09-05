@@ -57,6 +57,42 @@ OBSERVED_UNDECLARED_WRITE = {
     ],
 }
 
+FILESYSTEM_READ_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": RESOURCE_TYPE,
+            "quantity": 1,
+            "identifier": IDENTIFIER,
+            "access_mode": "read",
+        }
+    ],
+}
+
+FOOTPRINT_GLOB_WRITE_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": RESOURCE_TYPE,
+            "quantity": 1,
+            "identifier": "src/a/**",
+            "access_mode": "write",
+        }
+    ],
+}
+
+OVERLAPPING_FILE_WRITE_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": RESOURCE_TYPE,
+            "quantity": 1,
+            "identifier": "src/a/file.py",
+            "access_mode": "write",
+        }
+    ],
+}
+
 
 def _single_node_graph(node_id: str, resource_claims: dict | None) -> Graph:
     metadata = {"resource_claims": resource_claims} if resource_claims is not None else {}
@@ -355,6 +391,113 @@ def test_acquire_rollback_failure_is_wrapped_in_transition_error(
 
     with pytest.raises(TransitionError):
         engine.apply("n1", "start")
+
+
+def test_two_compatible_read_claims_can_start_concurrently(tmp_path: Path):
+    # Repair finding (Critical): leases.acquire is access_mode-blind, so two
+    # nodes each declaring a compatible READ claim on the same identifier
+    # could not both start concurrently through TransitionEngine, even
+    # though claims_conflict says READ-READ never conflicts.
+    lease_dir = tmp_path / "leases"
+
+    graph_one = _single_node_graph("n1", FILESYSTEM_READ_CLAIM)
+    engine_one = TransitionEngine(
+        graph_one,
+        RunStateStore(tmp_path / "run-one.json"),
+        EventLog(tmp_path / "events-one"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+    engine_one.apply("n1", "start")
+
+    graph_two = _single_node_graph("n2", FILESYSTEM_READ_CLAIM)
+    engine_two = TransitionEngine(
+        graph_two,
+        RunStateStore(tmp_path / "run-two.json"),
+        EventLog(tmp_path / "events-two"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    # Must not raise: both READ claims are compatible and must be granted.
+    engine_two.apply("n2", "start")
+
+
+def test_overlapping_filesystem_globs_conflict_through_transition_engine(tmp_path: Path):
+    # Repair finding (Critical): lease matching is exact-identifier-only, so
+    # overlapping-but-non-identical filesystem footprint claims (e.g.
+    # "src/a/**" and "src/a/file.py") were not detected as conflicting by
+    # the engine's lease-based gating, even though the filesystem adapter's
+    # own paths_overlap/footprint_conflict correctly identifies them as
+    # overlapping.
+    lease_dir = tmp_path / "leases"
+
+    graph_one = _single_node_graph("n1", FOOTPRINT_GLOB_WRITE_CLAIM)
+    engine_one = TransitionEngine(
+        graph_one,
+        RunStateStore(tmp_path / "run-one.json"),
+        EventLog(tmp_path / "events-one"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+    engine_one.apply("n1", "start")
+
+    graph_two = _single_node_graph("n2", OVERLAPPING_FILE_WRITE_CLAIM)
+    engine_two = TransitionEngine(
+        graph_two,
+        RunStateStore(tmp_path / "run-two.json"),
+        EventLog(tmp_path / "events-two"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    with pytest.raises(TransitionError):
+        engine_two.apply("n2", "start")
+
+
+def test_failed_declared_claim_settlement_leaves_no_phantom_observed_resource_lease(
+    tmp_path: Path,
+):
+    # Repair finding (Minor): _authorize_observed_resources performed the
+    # dynamic observed-resource lease acquire+revalidate+release before
+    # _settle_resource_claims validated the node's declared claims in the
+    # same terminal-transition check. If settlement subsequently raised
+    # TransitionError (e.g. a stale epoch), the dynamic lease acquire/release
+    # had already persisted with no corresponding committed event -- a
+    # phantom write for a transition that never officially happened.
+    lease_dir = tmp_path / "leases"
+    graph = _single_node_graph("n1", FILESYSTEM_WRITE_CLAIM)
+    graph.nodes["n1"].metadata["observed_resources"] = OBSERVED_UNDECLARED_WRITE
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(lease_dir),
+        resource_policy=ResourceAccessPolicy.DYNAMIC,
+    )
+
+    engine.apply("n1", "start")  # acquires epoch 0 for the declared claim
+
+    # Simulate the declared claim's lease moving to a new generation between
+    # acquire and settle, so settlement's revalidate will fail with a
+    # stale-epoch LeaseError when "complete" is applied.
+    now = time.time()
+    store = LeaseStore(lease_dir)
+    store.save(
+        leases.Lease(
+            resource_type=RESOURCE_TYPE,
+            identifier=IDENTIFIER,
+            owner="n1",
+            epoch=0,
+            heartbeat_deadline=now - 1.0,
+            status="active",
+        )
+    )
+    leases.acquire(store, RESOURCE_TYPE, IDENTIFIER, owner="n1", now=now, ttl=3600.0)
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete")
+
+    # The dynamically observed (undeclared) resource must never have been
+    # touched -- the declared claim's settlement failure must be detected
+    # before any dynamic-grant lease acquire/release side effect runs.
+    assert LeaseStore(lease_dir).load(RESOURCE_TYPE, UNDECLARED_IDENTIFIER) is None
 
 
 def test_completing_with_undeclared_observed_resource_raises_under_strict_policy(

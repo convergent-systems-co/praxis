@@ -32,6 +32,7 @@ from pathlib import Path
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.resources import claims, leases, observed, policy
+from praxis_runtime.resources.adapters.filesystem import paths_overlap
 from praxis_runtime.state import Cursor, RunState, RunStateStore
 
 _SPEC_VERSION = "1.0.0"
@@ -250,12 +251,26 @@ class TransitionEngine:
 
         if is_terminal:
             observed_document = node.metadata.get("observed_resources")
-            if observed_document:
-                self._authorize_observed_resources(
-                    node, declared_claims, observed.parse_observed_resources(observed_document)
-                )
+            observed_claims = (
+                observed.parse_observed_resources(observed_document) if observed_document else []
+            )
+            # Every check below is read-only (authorize_access and
+            # leases.revalidate never persist anything); only once every
+            # declared claim and every observed resource has been validated
+            # do the mutating acquire/release calls below run. Otherwise a
+            # later check failing (e.g. a stale-epoch declared claim) after
+            # an earlier mutation already ran (e.g. a dynamic-grant lease
+            # acquire+release) would leave that mutation persisted for a
+            # transition that ultimately never commits (fail-closed, no
+            # partial write).
+            dynamic_grants = self._check_observed_resources(node, declared_claims, observed_claims)
             if declared_claims:
-                self._settle_resource_claims(node, declared_claims)
+                self._revalidate_declared_claims(node, declared_claims)
+
+            if dynamic_grants:
+                self._record_dynamic_grants(node, dynamic_grants)
+            if declared_claims:
+                self._release_declared_claims(node, declared_claims)
 
         return None
 
@@ -263,10 +278,23 @@ class TransitionEngine:
     def _lease_key(resource_type: str, identifier: str) -> str:
         return f"{resource_type}\x1f{identifier}"
 
+    @staticmethod
+    def _lease_conflict_fn(resource_type: str):
+        # Filesystem identifiers are path globs, so two differently-spelled
+        # identifiers (e.g. "src/a/**" and "src/a/file.py") can still name
+        # overlapping filesystem footprints. leases.acquire otherwise only
+        # detects exact-identifier conflicts, so filesystem claims must be
+        # checked with the adapter's own glob-aware paths_overlap instead of
+        # plain equality -- other resource types keep leases.acquire's
+        # exact-identifier default.
+        if resource_type == "filesystem":
+            return paths_overlap
+        return None
+
     def _acquire_resource_claims(
         self, node: Node, declared_claims: list[claims.ResourceClaim]
     ) -> dict[str, int]:
-        acquired: list[leases.Lease] = []
+        acquired: list[tuple[claims.ResourceClaim, leases.Lease]] = []
         try:
             for claim in declared_claims:
                 lease = leases.acquire(
@@ -276,10 +304,12 @@ class TransitionEngine:
                     owner=node.id,
                     now=time.time(),
                     ttl=self._resource_ttl,
+                    access_mode=claim.access_mode,
+                    conflict_fn=self._lease_conflict_fn(claim.resource_type),
                 )
-                acquired.append(lease)
+                acquired.append((claim, lease))
         except leases.LeaseError as exc:
-            for lease in acquired:
+            for claim, lease in acquired:
                 try:
                     leases.release(
                         self._resource_lease_store,
@@ -287,6 +317,7 @@ class TransitionEngine:
                         lease.identifier,
                         lease.owner,
                         lease.epoch,
+                        access_mode=claim.access_mode,
                     )
                 except leases.LeaseError:
                     # Best-effort rollback: the original acquisition failure
@@ -299,7 +330,7 @@ class TransitionEngine:
 
         return {
             self._lease_key(lease.resource_type, lease.identifier): lease.epoch
-            for lease in acquired
+            for _, lease in acquired
         }
 
     def _acquired_epoch(self, node_id: str, resource_type: str, identifier: str) -> int:
@@ -315,9 +346,11 @@ class TransitionEngine:
                 return epoch
         raise TransitionError(f"no start event recorded for node {node_id!r}")
 
-    def _settle_resource_claims(
+    def _revalidate_declared_claims(
         self, node: Node, declared_claims: list[claims.ResourceClaim]
     ) -> None:
+        """Read-only check: raises if any declared claim's lease is no longer
+        live. Never releases -- see the ordering note in _check_resource_claims."""
         for claim in declared_claims:
             # Use the epoch recorded at acquire time (from the node's own
             # "start" event), not whatever epoch happens to be stored right
@@ -333,23 +366,41 @@ class TransitionEngine:
                     owner=node.id,
                     epoch=epoch,
                     now=time.time(),
+                    access_mode=claim.access_mode,
                 )
+            except leases.LeaseError as exc:
+                raise TransitionError(str(exc)) from exc
+
+    def _release_declared_claims(
+        self, node: Node, declared_claims: list[claims.ResourceClaim]
+    ) -> None:
+        """Mutating: only called after every check in this terminal
+        transition has already passed (see _check_resource_claims)."""
+        for claim in declared_claims:
+            epoch = self._acquired_epoch(node.id, claim.resource_type, claim.identifier)
+            try:
                 leases.release(
                     self._resource_lease_store,
                     claim.resource_type,
                     claim.identifier,
                     node.id,
                     epoch,
+                    access_mode=claim.access_mode,
                 )
             except leases.LeaseError as exc:
                 raise TransitionError(str(exc)) from exc
 
-    def _authorize_observed_resources(
+    def _check_observed_resources(
         self,
         node: Node,
         declared_claims: list[claims.ResourceClaim],
         observed_claims: list[claims.ResourceClaim],
-    ) -> None:
+    ) -> list[claims.ResourceClaim]:
+        """Read-only check: raises under an undeclared/conflicting access,
+        otherwise returns the observed claims that were dynamically granted
+        (not covered by a declared claim) and so still need their grant
+        recorded as a lease by _record_dynamic_grants."""
+        dynamic_grants = []
         for requested in observed_claims:
             active_claims = self._active_foreign_claims(node.id, requested)
             try:
@@ -360,45 +411,57 @@ class TransitionEngine:
                 raise TransitionError(str(exc)) from exc
 
             if granted is requested:
-                # authorize_access granted this dynamically (it was not
-                # covered by a declared claim): record the grant as a real
-                # lease so a concurrent scheduler's own authorization check
-                # -- which consults the lease store via
-                # _active_foreign_claims, not this call's in-memory
-                # active_claims snapshot -- can see it. Discarding the
-                # granted claim here would let two nodes each pass the
-                # conflict check without either ever registering the
-                # resource as held. The node is terminating in this same
-                # call, so once that visibility has been recorded the lease
-                # is revalidated and released immediately -- otherwise it
-                # would leak a hold on the resource for up to resource_ttl
-                # seconds after the owning node has already terminated.
-                try:
-                    lease = leases.acquire(
-                        self._resource_lease_store,
-                        requested.resource_type,
-                        requested.identifier,
-                        owner=node.id,
-                        now=time.time(),
-                        ttl=self._resource_ttl,
-                    )
-                    leases.revalidate(
-                        self._resource_lease_store,
-                        lease.resource_type,
-                        lease.identifier,
-                        owner=lease.owner,
-                        epoch=lease.epoch,
-                        now=time.time(),
-                    )
-                    leases.release(
-                        self._resource_lease_store,
-                        lease.resource_type,
-                        lease.identifier,
-                        lease.owner,
-                        lease.epoch,
-                    )
-                except leases.LeaseError as exc:
-                    raise TransitionError(str(exc)) from exc
+                dynamic_grants.append(requested)
+        return dynamic_grants
+
+    def _record_dynamic_grants(
+        self, node: Node, dynamic_grants: list[claims.ResourceClaim]
+    ) -> None:
+        """Mutating: only called after every check in this terminal
+        transition has already passed (see _check_resource_claims)."""
+        for requested in dynamic_grants:
+            # authorize_access granted this dynamically (it was not covered
+            # by a declared claim): record the grant as a real lease so a
+            # concurrent scheduler's own authorization check -- which
+            # consults the lease store via _active_foreign_claims, not this
+            # call's in-memory active_claims snapshot -- can see it.
+            # Discarding the granted claim here would let two nodes each
+            # pass the conflict check without either ever registering the
+            # resource as held. The node is terminating in this same call,
+            # so once that visibility has been recorded the lease is
+            # revalidated and released immediately -- otherwise it would
+            # leak a hold on the resource for up to resource_ttl seconds
+            # after the owning node has already terminated.
+            try:
+                lease = leases.acquire(
+                    self._resource_lease_store,
+                    requested.resource_type,
+                    requested.identifier,
+                    owner=node.id,
+                    now=time.time(),
+                    ttl=self._resource_ttl,
+                    access_mode=requested.access_mode,
+                    conflict_fn=self._lease_conflict_fn(requested.resource_type),
+                )
+                leases.revalidate(
+                    self._resource_lease_store,
+                    lease.resource_type,
+                    lease.identifier,
+                    owner=lease.owner,
+                    epoch=lease.epoch,
+                    now=time.time(),
+                    access_mode=requested.access_mode,
+                )
+                leases.release(
+                    self._resource_lease_store,
+                    lease.resource_type,
+                    lease.identifier,
+                    lease.owner,
+                    lease.epoch,
+                    access_mode=requested.access_mode,
+                )
+            except leases.LeaseError as exc:
+                raise TransitionError(str(exc)) from exc
 
     def _active_foreign_claims(
         self, node_id: str, requested: claims.ResourceClaim

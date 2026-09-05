@@ -4,7 +4,7 @@
     { "id": "intake", "kind": "intake" },
     { "id": "review-legal", "kind": "review" },
     { "id": "review-editorial", "kind": "review" },
-    { "id": "decision", "kind": "fan-out" },
+    { "id": "decision", "kind": "decision" },
     { "id": "revise", "kind": "revision" },
     { "id": "approve", "kind": "approval" },
     { "id": "archive", "kind": "archive" }

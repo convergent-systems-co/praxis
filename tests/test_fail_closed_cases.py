@@ -106,6 +106,27 @@ def test_checkpoint_ahead_of_event_log_raises(tmp_path: Path):
         engine.apply("n1", "complete")
 
 
+def test_checkpoint_ahead_of_empty_event_log_raises(tmp_path: Path):
+    graph = _linear_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+
+    # No events have ever been appended, but the checkpoint claims one has
+    # already been applied -- the empty-log edge case of the same "ahead of
+    # the log" guard the previous test exercises with a non-empty log.
+    stale_state = RunState(
+        spec_version="1.0.0",
+        run_id=uuid.uuid4().hex,
+        cursors={"n1": Cursor(node_id="n1", status=NodeStatus.RUNNING.value)},
+        last_applied_seq=0,
+    )
+    store.save(stale_state)
+
+    with pytest.raises((TransitionError, RunStateError)):
+        engine.apply("n1", "complete")
+
+
 # -- Duplicate events: a caller retry must not double-apply through the engine --
 
 

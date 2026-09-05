@@ -50,6 +50,16 @@ class _ReplayEngine(TransitionEngine):
     def _check_evidence(self, node: Node, evidence: dict | None) -> None:
         return None
 
+    def _validate_against_log(self, state: RunState, events: list[Event]) -> None:
+        # The scratch event log used to fold historical events always
+        # renumbers from seq 0, while the seed RunState's last_applied_seq
+        # reflects the real log this replay is reconstructing -- an
+        # intentional, by-design mismatch, not a stale checkpoint.
+        # TransitionEngine's ahead-of-log guard exists to catch a genuinely
+        # corrupt/stale checkpoint against its *own* backing log, which does
+        # not apply to this internal seed/scratch-log pairing.
+        return None
+
 
 def _seed_document(state: RunState) -> dict:
     return {

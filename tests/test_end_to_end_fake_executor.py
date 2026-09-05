@@ -53,6 +53,16 @@ def _drive_node_to_terminal(engine, script: dict, node_id: str) -> None:
     engine.apply(node_id, scripted["event_type"], evidence=scripted.get("evidence"))
 
 
+def test_sample_graph_node_kinds_do_not_reuse_edge_kind_vocabulary():
+    # Node "kind" (domain role) and edge "kind" (topology) are separate
+    # vocabularies -- a node must not be labeled with an edge-kind term like
+    # "fan-out"/"join"/"sequential", which would conflate the two.
+    graph = load_graph(SAMPLE_GRAPH_PATH)
+    edge_kind_terms = {edge.kind for edge in graph.edges}
+    for node in graph.nodes.values():
+        assert node.kind not in edge_kind_terms
+
+
 def test_sample_graph_runs_to_completion_with_fake_executor(tmp_path: Path):
     graph = load_graph(SAMPLE_GRAPH_PATH)
     store = RunStateStore(tmp_path / "run-state.json")

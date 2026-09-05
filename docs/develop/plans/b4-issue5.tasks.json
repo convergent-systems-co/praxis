@@ -1,0 +1,93 @@
+{
+  "bundle": "b4-issue5",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Executor interface and package skeleton",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/__init__.py",
+        "src/praxis_executors/interface.py",
+        "src/praxis_executors/adapters/__init__.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Deterministic fake capability executor",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/fake.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Subprocess executor adapter (first real adapter)",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/subprocess_executor.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Capability matching algorithm",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/matching.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Executor eligibility policy",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/policy.py"]
+    },
+    {
+      "id": "T6",
+      "title": "Executor registry (select, launch, normalize)",
+      "depends_on": ["T1", "T4"],
+      "kind": "code",
+      "files": ["src/praxis_executors/registry.py"]
+    },
+    {
+      "id": "T7",
+      "title": "Matching algorithm tests",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": ["tests/test_executor_matching.py"]
+    },
+    {
+      "id": "T8",
+      "title": "Policy tests",
+      "depends_on": ["T4", "T5"],
+      "kind": "code",
+      "files": ["tests/test_executor_policy.py"]
+    },
+    {
+      "id": "T9",
+      "title": "Fake capability executor tests",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": ["tests/test_fake_capability_executor.py"]
+    },
+    {
+      "id": "T10",
+      "title": "Subprocess executor tests",
+      "depends_on": ["T1", "T3"],
+      "kind": "code",
+      "files": ["tests/test_subprocess_executor.py"]
+    },
+    {
+      "id": "T11",
+      "title": "End-to-end integration test (matching + registry + runtime evidence)",
+      "depends_on": ["T1", "T2", "T4", "T6"],
+      "kind": "code",
+      "files": ["tests/test_executor_end_to_end.py"]
+    },
+    {
+      "id": "T12",
+      "title": "Executor documentation",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "kind": "docs",
+      "files": ["docs/executors.md"]
+    }
+  ]
+}

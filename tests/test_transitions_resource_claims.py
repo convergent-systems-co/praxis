@@ -14,6 +14,7 @@ tests/test_transitions.py suite continues to pass unmodified.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -21,12 +22,14 @@ import pytest
 from conftest import _linear_graph
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Graph, Node
+from praxis_runtime.resources import leases
 from praxis_runtime.resources.leases import LeaseStore
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
 RESOURCE_TYPE = "filesystem"
 IDENTIFIER = "/workspace/output.txt"
+UNDECLARED_IDENTIFIER = "/workspace/undeclared.txt"
 
 FILESYSTEM_WRITE_CLAIM = {
     "spec_version": "1.0.0",
@@ -35,6 +38,18 @@ FILESYSTEM_WRITE_CLAIM = {
             "resource_type": RESOURCE_TYPE,
             "quantity": 1,
             "identifier": IDENTIFIER,
+            "access_mode": "write",
+        }
+    ],
+}
+
+OBSERVED_UNDECLARED_WRITE = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": RESOURCE_TYPE,
+            "quantity": 1,
+            "identifier": UNDECLARED_IDENTIFIER,
             "access_mode": "write",
         }
     ],
@@ -134,3 +149,113 @@ def test_node_without_resource_claims_and_no_lease_store_is_unaffected(tmp_path:
     state = engine.apply("n1", "start")
 
     assert state.cursors["n1"].status == NodeStatus.RUNNING.value
+
+
+def test_evidence_rejection_does_not_release_lease_before_raising(tmp_path: Path):
+    graph = Graph(
+        spec_version="1.0.0",
+        nodes={
+            "n1": Node(
+                id="n1",
+                kind="task",
+                metadata={
+                    "resource_claims": FILESYSTEM_WRITE_CLAIM,
+                    "evidence_requirement": {
+                        "spec_version": "1.0.0",
+                        "evidence": [
+                            {"proof_type": "signoff", "constraint": "required"},
+                        ],
+                    },
+                },
+            )
+        },
+        edges=[],
+        entry_node="n1",
+        terminal_nodes={"n1"},
+    )
+    lease_store = LeaseStore(tmp_path / "leases")
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=lease_store,
+    )
+
+    engine.apply("n1", "start")
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete")  # no evidence supplied -> evidence gate rejects
+
+    lease = lease_store.load(RESOURCE_TYPE, IDENTIFIER)
+    assert lease is not None
+    assert lease.status == "active"
+    assert lease.owner == "n1"
+
+
+def test_settle_detects_lease_moved_to_new_generation_since_acquire(tmp_path: Path):
+    lease_dir = tmp_path / "leases"
+    graph = _single_node_graph("n1", FILESYSTEM_WRITE_CLAIM)
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    engine.apply("n1", "start")  # acquires epoch 0
+
+    # Simulate the lease moving to a new generation between acquire and
+    # settle -- e.g. it expired and was silently re-acquired by the same
+    # owner id (a retried/restarted worker) -- bumping epoch to 1 out from
+    # under the engine that is still holding onto epoch 0. The replacement
+    # lease is deliberately kept unexpired (far-future deadline) relative to
+    # real wall-clock time, so a failure here can only come from the epoch
+    # fence, not from an incidental expiry.
+    now = time.time()
+    store = LeaseStore(lease_dir)
+    store.save(
+        leases.Lease(
+            resource_type=RESOURCE_TYPE,
+            identifier=IDENTIFIER,
+            owner="n1",
+            epoch=0,
+            heartbeat_deadline=now - 1.0,
+            status="active",
+        )
+    )
+    leases.acquire(store, RESOURCE_TYPE, IDENTIFIER, owner="n1", now=now, ttl=3600.0)
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete")
+
+
+def test_completing_with_undeclared_observed_resource_raises_under_strict_policy(
+    tmp_path: Path,
+):
+    graph = Graph(
+        spec_version="1.0.0",
+        nodes={
+            "n1": Node(
+                id="n1",
+                kind="task",
+                metadata={
+                    "resource_claims": FILESYSTEM_WRITE_CLAIM,
+                    "observed_resources": OBSERVED_UNDECLARED_WRITE,
+                },
+            )
+        },
+        edges=[],
+        entry_node="n1",
+        terminal_nodes={"n1"},
+    )
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(tmp_path / "leases"),
+    )
+
+    engine.apply("n1", "start")
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete")

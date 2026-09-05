@@ -31,7 +31,7 @@ from pathlib import Path
 
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
-from praxis_runtime.resources import claims, leases, policy
+from praxis_runtime.resources import claims, leases, observed, policy
 from praxis_runtime.state import Cursor, RunState, RunStateStore
 
 _SPEC_VERSION = "1.0.0"
@@ -148,12 +148,25 @@ class TransitionEngine:
             )
 
         node = self._graph.nodes.get(node_id)
-        if node is not None:
-            self._check_resource_claims(node, event_type, new_status)
 
+        # Evidence is checked before resource claims are settled: settling a
+        # terminal transition's resource claims revalidates and releases the
+        # node's leases, and a transition the evidence gate is about to
+        # reject must never have already given up that ownership (fail
+        # closed, no partial write).
         if new_status in _TERMINAL_STATUSES:
             if node is not None:
                 self._check_evidence(node, evidence)
+
+        resource_leases_payload = None
+        if node is not None:
+            resource_leases_payload = self._check_resource_claims(node, event_type, new_status)
+
+        payload: dict = {}
+        if evidence is not None:
+            payload["evidence"] = evidence
+        if resource_leases_payload is not None:
+            payload["resource_leases"] = resource_leases_payload
 
         stored_event = self._event_log.append(
             Event(
@@ -162,7 +175,7 @@ class TransitionEngine:
                 run_id=state.run_id,
                 node_id=node_id,
                 event_type=event_type,
-                payload={"evidence": evidence} if evidence is not None else {},
+                payload=payload,
                 event_id=uuid.uuid4().hex,
             )
         )
@@ -216,29 +229,39 @@ class TransitionEngine:
 
     def _check_resource_claims(
         self, node: Node, event_type: str, new_status: NodeStatus
-    ) -> None:
+    ) -> dict[str, int] | None:
         if self._resource_lease_store is None:
-            return
+            return None
 
         document = node.metadata.get("resource_claims")
-        if not document:
-            return
-
-        parsed_claims = claims.parse_claims(document)
-        if not parsed_claims:
-            return
+        declared_claims = claims.parse_claims(document) if document else []
 
         if event_type == "start":
-            self._acquire_resource_claims(node, parsed_claims)
-        elif new_status in _TERMINAL_STATUSES:
-            self._settle_resource_claims(node, parsed_claims)
+            if not declared_claims:
+                return None
+            return self._acquire_resource_claims(node, declared_claims)
+
+        if new_status in _TERMINAL_STATUSES:
+            observed_document = node.metadata.get("observed_resources")
+            if observed_document:
+                self._authorize_observed_resources(
+                    node, declared_claims, observed.parse_observed_resources(observed_document)
+                )
+            if declared_claims:
+                self._settle_resource_claims(node, declared_claims)
+
+        return None
+
+    @staticmethod
+    def _lease_key(resource_type: str, identifier: str) -> str:
+        return f"{resource_type}\x1f{identifier}"
 
     def _acquire_resource_claims(
-        self, node: Node, parsed_claims: list[claims.ResourceClaim]
-    ) -> None:
+        self, node: Node, declared_claims: list[claims.ResourceClaim]
+    ) -> dict[str, int]:
         acquired: list[leases.Lease] = []
         try:
-            for claim in parsed_claims:
+            for claim in declared_claims:
                 lease = leases.acquire(
                     self._resource_lease_store,
                     claim.resource_type,
@@ -259,22 +282,41 @@ class TransitionEngine:
                 )
             raise TransitionError(str(exc)) from exc
 
+        return {
+            self._lease_key(lease.resource_type, lease.identifier): lease.epoch
+            for lease in acquired
+        }
+
+    def _acquired_epoch(self, node_id: str, resource_type: str, identifier: str) -> int:
+        key = self._lease_key(resource_type, identifier)
+        for event in reversed(self._event_log.read_all()):
+            if event.node_id == node_id and event.event_type == "start":
+                epoch = event.payload.get("resource_leases", {}).get(key)
+                if epoch is None:
+                    raise TransitionError(
+                        f"no recorded lease acquisition for ({resource_type!r}, "
+                        f"{identifier!r}) on node {node_id!r}"
+                    )
+                return epoch
+        raise TransitionError(f"no start event recorded for node {node_id!r}")
+
     def _settle_resource_claims(
-        self, node: Node, parsed_claims: list[claims.ResourceClaim]
+        self, node: Node, declared_claims: list[claims.ResourceClaim]
     ) -> None:
-        for claim in parsed_claims:
-            existing = self._resource_lease_store.load(claim.resource_type, claim.identifier)
-            if existing is None:
-                raise TransitionError(
-                    f"no lease exists for ({claim.resource_type!r}, {claim.identifier!r})"
-                )
+        for claim in declared_claims:
+            # Use the epoch recorded at acquire time (from the node's own
+            # "start" event), not whatever epoch happens to be stored right
+            # now: reloading the current epoch here and revalidating against
+            # itself would be tautological and could never detect that the
+            # lease moved to a new generation between acquire and settle.
+            epoch = self._acquired_epoch(node.id, claim.resource_type, claim.identifier)
             try:
                 leases.revalidate(
                     self._resource_lease_store,
                     claim.resource_type,
                     claim.identifier,
                     owner=node.id,
-                    epoch=existing.epoch,
+                    epoch=epoch,
                     now=time.time(),
                 )
                 leases.release(
@@ -282,7 +324,42 @@ class TransitionEngine:
                     claim.resource_type,
                     claim.identifier,
                     node.id,
-                    existing.epoch,
+                    epoch,
                 )
             except leases.LeaseError as exc:
                 raise TransitionError(str(exc)) from exc
+
+    def _authorize_observed_resources(
+        self,
+        node: Node,
+        declared_claims: list[claims.ResourceClaim],
+        observed_claims: list[claims.ResourceClaim],
+    ) -> None:
+        for requested in observed_claims:
+            active_claims = self._active_foreign_claims(node.id, requested)
+            try:
+                policy.authorize_access(
+                    declared_claims, requested, self._resource_policy, active_claims
+                )
+            except policy.UndeclaredResourceError as exc:
+                raise TransitionError(str(exc)) from exc
+
+    def _active_foreign_claims(
+        self, node_id: str, requested: claims.ResourceClaim
+    ) -> list[claims.ResourceClaim]:
+        existing = self._resource_lease_store.load(requested.resource_type, requested.identifier)
+        if existing is None or existing.owner == node_id:
+            return []
+        if existing.status != "active" or leases.is_expired(existing, time.time()):
+            return []
+        # The lease itself does not record the access mode it was granted
+        # for, so a foreign active lease is treated conservatively as
+        # EXCLUSIVE: fail closed rather than assume it would have been
+        # compatible.
+        return [
+            claims.ResourceClaim(
+                resource_type=existing.resource_type,
+                identifier=existing.identifier,
+                access_mode=claims.AccessMode.EXCLUSIVE.value,
+            )
+        ]

@@ -86,12 +86,12 @@ def _fold_events(graph: Graph, seed_state: RunState, events: list[Event]) -> Run
         state_path.write_text(json.dumps(_seed_document(seed_state)))
 
         scratch_store = RunStateStore(state_path)
-        scratch_log = EventLog(tmp_path / "events")
-        engine = _ReplayEngine(graph, scratch_store, scratch_log)
+        with EventLog(tmp_path / "events") as scratch_log:
+            engine = _ReplayEngine(graph, scratch_store, scratch_log)
 
-        state = seed_state
-        for event in events:
-            state = engine.apply(event.node_id, event.event_type)
+            state = seed_state
+            for event in events:
+                state = engine.apply(event.node_id, event.event_type)
 
     return dataclasses.replace(state, last_applied_seq=events[-1].seq)
 

@@ -103,6 +103,13 @@ against a checkpoint the log cannot substantiate.
 `Event`'s `payload` under the `"evidence"` key (in addition to being checked against the node's
 evidence requirement), giving a durable audit trail of what evidence satisfied a gate.
 
+**Concurrency guarantee:** `apply()` holds an exclusive `flock` on a sidecar lock file next to
+the run-state checkpoint for the duration of its read-check-append-save sequence, so two
+`TransitionEngine` instances (same process or different processes) pointed at the same
+checkpoint serialize their applies instead of both legally checking a transition against the
+same stale state and racing to append conflicting events or overwrite each other's checkpoint
+save.
+
 ## `praxis_runtime.replay`
 
 Resume/replay support, built entirely on top of `TransitionEngine` rather than duplicating its

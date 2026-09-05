@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/run-state.schema.json",
+  "title": "RunState",
+  "description": "A checkpointed snapshot of a graph run's progress: one cursor per active or completed node, and the event-log sequence number this snapshot reflects.",
+  "type": "object",
+  "required": ["spec_version", "run_id", "cursors", "last_applied_seq"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "cursors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["node_id", "status"],
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "last_applied_seq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

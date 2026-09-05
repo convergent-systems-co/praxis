@@ -10,10 +10,17 @@ acquire/renew/release/revalidate implement fail-closed lease semantics: any
 owner/epoch mismatch or expiry raises LeaseError rather than silently
 succeeding, since these functions guard a resource against concurrent or
 stale mutation. Each one runs its load-check-save sequence under an
-exclusive flock scoped to that (resource_type, identifier)'s own lock file,
+exclusive flock scoped to that resource_type's own lock file (shared across
+every identifier of that resource_type, not just the one being acquired),
 so two LeaseStore instances (same process or different processes) pointed at
 the same path serialize their reads and writes instead of both reading a
-stale "no active lease" state and both saving a winning acquisition.
+stale "no active lease" state and both saving a winning acquisition. This
+resource_type-wide scope is required because acquire's overlap scan
+(active_writer_leases/active_reader_leases, below) checks every identifier
+of a resource_type, not just the one being acquired -- a lock scoped to the
+exact identifier would let two acquires on differently-identified-but-
+overlapping claims (e.g. the "*" fallback vs. a specific identifier) race
+past each other.
 
 acquire/renew/release/revalidate take an optional access_mode ("exclusive"
 by default). A "read" acquire is recorded in its own per-(resource_type,
@@ -118,16 +125,26 @@ class LeaseStore:
         return self._path / _encode_reader_key(resource_type, identifier, owner)
 
     def _lock_path(self, resource_type: str, identifier: str) -> Path:
-        lease_path = self._lease_path(resource_type, identifier)
-        return lease_path.with_name(lease_path.name + ".lock")
+        # Scoped to resource_type alone, not (resource_type, identifier):
+        # acquire()'s overlap scan (active_writer_leases/active_reader_leases)
+        # reads every lease across *all* identifiers of a resource_type, so an
+        # acquire on one identifier (e.g. the "*" workspace-wide fallback) must
+        # serialize against an acquire on a different-but-overlapping
+        # identifier (e.g. "gpu-1") of the same resource_type. A lock keyed on
+        # the exact identifier being acquired would let two such acquires each
+        # read "no conflicting lease yet" before either had saved.
+        del identifier
+        return self._path / (_quote_part(resource_type) + ".resource.lock")
 
     @contextlib.contextmanager
     def lock(self, resource_type: str, identifier: str):
-        """Hold an exclusive flock scoped to this (resource_type, identifier).
+        """Hold an exclusive flock scoped to this resource_type.
 
         Callers must perform their entire load-check-save sequence inside
         this context so that two LeaseStore instances sharing `path` cannot
-        interleave a read from one with a write from the other.
+        interleave a read from one with a write from the other -- including
+        across two different identifiers of the same resource_type, since
+        acquire()'s overlap scan spans all of them.
         """
         lock_path = self._lock_path(resource_type, identifier)
         lock_path.parent.mkdir(parents=True, exist_ok=True)

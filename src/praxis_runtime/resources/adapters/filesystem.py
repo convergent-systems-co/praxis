@@ -2,12 +2,11 @@
 resource-claim scheduling.
 
 paths_overlap implements the same conservative directory-prefix rule as
-develop's own footprint scheduler (see literal_prefix / prefixes_conflict in
-~/.claude/skills/develop/runtime/schedule.py): the literal prefix of a glob
-is everything before its first `*`/`**` wildcard, and two path patterns
-overlap when one prefix equals, or is a parent/child of, the other. "*",
-"**", and "." each resolve to the empty/root prefix and so overlap
-everything.
+this repository's own development-automation footprint scheduler: the
+literal prefix of a glob is everything before its first `*`/`**` wildcard,
+and two path patterns overlap when one prefix equals, or is a parent/child
+of, the other. "*", "**", and "." each resolve to the empty/root prefix and
+so overlap everything.
 
 paths_overlap is deliberately a different, filesystem-specific notion of
 conflict from claims.claims_conflict: claims_conflict is generic and
@@ -85,7 +84,10 @@ def footprint_conflict(a: ResourceClaim, b: ResourceClaim) -> bool:
     """Glob-aware conflict rule for filesystem claims: same resource_type/
     READ-READ rules as claims.claims_conflict, but uses paths_overlap instead
     of exact identifier equality, so overlapping-but-non-identical globs
-    (e.g. "src/a/**" vs "src/a/file.py") are detected as conflicting."""
+    (e.g. "src/a/**" vs "src/a/file.py") are detected as conflicting.
+
+    Public API for domain adapters/callers doing filesystem-footprint
+    planning; it has no caller inside this package."""
     if a.resource_type != b.resource_type:
         return False
     if a.access_mode == AccessMode.READ.value and b.access_mode == AccessMode.READ.value:
@@ -97,7 +99,10 @@ def plan_footprint_claims(claim_sets: dict[str, list[ResourceClaim]]) -> list[tu
     """Deterministically ordered conflicting node-id pairs for filesystem
     footprint claim sets (e.g. produced by claims_from_footprints), mirroring
     claims.plan_claims but using footprint_conflict so glob overlap is
-    actually detected."""
+    actually detected.
+
+    Public API for domain adapters/callers doing filesystem-footprint
+    planning; it has no caller inside this package."""
     conflicting_pairs = []
     for node_a, node_b in combinations(sorted(claim_sets), 2):
         has_conflict = any(
@@ -114,5 +119,8 @@ def new_footprint_scheduler() -> ResourceScheduler:
     """A ResourceScheduler configured with footprint_conflict, so filesystem
     footprint claims (e.g. from claims_from_footprints) park/grant correctly
     against overlapping-but-non-identical globs instead of the generic
-    exact-identifier claims_conflict rule ResourceScheduler defaults to."""
+    exact-identifier claims_conflict rule ResourceScheduler defaults to.
+
+    Public API for domain adapters/callers doing filesystem-footprint
+    scheduling; it has no caller inside this package."""
     return ResourceScheduler(conflict_fn=footprint_conflict)

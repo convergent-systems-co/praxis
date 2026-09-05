@@ -159,8 +159,8 @@ exact-identifier match.
   literal prefix of one (everything before its first `*`/`?` wildcard, backed up to the last
   complete path segment) equals, or is a parent/child of, the other's literal prefix. `"*"`,
   `"**"`, and `"."` each resolve to the empty/root prefix and so overlap everything. This mirrors
-  the conservative directory-prefix rule `develop`'s own footprint scheduler uses (see
-  `literal_prefix`/`prefixes_conflict` in `~/.claude/skills/develop/runtime/schedule.py`).
+  the conservative directory-prefix rule used by this repository's own development-automation
+  footprint scheduler.
 - `def claims_from_footprints(node_id_to_globs: dict[str, list[str]], access_mode: str = "write") -> dict[str, list[ResourceClaim]]`:
   bulk-builds a `plan_claims`-shaped mapping of filesystem claims from a footprint mapping.
 - `def footprint_conflict(a: ResourceClaim, b: ResourceClaim) -> bool`: the glob-aware analogue of

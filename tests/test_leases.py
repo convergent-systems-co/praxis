@@ -230,3 +230,52 @@ def test_concurrent_acquire_is_mutually_exclusive_even_with_slow_read(
     thread.join(timeout=2.0)
     assert isinstance(results.get("owner-a"), Lease)
     assert results["owner-a"].owner == "owner-a"
+
+
+def test_concurrent_acquire_is_mutually_exclusive_across_overlapping_identifiers(
+    tmp_path: Path,
+):
+    # A workspace-wide fallback claim (identifier="*") conflicts with every
+    # other identifier of the same resource_type. If acquire's overlap scan
+    # (active_writer_leases) is not serialized by a lock shared across all
+    # identifiers of a resource_type -- not just the exact identifier being
+    # acquired -- two acquires on differently-identified-but-overlapping
+    # claims can each read "no conflicting lease yet" before either has
+    # saved, and both would be granted.
+    store = LeaseStore(tmp_path)
+    original_scan = store.active_writer_leases
+    started = threading.Event()
+    slowed = threading.Event()
+
+    def slow_scan(resource_type: str, now: float):
+        result = original_scan(resource_type, now)
+        if not slowed.is_set():
+            slowed.set()
+            started.set()
+            time.sleep(0.2)
+        return result
+
+    store.active_writer_leases = slow_scan
+
+    results: dict[str, object] = {}
+    errors: dict[str, Exception] = {}
+
+    def acquire_fallback() -> None:
+        results["fallback"] = acquire(store, "gpu", "*", "owner-a", now=0.0, ttl=10.0)
+
+    thread = threading.Thread(target=acquire_fallback)
+    thread.start()
+    assert started.wait(timeout=2.0), "owner-a's acquire never reached its overlap scan"
+
+    try:
+        results["specific"] = acquire(store, "gpu", "gpu-1", "owner-b", now=0.0, ttl=10.0)
+    except LeaseError as exc:
+        errors["specific"] = exc
+
+    thread.join(timeout=2.0)
+
+    assert isinstance(results.get("fallback"), Lease)
+    assert "specific" in errors, (
+        "owner-b's acquire on a different-but-overlapping identifier raced past "
+        "owner-a's in-flight fallback acquire instead of being blocked by it"
+    )

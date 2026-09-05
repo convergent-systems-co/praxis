@@ -134,14 +134,14 @@ run_id: run-20260905T160000Z-illustrative-only
 repo: example-org/example-repo
 started_at: 2026-09-05T16:00:03Z
 ended_at: 2026-09-05T16:04:47Z
-status: bundle_merged
+status: complete
 ---
 
 # Real-run report: Simple bug fix (run-20260905T160000Z-illustrative-only)
 
 ## Outcome
 
-The run reached `bundle_merged` with a single task, no repair cycles, and no
+The run reached `status: complete` with a single task, no repair cycles, and no
 human interrupts, matching scenario `01-simple-bug-fix`'s success criteria.
 A PR was created and merged for the one-line pagination fix described in the
 scenario's representative trigger.

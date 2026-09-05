@@ -5,8 +5,9 @@ Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`
 
 This document describes `src/praxis_runtime/` — the generic graph, run-state, event, checkpoint,
 and transition engine. It covers each module's purpose, its public interface, the atomicity/
-append-only guarantees the implementation provides, and how the still-unbuilt issues #5
-(matching), #6 (evidence grading), and #7 (resource scheduling) are expected to depend on it.
+append-only guarantees the implementation provides, and how issue #5 (matching, implemented in
+`src/praxis_executors/`; see [`docs/executors.md`](executors.md)) and the still-unbuilt #6
+(evidence grading) and #7 (resource scheduling) are expected to depend on it.
 
 ## `praxis_runtime.graph`
 
@@ -159,6 +160,8 @@ scripted decision.
 - **#5 (matching)** builds on top of `Graph`'s node `metadata`/`kind` vocabulary and
   `TransitionEngine` — a matching algorithm reads `Requirement`/`Capability` shapes out of node
   `metadata` and decides what an executor may run, but does not need a new core interface here.
+  Implemented in `src/praxis_executors/`; see [`docs/executors.md`](executors.md), which
+  confirms no change was needed here.
 - **#6 (evidence grading)** builds on top of `TransitionEngine.apply`'s existing evidence-key
   presence check (`_check_evidence`) and `RunState`/`Event` shapes — grading *how good* a piece
   of evidence is extends the `evidence_requirement` vocabulary already read from node

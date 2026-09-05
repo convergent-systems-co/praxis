@@ -16,8 +16,11 @@ below).
 ## Why relative, not absolute
 
 `develop` v4's own baseline sample size is currently one captured run
-(`benchmark/runs/run-20260905T153704Z-praxis-bootstrap/`, see T13), covering the
-`02-feature-implementation.md` / `03-multi-file-change.md` scenarios only. A single sample cannot
+(`benchmark/runs/run-20260905T153704Z-praxis-bootstrap/`, see T13), and it supplies a usable
+baseline sample for the `02-feature-implementation.md` scenario only — it is the closest available
+candidate for `03-multi-file-change.md` but, per T13's own report and
+[`baseline-report.md`](baseline-report.md), provides no genuine evidence for that scenario's
+defining property (see "No threshold assignable yet" below). A single sample cannot
 support a statistically meaningful absolute threshold (e.g. "must complete in under 40 minutes")
 — it can only support a comparison against that one recorded value, and even that comparison must
 be read as provisional until more samples exist. Expressing every gate relative to "the baseline
@@ -43,11 +46,20 @@ variance estimate possible (see "No threshold assignable yet" below).
 
 ## No threshold assignable yet
 
-Per the scope decision above, only the scenarios T13 actually captured have a baseline sample to
-compare against today: `02-feature-implementation.md` (feature implementation) and
-`03-multi-file-change.md` (multi-file change). For every other corpus scenario —
-`01-simple-bug-fix.md`, `04-security-remediation.md`, `05-iac-change.md`,
-`06-dependency-upgrade.md`, `07-ambiguous-recovery.md`, and `08-repair-heavy.md`, every candidate
+Per the scope decision above, T13's captured run touches only one scenario closely enough to
+supply a usable baseline sample today: `02-feature-implementation.md` (feature implementation).
+Although the same run is the closest available candidate for `03-multi-file-change.md`, T13's own
+report ([`../runs/run-20260905T153704Z-praxis-bootstrap/report.md`](../runs/run-20260905T153704Z-praxis-bootstrap/report.md),
+"Scenario mapping and deviation") and [`baseline-report.md`](baseline-report.md) both state it
+provides **no genuine evidence** for that scenario's defining property (an overlapping footprint
+forcing serialization — zero observed `schedule.py conflicts` pairs, zero `FOOTPRINT_VIOLATION`s).
+A baseline sample that does not exercise a scenario's defining property cannot support a relative
+threshold for it. `03-multi-file-change.md` is therefore grouped with the uncaptured scenarios
+below, not with `02-feature-implementation.md`.
+
+For every corpus scenario without a usable baseline sample — `01-simple-bug-fix.md`,
+`03-multi-file-change.md`, `04-security-remediation.md`, `05-iac-change.md`,
+`06-dependency-upgrade.md`, `07-ambiguous-recovery.md`, and `08-repair-heavy.md` — every candidate
 gate metric in the table above is governed by this rule: **no threshold assignable until a baseline sample exists for that scenario**. Do not invent a placeholder number for them.
 As new baseline samples are captured under `benchmark/runs/` (see
 [`../runs/README.md`](../runs/README.md)), this file is revised forward (see Immutability below)

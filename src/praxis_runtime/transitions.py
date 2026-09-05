@@ -233,6 +233,13 @@ class TransitionEngine:
         if self._resource_lease_store is None:
             return None
 
+        is_terminal = new_status in _TERMINAL_STATUSES
+        if event_type != "start" and not is_terminal:
+            # block/handoff/interrupt/resume/accept never consult resource
+            # claims, so the (potentially expensive, schema-validating)
+            # parse below is skipped for them rather than run and discarded.
+            return None
+
         document = node.metadata.get("resource_claims")
         declared_claims = claims.parse_claims(document) if document else []
 
@@ -241,7 +248,7 @@ class TransitionEngine:
                 return None
             return self._acquire_resource_claims(node, declared_claims)
 
-        if new_status in _TERMINAL_STATUSES:
+        if is_terminal:
             observed_document = node.metadata.get("observed_resources")
             if observed_document:
                 self._authorize_observed_resources(
@@ -338,11 +345,33 @@ class TransitionEngine:
         for requested in observed_claims:
             active_claims = self._active_foreign_claims(node.id, requested)
             try:
-                policy.authorize_access(
+                granted = policy.authorize_access(
                     declared_claims, requested, self._resource_policy, active_claims
                 )
             except policy.UndeclaredResourceError as exc:
                 raise TransitionError(str(exc)) from exc
+
+            if granted is requested:
+                # authorize_access granted this dynamically (it was not
+                # covered by a declared claim): record the grant as a real
+                # lease so a concurrent scheduler's own authorization check
+                # -- which consults the lease store via
+                # _active_foreign_claims, not this call's in-memory
+                # active_claims snapshot -- can see it. Discarding the
+                # granted claim here would let two nodes each pass the
+                # conflict check without either ever registering the
+                # resource as held.
+                try:
+                    leases.acquire(
+                        self._resource_lease_store,
+                        requested.resource_type,
+                        requested.identifier,
+                        owner=node.id,
+                        now=time.time(),
+                        ttl=self._resource_ttl,
+                    )
+                except leases.LeaseError as exc:
+                    raise TransitionError(str(exc)) from exc
 
     def _active_foreign_claims(
         self, node_id: str, requested: claims.ResourceClaim

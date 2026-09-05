@@ -20,10 +20,12 @@ from pathlib import Path
 import pytest
 
 from conftest import _linear_graph
+from praxis_runtime import transitions
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.resources import leases
 from praxis_runtime.resources.leases import LeaseStore
+from praxis_runtime.resources.policy import ResourceAccessPolicy
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
@@ -190,6 +192,69 @@ def test_evidence_rejection_does_not_release_lease_before_raising(tmp_path: Path
     assert lease is not None
     assert lease.status == "active"
     assert lease.owner == "n1"
+
+
+def test_dynamic_grant_of_observed_resource_is_recorded_and_blocks_concurrent_grant(
+    tmp_path: Path,
+):
+    lease_dir = tmp_path / "leases"
+
+    graph_one = _single_node_graph("n1", None)
+    graph_one.nodes["n1"].metadata["observed_resources"] = OBSERVED_UNDECLARED_WRITE
+    engine_one = TransitionEngine(
+        graph_one,
+        RunStateStore(tmp_path / "run-one.json"),
+        EventLog(tmp_path / "events-one"),
+        resource_lease_store=LeaseStore(lease_dir),
+        resource_policy=ResourceAccessPolicy.DYNAMIC,
+    )
+    engine_one.apply("n1", "start")
+    engine_one.apply("n1", "complete")
+
+    # A second, independent scheduler observing the same undeclared resource
+    # must see n1's dynamic grant recorded in the shared lease store and
+    # refuse to also dynamically grant it -- discarding the granted claim
+    # instead of acquiring a lease for it would let both nodes pass the
+    # conflict check and neither would ever register the resource as held.
+    graph_two = _single_node_graph("n2", None)
+    graph_two.nodes["n2"].metadata["observed_resources"] = OBSERVED_UNDECLARED_WRITE
+    engine_two = TransitionEngine(
+        graph_two,
+        RunStateStore(tmp_path / "run-two.json"),
+        EventLog(tmp_path / "events-two"),
+        resource_lease_store=LeaseStore(lease_dir),
+        resource_policy=ResourceAccessPolicy.DYNAMIC,
+    )
+    engine_two.apply("n2", "start")
+
+    with pytest.raises(TransitionError):
+        engine_two.apply("n2", "complete")
+
+
+def test_block_transition_does_not_parse_resource_claims_document(
+    tmp_path: Path, monkeypatch
+):
+    graph = _single_node_graph("n1", FILESYSTEM_WRITE_CLAIM)
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(tmp_path / "leases"),
+    )
+    engine.apply("n1", "start")
+
+    original_parse_claims = transitions.claims.parse_claims
+    calls = []
+
+    def spy(document):
+        calls.append(document)
+        return original_parse_claims(document)
+
+    monkeypatch.setattr(transitions.claims, "parse_claims", spy)
+
+    engine.apply("n1", "block")
+
+    assert calls == []
 
 
 def test_settle_detects_lease_moved_to_new_generation_since_acquire(tmp_path: Path):

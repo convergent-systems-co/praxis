@@ -97,10 +97,10 @@ did not declare in its `resource_claims` metadata up front.
     `UndeclaredResourceError`.
 
 `ResourceAccessPolicy` is also accepted as the `resource_policy` constructor parameter on
-`TransitionEngine` (default `STRICT`), but as landed, `TransitionEngine`'s gating (see below)
-only acquires/releases leases for *declared* claims — it does not itself call `authorize_access`
-to check for undeclared access. `authorize_access` is exercised directly by callers/tests that
-need undeclared-access enforcement today.
+`TransitionEngine` (default `STRICT`). `TransitionEngine`'s gating (see below) acquires/releases
+leases for a node's *declared* claims directly, and additionally calls `authorize_access` for each
+of the node's *observed* (`observed_resources`) claims immediately before a terminal transition
+commits — see "Wiring into `TransitionEngine`" below.
 
 ## `praxis_runtime.resources.scheduler`
 
@@ -168,10 +168,17 @@ checkpoint:
   identifier is already held by a live lease), every lease already acquired in this same call is
   released and the whole transition raises `TransitionError` fail-closed — no partial set of
   leases is left held.
-- On a transition to a terminal status (`complete`/`fail`), the engine revalidates then releases
-  each declared claim's lease (`leases.revalidate` followed by `leases.release`), raising
-  `TransitionError` if no lease exists or revalidation fails (e.g. the lease expired and was
-  reacquired by another owner in the meantime).
+- On a transition to a terminal status (`complete`/`fail`), the engine first checks any
+  `observed_resources` document against the node's declared claims via `policy.authorize_access`
+  (using `self._resource_policy` and the current lease store's foreign active claims as
+  `active_claims`), raising `TransitionError` on `UndeclaredResourceError`. If `authorize_access`
+  grants an observed claim dynamically (i.e. it was not covered by a declared claim — only
+  possible under `DYNAMIC`), the engine immediately calls `leases.acquire` for it so the grant is
+  recorded in the lease store, rather than discarded, closing the gap where a second, concurrent
+  scheduler's own `authorize_access` check would otherwise never see it. The engine then
+  revalidates and releases each *declared* claim's lease (`leases.revalidate` followed by
+  `leases.release`), raising `TransitionError` if no lease exists or revalidation fails (e.g. the
+  lease expired and was reacquired by another owner in the meantime).
 - A node with no `resource_claims` metadata, or a `TransitionEngine` with no
   `resource_lease_store` configured, is untouched by any of this — existing callers that never
   pass `resource_lease_store` see no behavior change.
@@ -180,11 +187,13 @@ This mirrors the fail-closed pattern `TransitionEngine` already uses for evidenc
 gate is checked synchronously inside `apply`, before the event is appended or the checkpoint is
 saved, so a rejected transition can never leave a torn or partially-acquired state.
 
-## Deterministic parking/retry scheduler (`ResourceScheduler`) and undeclared-access policy today
+## Deterministic parking/retry scheduler (`ResourceScheduler`)
 
-`ResourceScheduler` and `policy.authorize_access` are provided as building blocks with their own
-unit and cross-cutting acceptance tests, but as landed neither is invoked from inside
-`TransitionEngine.apply`: `TransitionEngine`'s own gating (above) is lease-acquisition-based, not
-scheduler-based, and only ever acts on a node's *declared* claims. A caller that needs FIFO
-parking/retry semantics, or undeclared-access enforcement against a node's declared claims, calls
+`ResourceScheduler` is provided as a building block with its own unit and cross-cutting acceptance
+tests, but as landed it is not invoked from inside `TransitionEngine.apply`: `TransitionEngine`'s
+own gating (above) is lease-acquisition-based, not scheduler-based. `policy.authorize_access`, by
+contrast, *is* invoked from inside `TransitionEngine.apply` (see "Wiring into `TransitionEngine`"
+above) to check a node's `observed_resources` against its declared claims before a terminal
+transition commits. A caller that needs FIFO parking/retry semantics, or that needs to check
+undeclared-access enforcement outside of a `TransitionEngine`-managed transition, calls
 `ResourceScheduler`/`authorize_access` directly.

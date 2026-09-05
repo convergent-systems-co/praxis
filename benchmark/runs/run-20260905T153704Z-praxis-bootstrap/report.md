@@ -181,9 +181,10 @@ under `replay.events`): `~/.ai/metrics/develop/convergent-systems-co-praxis-2026
   `RESULT_JSON`'s `cost_usd` field (see Metrics table); token counts
   specifically are not observed anywhere in this run's artifacts.
 - `develop_version` citation (`v4`, 2026-09-03, source: changelog): recorded
-  from the `develop` skill's changelog by an earlier task in this bundle;
-  this repair pass could not independently re-verify it, since
-  `~/.claude/skills/develop` and `~/.ai/skills/develop` sit outside this
-  benchmark repo's allowed working directories in this sandbox. Treat as
-  sourced-but-unconfirmed until a task with skill-directory access re-checks
-  it against the changelog directly.
+  from the `develop` skill's changelog by an earlier task in this bundle, and
+  since confirmed correct by a task with skill-directory access: neither
+  `~/.claude/skills/develop` nor its mirror `~/.ai/skills/develop` contains a
+  `.git` directory, so the preferred git-commit-SHA citation method is
+  genuinely unavailable and the changelog fallback is the correct method;
+  both locations' `CHANGELOG.md` top entry reads exactly `v4 (2026-09-03,
+  cleanup mode added the same day)`, matching this report's front matter.

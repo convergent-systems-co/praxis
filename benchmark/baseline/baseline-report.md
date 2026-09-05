@@ -7,7 +7,7 @@ This is the baseline report required by issue [#3](https://github.com/convergent
 **`develop` v4, changelog entry dated 2026-09-03** ("cleanup mode added the same day"), **source: `CHANGELOG.md`** (fallback method — see below), as recorded by task T13's captured run
 ([`benchmark/runs/run-20260905T153704Z-praxis-bootstrap/report.md`](../runs/run-20260905T153704Z-praxis-bootstrap/report.md) front matter: `develop_version: v4 (2026-09-03, cleanup mode added the same day)`, `develop_version_source: changelog`).
 
-Per [`benchmark/report-format/real-run-report-format.md`](../report-format/real-run-report-format.md)'s citation rule, the preferred method is the git commit SHA of `~/.claude/skills/develop` if that directory is a git checkout, falling back to `CHANGELOG.md`'s latest entry otherwise. This task, like T13 before it, does not have filesystem access to `~/.claude/skills/develop` or its mirror `~/.ai/skills/develop` from within this sandbox (both sit outside this benchmark repo's allowed working directories), so it cannot independently re-run `git -C ~/.claude/skills/develop rev-parse HEAD` to confirm whether a git-commit citation is even available. The changelog-sourced citation above is therefore carried forward as **sourced-but-unconfirmed**, exactly as T13's own Gaps section flags it. A future task with access to the skill's install directory should re-verify which citation method (`git-commit` vs. `changelog`) is actually available and correct this citation forward under the immutability policy below — never in place.
+Per [`benchmark/report-format/real-run-report-format.md`](../report-format/real-run-report-format.md)'s citation rule, the preferred method is the git commit SHA of `~/.claude/skills/develop` if that directory is a git checkout, falling back to `CHANGELOG.md`'s latest entry otherwise. This has since been confirmed by a task with filesystem access to the skill's install directory: neither `~/.claude/skills/develop` nor its mirror `~/.ai/skills/develop` contains a `.git` directory, so the git-commit citation method is genuinely unavailable and the changelog fallback is the correct method to use. Both locations' `CHANGELOG.md` top entry reads exactly `v4 (2026-09-03, cleanup mode added the same day)`, matching the citation above. The citation is therefore **confirmed correct**, not sourced-but-unconfirmed.
 
 ## Corpus coverage and capture status
 
@@ -51,7 +51,6 @@ Consistent with this, the acceptance criterion "state/event fixtures are machine
 This file, once merged to the default branch, is **frozen**. It is not edited in place for any reason, including:
 
 - capturing more corpus scenarios beyond the one sample above,
-- the `develop` version under test changing,
-- correcting the version citation once a future task confirms `git-commit` vs. `changelog` sourcing (see above).
+- the `develop` version under test changing.
 
 Superseding this report requires a new, dated file (e.g. `baseline-report-v2.md` or `baseline-report-2026-1x-xx.md`) that carries the update, plus an explicit forward-pointing note added to this file once that successor exists. This mirrors the same policy already stated for [`benchmark/runs/README.md`](../runs/README.md)'s captured-run reports and for [`acceptance-thresholds.md`](acceptance-thresholds.md).

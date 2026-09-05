@@ -52,7 +52,7 @@ class _ReplayEngine(TransitionEngine):
     appended.
     """
 
-    def _check_evidence(self, node: Node, evidence: dict | None) -> None:
+    def _check_evidence(self, node: Node, evidence: list[dict] | None) -> None:
         return None
 
     def _validate_against_log(self, state: RunState, events: list[Event]) -> None:

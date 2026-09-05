@@ -16,11 +16,72 @@ from pathlib import Path
 import pytest
 
 from conftest import _linear_graph
+from praxis_evidence.graders import GraderRegistry
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import GradeResult, ProofRecord, proof_record_to_document
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.replay import replay
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
+
+_GRAPH_VERSION = "1.0.0"
+
+
+class _PassthroughGrader:
+    """Mirrors the record's own submitted status -- a stand-in deterministic
+    grader for wiring tests that don't exercise the grading algorithm itself
+    (that's T4's evaluate_gate unit tests); these tests only prove
+    TransitionEngine wires evidence through to it."""
+
+    def grade(self, record: ProofRecord) -> GradeResult:
+        return GradeResult(
+            proof_type=record.proof_type,
+            status=record.status,
+            confidence=record.confidence,
+            grader_kind="deterministic",
+            advisory=False,
+        )
+
+
+class _FixedGrader:
+    """Always returns the same verdict, ignoring the record's submitted
+    status -- used to prove grading (not the caller's claim) decides the
+    outcome, and that a join re-derives a source's gate result fresh rather
+    than trusting that the source already reached TERMINAL_SUCCESS."""
+
+    def __init__(self, status: str) -> None:
+        self._status = status
+
+    def grade(self, record: ProofRecord) -> GradeResult:
+        return GradeResult(
+            proof_type=record.proof_type,
+            status=self._status,
+            confidence=record.confidence,
+            grader_kind="deterministic",
+            advisory=False,
+        )
+
+
+def _proof_record(
+    proof_type: str, status: str, *, node_id: str = "n1", graph_version: str = _GRAPH_VERSION
+) -> dict:
+    record = build_proof_record(
+        run_id="run-1",
+        graph_version=graph_version,
+        node_id=node_id,
+        proof_type=proof_type,
+        executor_id="executor-1",
+        grader_kind="deterministic",
+        status=status,
+    )
+    return proof_record_to_document(record)
+
+
+def _signoff_registry() -> GraderRegistry:
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    return registry
 
 
 def _fan_out_join_graph() -> Graph:
@@ -31,6 +92,48 @@ def _fan_out_join_graph() -> Graph:
             "a": Node(id="a", kind="task"),
             "b": Node(id="b", kind="task"),
             "end": Node(id="end", kind="task"),
+        },
+        edges=[
+            Edge(source="start", target="a", kind="fan-out"),
+            Edge(source="start", target="b", kind="fan-out"),
+            Edge(source="a", target="end", kind="join"),
+            Edge(source="b", target="end", kind="join"),
+        ],
+        entry_node="start",
+        terminal_nodes={"end"},
+    )
+
+
+def _fan_out_join_graph_with_upstream_gate() -> Graph:
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            "start": Node(id="start", kind="task"),
+            "a": Node(
+                id="a",
+                kind="task",
+                metadata={
+                    "evidence_requirement": {
+                        "spec_version": "1.0.0",
+                        "evidence": [
+                            {"proof_type": "signoff", "constraint": "required"},
+                        ],
+                    }
+                },
+            ),
+            "b": Node(id="b", kind="task"),
+            "end": Node(
+                id="end",
+                kind="task",
+                metadata={
+                    "evidence_requirement": {
+                        "spec_version": "1.0.0",
+                        "evidence": [
+                            {"proof_type": "review", "constraint": "required"},
+                        ],
+                    }
+                },
+            ),
         },
         edges=[
             Edge(source="start", target="a", kind="fan-out"),
@@ -125,17 +228,19 @@ def test_evidence_required_missing_or_wrong_key_raises(tmp_path: Path):
     graph = _gated_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    engine = TransitionEngine(graph, store, log, grader_registry=_signoff_registry())
     engine.apply("n1", "start")
 
     with pytest.raises(TransitionError):
         engine.apply("n1", "complete", evidence=None)
 
     with pytest.raises(TransitionError):
-        engine.apply("n1", "complete", evidence={})
+        engine.apply("n1", "complete", evidence=[])
 
     with pytest.raises(TransitionError):
-        engine.apply("n1", "complete", evidence={"unrelated-key": True})
+        # a proof record submitted for the wrong proof_type -- "signoff" is
+        # still missing from the requirement's point of view.
+        engine.apply("n1", "complete", evidence=[_proof_record("unrelated-proof-type", "pass")])
 
     state = store.load()
     assert state.cursors["n1"].status == NodeStatus.RUNNING.value
@@ -146,12 +251,89 @@ def test_evidence_required_present_allows_transition(tmp_path: Path):
     graph = _gated_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    engine = TransitionEngine(graph, store, log, grader_registry=_signoff_registry())
     engine.apply("n1", "start")
 
-    state = engine.apply("n1", "complete", evidence={"signoff": {"approved": True}})
+    state = engine.apply("n1", "complete", evidence=[_proof_record("signoff", "pass")])
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value
+
+
+def test_evidence_false_success_rejected_by_deterministic_grader(tmp_path: Path):
+    graph = _gated_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _FixedGrader("fail"))
+    engine = TransitionEngine(graph, store, log, grader_registry=registry)
+    engine.apply("n1", "start")
+
+    # The caller claims success, but the registered deterministic grader
+    # grades the submitted record as "fail" -- grading is authoritative over
+    # the caller's claim, not the submitted record's own status field.
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete", evidence=[_proof_record("signoff", "pass")])
+
+    state = store.load()
+    assert state.cursors["n1"].status == NodeStatus.RUNNING.value
+    assert len(log.read_all()) == 1
+
+
+def test_evidence_stale_proof_record_graph_version_mismatch_blocks(tmp_path: Path):
+    graph = _gated_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=_signoff_registry())
+    engine.apply("n1", "start")
+
+    stale = _proof_record("signoff", "pass", graph_version="0.0.1")
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "complete", evidence=[stale])
+
+    state = store.load()
+    assert state.cursors["n1"].status == NodeStatus.RUNNING.value
+    assert len(log.read_all()) == 1
+
+
+def test_join_blocks_when_upstream_branch_gate_result_is_unsatisfied(tmp_path: Path):
+    graph = _fan_out_join_graph_with_upstream_gate()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    registry.register("review", "deterministic", _PassthroughGrader())
+    engine = TransitionEngine(graph, store, log, grader_registry=registry)
+
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+
+    engine.apply("a", "start")
+    engine.apply("a", "complete", evidence=[_proof_record("signoff", "pass", node_id="a")])
+
+    engine.apply("b", "start")
+    engine.apply("b", "complete")
+
+    # The upstream branch "a" legitimately satisfied its own gate when it
+    # completed. Now its grader starts grading "signoff" as a failure -- the
+    # join must re-derive "a"'s gate result fresh from its stored evidence
+    # and current registry state, not trust that "a" already reached
+    # TERMINAL_SUCCESS.
+    registry.register("signoff", "deterministic", _FixedGrader("fail"))
+
+    engine.apply("end", "start")
+
+    with pytest.raises(TransitionError) as excinfo:
+        # "end"'s own direct evidence (a "review" proof) is satisfied, but
+        # the aggregated upstream branch result must still block the join.
+        engine.apply("end", "complete", evidence=[_proof_record("review", "pass", node_id="end")])
+    # a plain (non-contradictory) failing grade must still carry a non-empty
+    # reason -- a straightforward grading failure should never surface as an
+    # empty TransitionError message.
+    assert "signoff" in str(excinfo.value)
+
+    state = store.load()
+    assert state.cursors["end"].status == NodeStatus.RUNNING.value
 
 
 def test_fan_out_creates_a_cursor_for_every_target(tmp_path: Path):

@@ -47,7 +47,9 @@ def evaluate_gate(
       same `proof_type`, yields more than one distinct `status`, that is
       contradictory -- a `"contradictory: <proof_type>"` reason is added and
       the `proof_type` is treated as unsatisfied regardless of any
-      individual passing record.
+      individual passing record. A single (non-contradictory) authoritative
+      grade whose status is anything other than `"pass"` is unsatisfied with
+      reason `"failed: <proof_type> (status=<status>)"`.
     - If the requirement item sets `min_confidence` and the authoritative
       grade's confidence is present and below it, the `proof_type` is
       unsatisfied with reason `"below min_confidence: <proof_type>"`. When
@@ -168,6 +170,8 @@ def _evaluate_item(
         status = statuses.pop() if statuses else None
         satisfied = status == "pass"
         confidence = _min_confidence(grades)
+        if not satisfied:
+            reasons.append(f"failed: {proof_type} (status={status!r})")
 
     pass_exists = any(grade.status == "pass" for grade in grades)
 

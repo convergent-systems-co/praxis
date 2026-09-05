@@ -15,6 +15,9 @@ import uuid
 from pathlib import Path
 
 from conftest import _linear_graph
+from praxis_evidence.graders import GraderRegistry
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import GradeResult, ProofRecord, proof_record_to_document
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay, resume
@@ -22,6 +25,21 @@ from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 _SPEC_VERSION = "1.0.0"
+
+
+class _PassthroughGrader:
+    """Mirrors the record's own submitted status -- a stand-in deterministic
+    grader; this suite tests replay/resume wiring, not grading algorithm
+    details (that's T4's evaluate_gate unit tests)."""
+
+    def grade(self, record: ProofRecord) -> GradeResult:
+        return GradeResult(
+            proof_type=record.proof_type,
+            status=record.status,
+            confidence=record.confidence,
+            grader_kind="deterministic",
+            advisory=False,
+        )
 
 
 def _evidence_gated_graph() -> Graph:
@@ -97,10 +115,25 @@ def test_replay_reconstructs_state_for_node_with_evidence_requirement(tmp_path: 
     graph = _evidence_gated_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    engine = TransitionEngine(graph, store, log, grader_registry=registry)
 
     engine.apply("n1", "start")
-    final_state = engine.apply("n1", "complete", evidence={"signoff": {"approved": True}})
+    evidence = [
+        proof_record_to_document(
+            build_proof_record(
+                run_id=engine.current_state().run_id,
+                graph_version=graph.spec_version,
+                node_id="n1",
+                proof_type="signoff",
+                executor_id="executor-1",
+                grader_kind="deterministic",
+                status="pass",
+            )
+        )
+    ]
+    final_state = engine.apply("n1", "complete", evidence=evidence)
 
     replayed_state = replay(log, graph)
 

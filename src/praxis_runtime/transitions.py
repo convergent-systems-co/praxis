@@ -10,9 +10,16 @@ TERMINAL_SUCCESS is committed, to decide which successor cursors to create
 next. Fan-out edges each create an independent successor cursor as soon as
 their source completes; join edges only create their shared successor
 cursor once every incoming edge's source has reported TERMINAL_SUCCESS.
-Evidence supplied to apply() is persisted onto the committed Event's payload
-under the "evidence" key, giving a durable audit trail of what evidence
-satisfied a gate. apply() holds an exclusive flock on a sidecar file next
+Evidence supplied to apply() -- a list of raw proof-record documents -- is
+persisted onto the committed Event's payload under the "evidence" key,
+giving a durable audit trail of what evidence satisfied a gate. A node's own
+evidence_requirement (if any) is graded via praxis_evidence.gates.evaluate_gate;
+for a node reached via one or more join edges, each incoming source's own
+gate result is re-derived from that source's stored evidence and its own
+requirement, then combined with this node's own result via
+praxis_evidence.aggregate.aggregate_gate_results, so a join can never advance
+past an upstream branch whose gate is unsatisfied even if that branch already
+reached TERMINAL_SUCCESS. apply() holds an exclusive flock on a sidecar file next
 to the run-state checkpoint for the duration of its read-check-append-save
 sequence, so two TransitionEngine instances (same process or different
 processes) pointed at the same checkpoint serialize their applies instead
@@ -28,6 +35,10 @@ import fcntl
 import uuid
 from pathlib import Path
 
+import praxis_evidence.graders
+from praxis_evidence.aggregate import aggregate_gate_results
+from praxis_evidence.gates import evaluate_gate
+from praxis_evidence.types import GateResult
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.state import Cursor, RunState, RunStateStore
@@ -70,10 +81,18 @@ class TransitionError(Exception):
 
 
 class TransitionEngine:
-    def __init__(self, graph: Graph, state_store: RunStateStore, event_log: EventLog) -> None:
+    def __init__(
+        self,
+        graph: Graph,
+        state_store: RunStateStore,
+        event_log: EventLog,
+        *,
+        grader_registry: "praxis_evidence.graders.GraderRegistry | None" = None,
+    ) -> None:
         self._graph = graph
         self._state_store = state_store
         self._event_log = event_log
+        self._grader_registry = grader_registry or praxis_evidence.graders.default_registry()
 
     def current_state(self) -> RunState:
         state = self._state_store.load()
@@ -103,7 +122,9 @@ class TransitionEngine:
             return set()
         return set(_TRANSITIONS.get(NodeStatus(cursor.status), {}).keys())
 
-    def apply(self, node_id: str, event_type: str, *, evidence: dict | None = None) -> RunState:
+    def apply(
+        self, node_id: str, event_type: str, *, evidence: list[dict] | None = None
+    ) -> RunState:
         lock_path = self._lock_path()
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         with open(lock_path, "a", encoding="utf-8") as lock_handle:
@@ -118,7 +139,7 @@ class TransitionEngine:
         return state_path.with_name(state_path.name + ".lock")
 
     def _apply_locked(
-        self, node_id: str, event_type: str, *, evidence: dict | None = None
+        self, node_id: str, event_type: str, *, evidence: list[dict] | None = None
     ) -> RunState:
         state = self.current_state()
         cursor = state.cursors.get(node_id)
@@ -181,18 +202,45 @@ class TransitionEngine:
             for edge in incoming
         )
 
-    def _check_evidence(self, node: Node, evidence: dict | None) -> None:
+    def _check_evidence(self, node: Node, evidence: list[dict] | None) -> None:
         requirement = node.metadata.get("evidence_requirement")
         if not requirement:
             return
-        required_keys = [
-            item["proof_type"]
-            for item in requirement.get("evidence", [])
-            if item.get("constraint") == "required"
+
+        result = evaluate_gate(
+            requirement,
+            evidence or [],
+            graph_version=self._graph.spec_version,
+            registry=self._grader_registry,
+        )
+
+        join_sources = [
+            edge.source
+            for edge in self._graph.edges
+            if edge.target == node.id and edge.kind == "join"
         ]
-        provided = evidence or {}
-        missing = [key for key in required_keys if key not in provided]
-        if missing:
-            raise TransitionError(
-                f"node {node.id!r} is missing required evidence: {missing}"
-            )
+        if join_sources:
+            source_results = [self._source_gate_result(source) for source in join_sources]
+            result = aggregate_gate_results(node.id, [*source_results, result])
+
+        if not result.satisfied:
+            raise TransitionError("; ".join(result.reasons))
+
+    def _source_gate_result(self, source_node_id: str) -> GateResult:
+        source_node = self._graph.nodes.get(source_node_id)
+        requirement = source_node.metadata.get("evidence_requirement") if source_node else None
+        if not requirement:
+            return GateResult(node_id=source_node_id, satisfied=True, reasons=(), evaluated=())
+
+        return evaluate_gate(
+            requirement,
+            self._stored_evidence(source_node_id),
+            graph_version=self._graph.spec_version,
+            registry=self._grader_registry,
+        )
+
+    def _stored_evidence(self, node_id: str) -> list[dict]:
+        for event in reversed(self._event_log.read_all()):
+            if event.node_id == node_id and "evidence" in event.payload:
+                return event.payload["evidence"] or []
+        return []

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/lease.schema.json",
+  "title": "Lease",
+  "description": "A time-bounded, heartbeat-renewed hold on a single claimed resource instance, used to detect and reclaim abandoned resource claims.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "resource_type",
+    "identifier",
+    "owner",
+    "epoch",
+    "heartbeat_deadline",
+    "status"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "resource_type": {
+      "type": "string",
+      "description": "Abstract resource category, e.g. 'compute-slot' or 'memory' — illustrative only, not a fixed enum. Must never name a specific vendor or hardware model."
+    },
+    "identifier": {
+      "type": "string",
+      "description": "Opaque identifier for the specific claimed instance of the resource this lease holds."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Opaque identifier of the graph node or executor holding the lease."
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing generation counter, incremented each time the lease is reacquired after expiry."
+    },
+    "heartbeat_deadline": {
+      "type": "number",
+      "description": "Unix epoch seconds by which the next heartbeat must arrive or the lease is considered expired."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "expired", "released"]
+    }
+  },
+  "additionalProperties": false
+}

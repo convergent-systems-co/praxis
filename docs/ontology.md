@@ -86,7 +86,8 @@ At the contract level, a Capability is considered to satisfy a Requirement's Pro
 This ontology defines and validates the *shapes* on both sides of that comparison and the
 string vocabulary they share — it does not specify the matching *algorithm* (how a scheduler
 searches available Capabilities, ranks multiple matches, applies `preferred` vs. `required`
-constraints, or resolves `prohibited` conflicts). That algorithm is issue #5.
+constraints, or resolves `prohibited` conflicts). That algorithm is implemented in
+`src/praxis_executors/matching.py`; see [`docs/executors.md`](executors.md) for its semantics.
 
 ## Schema files
 

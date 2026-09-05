@@ -10,6 +10,8 @@ succeeding.
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -176,3 +178,55 @@ def test_revalidate_fails_for_owner_who_lost_lease_to_expiry(tmp_path: Path):
 
     with pytest.raises(LeaseError):
         revalidate(store, RESOURCE_TYPE, IDENTIFIER, "owner-a", 0, now=10.0)
+
+
+def test_encode_key_does_not_collide_across_differently_split_underscore_pairs(
+    tmp_path: Path,
+):
+    # ("a", "b__c") and ("a__b", "c") must not collide on the same lease
+    # file: the "__" key separator is only unambiguous if literal
+    # underscores inside resource_type/identifier are themselves escaped.
+    store = LeaseStore(tmp_path)
+
+    acquire(store, "a", "b__c", "owner-a", now=0.0, ttl=10.0)
+
+    assert store.load("a", "b__c") is not None
+    assert store.load("a__b", "c") is None
+
+
+def test_concurrent_acquire_is_mutually_exclusive_even_with_slow_read(
+    tmp_path: Path,
+):
+    # Simulate two schedulers racing to acquire the same fresh resource: one
+    # owner's read-then-decide-then-save step is slowed down artificially. If
+    # acquire's load-check-save sequence is not serialized by a lock scoped
+    # to (resource_type, identifier), the second owner's acquire can read the
+    # same "no active lease" state before the first has saved, and both
+    # owners would be granted the lease.
+    store = LeaseStore(tmp_path)
+    original_load = store.load
+    started = threading.Event()
+
+    def slow_load(resource_type: str, identifier: str):
+        result = original_load(resource_type, identifier)
+        started.set()
+        time.sleep(0.2)
+        return result
+
+    store.load = slow_load
+
+    results: dict[str, object] = {}
+
+    def acquire_owner_a() -> None:
+        results["owner-a"] = acquire(store, RESOURCE_TYPE, IDENTIFIER, "owner-a", now=0.0, ttl=10.0)
+
+    thread = threading.Thread(target=acquire_owner_a)
+    thread.start()
+    assert started.wait(timeout=2.0), "owner-a's acquire never reached its read step"
+
+    with pytest.raises(LeaseError):
+        acquire(store, RESOURCE_TYPE, IDENTIFIER, "owner-b", now=0.0, ttl=10.0)
+
+    thread.join(timeout=2.0)
+    assert isinstance(results.get("owner-a"), Lease)
+    assert results["owner-a"].owner == "owner-a"

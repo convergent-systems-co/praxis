@@ -2,9 +2,10 @@
 
 authorize_access checks whether a requested claim is already covered by a
 declared claim (same resource_type/identifier, and the declared claim's
-access_mode permits the requested access_mode: EXCLUSIVE/WRITE declared
-covers WRITE+READ requests, READ declared covers only READ requests) and
-returns that declared claim unchanged if so.
+access_mode permits the requested access_mode: EXCLUSIVE declared covers
+EXCLUSIVE+WRITE+READ requests, WRITE declared covers WRITE+READ requests,
+READ declared covers only READ requests) and returns that declared claim
+unchanged if so.
 
 Otherwise, under ResourceAccessPolicy.STRICT it always raises
 UndeclaredResourceError (undeclared access is a planning defect). Under
@@ -34,7 +35,13 @@ def _covers(declared: ResourceClaim, requested: ResourceClaim) -> bool:
         return False
     if declared.identifier != requested.identifier:
         return False
-    if declared.access_mode in (AccessMode.EXCLUSIVE.value, AccessMode.WRITE.value):
+    if declared.access_mode == AccessMode.EXCLUSIVE.value:
+        return requested.access_mode in (
+            AccessMode.EXCLUSIVE.value,
+            AccessMode.WRITE.value,
+            AccessMode.READ.value,
+        )
+    if declared.access_mode == AccessMode.WRITE.value:
         return requested.access_mode in (AccessMode.WRITE.value, AccessMode.READ.value)
     if declared.access_mode == AccessMode.READ.value:
         return requested.access_mode == AccessMode.READ.value

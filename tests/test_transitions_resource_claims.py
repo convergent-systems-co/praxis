@@ -194,7 +194,7 @@ def test_evidence_rejection_does_not_release_lease_before_raising(tmp_path: Path
     assert lease.owner == "n1"
 
 
-def test_dynamic_grant_of_observed_resource_is_recorded_and_blocks_concurrent_grant(
+def test_dynamic_grant_of_observed_resource_is_released_after_node_terminates(
     tmp_path: Path,
 ):
     lease_dir = tmp_path / "leases"
@@ -211,11 +211,17 @@ def test_dynamic_grant_of_observed_resource_is_recorded_and_blocks_concurrent_gr
     engine_one.apply("n1", "start")
     engine_one.apply("n1", "complete")
 
+    # n1's dynamic grant must be revalidated and released as part of the
+    # same terminal transition that recorded it -- otherwise it leaks a hold
+    # on the resource for up to resource_ttl seconds after n1 has already
+    # terminated.
+    settled = LeaseStore(lease_dir).load(RESOURCE_TYPE, UNDECLARED_IDENTIFIER)
+    assert settled is not None
+    assert settled.status == "released"
+
     # A second, independent scheduler observing the same undeclared resource
-    # must see n1's dynamic grant recorded in the shared lease store and
-    # refuse to also dynamically grant it -- discarding the granted claim
-    # instead of acquiring a lease for it would let both nodes pass the
-    # conflict check and neither would ever register the resource as held.
+    # after n1 has fully released it must be able to dynamically acquire it
+    # too, since the hold has not leaked past n1's own completion.
     graph_two = _single_node_graph("n2", None)
     graph_two.nodes["n2"].metadata["observed_resources"] = OBSERVED_UNDECLARED_WRITE
     engine_two = TransitionEngine(
@@ -226,9 +232,11 @@ def test_dynamic_grant_of_observed_resource_is_recorded_and_blocks_concurrent_gr
         resource_policy=ResourceAccessPolicy.DYNAMIC,
     )
     engine_two.apply("n2", "start")
+    engine_two.apply("n2", "complete")
 
-    with pytest.raises(TransitionError):
-        engine_two.apply("n2", "complete")
+    reacquired = LeaseStore(lease_dir).load(RESOURCE_TYPE, UNDECLARED_IDENTIFIER)
+    assert reacquired.owner == "n2"
+    assert reacquired.status == "released"
 
 
 def test_block_transition_does_not_parse_resource_claims_document(
@@ -292,6 +300,61 @@ def test_settle_detects_lease_moved_to_new_generation_since_acquire(tmp_path: Pa
 
     with pytest.raises(TransitionError):
         engine.apply("n1", "complete")
+
+
+def test_acquire_rollback_failure_is_wrapped_in_transition_error(
+    tmp_path: Path, monkeypatch
+):
+    # Two declared claims: the first acquires fine, the second is already
+    # held by another owner so its acquire fails and the engine must roll
+    # back (release) the first. If that rollback release() itself raises
+    # LeaseError, callers must still see a single TransitionError -- not a
+    # bare LeaseError leaking out of the fail-closed acquire path.
+    second_identifier = "/workspace/second.txt"
+    two_claim_doc = {
+        "spec_version": "1.0.0",
+        "claims": [
+            {
+                "resource_type": RESOURCE_TYPE,
+                "quantity": 1,
+                "identifier": IDENTIFIER,
+                "access_mode": "write",
+            },
+            {
+                "resource_type": RESOURCE_TYPE,
+                "quantity": 1,
+                "identifier": second_identifier,
+                "access_mode": "write",
+            },
+        ],
+    }
+    lease_dir = tmp_path / "leases"
+    # The engine acquires against real wall-clock time internally, so this
+    # pre-held lease must be unexpired relative to time.time(), not 0.0.
+    leases.acquire(
+        LeaseStore(lease_dir),
+        RESOURCE_TYPE,
+        second_identifier,
+        "other-owner",
+        now=time.time(),
+        ttl=3600.0,
+    )
+
+    graph = _single_node_graph("n1", two_claim_doc)
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    def failing_release(*args, **kwargs):
+        raise leases.LeaseError("rollback failure")
+
+    monkeypatch.setattr(transitions.leases, "release", failing_release)
+
+    with pytest.raises(TransitionError):
+        engine.apply("n1", "start")
 
 
 def test_completing_with_undeclared_observed_resource_raises_under_strict_policy(

@@ -84,6 +84,20 @@ def test_undeclared_request_under_dynamic_that_conflicts_with_active_claim_raise
         )
 
 
+def test_declared_exclusive_claim_covers_identical_exclusive_request():
+    declared_claim = _claim("filesystem", "/workspace/output.txt", AccessMode.EXCLUSIVE.value)
+    requested = _claim("filesystem", "/workspace/output.txt", AccessMode.EXCLUSIVE.value)
+
+    result = authorize_access(
+        declared=[declared_claim],
+        requested=requested,
+        policy=ResourceAccessPolicy.STRICT,
+        active_claims=[],
+    )
+
+    assert result == declared_claim
+
+
 @pytest.mark.parametrize("policy", [ResourceAccessPolicy.STRICT, ResourceAccessPolicy.DYNAMIC])
 def test_request_covered_by_declared_claim_is_granted_without_consulting_active_claims(policy):
     declared_claim = _claim("compute-slot", "gpu-0", AccessMode.WRITE.value)

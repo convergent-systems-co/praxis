@@ -280,13 +280,21 @@ class TransitionEngine:
                 acquired.append(lease)
         except leases.LeaseError as exc:
             for lease in acquired:
-                leases.release(
-                    self._resource_lease_store,
-                    lease.resource_type,
-                    lease.identifier,
-                    lease.owner,
-                    lease.epoch,
-                )
+                try:
+                    leases.release(
+                        self._resource_lease_store,
+                        lease.resource_type,
+                        lease.identifier,
+                        lease.owner,
+                        lease.epoch,
+                    )
+                except leases.LeaseError:
+                    # Best-effort rollback: the original acquisition failure
+                    # below is what must be reported. A LeaseError raised
+                    # here would otherwise propagate unwrapped, breaking the
+                    # single-exception-type (TransitionError) contract this
+                    # method's callers rely on.
+                    pass
             raise TransitionError(str(exc)) from exc
 
         return {
@@ -360,15 +368,34 @@ class TransitionEngine:
                 # active_claims snapshot -- can see it. Discarding the
                 # granted claim here would let two nodes each pass the
                 # conflict check without either ever registering the
-                # resource as held.
+                # resource as held. The node is terminating in this same
+                # call, so once that visibility has been recorded the lease
+                # is revalidated and released immediately -- otherwise it
+                # would leak a hold on the resource for up to resource_ttl
+                # seconds after the owning node has already terminated.
                 try:
-                    leases.acquire(
+                    lease = leases.acquire(
                         self._resource_lease_store,
                         requested.resource_type,
                         requested.identifier,
                         owner=node.id,
                         now=time.time(),
                         ttl=self._resource_ttl,
+                    )
+                    leases.revalidate(
+                        self._resource_lease_store,
+                        lease.resource_type,
+                        lease.identifier,
+                        owner=lease.owner,
+                        epoch=lease.epoch,
+                        now=time.time(),
+                    )
+                    leases.release(
+                        self._resource_lease_store,
+                        lease.resource_type,
+                        lease.identifier,
+                        lease.owner,
+                        lease.epoch,
                     )
                 except leases.LeaseError as exc:
                     raise TransitionError(str(exc)) from exc

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from praxis_contracts.validator import validate_document
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
 from praxis_executors.registry import ExecutorRegistry, RegistryError
@@ -25,6 +26,9 @@ from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 _SPEC_VERSION = "1.0.0"
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"
 
 
 def _single_node_graph() -> Graph:
@@ -36,6 +40,7 @@ def _single_node_graph() -> Graph:
                 kind="task",
                 metadata={
                     "evidence_requirement": {
+                        "spec_version": _SPEC_VERSION,
                         "evidence": [
                             {"proof_type": "process-exit-status", "constraint": "required"}
                         ]
@@ -88,6 +93,15 @@ def _code_execution_executor(executor_id: str) -> FakeCapabilityExecutor:
                 evidence={"process-exit-status": True},
             )
         },
+    )
+
+
+def test_evidence_requirement_fixture_validates_against_schema():
+    graph = _single_node_graph()
+
+    validate_document(
+        graph.nodes["n1"].metadata["evidence_requirement"],
+        SCHEMAS_DIR / "evidence-requirement.schema.json",
     )
 
 

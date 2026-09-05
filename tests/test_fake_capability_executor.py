@@ -92,6 +92,20 @@ def test_status_result_cancel_each_raise_executor_error_for_unknown_handle():
         executor.cancel(unknown_handle)
 
 
+def test_cancel_is_a_no_op_for_a_known_handle():
+    executor = _executor(script={"do-thing": ExecutionResult(status=ExecutorStatus.SUCCEEDED)})
+    request = ExecutionRequest(
+        promise={"spec_version": "1.0.0", "kind": "do-thing"},
+        parameters={"request_key": "do-thing"},
+    )
+    handle = executor.launch(request)
+
+    assert executor.cancel(handle) is None
+    # cancel() must not disturb the scripted terminal outcome.
+    assert executor.status(handle) == ExecutorStatus.SUCCEEDED
+    assert executor.result(handle) == ExecutionResult(status=ExecutorStatus.SUCCEEDED)
+
+
 def test_two_launches_with_same_script_return_identical_results():
     scripted_result = ExecutionResult(
         status=ExecutorStatus.SUCCEEDED,

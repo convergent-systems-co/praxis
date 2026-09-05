@@ -34,17 +34,22 @@ def _requirement(*, required=(), preferred=(), prohibited=()) -> dict:
     return {"spec_version": _SPEC_VERSION, "requirements": entries}
 
 
-def _advertisement(executor_id: str, kinds, *, cost: float | None = None) -> dict:
+def _advertisement(
+    executor_id: str, kinds, *, cost: float | None = None, capability_id: str | None = None
+) -> dict:
     satisfies = []
     for kind in kinds:
         entry = {"kind": kind}
         if cost is not None:
             entry["parameters"] = {"cost": cost}
         satisfies.append(entry)
+    capability: dict = {"spec_version": _SPEC_VERSION, "satisfies": satisfies}
+    if capability_id is not None:
+        capability["id"] = capability_id
     return {
         "spec_version": _SPEC_VERSION,
         "executor_id": executor_id,
-        "capabilities": [{"spec_version": _SPEC_VERSION, "satisfies": satisfies}],
+        "capabilities": [capability],
     }
 
 
@@ -139,6 +144,16 @@ def test_is_eligible_excluding_only_candidate_matches_explanation_of_nonexistenc
 
     assert absent.selected is excluded.selected is None
     assert absent.unsatisfied == excluded.unsatisfied
+
+
+def test_selected_candidate_carries_the_matched_capability_id():
+    requirement = _requirement(required=["kind-a"])
+    ads = [_advertisement("executor-1", ["kind-a"], capability_id="cap-executor-1")]
+
+    result = match(requirement, ads)
+
+    assert result.selected is not None
+    assert result.selected.capability_id == "cap-executor-1"
 
 
 def test_cost_parameter_tie_breaks_equally_preferred_candidates_to_lower_cost():

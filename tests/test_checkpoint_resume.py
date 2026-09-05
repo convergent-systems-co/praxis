@@ -14,26 +14,14 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+from conftest import _linear_graph
 from praxis_runtime.events import Event, EventLog
-from praxis_runtime.graph import Edge, Graph, Node
+from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay, resume
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 _SPEC_VERSION = "1.0.0"
-
-
-def _linear_graph() -> Graph:
-    return Graph(
-        spec_version=_SPEC_VERSION,
-        nodes={
-            "n1": Node(id="n1", kind="task"),
-            "n2": Node(id="n2", kind="task"),
-        },
-        edges=[Edge(source="n1", target="n2", kind="sequential")],
-        entry_node="n1",
-        terminal_nodes={"n2"},
-    )
 
 
 def _evidence_gated_graph() -> Graph:

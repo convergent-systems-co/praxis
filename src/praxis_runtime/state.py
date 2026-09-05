@@ -2,19 +2,24 @@
 
 RunStateStore persists a RunState checkpoint to a single file, validating
 against run-state.schema.json before every write, then atomically replacing
-the target file so a crash mid-write can never leave a torn checkpoint.
+the target file so a crash mid-write can never leave a torn checkpoint. On
+load, the stored document is passed through
+praxis_runtime.migrations.migrate_document before being parsed, so a
+checkpoint written by an older schema minor version is upgraded in place.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from praxis_contracts.validator import ContractValidationError, validate_document
+from praxis_runtime.migrations import migrate_document
 
 _SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "v1" / "run-state.schema.json"
+_KIND = "run-state"
 
 
 class RunStateError(Exception):
@@ -66,6 +71,10 @@ class RunStateStore:
         if not self._path.is_file():
             return None
         document = json.loads(self._path.read_text())
+        try:
+            document = migrate_document(document, _KIND)
+        except ContractValidationError as exc:
+            raise RunStateError(str(exc)) from exc
         return _from_document(document)
 
     def save(self, state: RunState) -> None:

@@ -9,11 +9,13 @@ checkpoint: the previous good file stays readable until the replace commits.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 import pytest
 
+from praxis_runtime import migrations
 from praxis_runtime.state import Cursor, RunState, RunStateError, RunStateStore
 
 VALID_STATE = RunState(
@@ -79,6 +81,39 @@ def test_save_interrupted_mid_replace_leaves_last_good_state_intact(
     loaded = store.load()
 
     assert loaded == VALID_STATE
+
+
+def test_load_migrates_document_at_older_schema_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    path = tmp_path / "run-state.json"
+    on_disk_document = {
+        "spec_version": "1.0.0",
+        "run_id": "run-1",
+        "cursors": {"start": {"node_id": "start", "status": "legacy-status"}},
+        "last_applied_seq": 0,
+    }
+    path.write_text(json.dumps(on_disk_document))
+
+    def _rename_legacy_status(doc: dict) -> dict:
+        migrated = {**doc, "spec_version": "1.1.0"}
+        migrated["cursors"] = {
+            node_id: (
+                {**cursor, "status": "pending"}
+                if cursor["status"] == "legacy-status"
+                else cursor
+            )
+            for node_id, cursor in doc["cursors"].items()
+        }
+        return migrated
+
+    monkeypatch.setitem(migrations.MIGRATIONS["run-state"], (0, 1), _rename_legacy_status)
+
+    store = RunStateStore(path)
+    loaded = store.load()
+
+    assert loaded.spec_version == "1.1.0"
+    assert loaded.cursors["start"].status == "pending"
 
 
 def test_save_rejects_schema_invalid_state(tmp_path: Path):

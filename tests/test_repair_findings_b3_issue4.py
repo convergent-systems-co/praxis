@@ -13,6 +13,10 @@ Each test reproduces one finding before its fix and must pass after it:
    once the source completes), so two "sequential" edges from one source
    behave exactly like fan-out, not like an exclusive branch -- the example
    doesn't actually model a decision despite the node's kind/id.
+3. `_linear_graph()` was duplicated nearly identically across
+   `tests/test_transitions.py`, `tests/test_fail_closed_cases.py`,
+   `tests/test_checkpoint_resume.py`, and this file instead of living once in
+   `tests/conftest.py` and being imported everywhere it's needed.
 """
 
 from __future__ import annotations
@@ -21,28 +25,14 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+from conftest import _linear_graph
 from praxis_runtime.events import EventLog
-from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.replay import replay
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import TransitionEngine
 
-_SPEC_VERSION = "1.0.0"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_GRAPH_PATH = REPO_ROOT / "examples" / "sample-graph.json"
-
-
-def _linear_graph() -> Graph:
-    return Graph(
-        spec_version=_SPEC_VERSION,
-        nodes={
-            "n1": Node(id="n1", kind="task"),
-            "n2": Node(id="n2", kind="task"),
-        },
-        edges=[Edge(source="n1", target="n2", kind="sequential")],
-        entry_node="n1",
-        terminal_nodes={"n2"},
-    )
 
 
 def test_replay_closes_its_scratch_event_log(monkeypatch, tmp_path: Path):
@@ -90,3 +80,14 @@ def test_sample_graph_does_not_mislabel_fan_out_as_sequential():
             "completes, so this behaves exactly like fan-out, not an "
             "exclusive branch, despite the label implying otherwise"
         )
+
+
+def test_linear_graph_helper_is_shared_from_conftest():
+    import conftest
+    import test_checkpoint_resume
+    import test_fail_closed_cases
+    import test_transitions
+
+    assert test_transitions._linear_graph is conftest._linear_graph
+    assert test_fail_closed_cases._linear_graph is conftest._linear_graph
+    assert test_checkpoint_resume._linear_graph is conftest._linear_graph

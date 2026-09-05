@@ -13,23 +13,11 @@ from pathlib import Path
 
 import pytest
 
+from conftest import _linear_graph
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
-
-
-def _linear_graph() -> Graph:
-    return Graph(
-        spec_version="1.0.0",
-        nodes={
-            "n1": Node(id="n1", kind="task"),
-            "n2": Node(id="n2", kind="task"),
-        },
-        edges=[Edge(source="n1", target="n2", kind="sequential")],
-        entry_node="n1",
-        terminal_nodes={"n2"},
-    )
 
 
 def _fan_out_join_graph() -> Graph:

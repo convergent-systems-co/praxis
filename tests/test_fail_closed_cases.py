@@ -19,9 +19,10 @@ from pathlib import Path
 
 import pytest
 
+from conftest import _linear_graph
 from praxis_runtime import transitions as transitions_module
 from praxis_runtime.events import EventLog, EventLogError
-from praxis_runtime.graph import Edge, Graph, GraphValidationError, Node, load_graph
+from praxis_runtime.graph import GraphValidationError, load_graph
 from praxis_runtime.state import Cursor, RunState, RunStateError, RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
@@ -45,19 +46,6 @@ def _write_graph(tmp_path: Path, instance: dict) -> Path:
     path = tmp_path / "graph.json"
     path.write_text(json.dumps(instance))
     return path
-
-
-def _linear_graph() -> Graph:
-    return Graph(
-        spec_version="1.0.0",
-        nodes={
-            "n1": Node(id="n1", kind="task"),
-            "n2": Node(id="n2", kind="task"),
-        },
-        edges=[Edge(source="n1", target="n2", kind="sequential")],
-        entry_node="n1",
-        terminal_nodes={"n2"},
-    )
 
 
 # -- Malformed graph: fail closed, no partial Graph object returned --------

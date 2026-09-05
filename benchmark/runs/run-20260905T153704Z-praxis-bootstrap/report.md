@@ -1,5 +1,5 @@
 ---
-scenario: 02-feature-implementation (bundle b1-issue2, close fit — see mapping notes); 03-multi-file-change (bundle b2-issue3, closest available candidate but deviates — see mapping notes)
+scenario: 02-feature-implementation
 develop_version: v4 (2026-09-03, cleanup mode added the same day)
 develop_version_source: changelog
 run_id: run-20260905T153704Z

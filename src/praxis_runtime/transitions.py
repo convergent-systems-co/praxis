@@ -25,11 +25,13 @@ from __future__ import annotations
 
 import enum
 import fcntl
+import time
 import uuid
 from pathlib import Path
 
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
+from praxis_runtime.resources import claims, leases, policy
 from praxis_runtime.state import Cursor, RunState, RunStateStore
 
 _SPEC_VERSION = "1.0.0"
@@ -70,10 +72,22 @@ class TransitionError(Exception):
 
 
 class TransitionEngine:
-    def __init__(self, graph: Graph, state_store: RunStateStore, event_log: EventLog) -> None:
+    def __init__(
+        self,
+        graph: Graph,
+        state_store: RunStateStore,
+        event_log: EventLog,
+        *,
+        resource_lease_store: "leases.LeaseStore | None" = None,
+        resource_policy: "policy.ResourceAccessPolicy" = policy.ResourceAccessPolicy.STRICT,
+        resource_ttl: float = 60.0,
+    ) -> None:
         self._graph = graph
         self._state_store = state_store
         self._event_log = event_log
+        self._resource_lease_store = resource_lease_store
+        self._resource_policy = resource_policy
+        self._resource_ttl = resource_ttl
 
     def current_state(self) -> RunState:
         state = self._state_store.load()
@@ -133,8 +147,11 @@ class TransitionEngine:
                 f"for node {node_id!r}"
             )
 
+        node = self._graph.nodes.get(node_id)
+        if node is not None:
+            self._check_resource_claims(node, event_type, new_status)
+
         if new_status in _TERMINAL_STATUSES:
-            node = self._graph.nodes.get(node_id)
             if node is not None:
                 self._check_evidence(node, evidence)
 
@@ -196,3 +213,76 @@ class TransitionEngine:
             raise TransitionError(
                 f"node {node.id!r} is missing required evidence: {missing}"
             )
+
+    def _check_resource_claims(
+        self, node: Node, event_type: str, new_status: NodeStatus
+    ) -> None:
+        if self._resource_lease_store is None:
+            return
+
+        document = node.metadata.get("resource_claims")
+        if not document:
+            return
+
+        parsed_claims = claims.parse_claims(document)
+        if not parsed_claims:
+            return
+
+        if event_type == "start":
+            self._acquire_resource_claims(node, parsed_claims)
+        elif new_status in _TERMINAL_STATUSES:
+            self._settle_resource_claims(node, parsed_claims)
+
+    def _acquire_resource_claims(
+        self, node: Node, parsed_claims: list[claims.ResourceClaim]
+    ) -> None:
+        acquired: list[leases.Lease] = []
+        try:
+            for claim in parsed_claims:
+                lease = leases.acquire(
+                    self._resource_lease_store,
+                    claim.resource_type,
+                    claim.identifier,
+                    owner=node.id,
+                    now=time.time(),
+                    ttl=self._resource_ttl,
+                )
+                acquired.append(lease)
+        except leases.LeaseError as exc:
+            for lease in acquired:
+                leases.release(
+                    self._resource_lease_store,
+                    lease.resource_type,
+                    lease.identifier,
+                    lease.owner,
+                    lease.epoch,
+                )
+            raise TransitionError(str(exc)) from exc
+
+    def _settle_resource_claims(
+        self, node: Node, parsed_claims: list[claims.ResourceClaim]
+    ) -> None:
+        for claim in parsed_claims:
+            existing = self._resource_lease_store.load(claim.resource_type, claim.identifier)
+            if existing is None:
+                raise TransitionError(
+                    f"no lease exists for ({claim.resource_type!r}, {claim.identifier!r})"
+                )
+            try:
+                leases.revalidate(
+                    self._resource_lease_store,
+                    claim.resource_type,
+                    claim.identifier,
+                    owner=node.id,
+                    epoch=existing.epoch,
+                    now=time.time(),
+                )
+                leases.release(
+                    self._resource_lease_store,
+                    claim.resource_type,
+                    claim.identifier,
+                    node.id,
+                    existing.epoch,
+                )
+            except leases.LeaseError as exc:
+                raise TransitionError(str(exc)) from exc

@@ -35,8 +35,8 @@ execution's outcome — see [Health and availability](#health-and-availability) 
   `parameters: dict` for request-specific configuration (e.g. `SubprocessExecutor`'s
   `command` key).
 - `class ExecutionHandle`: `handle_id: str`, an opaque reference to a single launched execution.
-- `class ExecutionResult`: `status: ExecutorStatus`, an `evidence: dict`, an open `payload: dict`,
-  and an optional `error: str | None`. `evidence` keys must match the `proof_type` vocabulary used
+- `class ExecutionResult`: `status: ExecutorStatus`, an `evidence: dict`, and an open
+  `payload: dict`. `evidence` keys must match the `proof_type` vocabulary used
   by the target node's evidence requirement, so a caller can pass it straight through to
   `TransitionEngine.apply(node_id, event_type, evidence=result.evidence)` (see `docs/runtime.md`).
 - `class ExecutorStatus(enum.Enum)`: `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED` — the

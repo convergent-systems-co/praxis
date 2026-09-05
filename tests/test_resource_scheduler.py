@@ -69,3 +69,16 @@ def test_release_with_no_parked_requests_leaves_pending_empty():
 
     assert granted == []
     assert scheduler.pending() == []
+
+
+def test_custom_conflict_fn_overrides_default_claims_conflict():
+    def always_conflict(a: ResourceClaim, b: ResourceClaim) -> bool:
+        return True
+
+    scheduler = ResourceScheduler(conflict_fn=always_conflict)
+    claim_a = _claim("filesystem", "src/a/file.py", AccessMode.WRITE.value)
+    claim_b = _claim("filesystem", "src/b/file.py", AccessMode.WRITE.value)
+
+    assert scheduler.request("holder", claim_a) is True
+    assert scheduler.request("waiter", claim_b) is False
+    assert scheduler.pending() == [ParkedRequest(node_id="waiter", claim=claim_b)]

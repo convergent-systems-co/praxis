@@ -15,9 +15,12 @@ from __future__ import annotations
 from praxis_runtime.resources.adapters.filesystem import (
     claims_from_footprints,
     filesystem_claim,
+    new_footprint_scheduler,
+    plan_footprint_claims,
     paths_overlap,
 )
 from praxis_runtime.resources.claims import ResourceClaim, claims_conflict
+from praxis_runtime.resources.scheduler import ParkedRequest
 
 
 def test_filesystem_claim_returns_resource_claim_with_expected_fields():
@@ -100,3 +103,25 @@ def test_claims_from_footprints_honors_non_default_access_mode():
     claims = claims_from_footprints({"T2": ["src/a/**"]}, access_mode="read")
 
     assert all(c.access_mode == "read" for c in claims["T2"])
+
+
+def test_plan_footprint_claims_detects_glob_aware_overlap_missed_by_plan_claims():
+    claims = claims_from_footprints(
+        {
+            "T2": ["src/a/**"],
+            "T3": ["src/a/file.py"],
+            "T4": ["src/b/**"],
+        }
+    )
+
+    assert plan_footprint_claims(claims) == [("T2", "T3")]
+
+
+def test_new_footprint_scheduler_parks_overlapping_non_identical_globs():
+    scheduler = new_footprint_scheduler()
+    claim_a = filesystem_claim("src/a/**", "write")
+    claim_b = filesystem_claim("src/a/file.py", "write")
+
+    assert scheduler.request("holder", claim_a) is True
+    assert scheduler.request("waiter", claim_b) is False
+    assert scheduler.pending() == [ParkedRequest(node_id="waiter", claim=claim_b)]

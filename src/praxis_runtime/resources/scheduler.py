@@ -1,20 +1,28 @@
 """Deterministic parking/retry scheduler.
 
 ResourceScheduler.request grants a claim immediately (returns True) unless it
-conflicts, per claims_conflict, with a currently granted claim held by a
-different node_id; otherwise the request is parked (FIFO) and False is
-returned. ResourceScheduler.release removes a node's grant and then grants,
-in FIFO park order, every parked request that no longer conflicts with
-anything currently granted, returning the newly granted node_ids in the
-order granted. ResourceScheduler.pending returns the current park queue in
-order.
+conflicts, per its conflict_fn (claims_conflict by default), with a
+currently granted claim held by a different node_id; otherwise the request
+is parked (FIFO) and False is returned. ResourceScheduler.release removes a
+node's grant and then grants, in FIFO park order, every parked request that
+no longer conflicts with anything currently granted, returning the newly
+granted node_ids in the order granted. ResourceScheduler.pending returns the
+current park queue in order.
+
+conflict_fn is pluggable so a domain adapter whose identifiers need a
+different notion of conflict than claims_conflict's exact-identifier match
+can supply its own — e.g. the filesystem adapter's footprint_conflict, which
+is glob-aware (see praxis_runtime.resources.adapters.filesystem).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from praxis_runtime.resources.claims import ResourceClaim, claims_conflict
+
+ConflictFn = Callable[[ResourceClaim, ResourceClaim], bool]
 
 
 @dataclass(frozen=True)
@@ -24,7 +32,8 @@ class ParkedRequest:
 
 
 class ResourceScheduler:
-    def __init__(self) -> None:
+    def __init__(self, conflict_fn: ConflictFn = claims_conflict) -> None:
+        self._conflict_fn = conflict_fn
         self._grants: dict[str, ResourceClaim] = {}
         self._parked: list[ParkedRequest] = []
 
@@ -55,7 +64,7 @@ class ResourceScheduler:
 
     def _conflicts_with_grants(self, node_id: str, claim: ResourceClaim) -> bool:
         return any(
-            claims_conflict(claim, granted_claim)
+            self._conflict_fn(claim, granted_claim)
             for granted_node_id, granted_claim in self._grants.items()
             if granted_node_id != node_id
         )

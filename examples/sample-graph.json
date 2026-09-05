@@ -1,0 +1,24 @@
+{
+  "spec_version": "1.0.0",
+  "nodes": [
+    { "id": "intake", "kind": "intake" },
+    { "id": "review-legal", "kind": "review" },
+    { "id": "review-editorial", "kind": "review" },
+    { "id": "decision", "kind": "decision" },
+    { "id": "revise", "kind": "revision" },
+    { "id": "approve", "kind": "approval" },
+    { "id": "archive", "kind": "archive" }
+  ],
+  "edges": [
+    { "source": "intake", "target": "review-legal", "kind": "fan-out" },
+    { "source": "intake", "target": "review-editorial", "kind": "fan-out" },
+    { "source": "review-legal", "target": "decision", "kind": "join" },
+    { "source": "review-editorial", "target": "decision", "kind": "join" },
+    { "source": "decision", "target": "revise", "kind": "fan-out" },
+    { "source": "decision", "target": "approve", "kind": "fan-out" },
+    { "source": "revise", "target": "archive", "kind": "join" },
+    { "source": "approve", "target": "archive", "kind": "join" }
+  ],
+  "entry_node": "intake",
+  "terminal_nodes": ["archive"]
+}

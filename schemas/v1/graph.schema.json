@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/graph.schema.json",
+  "title": "Graph",
+  "description": "A runtime execution graph: nodes connected by edges, with a designated entry node and terminal nodes.",
+  "type": "object",
+  "required": ["spec_version", "nodes", "edges", "entry_node", "terminal_nodes"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "An open vocabulary of node kinds, same pattern as Promise.kind."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "kind"],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "An open vocabulary of edge kinds (e.g. 'sequential', 'fan-out', 'join')."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "entry_node": {
+      "type": "string"
+    },
+    "terminal_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

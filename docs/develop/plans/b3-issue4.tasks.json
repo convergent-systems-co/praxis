@@ -1,0 +1,122 @@
+{
+  "bundle": "b3-issue4",
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Bootstrap praxis_runtime package",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_runtime/__init__.py"]
+    },
+    {
+      "id": "T1",
+      "title": "Graph loader and validator",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "schemas/v1/graph.schema.json",
+        "src/praxis_runtime/graph.py",
+        "tests/test_graph_loader.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Append-only event log",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "schemas/v1/event.schema.json",
+        "src/praxis_runtime/events.py",
+        "tests/test_event_log.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Run-state store and checkpoint model",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "schemas/v1/run-state.schema.json",
+        "src/praxis_runtime/state.py",
+        "tests/test_state_store.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Deterministic transition engine",
+      "depends_on": ["T1", "T2", "T3"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/transitions.py",
+        "tests/test_transitions.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Resume/replay support",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/replay.py",
+        "tests/test_checkpoint_resume.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Schema-version migration strategy",
+      "depends_on": ["T2", "T3"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/migrations.py",
+        "tests/test_migrations.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Deterministic fake-executor test harness",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/testing/**",
+        "tests/test_fake_executor.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "End-to-end sample-graph acceptance test",
+      "depends_on": ["T1", "T7"],
+      "kind": "code",
+      "files": [
+        "examples/sample-graph.json",
+        "tests/test_end_to_end_fake_executor.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Crash/restart resume at every transition boundary",
+      "depends_on": ["T5", "T7"],
+      "kind": "code",
+      "files": [
+        "tests/test_crash_restart.py"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Fail-closed edge-case suite",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "tests/test_fail_closed_cases.py"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Public interface documentation",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+      "kind": "docs",
+      "files": [
+        "docs/runtime.md"
+      ]
+    }
+  ]
+}

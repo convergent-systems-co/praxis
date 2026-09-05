@@ -21,6 +21,13 @@ Each test reproduces one finding before its fix and must pass after it:
 4. (Minor) `TransitionEngine._acquired_epoch` did a full linear scan of the
    event log per declared claim on every terminal transition, instead of
    scanning the node's own "start" event once per transition.
+5. (Important) `docs/resources.md` documented `LeaseStore.lock()` as scoped
+   to the exact `(resource_type, identifier)` pair being acquired, but the
+   actual flock in `leases.py` is scoped to `resource_type` alone (shared
+   across every identifier of that resource_type) -- required for
+   `acquire`'s overlap scan to correctly serialize differently-identified-
+   but-overlapping claims (e.g. the `"*"` fallback vs. a specific
+   identifier). The doc misrepresented the concurrency guarantee.
 """
 
 from __future__ import annotations
@@ -132,6 +139,24 @@ def test_resources_doc_documents_footprint_conflict_helpers():
             f"{name!r}, which is exported from "
             "src/praxis_runtime/resources/adapters/filesystem.py"
         )
+
+
+def test_resources_doc_describes_lock_as_scoped_to_resource_type_not_identifier():
+    text = RESOURCES_DOC_PATH.read_text()
+
+    assert "(resource_type, identifier)`'s own lock file" not in text, (
+        "docs/resources.md must not describe LeaseStore.lock() as scoped to the "
+        "exact (resource_type, identifier) pair -- the actual flock in leases.py "
+        "is scoped to resource_type alone (shared across every identifier of "
+        "that resource_type), which is required for acquire()'s overlap scan "
+        "(active_writer_leases/active_reader_leases) to correctly serialize "
+        "differently-identified-but-overlapping claims such as the '*' fallback "
+        "against a specific identifier"
+    )
+    assert "scoped to `resource_type` alone" in text or "scoped to that resource_type" in text, (
+        "docs/resources.md's LeaseStore.lock() bullet must document the real "
+        "resource_type-wide flock scope"
+    )
 
 
 def test_terminal_settlement_reads_event_log_once_regardless_of_declared_claim_count(

@@ -65,9 +65,14 @@ A heartbeat-renewed lease store used to detect and reclaim abandoned resource cl
     temp file + `os.replace`, mirroring `RunStateStore.save` in `praxis_runtime.state`. `reader=True`
     writes to the per-owner read-lease file instead of the canonical write/exclusive file.
   - `def lock(self, resource_type: str, identifier: str)`: context manager holding an exclusive
-    `flock` scoped to this `(resource_type, identifier)`'s own lock file, so two `LeaseStore`
-    instances (same process or different processes) pointed at the same path serialize their
-    load-check-save sequences instead of racing.
+    `flock` scoped to `resource_type` alone (shared across every `identifier` of that
+    `resource_type`, not just the one being acquired), so two `LeaseStore` instances (same process
+    or different processes) pointed at the same path serialize their load-check-save sequences
+    instead of racing. This resource_type-wide scope is required because `acquire`'s overlap scan
+    (`active_writer_leases`/`active_reader_leases`, above) checks every identifier of a
+    `resource_type`, not just the one being acquired — a lock scoped to the exact identifier would
+    let two acquires on differently-identified-but-overlapping claims (e.g. the `"*"` fallback vs.
+    a specific identifier) race past each other.
 - `class LeaseError(Exception)`: raised fail-closed on any owner/epoch mismatch or expiry —
   `acquire`/`renew`/`release`/`revalidate` never silently succeed against a lease they don't
   legitimately hold.

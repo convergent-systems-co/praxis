@@ -1,0 +1,18 @@
+{
+  "spec_version": "1.0.0",
+  "executor_id": "executor-7f3a",
+  "capabilities": [
+    {
+      "spec_version": "1.0.0",
+      "id": "cap-primary",
+      "satisfies": [
+        {
+          "kind": "text-generation",
+          "parameters": {
+            "max_context_tokens": 32768
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "bundle": "b1-issue2",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Bootstrap: Python project scaffolding",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["pyproject.toml", ".gitignore", "src/praxis_contracts/__init__.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Promise & Requirement schemas (request-side vocabulary)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/promise.schema.json",
+        "schemas/v1/requirement.schema.json",
+        "examples/graph-requests-capability.json"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Capability & Capability Advertisement schemas (offer-side vocabulary)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/capability.schema.json",
+        "schemas/v1/capability-advertisement.schema.json",
+        "examples/executor-advertises-capability.json"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Evidence requirement schema",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["schemas/v1/evidence-requirement.schema.json"]
+    },
+    {
+      "id": "T5",
+      "title": "Resource claim schema",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["schemas/v1/resource-claim.schema.json"]
+    },
+    {
+      "id": "T6",
+      "title": "Validator module",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["src/praxis_contracts/validator.py"]
+    },
+    {
+      "id": "T7",
+      "title": "Tests: valid contracts",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "kind": "code",
+      "files": ["tests/test_valid_contracts.py"]
+    },
+    {
+      "id": "T8",
+      "title": "Tests: malformed contracts",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "kind": "code",
+      "files": ["tests/test_malformed_contracts.py"]
+    },
+    {
+      "id": "T9",
+      "title": "Tests: version mismatches",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "kind": "code",
+      "files": ["tests/test_version_mismatch.py"]
+    },
+    {
+      "id": "T10",
+      "title": "Ontology documentation",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/ontology.md"]
+    }
+  ]
+}

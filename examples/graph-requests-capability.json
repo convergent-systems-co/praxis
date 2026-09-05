@@ -1,0 +1,19 @@
+{
+  "spec_version": "1.0.0",
+  "requirements": [
+    {
+      "promise": {
+        "spec_version": "1.0.0",
+        "kind": "text-generation"
+      },
+      "constraint": "required"
+    },
+    {
+      "promise": {
+        "spec_version": "1.0.0",
+        "kind": "code-execution"
+      },
+      "constraint": "preferred"
+    }
+  ]
+}

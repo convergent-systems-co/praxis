@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/requirement.schema.json",
+  "title": "Requirement",
+  "description": "The shape a graph node uses to declare what capabilities it needs, without naming a model or vendor.",
+  "type": "object",
+  "required": ["spec_version", "requirements"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["promise", "constraint"],
+        "properties": {
+          "promise": {
+            "$ref": "promise.schema.json"
+          },
+          "constraint": {
+            "enum": ["required", "preferred", "prohibited"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/capability-advertisement.schema.json",
+  "title": "Capability Advertisement",
+  "description": "The document an executor publishes to advertise what it can do, without naming a specific model or vendor.",
+  "type": "object",
+  "required": ["spec_version", "executor_id", "capabilities"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "executor_id": {
+      "type": "string",
+      "description": "An opaque identifier for the executor. Must not encode a vendor or model name."
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "capability.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

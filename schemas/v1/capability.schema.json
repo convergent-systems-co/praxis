@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/capability.schema.json",
+  "title": "Capability",
+  "description": "An abstract, vendor/model-neutral statement of what an executor can do. A Capability names the kind(s) of capability it satisfies, never a specific model or vendor.",
+  "type": "object",
+  "required": ["spec_version", "satisfies"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string"
+    },
+    "satisfies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "An abstract capability class using the same free-form vocabulary as Promise.kind, such as 'text-generation' or 'code-execution'. Must never name a specific model or vendor."
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

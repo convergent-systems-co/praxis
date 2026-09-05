@@ -56,6 +56,24 @@ def test_duplicate_event_id_raises_and_does_not_write_second_line(tmp_path: Path
     assert len(reopened.read_all()) == 1
 
 
+def test_close_releases_the_underlying_file_handle(tmp_path: Path) -> None:
+    log = EventLog(tmp_path)
+    log.append(_make_event(event_id="evt-1"))
+
+    log.close()
+
+    assert log._handle.closed
+    log.close()  # idempotent: closing twice must not raise
+
+
+def test_event_log_usable_as_a_context_manager(tmp_path: Path) -> None:
+    with EventLog(tmp_path) as log:
+        log.append(_make_event(event_id="evt-1"))
+        assert not log._handle.closed
+
+    assert log._handle.closed
+
+
 def test_read_all_after_reopening_reconstructs_same_ordered_list(tmp_path: Path) -> None:
     log = EventLog(tmp_path)
     log.append(_make_event(event_id="evt-1"))

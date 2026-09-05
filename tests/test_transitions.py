@@ -197,6 +197,54 @@ def test_join_advances_only_after_every_incoming_cursor_completes(tmp_path: Path
     assert state.cursors["end"].status == NodeStatus.PENDING.value
 
 
+def test_running_node_can_be_blocked_and_resumed(tmp_path: Path):
+    graph = _linear_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+
+    blocked = engine.apply("n1", "block")
+    assert blocked.cursors["n1"].status == NodeStatus.BLOCKED.value
+
+    resumed = engine.apply("n1", "resume")
+    assert resumed.cursors["n1"].status == NodeStatus.RUNNING.value
+
+
+def test_running_node_can_be_handed_off_and_accepted(tmp_path: Path):
+    graph = _linear_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+
+    handed_off = engine.apply("n1", "handoff")
+    assert handed_off.cursors["n1"].status == NodeStatus.HANDOFF.value
+
+    accepted = engine.apply("n1", "accept")
+    assert accepted.cursors["n1"].status == NodeStatus.RUNNING.value
+
+
+def test_running_node_can_enter_and_leave_recovering(tmp_path: Path):
+    graph = _linear_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+
+    recovering = engine.apply("n1", "interrupt")
+    assert recovering.cursors["n1"].status == NodeStatus.RECOVERING.value
+
+    resumed = engine.apply("n1", "resume")
+    assert resumed.cursors["n1"].status == NodeStatus.RUNNING.value
+
+    interrupted_again = engine.apply("n1", "interrupt")
+    assert interrupted_again.cursors["n1"].status == NodeStatus.RECOVERING.value
+
+    failed = engine.apply("n1", "fail")
+    assert failed.cursors["n1"].status == NodeStatus.TERMINAL_FAILED.value
+
+
 def test_legal_next_reflects_current_status_without_mutating_state(tmp_path: Path):
     graph = _linear_graph()
     store = RunStateStore(tmp_path / "run-state.json")

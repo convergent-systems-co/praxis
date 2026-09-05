@@ -7,7 +7,9 @@ never double-apply an event. Every append flushes and `os.fsync`s so a crash
 immediately after `append()` returns is guaranteed durable. Re-opening an
 EventLog over the same directory replays the file to reconstruct `seq` and
 the seen `event_id`s, so a restarted process can resume purely from
-persisted events.
+persisted events. Callers that construct scratch/short-lived EventLogs
+should `close()` them (or use the context-manager protocol) to release the
+underlying file handle.
 """
 
 from __future__ import annotations
@@ -88,3 +90,13 @@ class EventLog:
 
     def read_all(self) -> list[Event]:
         return list(self._events)
+
+    def close(self) -> None:
+        if not self._handle.closed:
+            self._handle.close()
+
+    def __enter__(self) -> "EventLog":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()

@@ -38,6 +38,15 @@ _TRANSITIONS: dict[NodeStatus, dict[str, NodeStatus]] = {
     NodeStatus.RUNNING: {
         "complete": NodeStatus.TERMINAL_SUCCESS,
         "fail": NodeStatus.TERMINAL_FAILED,
+        "block": NodeStatus.BLOCKED,
+        "handoff": NodeStatus.HANDOFF,
+        "interrupt": NodeStatus.RECOVERING,
+    },
+    NodeStatus.BLOCKED: {"resume": NodeStatus.RUNNING},
+    NodeStatus.HANDOFF: {"accept": NodeStatus.RUNNING},
+    NodeStatus.RECOVERING: {
+        "resume": NodeStatus.RUNNING,
+        "fail": NodeStatus.TERMINAL_FAILED,
     },
 }
 

@@ -1,4 +1,4 @@
-"""RED-phase tests for the append-only event log (T2).
+"""Tests for the append-only event log (T2).
 
 EventLog persists Events as JSONL, assigning `seq` itself (never trusting a
 caller-supplied value) and rejecting a duplicate `event_id` outright, so a

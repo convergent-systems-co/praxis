@@ -26,10 +26,24 @@ Each test reproduces one finding before its fix and must pass after it:
 6. `TransitionEngine.apply`'s evidence-requirement check runs on transitions
    to `TERMINAL_FAILED` as well as `TERMINAL_SUCCESS`, but no test exercised
    the `TERMINAL_FAILED` path.
+7. Five test-file module docstrings opened with the phrase 'RED-phase tests
+   for ...' / 'RED-phase test for ...', which is TDD terminology and
+   violates the Epic's domain-neutrality constraint (applies to
+   docstrings/comments in the deliverable too, not just runtime schema
+   vocabulary).
+8. `examples/sample-graph.json`'s "decision" node fans out concurrently to
+   both "revise" and "approve", but `revise -> archive` and
+   `approve -> archive` are labeled `kind: "sequential"` rather than
+   `"join"`. `TransitionEngine._advance_successors` creates a non-join
+   target cursor as soon as any single incoming edge's source completes, so
+   "archive" advances on whichever of "revise"/"approve" finishes first
+   instead of waiting for both -- inconsistent with the process the example
+   claims to model.
 """
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import json
 from collections import defaultdict
@@ -154,3 +168,50 @@ def test_evidence_required_enforced_on_transition_to_terminal_failed(tmp_path: P
 
     state = engine.apply("n1", "fail", evidence={"incident-report": {"ref": "r1"}})
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_FAILED.value
+
+
+_BANNED_TDD_TERMS = ("red-phase", "red phase")
+
+_DOCSTRING_TEST_FILES = (
+    "test_transitions.py",
+    "test_event_log.py",
+    "test_checkpoint_resume.py",
+    "test_crash_restart.py",
+    "test_fake_executor.py",
+)
+
+
+@pytest.mark.parametrize("test_file", _DOCSTRING_TEST_FILES)
+def test_test_module_docstrings_are_domain_neutral(test_file):
+    source = (REPO_ROOT / "tests" / test_file).read_text()
+    module_doc = ast.get_docstring(ast.parse(source))
+    assert module_doc, f"{test_file} has no module docstring"
+
+    lowered = module_doc.lower()
+    for term in _BANNED_TDD_TERMS:
+        assert term not in lowered, (
+            f"{test_file}'s module docstring contains banned TDD term "
+            f"{term!r} -- the Epic's domain-neutrality constraint applies "
+            "to docstrings/comments in the deliverable, not just runtime "
+            "schema vocabulary"
+        )
+
+
+def test_sample_graph_archive_requires_all_fanned_out_branches_to_join():
+    document = json.loads(SAMPLE_GRAPH_PATH.read_text())
+
+    incoming_by_target = defaultdict(list)
+    for edge in document["edges"]:
+        incoming_by_target[edge["target"]].append(edge)
+
+    for target, incoming in incoming_by_target.items():
+        if len(incoming) <= 1:
+            continue
+        non_join = [edge["source"] for edge in incoming if edge["kind"] != "join"]
+        assert not non_join, (
+            f"node {target!r} has {len(incoming)} incoming edges but "
+            f"{non_join} are not 'join' -- TransitionEngine creates the "
+            "target cursor as soon as any single non-join incoming edge's "
+            "source completes, so the target advances on the first "
+            "finished branch rather than waiting for all of them"
+        )

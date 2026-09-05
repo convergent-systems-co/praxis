@@ -16,8 +16,8 @@
     { "source": "review-editorial", "target": "decision", "kind": "join" },
     { "source": "decision", "target": "revise", "kind": "fan-out" },
     { "source": "decision", "target": "approve", "kind": "fan-out" },
-    { "source": "revise", "target": "archive", "kind": "sequential" },
-    { "source": "approve", "target": "archive", "kind": "sequential" }
+    { "source": "revise", "target": "archive", "kind": "join" },
+    { "source": "approve", "target": "archive", "kind": "join" }
   ],
   "entry_node": "intake",
   "terminal_nodes": ["archive"]

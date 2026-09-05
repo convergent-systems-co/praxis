@@ -1,4 +1,4 @@
-"""RED-phase tests for the deterministic transition engine (T4).
+"""Tests for the deterministic transition engine (T4).
 
 TransitionEngine.apply is the single mutation entrypoint: every state change
 and event-log write goes through it, so callers (fake executors, replay,

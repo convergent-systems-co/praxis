@@ -1,4 +1,4 @@
-"""RED-phase tests for resume/replay support (T5).
+"""Tests for resume/replay support (T5).
 
 replay() must reconstruct a RunState purely from EventLog.read_all() and the
 graph's transition rules -- proving that the event log alone is sufficient

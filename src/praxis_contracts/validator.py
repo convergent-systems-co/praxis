@@ -68,7 +68,9 @@ def validate_document(
 ) -> None:
     """Fail-closed: returns None on success, else raises ContractValidationError.
 
-    Checks, in order: (1) instance["spec_version"] matches
+    Checks, in order: (0) instance is a JSON object (dict) at the top
+    level - else raises with reason "malformed document: ..." naming the
+    unexpected type; (1) instance["spec_version"] matches
     f"^{expected_major_version}\\.\\d+\\.\\d+$" - else raises with reason
     "version mismatch: ..." naming the found and expected major version,
     without running full schema validation; (2) full draft-2020-12
@@ -76,6 +78,12 @@ def validate_document(
     just the first) into .errors and raising with reason
     "schema validation failed: <n> error(s)" if any.
     """
+    if not isinstance(instance, dict):
+        raise ContractValidationError(
+            "malformed document: expected a JSON object at the top level, "
+            f"got {type(instance).__name__}"
+        )
+
     found_version = instance.get("spec_version")
     version_pattern = rf"^{expected_major_version}\.\d+\.\d+$"
     if not isinstance(found_version, str) or not re.match(version_pattern, found_version):

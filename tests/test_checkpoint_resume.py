@@ -1,4 +1,4 @@
-"""Tests for resume/replay support (T5).
+"""Tests for resume/replay support.
 
 replay() must reconstruct a RunState purely from EventLog.read_all() and the
 graph's transition rules -- proving that the event log alone is sufficient
@@ -6,7 +6,7 @@ to recover a run, independent of the checkpoint file. resume() is the
 process-restart entrypoint: it loads the last checkpoint (if any) and
 replays only the events appended after it, so a crash between an event
 append and its checkpoint save is never lost. Graphs are built directly as
-dataclasses, matching T4's test_transitions.py convention.
+dataclasses, matching test_transitions.py's convention.
 """
 
 from __future__ import annotations

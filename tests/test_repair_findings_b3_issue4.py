@@ -59,21 +59,42 @@ Each test reproduces one finding before its fix and must pass after it:
     events appended concurrently by another instance/process on the same
     directory -- inconsistent with the concurrency hardening just added to
     `append()`.
+13. Five test-file module docstrings (`test_transitions.py`,
+    `test_event_log.py`, `test_checkpoint_resume.py`, `test_crash_restart.py`,
+    `test_fake_executor.py`) still cited an internal task-graph label like
+    `(T4)`/`(T2)`/`(T5)`/`(T9)`/`(T7)`, which the plan's final repair cycle
+    explicitly required removing.
+14. `test_fail_closed_cases.py`, `test_migrations.py`, and
+    `test_end_to_end_fake_executor.py` had the same leftover task-graph
+    labels (`(T10)`, `(T6)`, `(T8)`) as item 13, in the same category but
+    never previously named in a repair cycle.
+15. `src/praxis_runtime/replay.py`'s module docstring and `_ReplayEngine`
+    class docstring falsely stated that evidence supplied to `apply()` is
+    not persisted onto the `Event`; `TransitionEngine.apply` persists it onto
+    `Event.payload["evidence"]`. The real reason `_ReplayEngine` skips
+    re-checking evidence is that `_fold_events` never re-extracts and
+    re-supplies that payload back to `apply()`'s `evidence` argument.
+16. `EventLog._read_from_disk` raised a raw `json.JSONDecodeError` instead of
+    `EventLogError` on a malformed log line, and `EventLog.__init__`'s
+    initial read was not `flock`-protected unlike `append()`/`read_all()`.
 """
 
 from __future__ import annotations
 
 import ast
 import dataclasses
+import fcntl
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
 import pytest
 
 from conftest import _linear_graph
+from praxis_runtime import replay as replay_module
 from praxis_runtime import state as state_module
-from praxis_runtime.events import Event, EventLog
+from praxis_runtime.events import Event, EventLog, EventLogError
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay
 from praxis_runtime.state import Cursor, RunState, RunStateStore
@@ -371,3 +392,103 @@ def test_read_all_observes_concurrent_appends_from_another_instance(tmp_path: Pa
 
     log_a.close()
     log_b.close()
+
+
+_TASK_LABEL_TEST_FILES = (
+    "test_transitions.py",
+    "test_event_log.py",
+    "test_checkpoint_resume.py",
+    "test_crash_restart.py",
+    "test_fake_executor.py",
+    "test_fail_closed_cases.py",
+    "test_migrations.py",
+    "test_end_to_end_fake_executor.py",
+)
+
+_TASK_LABEL_PATTERN = re.compile(r"\(T\d+(?:-T?\d+)?\)")
+
+
+@pytest.mark.parametrize("test_file", _TASK_LABEL_TEST_FILES)
+def test_test_module_docstrings_have_no_task_graph_labels(test_file):
+    source = (REPO_ROOT / "tests" / test_file).read_text()
+    module_doc = ast.get_docstring(ast.parse(source))
+    assert module_doc, f"{test_file} has no module docstring"
+
+    match = _TASK_LABEL_PATTERN.search(module_doc)
+    assert match is None, (
+        f"{test_file}'s module docstring still cites internal task-graph "
+        f"label {match.group(0) if match else ''!r} -- it must describe "
+        "only runtime behavior, nothing about this delivery pipeline's "
+        "internal task numbering"
+    )
+
+
+def test_replay_docstrings_do_not_misstate_evidence_persistence():
+    for doc in (replay_module.__doc__, replay_module._ReplayEngine.__doc__):
+        assert doc, "replay.py's module/_ReplayEngine docstring must not be empty"
+        lowered = doc.lower()
+        assert "is not persisted" not in lowered, (
+            "replay.py's docstrings must not claim evidence supplied to "
+            "apply() is not persisted onto the Event -- "
+            "TransitionEngine.apply persists it onto "
+            "Event.payload['evidence']; the real reason _ReplayEngine skips "
+            "re-checking evidence is that _fold_events never re-extracts "
+            "and re-supplies that payload back to apply()'s evidence "
+            "argument"
+        )
+
+
+def test_event_log_malformed_line_raises_event_log_error(tmp_path: Path):
+    directory = tmp_path / "events"
+    directory.mkdir()
+    (directory / "events.jsonl").write_text("not-json\n")
+
+    with pytest.raises(EventLogError):
+        EventLog(directory)
+
+
+def test_event_log_interrupted_write_fails_closed_on_reopen(tmp_path: Path):
+    directory = tmp_path / "events"
+    log = EventLog(directory)
+    log.append(
+        Event(
+            spec_version="1.0.0",
+            seq=0,
+            run_id="run-1",
+            node_id="n1",
+            event_type="transition-attempted",
+            payload={},
+            event_id="evt-1",
+        )
+    )
+    log.close()
+
+    # Simulate a crash mid-append: a second line was partially written (no
+    # closing brace, never fsynced) before the process died.
+    events_path = directory / "events.jsonl"
+    with open(events_path, "a", encoding="utf-8") as handle:
+        handle.write('{"spec_version": "1.0.0", "seq": 1, "run_id": "run-1"')
+
+    with pytest.raises(EventLogError):
+        EventLog(directory)
+
+
+def test_event_log_init_read_is_flock_protected(tmp_path: Path, monkeypatch):
+    directory = tmp_path / "events"
+    calls = []
+    original_flock = fcntl.flock
+
+    def tracking_flock(fd, operation):
+        calls.append(operation)
+        return original_flock(fd, operation)
+
+    monkeypatch.setattr(fcntl, "flock", tracking_flock)
+
+    log = EventLog(directory)
+    log.close()
+
+    assert calls, (
+        "EventLog.__init__'s initial read from disk must be flock-protected "
+        "like append()/read_all(), so a fresh instance never reads a torn "
+        "file while another instance is mid-append"
+    )

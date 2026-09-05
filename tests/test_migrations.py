@@ -1,4 +1,4 @@
-"""Schema-version migration strategy (T6).
+"""Schema-version migration strategy.
 
 migrate_document(doc, kind) parses doc["spec_version"] and applies every
 registered migration for `kind` up to the current minor version, returning

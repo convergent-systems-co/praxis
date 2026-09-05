@@ -1,10 +1,10 @@
-"""Tests for the deterministic transition engine (T4).
+"""Tests for the deterministic transition engine.
 
 TransitionEngine.apply is the single mutation entrypoint: every state change
 and event-log write goes through it, so callers (fake executors, replay,
 dashboards) can never bypass transition legality. Graphs are built directly
 as dataclasses here (not via load_graph), keeping node/edge/status wiring in
-Python -- the same inline-graph convention T9's crash/restart suite uses.
+Python -- the same inline-graph convention the crash/restart suite uses.
 """
 
 from __future__ import annotations

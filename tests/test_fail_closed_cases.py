@@ -1,7 +1,7 @@
-"""Fail-closed edge-case suite (T10).
+"""Fail-closed edge-case suite.
 
 Exercises graph/events/state/transitions failure paths that the per-module
-suites (T1-T4) don't already cover end-to-end: malformed graph documents,
+suites don't already cover end-to-end: malformed graph documents,
 a checkpoint whose last_applied_seq claims to be ahead of the event log,
 a duplicate event_id reaching TransitionEngine.apply (not just EventLog
 directly), illegal transitions, and an interrupted checkpoint write observed

@@ -1,4 +1,4 @@
-"""Tests for the deterministic fake-executor test harness (T7).
+"""Tests for the deterministic fake-executor test harness.
 
 FakeExecutor drives a run purely through TransitionEngine's public
 `legal_next`/`apply` surface -- never touching RunStateStore/EventLog

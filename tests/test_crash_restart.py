@@ -1,7 +1,7 @@
-"""Test for crash/restart resume at every transition boundary (T9).
+"""Test for crash/restart resume at every transition boundary.
 
-Drives a fan-out-plus-join graph (the same shape T4's test_transitions.py
-uses) to completion twice with the same deterministic script: once
+Drives a fan-out-plus-join graph (the same shape test_transitions.py uses)
+to completion twice with the same deterministic script: once
 uninterrupted via FakeExecutor as the control run, and once where every
 single `engine.apply()` call is immediately followed by discarding the
 in-memory TransitionEngine and rebuilding one via `resume()` against the

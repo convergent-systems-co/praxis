@@ -1,5 +1,5 @@
 """End-to-end acceptance test: a non-development sample graph run to
-completion with the deterministic fake-executor harness (T8).
+completion with the deterministic fake-executor harness.
 
 `examples/sample-graph.json` is a generic document-review pipeline (no
 software-development vocabulary) with a fan-out (intake splits into two

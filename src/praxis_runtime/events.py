@@ -59,12 +59,16 @@ class EventLog:
         self._path = self._directory / LOG_FILENAME
         self._lock_path = self._directory / (LOG_FILENAME + ".lock")
 
-        self._events: list[Event] = list(self._read_from_disk())
-        self._seen_event_ids = {event.event_id for event in self._events}
-        self._next_seq = len(self._events)
+        self._lock_handle = open(self._lock_path, "a", encoding="utf-8")
+        fcntl.flock(self._lock_handle, fcntl.LOCK_SH)
+        try:
+            self._events: list[Event] = list(self._read_from_disk())
+            self._seen_event_ids = {event.event_id for event in self._events}
+            self._next_seq = len(self._events)
+        finally:
+            fcntl.flock(self._lock_handle, fcntl.LOCK_UN)
 
         self._handle = open(self._path, "a", encoding="utf-8")
-        self._lock_handle = open(self._lock_path, "a", encoding="utf-8")
 
     def _read_from_disk(self) -> list[Event]:
         if not self._path.exists():
@@ -75,7 +79,10 @@ class EventLog:
                 line = line.strip()
                 if not line:
                     continue
-                document = json.loads(line)
+                try:
+                    document = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise EventLogError(f"malformed event log line: {exc}") from exc
                 try:
                     document = migrate_document(document, _KIND)
                 except ContractValidationError as exc:

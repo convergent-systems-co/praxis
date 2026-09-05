@@ -9,8 +9,11 @@ duplicated, then corrects the resulting last_applied_seq to the real event
 seq numbers (the scratch log renumbers from zero, which only matters for
 that one field -- transition legality never depends on seq). The fold uses
 _ReplayEngine, a TransitionEngine that skips evidence re-validation, since
-evidence supplied to the original apply() call is not persisted onto the
-Event and so cannot be re-checked on replay.
+the fold replays each event via apply(node_id, event_type) without
+re-extracting and re-supplying the evidence recorded on the event's payload
+back to apply()'s evidence argument, and re-checking against the resulting
+absent evidence would incorrectly reject a transition that already
+legitimately succeeded.
 
 resume() is the process-restart entrypoint: it loads the last checkpoint (if
 any), replays only the events appended after it via the same fold, persists
@@ -39,12 +42,14 @@ _SPEC_VERSION = "1.0.0"
 class _ReplayEngine(TransitionEngine):
     """TransitionEngine used only for folding already-recorded events.
 
-    Events in the log were legally applied once, and evidence supplied at
-    that time is not persisted onto the Event itself (payload is not
-    populated with it). Re-deriving evidence is therefore impossible, and
-    re-checking it against an empty payload would reject a replay of a
-    transition that legitimately succeeded. Skip the check here; legality
-    was already enforced when the event was first appended.
+    Events in the log were legally applied once. Evidence supplied at that
+    time is persisted onto the Event's payload (see TransitionEngine.apply),
+    but the fold replays each event via apply(node_id, event_type) without
+    re-extracting and re-supplying that payload back to apply()'s evidence
+    argument. Re-checking against the resulting absent evidence would
+    reject a replay of a transition that legitimately succeeded. Skip the
+    check here; legality was already enforced when the event was first
+    appended.
     """
 
     def _check_evidence(self, node: Node, evidence: dict | None) -> None:

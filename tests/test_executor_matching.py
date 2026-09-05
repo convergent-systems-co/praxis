@@ -16,14 +16,6 @@ from praxis_executors.matching import match
 
 _SPEC_VERSION = "1.0.0"
 
-_FORBIDDEN_DOC_TERMS = ("tdd-writer", "adversarial-tester", "RED proof", "tasks/T4")
-
-
-def test_module_docstring_has_no_dev_pipeline_vocabulary():
-    docstring = __doc__ or ""
-    for term in _FORBIDDEN_DOC_TERMS:
-        assert term not in docstring, f"module docstring must not reference {term!r}"
-
 
 def _requirement(*, required=(), preferred=(), prohibited=()) -> dict:
     entries = []

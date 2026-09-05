@@ -39,6 +39,14 @@ Each test reproduces one finding before its fix and must pass after it:
    "archive" advances on whichever of "revise"/"approve" finishes first
    instead of waiting for both -- inconsistent with the process the example
    claims to model.
+9. `src/praxis_runtime/events.py`'s `EventLog` assigns `seq` from an
+   in-memory counter seeded once at construction, with no lock across
+   instances -- two `EventLog` instances opened concurrently on the same
+   directory can race and assign colliding `seq` numbers or lose track of
+   an append made by the other instance.
+10. `TransitionEngine.apply` in `src/praxis_runtime/transitions.py` checks
+    `evidence` but never persists it onto the committed `Event`, leaving no
+    durable audit trail of what evidence satisfied a gate.
 """
 
 from __future__ import annotations
@@ -53,7 +61,7 @@ import pytest
 
 from conftest import _linear_graph
 from praxis_runtime import state as state_module
-from praxis_runtime.events import EventLog
+from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay
 from praxis_runtime.state import Cursor, RunState, RunStateStore
@@ -215,3 +223,85 @@ def test_sample_graph_archive_requires_all_fanned_out_branches_to_join():
             "source completes, so the target advances on the first "
             "finished branch rather than waiting for all of them"
         )
+
+
+def test_concurrent_event_log_instances_do_not_collide_on_seq(tmp_path: Path):
+    log_a = EventLog(tmp_path / "events")
+    log_b = EventLog(tmp_path / "events")
+
+    stored_a = log_a.append(
+        Event(
+            spec_version="1.0.0",
+            seq=0,
+            run_id="run-1",
+            node_id="node-a",
+            event_type="transition-attempted",
+            payload={},
+            event_id="evt-a",
+        )
+    )
+    stored_b = log_b.append(
+        Event(
+            spec_version="1.0.0",
+            seq=0,
+            run_id="run-1",
+            node_id="node-b",
+            event_type="transition-attempted",
+            payload={},
+            event_id="evt-b",
+        )
+    )
+
+    assert stored_a.seq != stored_b.seq, (
+        "two EventLog instances opened concurrently on the same directory "
+        "assigned the same seq -- EventLog.append must serialize across "
+        "instances/processes and recompute the authoritative seq from disk "
+        "rather than trusting an in-memory counter cached at construction "
+        "time"
+    )
+
+    log_a.close()
+    log_b.close()
+
+    reread = EventLog(tmp_path / "events")
+    events = reread.read_all()
+    reread.close()
+
+    assert len(events) == 2
+    assert [event.seq for event in events] == [0, 1]
+
+
+def test_evidence_supplied_to_apply_is_persisted_on_the_event(tmp_path: Path):
+    graph = Graph(
+        spec_version="1.0.0",
+        nodes={
+            "n1": Node(
+                id="n1",
+                kind="gate",
+                metadata={
+                    "evidence_requirement": {
+                        "spec_version": "1.0.0",
+                        "evidence": [
+                            {"proof_type": "signoff", "constraint": "required"},
+                        ],
+                    }
+                },
+            ),
+        },
+        edges=[],
+        entry_node="n1",
+        terminal_nodes={"n1"},
+    )
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+
+    engine.apply("n1", "complete", evidence={"signoff": {"approved": True}})
+
+    events = log.read_all()
+    assert events[-1].payload.get("evidence") == {"signoff": {"approved": True}}, (
+        "evidence supplied to apply() must be persisted onto the committed "
+        "Event so there is a durable audit trail of what evidence satisfied "
+        "a gate"
+    )

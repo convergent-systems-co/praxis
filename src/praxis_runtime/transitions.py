@@ -6,7 +6,9 @@ before anything is written, and a rejected transition never appends an event
 or persists a checkpoint (fail-closed, no partial write). Fan-out edges each
 create an independent successor cursor as soon as their source completes;
 join edges only create their shared successor cursor once every incoming
-edge's source has reported TERMINAL_SUCCESS.
+edge's source has reported TERMINAL_SUCCESS. Evidence supplied to apply()
+is persisted onto the committed Event's payload under the "evidence" key,
+giving a durable audit trail of what evidence satisfied a gate.
 """
 
 from __future__ import annotations
@@ -115,7 +117,7 @@ class TransitionEngine:
                 run_id=state.run_id,
                 node_id=node_id,
                 event_type=event_type,
-                payload={},
+                payload={"evidence": evidence} if evidence is not None else {},
                 event_id=uuid.uuid4().hex,
             )
         )

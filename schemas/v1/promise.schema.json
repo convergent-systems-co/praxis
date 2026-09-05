@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/promise.schema.json",
+  "title": "Promise",
+  "description": "An abstract, vendor/model-neutral request for a capability class. A Promise names the kind of capability a graph node needs, never a specific model or vendor.",
+  "type": "object",
+  "required": ["spec_version", "kind"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "An abstract capability class such as 'text-generation' or 'code-execution'. Must never name a specific model or vendor."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/proof-record.schema.json",
+  "title": "Proof Record",
+  "description": "A record of a single piece of evidence produced against a graph node's evidence requirement.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "proof_id",
+    "run_id",
+    "graph_version",
+    "node_id",
+    "proof_type",
+    "executor_id",
+    "grader_kind",
+    "status"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "proof_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "graph_version": {
+      "type": "string"
+    },
+    "node_id": {
+      "type": "string"
+    },
+    "proof_type": {
+      "type": "string",
+      "description": "An abstract proof category, e.g. 'test-pass' or 'peer-attestation' — illustrative only, not a fixed enum."
+    },
+    "executor_id": {
+      "type": "string",
+      "description": "An opaque identifier for the executor. Must not encode a vendor or model name."
+    },
+    "grader_kind": {
+      "enum": ["deterministic", "model", "human"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "inconclusive"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uri"],
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "produced_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

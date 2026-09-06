@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/heuristic-candidate.schema.json",
+  "title": "Heuristic Candidate",
+  "description": "A candidate heuristic clustered from one or more observations that share an exact trigger, tracking its lifecycle from candidate through promotion, contradiction, or decay.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "heuristic_id",
+    "project_id",
+    "scope",
+    "pattern",
+    "trigger",
+    "expected_outcome",
+    "proposed_configuration",
+    "status",
+    "confidence",
+    "evidence_ids",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "heuristic_id": {
+      "type": "string",
+      "description": "A content-derived hex digest."
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "scope": {
+      "enum": ["project", "global"],
+      "description": "Defaults to 'project' by construction convention, not a JSON Schema default."
+    },
+    "pattern": {
+      "type": "string",
+      "description": "An open, illustrative classification of what was observed, e.g. 'recurrent-failure', 'successful-recovery', 'correction', 'workflow-efficiency' -- not a fixed enum."
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "An intentionally opaque match context; this package must never assume its internal shape beyond exact-equality comparison. Must equal an Observation.trigger for that observation to cluster into this heuristic."
+    },
+    "expected_outcome": {
+      "type": "string",
+      "description": "The outcome this heuristic asserts under trigger. An incoming observation whose observed_outcome disagrees is a contradiction."
+    },
+    "proposed_configuration": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The opaque configuration this heuristic proposes once promoted; never assume its shape here."
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "contradicted",
+        "decayed",
+        "proposed",
+        "promoted",
+        "rejected"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Cites Observation.observation_ids."
+    },
+    "contradiction_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Cites Observation.observation_ids that contradicted this heuristic."
+    },
+    "parent_heuristic_id": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

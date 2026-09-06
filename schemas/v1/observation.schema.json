@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/observation.schema.json",
+  "title": "Observation",
+  "description": "A single observed event, extracted from telemetry, describing what happened under some trigger context and its outcome. The trigger is intentionally opaque -- this package must never assume its internal shape beyond exact-equality comparison.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "observation_id",
+    "project_id",
+    "pattern",
+    "trigger",
+    "observed_outcome",
+    "source_event_ids",
+    "observed_at"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "observation_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "The scope this observation belongs to."
+    },
+    "pattern": {
+      "type": "string",
+      "description": "An open, illustrative classification of what was observed, e.g. 'recurrent-failure', 'successful-recovery', 'correction', 'workflow-efficiency' -- not a fixed enum."
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "An intentionally opaque match context, e.g. {\"node_id\": ..., \"failure_class\": ...}; this package must never assume its internal shape beyond exact-equality comparison."
+    },
+    "observed_outcome": {
+      "type": "string"
+    },
+    "source_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Exact telemetry-record ids, never a paraphrase."
+    },
+    "observed_at": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "An optional per-observation confidence the extractor may attach, distinct from the aggregate heuristic-level confidence."
+    }
+  },
+  "additionalProperties": false
+}

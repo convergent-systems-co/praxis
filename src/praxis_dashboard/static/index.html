@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Run Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Run Dashboard</h1>
+    <button id="replay-toggle" type="button">Replay: Off</button>
+  </header>
+
+  <div id="warnings-banner" class="warnings-banner" hidden></div>
+
+  <main class="panels">
+    <section id="run-summary-panel" class="panel">
+      <h2>Run Summary</h2>
+      <div id="run-summary-content"></div>
+    </section>
+
+    <section id="nodes-panel" class="panel">
+      <h2>Nodes</h2>
+      <ul id="nodes-list"></ul>
+    </section>
+
+    <section id="next-actions-panel" class="panel">
+      <h2>Next Actions</h2>
+      <ul id="next-actions-list"></ul>
+    </section>
+
+    <section id="executors-panel" class="panel">
+      <h2>Executor Assignments</h2>
+      <ul id="executor-assignments-list"></ul>
+      <h3>Capabilities</h3>
+      <ul id="capabilities-list"></ul>
+    </section>
+
+    <section id="resources-panel" class="panel">
+      <h2>Resource Leases</h2>
+      <ul id="resources-list"></ul>
+    </section>
+
+    <section id="evidence-panel" class="panel">
+      <h2>Evidence &amp; Proof Status</h2>
+      <ul id="evidence-list"></ul>
+    </section>
+
+    <section id="metrics-panel" class="panel">
+      <h2>Metrics</h2>
+      <ul id="metrics-list"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

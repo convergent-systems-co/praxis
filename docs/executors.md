@@ -2,8 +2,10 @@
 
 See also: [`docs/ontology.md`](ontology.md) for the Promise/Capability/Requirement vocabulary
 this module matches against, [`docs/runtime.md`](runtime.md) for the `TransitionEngine` an
-`ExecutionResult`'s `evidence` is ultimately passed to, and [`docs/policy.md`](policy.md) for the
-node/run-level policy system whose alternate-executor retry feeds this module's eligibility hook.
+`ExecutionResult`'s `evidence` is ultimately passed to, [`docs/policy.md`](policy.md) for the
+node/run-level policy system whose alternate-executor retry feeds this module's eligibility hook,
+and [`docs/dashboard.md`](dashboard.md) for how executor-assignment/capability data is surfaced
+read-only to an operator.
 
 This document describes `src/praxis_executors/` — the pluggable executor abstraction that lets a
 graph's abstract Promise be matched to, and run on, a concrete backend without either side naming

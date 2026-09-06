@@ -4,14 +4,18 @@ drive a selected adapter's launch/poll/result lifecycle.
 This module has no dependency on praxis_runtime. `ExecutionResult.evidence`
 is a flat claim dict, not the `list[dict]` of proof-record documents
 `TransitionEngine.apply(node_id, event_type, evidence=...)` requires; a
-caller with run/graph/node context must convert it first (see
-`ExecutionResult`'s docstring in `interface.py`) -- wiring that call and
-conversion is the caller's responsibility, not the registry's.
+caller with run/graph/node context must convert it first -- wiring that call
+into `TransitionEngine.apply` is the caller's responsibility, not the
+registry's, but `evidence_to_proof_records` below is the reusable conversion
+itself, so callers (and tests) never need to duplicate it.
 """
 
 from __future__ import annotations
 
 from typing import Callable
+
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import proof_record_to_document
 
 from . import matching
 from .interface import Executor, ExecutionRequest, ExecutionResult, ExecutorAvailability, ExecutorStatus
@@ -84,3 +88,36 @@ class ExecutorRegistry:
                 poll()
 
         return executor.result(handle)
+
+
+def evidence_to_proof_records(
+    evidence: dict,
+    *,
+    run_id: str,
+    graph_version: str,
+    node_id: str,
+    executor_id: str,
+    grader_kind: str = "deterministic",
+) -> list[dict]:
+    """Convert an `ExecutionResult.evidence` flat `{proof_type: claim}` dict
+    into the `list[dict]` of proof-record documents
+    `TransitionEngine.apply(..., evidence=...)` requires.
+
+    This is the run/graph/node-aware conversion `ExecutionResult`'s
+    docstring describes: one proof record per claimed `proof_type`, graded
+    "pass" for a truthy claim and "fail" otherwise.
+    """
+    return [
+        proof_record_to_document(
+            build_proof_record(
+                run_id=run_id,
+                graph_version=graph_version,
+                node_id=node_id,
+                proof_type=proof_type,
+                executor_id=executor_id,
+                grader_kind=grader_kind,
+                status="pass" if claim else "fail",
+            )
+        )
+        for proof_type, claim in evidence.items()
+    ]

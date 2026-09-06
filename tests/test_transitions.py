@@ -320,6 +320,40 @@ def test_join_blocks_when_upstream_branch_gate_result_is_unsatisfied(tmp_path: P
     assert state.cursors["end"].status == NodeStatus.RUNNING.value
 
 
+def test_join_own_unsatisfied_reasons_are_not_prefixed_with_its_own_node_id(tmp_path: Path):
+    graph = _fan_out_join_graph_with_upstream_gate()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    registry.register("review", "deterministic", _PassthroughGrader())
+    engine = TransitionEngine(graph, store, log, grader_registry=registry)
+
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+
+    engine.apply("a", "start")
+    engine.apply("a", "complete", evidence=[_proof_record("signoff", "pass", node_id="a")])
+
+    engine.apply("b", "start")
+    engine.apply("b", "complete")
+
+    engine.apply("end", "start")
+
+    with pytest.raises(TransitionError) as excinfo:
+        # Upstream branches are satisfied; "end"'s own "review" requirement is
+        # unsatisfied because no evidence was submitted for it at all. The
+        # "<source_node_id>: " prefix aggregate_gate_results applies exists to
+        # trace *which upstream source* a reason came from -- it must not be
+        # applied to the join node's own local gate result too, since "end" is
+        # not one of its own upstream sources.
+        engine.apply("end", "complete", evidence=[])
+
+    message = str(excinfo.value)
+    assert "missing: review" in message
+    assert "end: missing: review" not in message
+
+
 def test_fan_out_creates_a_cursor_for_every_target(tmp_path: Path):
     graph = _fan_out_join_graph()
     store = RunStateStore(tmp_path / "run-state.json")

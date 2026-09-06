@@ -42,9 +42,10 @@ execution's outcome — see [Health and availability](#health-and-availability) 
   straight through to `TransitionEngine.apply(node_id, event_type, evidence=...)`: that method
   requires `list[dict]` of raw proof-record documents (see `docs/evidence.md`). A caller with
   run/graph/node context (which this module deliberately lacks, keeping adapters independent of
-  `praxis_runtime`) must convert each `evidence` entry into a proof-record document, e.g. via
-  `praxis_evidence.proof.build_proof_record`, before dispatching into `TransitionEngine.apply`
-  (see `docs/runtime.md`).
+  `praxis_runtime`) must convert each `evidence` entry into a proof-record document before
+  dispatching into `TransitionEngine.apply` (see `docs/runtime.md`) --
+  `praxis_executors.registry.evidence_to_proof_records` (see below) is the reusable function that
+  does this.
 - `class ExecutorStatus(enum.Enum)`: `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED` — the
   lifecycle of a single execution.
 - `class ExecutorError(Exception)`: raised by an `Executor` implementation when an operation
@@ -147,6 +148,14 @@ feed `DenyListPolicy`/`as_eligibility_callable` above.
 `ExecutorRegistry` (`src/praxis_executors/registry.py`) tracks registered adapters and mediates
 selection and execution. It has no dependency on `praxis_runtime`; wiring `ExecutionResult`'s
 `evidence` through to `TransitionEngine.apply` is the caller's responsibility, not the registry's.
+
+- `def evidence_to_proof_records(evidence: dict, *, run_id: str, graph_version: str, node_id: str, executor_id: str, grader_kind: str = "deterministic") -> list[dict]`:
+  the reusable conversion from an `ExecutionResult.evidence` flat `{proof_type: claim}` dict into
+  the `list[dict]` of proof-record documents `TransitionEngine.apply(..., evidence=...)` requires
+  -- one record per claimed `proof_type`, `status="pass"` for a truthy claim and `"fail"`
+  otherwise. A caller with the run/graph/node context `praxis_executors` deliberately lacks calls
+  this once it has selected and executed an executor, before dispatching into
+  `TransitionEngine.apply` (see `docs/runtime.md`).
 
 - `class ExecutorRegistry`:
   - `def register(self, executor_id: str, executor: Executor) -> None`: raises `RegistryError` on

@@ -267,7 +267,18 @@ class TransitionEngine:
 
         if join_sources:
             source_results = [self._source_gate_result(source) for source in join_sources]
-            result = aggregate_gate_results(node.id, [*source_results, result])
+            upstream = aggregate_gate_results(node.id, source_results)
+            # Combine bare (own node's local reasons carry no "<node_id>: "
+            # prefix -- that prefix traces which upstream *source* a reason
+            # came from, and this node is not its own upstream source) rather
+            # than folding `result` into `aggregate_gate_results`'s input,
+            # which would redundantly prefix its own reasons with its own id.
+            result = GateResult(
+                node_id=node.id,
+                satisfied=result.satisfied and upstream.satisfied,
+                reasons=(*result.reasons, *upstream.reasons),
+                evaluated=tuple(dict.fromkeys((*result.evaluated, *upstream.evaluated))),
+            )
 
         if not result.satisfied:
             raise TransitionError("; ".join(result.reasons))

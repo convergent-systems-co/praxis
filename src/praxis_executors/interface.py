@@ -54,13 +54,13 @@ class ExecutionResult:
     `docs/runtime.md`). It cannot be passed straight through to
     `TransitionEngine.apply(..., evidence=...)`: that method requires
     `list[dict]` of raw proof-record documents (see
-    `schemas/v1/proof-record.schema.json` and
-    `praxis_evidence.proof.build_proof_record`). A caller that has the
+    `schemas/v1/proof-record.schema.json`). A caller that has the
     run/graph/node context this flat dict lacks (this module deliberately
     has none, so adapters stay independent of `praxis_runtime`) is
     responsible for converting each `evidence` entry into a proof-record
-    document -- typically one call to `build_proof_record` per key, wrapped
-    into a list -- before dispatching into `TransitionEngine.apply`.
+    document before dispatching into `TransitionEngine.apply` --
+    `praxis_executors.registry.evidence_to_proof_records` is the reusable
+    conversion function for this.
     """
 
     status: ExecutorStatus

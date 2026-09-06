@@ -17,12 +17,10 @@ from pathlib import Path
 
 from conftest import _PassthroughGrader
 from praxis_evidence.graders import GraderRegistry
-from praxis_evidence.proof import build_proof_record
-from praxis_evidence.types import proof_record_to_document
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
 from praxis_executors.policy import DenyListPolicy, as_eligibility_callable
-from praxis_executors.registry import ExecutorRegistry
+from praxis_executors.registry import ExecutorRegistry, evidence_to_proof_records
 from praxis_policy.budgets import BudgetLedger
 from praxis_policy.gate import PolicyGate, PolicyOutcome
 from praxis_policy.profiles import BUILTIN_PROFILES
@@ -93,27 +91,6 @@ def _make_engine(tmp_path: Path) -> TransitionEngine:
     return TransitionEngine(_single_node_graph(), store, log, grader_registry=registry)
 
 
-def _proof_records(evidence: dict, *, node_id: str, executor_id: str) -> list[dict]:
-    """Convert a flat `ExecutionResult.evidence` claim dict into the
-    `list[dict]` of proof-record documents `TransitionEngine.apply` requires
-    -- the conversion a caller with run/graph/node context must do, since
-    `praxis_executors` deliberately has none (see `ExecutionResult`'s
-    docstring)."""
-    records = []
-    for proof_type, claim in evidence.items():
-        record = build_proof_record(
-            run_id="run-1",
-            graph_version=_SPEC_VERSION,
-            node_id=node_id,
-            proof_type=proof_type,
-            executor_id=executor_id,
-            grader_kind="deterministic",
-            status="pass" if claim else "fail",
-        )
-        records.append(proof_record_to_document(record))
-    return records
-
-
 def test_alternate_executor_retry_recovers_a_transient_failure_end_to_end(tmp_path: Path):
     registry = ExecutorRegistry()
     registry.register(
@@ -182,8 +159,12 @@ def test_alternate_executor_retry_recovers_a_transient_failure_end_to_end(tmp_pa
     engine.apply("n1", "start")
     engine.apply("n1", second_decision.event_type)
     engine.apply("n1", "resume")
-    evidence = _proof_records(
-        second_result.evidence, node_id="n1", executor_id=second_match.selected.executor_id
+    evidence = evidence_to_proof_records(
+        second_result.evidence,
+        run_id="run-1",
+        graph_version=_SPEC_VERSION,
+        node_id="n1",
+        executor_id=second_match.selected.executor_id,
     )
     state = engine.apply("n1", "complete", evidence=evidence)
 

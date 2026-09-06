@@ -83,6 +83,16 @@ Each test reproduces one finding before its fix and must pass after it:
     this class), and it was excluded from
     `test_passthrough_grader_is_shared_from_conftest`'s own identity
     assertions.
+20. `praxis_runtime.replay.resume()` forwarded a caller-supplied
+    `grader_registry` to the returned `TransitionEngine` but never accepted
+    or forwarded `resource_lease_store`, `resource_policy`, or
+    `resource_ttl`, so a `TransitionEngine` obtained after crash/restart
+    silently disabled resource-claim gating (fail-closed violation) even
+    when the caller had one configured before the crash.
+21. `docs/runtime.md` documented `resume()`'s signature as
+    `resume(graph, state_store, event_log) -> TransitionEngine`, omitting
+    the `grader_registry`, `resource_lease_store`, `resource_policy`, and
+    `resource_ttl` keyword-only parameters the actual function accepts.
 """
 
 from __future__ import annotations
@@ -103,6 +113,7 @@ from praxis_evidence.types import GradeResult, ProofRecord, proof_record_to_docu
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Edge, Graph, Node
 from praxis_runtime.replay import resume
+from praxis_runtime.resources.leases import LeaseStore
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionError
 
@@ -483,3 +494,94 @@ def test_prohibited_item_with_records_but_no_grader_has_no_reason():
 
     assert result.satisfied is True
     assert not any(reason.startswith("no grader registered:") for reason in result.reasons)
+
+
+_RESOURCE_TYPE = "filesystem"
+_RESOURCE_IDENTIFIER = "/workspace/output.txt"
+
+_FILESYSTEM_WRITE_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": _RESOURCE_TYPE,
+            "quantity": 1,
+            "identifier": _RESOURCE_IDENTIFIER,
+            "access_mode": "write",
+        }
+    ],
+}
+
+
+def _single_claim_graph(node_id: str) -> Graph:
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            node_id: Node(
+                id=node_id, kind="task", metadata={"resource_claims": _FILESYSTEM_WRITE_CLAIM}
+            )
+        },
+        edges=[],
+        entry_node=node_id,
+        terminal_nodes={node_id},
+    )
+
+
+def test_resume_forwards_resource_lease_store_to_returned_engine(tmp_path: Path):
+    graph = _single_claim_graph("n1")
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    lease_store = LeaseStore(tmp_path / "leases")
+
+    # No prior checkpoint/events -- resume() takes its "no pending events"
+    # early-return path and hands back a bare TransitionEngine. Even on that
+    # path it must still be constructed with the caller's resource_lease_store,
+    # not silently disable resource-claim gating.
+    engine = resume(graph, store, log, resource_lease_store=lease_store)
+
+    engine.apply("n1", "start")
+
+    lease = lease_store.load(_RESOURCE_TYPE, _RESOURCE_IDENTIFIER)
+    assert lease is not None, (
+        "resume() must forward resource_lease_store to the returned "
+        "TransitionEngine -- if it silently dropped it, the declared claim "
+        "would never acquire a lease"
+    )
+    assert lease.owner == "n1"
+
+
+def test_resume_forwards_resource_lease_store_after_pending_events_replayed(tmp_path: Path):
+    graph = _single_claim_graph("n1")
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    lease_store = LeaseStore(tmp_path / "leases")
+
+    bootstrap = TransitionEngine(graph, store, log, resource_lease_store=lease_store)
+    bootstrap.apply("n1", "start")
+
+    # Simulate a crash/restart with an unpersisted checkpoint: drop the
+    # checkpoint file so resume() must fold the pending "start" event via
+    # _fold_events before returning a fresh, real engine.
+    (tmp_path / "run-state.json").unlink()
+
+    resumed = resume(graph, store, log, resource_lease_store=lease_store)
+
+    resumed.apply("n1", "complete")
+
+    # The terminal transition revalidates and releases declared claims --
+    # this only touches the lease store at all if resource_lease_store
+    # actually reached the returned engine.
+    released = lease_store.load(_RESOURCE_TYPE, _RESOURCE_IDENTIFIER)
+    assert released is not None
+    assert released.status == "released"
+
+
+def test_runtime_doc_resume_signature_documents_resource_and_grader_params():
+    doc = (Path(__file__).resolve().parent.parent / "docs" / "runtime.md").read_text()
+    assert "def resume(graph: Graph, state_store: RunStateStore, event_log: EventLog) -> TransitionEngine" not in doc, (
+        "docs/runtime.md must not document resume()'s old signature, which omitted "
+        "grader_registry, resource_lease_store, resource_policy, and resource_ttl"
+    )
+    assert "resource_lease_store: LeaseStore | None = None" in doc
+    assert "resource_policy: ResourceAccessPolicy = ResourceAccessPolicy.STRICT" in doc
+    assert "resource_ttl: float = 60.0" in doc
+    assert "grader_registry: GraderRegistry | None = None" in doc

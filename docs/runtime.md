@@ -147,10 +147,13 @@ fan-out/join/evidence logic.
 - `def replay(event_log: EventLog, graph: Graph) -> RunState`: reconstructs a `RunState` purely
   from an `EventLog`'s persisted events and the graph's transition rules, independent of any
   checkpoint file.
-- `def resume(graph: Graph, state_store: RunStateStore, event_log: EventLog) -> TransitionEngine`:
+- `def resume(graph: Graph, state_store: RunStateStore, event_log: EventLog, *, grader_registry: GraderRegistry | None = None, resource_lease_store: LeaseStore | None = None, resource_policy: ResourceAccessPolicy = ResourceAccessPolicy.STRICT, resource_ttl: float = 60.0) -> TransitionEngine`:
   the process-restart entrypoint — loads the last checkpoint (if any), replays only the events
   appended after it, persists the reconciled state as the new checkpoint, and returns a
-  `TransitionEngine` bound to the real `state_store`/`event_log`.
+  `TransitionEngine` bound to the real `state_store`/`event_log`, constructed with whatever
+  `grader_registry`, `resource_lease_store`, `resource_policy`, and `resource_ttl` the caller
+  passed in — so domain-overlay graders and resource-claim gating both survive a crash/restart
+  instead of the returned engine silently reverting to an empty registry or disabled gating.
 
 **Guarantee:** `resume()` reconciles state before returning the engine, so a crash between an
 event append and its checkpoint save is always recovered from on the next resume.

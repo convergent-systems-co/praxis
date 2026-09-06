@@ -132,6 +132,12 @@ runs synchronously inside `apply`, before anything is written, so a rejected acq
 appends an event or persists a checkpoint. Evidence is checked before resource claims are
 settled — see the ordering note in `TransitionEngine._apply_locked`.
 
+**Resource-claim gating:** see [`docs/resources.md`](resources.md#wiring-into-transitionengine)
+for how `TransitionEngine` gates a node's declared `resource_claims` against a `LeaseStore` —
+resource-claim gating follows the same fail-closed pattern as evidence-gating above: the check
+runs synchronously inside `apply`, before anything is written, so a rejected acquisition never
+appends an event or persists a checkpoint.
+
 **Concurrency guarantee:** `apply()` holds an exclusive `flock` on a sidecar lock file next to
 the run-state checkpoint for the duration of its read-check-append-save sequence, so two
 `TransitionEngine` instances (same process or different processes) pointed at the same

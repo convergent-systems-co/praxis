@@ -1,10 +1,12 @@
 """Executor registry: register adapters, select one for a requirement, and
 drive a selected adapter's launch/poll/result lifecycle.
 
-This module has no dependency on praxis_runtime; `ExecutionResult.evidence`
-is shaped so a caller can pass it straight to
-`TransitionEngine.apply(node_id, event_type, evidence=result.evidence)`, but
-wiring that call is the caller's responsibility, not the registry's.
+This module has no dependency on praxis_runtime. `ExecutionResult.evidence`
+is a flat claim dict, not the `list[dict]` of proof-record documents
+`TransitionEngine.apply(node_id, event_type, evidence=...)` requires; a
+caller with run/graph/node context must convert it first (see
+`ExecutionResult`'s docstring in `interface.py`) -- wiring that call and
+conversion is the caller's responsibility, not the registry's.
 """
 
 from __future__ import annotations

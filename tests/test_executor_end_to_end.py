@@ -16,7 +16,11 @@ from pathlib import Path
 
 import pytest
 
+from conftest import _PassthroughGrader
 from praxis_contracts.validator import validate_document
+from praxis_evidence.graders import GraderRegistry
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import proof_record_to_document
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
 from praxis_executors.registry import ExecutorRegistry, RegistryError
@@ -58,7 +62,30 @@ def _make_engine(tmp_path: Path) -> TransitionEngine:
     graph = _single_node_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    return TransitionEngine(graph, store, log)
+    registry = GraderRegistry()
+    registry.register("process-exit-status", "deterministic", _PassthroughGrader())
+    return TransitionEngine(graph, store, log, grader_registry=registry)
+
+
+def _proof_records(evidence: dict, *, node_id: str, executor_id: str) -> list[dict]:
+    """Convert a flat `ExecutionResult.evidence` claim dict into the
+    `list[dict]` of proof-record documents `TransitionEngine.apply` requires
+    -- the conversion a caller with run/graph/node context must do, since
+    `praxis_executors` deliberately has none (see `ExecutionResult`'s
+    docstring)."""
+    records = []
+    for proof_type, claim in evidence.items():
+        record = build_proof_record(
+            run_id="run-1",
+            graph_version=_SPEC_VERSION,
+            node_id=node_id,
+            proof_type=proof_type,
+            executor_id=executor_id,
+            grader_kind="deterministic",
+            status="pass" if claim else "fail",
+        )
+        records.append(proof_record_to_document(record))
+    return records
 
 
 def _requirement(kind: str) -> dict:
@@ -115,7 +142,8 @@ def test_registry_execution_evidence_drives_real_node_to_terminal_success(tmp_pa
 
     engine = _make_engine(tmp_path)
     engine.apply("n1", "start")
-    state = engine.apply("n1", "complete", evidence=result.evidence)
+    evidence = _proof_records(result.evidence, node_id="n1", executor_id="executor-code")
+    state = engine.apply("n1", "complete", evidence=evidence)
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value
 
@@ -134,7 +162,8 @@ def test_swapping_which_registered_executor_satisfies_the_kind_still_reaches_ter
 
     engine = _make_engine(tmp_path)
     engine.apply("n1", "start")
-    state = engine.apply("n1", "complete", evidence=result.evidence)
+    evidence = _proof_records(result.evidence, node_id="n1", executor_id="executor-text")
+    state = engine.apply("n1", "complete", evidence=evidence)
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value
 

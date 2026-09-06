@@ -205,7 +205,8 @@ Confidence/evidence model and contradiction/decay handling (`src/praxis_learning
   raises `ConfidenceError` per above; otherwise determines `detect_contradiction`, appends
   `observation.observation_id` to `contradiction_ids` if a contradiction, else to `evidence_ids`
   (both deduplicated — appending the same `observation_id` twice is a no-op); recomputes
-  `age_days` from `heuristic.created_at` to `now`; recomputes `confidence` via
+  `age_days` from `heuristic.updated_at` (the last time it was reinforced, not when it was first
+  created) to `now`; recomputes `confidence` via
   `compute_confidence`; sets `status` to `"contradicted"` if `contradiction_ids` is non-empty and
   confidence is below `_CONTRADICTED_STATUS_THRESHOLD`, else `"decayed"` if confidence is below
   `_DECAY_STATUS_THRESHOLD`, else `"candidate"`. Returns a new `HeuristicCandidate` via
@@ -263,8 +264,11 @@ reimplementing.
     MIN_CONFIDENCE` — a hand-set high confidence never compensates for too little evidence, since
     the evidence-count check runs independently.
   - Calls `guardrails.check_configuration(heuristic.proposed_configuration)` and
-    `guardrails.check_target(_LEARNED_HEURISTIC_TARGET)`, letting `GuardrailViolation` propagate
-    unwrapped.
+    `guardrails.check_target(_LEARNED_HEURISTIC_TARGET)` (a self-check against the fixed target
+    constant), plus `guardrails.check_target(heuristic.proposed_configuration.get("target"))` (the
+    heuristic's own, untrusted `proposed_configuration` may carry its own `target` key that
+    `check_configuration` does not inspect), letting `GuardrailViolation` propagate unwrapped from
+    either call.
   - Registers a `CandidateConfig` built from `heuristic.proposed_configuration` in `registry`, then
     calls `praxis_eval.promotion.evaluate_candidate` with a policy built via
     `build_promotion_policy()`.

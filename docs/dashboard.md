@@ -74,10 +74,17 @@ Evidence/proof projection and stale-proof detection. `EvidenceView` (`node_id`,
   `satisfied=None` (not yet attempted, distinct from a failing evaluation). Otherwise grades the
   stored records via `praxis_evidence.gates.evaluate_gate` — the same read-only function
   `TransitionEngine._check_evidence` uses (see [`docs/evidence.md`](evidence.md)) — against
-  `graph.spec_version`, without mutating anything.
+  `graph.spec_version`, without mutating anything. For a node reached via one or more incoming
+  `"join"`-kind edges, each source's own gate result is re-derived fresh from that source's stored
+  evidence (mirroring `TransitionEngine._check_evidence`'s join-node aggregation) and combined with
+  this node's own result via `praxis_evidence.aggregate.aggregate_gate_results`, so `satisfied`/
+  `reasons` reflect the same additional gating the node's real terminal transition is subject to.
 - `stale_warning` is set when any stored proof record's `graph_version` differs from the current
   graph's `spec_version` — a **stale proof**: evidence recorded against a graph version that is no
-  longer the one loaded, surfaced as a warning rather than silently trusted or discarded.
+  longer the one loaded, surfaced as a warning rather than silently trusted or discarded. For a
+  join node, this check also covers every upstream join source's own stored proof records, not just
+  the node's own — so a stale record on an upstream source still surfaces here, not only as text
+  embedded in `reasons`.
 
 ## `praxis_dashboard.resource_view`
 

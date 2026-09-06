@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/evaluation-record.schema.json",
+  "title": "Evaluation Record",
+  "description": "A record of measurements produced by evaluating a candidate against a workload, optionally paired against a baseline candidate.",
+  "type": "object",
+  "required": ["spec_version", "evaluation_id", "candidate_id", "workload_id", "measurements", "produced_at"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "evaluation_id": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "baseline_candidate_id": {
+      "type": "string",
+      "description": "The candidate this evaluation was paired-compared against, if any."
+    },
+    "workload_id": {
+      "type": "string",
+      "description": "Cites an exact external workload/scenario identifier, e.g. a benchmark corpus filename -- never a paraphrase."
+    },
+    "measurements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["metric", "value"],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "An open, illustrative metric name, e.g. 'wall_seconds', 'human_interrupts', 'cost' -- not a fixed enum."
+          },
+          "value": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evaluator_id": {
+      "type": "string",
+      "description": "An opaque identifier for whatever produced this record; must not encode a vendor or model name."
+    },
+    "produced_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,118 @@
+{
+  "bundle": "b9-issue10",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Candidate/evaluation/promotion contract schemas + shared dataclasses",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/candidate-config.schema.json",
+        "schemas/v1/evaluation-record.schema.json",
+        "schemas/v1/promotion-policy.schema.json",
+        "schemas/v1/promotion-record.schema.json",
+        "src/praxis_eval/__init__.py",
+        "src/praxis_eval/types.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Candidate registry: content-addressed immutable identity + durable storage",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/candidates.py",
+        "tests/test_candidate_registry.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Evaluation-record construction/validation (workload citation)",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/measurements.py",
+        "tests/test_evaluation_records.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Configurable promotion-policy/threshold parsing",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/thresholds.py",
+        "tests/test_promotion_policy.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Paired candidate-vs-baseline metric comparison",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/comparison.py",
+        "tests/test_comparison.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Append-only promotion/rollback ledger + active-candidate derivation",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/ledger.py",
+        "tests/test_promotion_ledger.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Health/regression promotion gate over paired comparisons",
+      "depends_on": ["T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/gates.py",
+        "tests/test_promotion_gate.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Promotion orchestration: gate + authority + append-only accept/reject decision",
+      "depends_on": ["T2", "T6", "T7"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/promotion.py",
+        "tests/test_promotion_decision.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Rollback to previous accepted configuration",
+      "depends_on": ["T2", "T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/rollback.py",
+        "tests/test_promotion_rollback.py"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "End-to-end candidate lifecycle test + full-suite regression run",
+      "depends_on": ["T8", "T9"],
+      "kind": "code",
+      "files": [
+        "tests/test_promotion_end_to_end.py"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Document the candidate eval/promotion/rollback public interface",
+      "depends_on": ["T8", "T9"],
+      "kind": "docs",
+      "files": [
+        "docs/eval.md",
+        "docs/ontology.md"
+      ]
+    }
+  ]
+}

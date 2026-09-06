@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/candidate-config.schema.json",
+  "title": "Candidate Config",
+  "description": "A single evaluatable configuration under consideration for promotion, e.g. a runtime, routing, prompt, policy, or scheduler variant. The configuration payload itself is intentionally opaque -- this package must never assume its internal shape.",
+  "type": "object",
+  "required": ["spec_version", "candidate_id", "configuration", "created_at"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "parent_candidate_id": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string",
+      "description": "An open, illustrative classification of what this candidate configures, e.g. 'runtime', 'routing', 'policy', 'scheduler' -- not a fixed enum."
+    },
+    "description": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/promotion-record.schema.json",
+  "title": "Promotion Record",
+  "description": "A ledger entry recording a promotion or rollback decision for a candidate.",
+  "type": "object",
+  "required": ["spec_version", "record_id", "seq", "action", "candidate_id", "decision", "produced_at"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "record_id": {
+      "type": "string"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "action": {
+      "enum": ["promote", "rollback"]
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "The candidate this record makes/keeps active."
+    },
+    "decision": {
+      "enum": ["accepted", "rejected", "human_required"]
+    },
+    "previous_candidate_id": {
+      "type": "string",
+      "description": "The candidate that was active immediately before this record."
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evaluation_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The EvaluationRecords this decision was based on."
+    },
+    "authority_outcome": {
+      "enum": ["auto_approved", "human_required", "denied"]
+    },
+    "produced_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

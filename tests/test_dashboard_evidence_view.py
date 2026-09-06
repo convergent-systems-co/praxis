@@ -20,11 +20,14 @@ from __future__ import annotations
 
 from conftest import _PassthroughGrader
 from praxis_dashboard.evidence_view import EvidenceView, build_evidence_view, stored_evidence_for
+from praxis_dashboard.snapshot import build_snapshot
 from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
-from praxis_runtime.events import Event
+from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Edge, Graph, Node
+from praxis_runtime.state import RunStateStore
+from praxis_runtime.transitions import TransitionEngine
 
 _SPEC_VERSION = "1.0.0"
 _GRAPH_VERSION = "1.0.0"
@@ -307,6 +310,42 @@ def test_join_node_without_own_requirement_surfaces_upstream_stale_warning():
     view = build_evidence_view(node_end, events, graph, grader_registry=registry)
 
     assert view.stale_warning is not None
+
+
+def test_join_node_upstream_stale_proof_reaches_dashboard_snapshot_warnings(tmp_path):
+    # The resumed repair instruction requires proof at the DashboardSnapshot
+    # level, not just on the EvidenceView this module returns directly: a
+    # join node's stale-upstream-proof warning must reach the dashboard's
+    # dedicated warnings banner (DashboardSnapshot.warnings), not merely live
+    # as embedded text inside `reasons`.
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    apply_time_graph = _join_graph(spec_version="1.0.0")
+
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(apply_time_graph, store, log, grader_registry=registry)
+    engine.apply("a", "start")
+    engine.apply(
+        "a",
+        "complete",
+        evidence=[_proof_document("signoff", status="pass", graph_version="1.0.0")],
+    )
+    run_state = engine.current_state()
+    events = log.read_all()
+
+    # The graph the dashboard reads back may differ from the one live at
+    # apply-time (e.g. a dashboard attaching later after the spec was
+    # reloaded) -- using a different spec_version here, rather than at
+    # apply-time (which the engine's own evidence gate would reject as
+    # stale), is what forces the dashboard's own stale-evidence detection.
+    current_graph = _join_graph(spec_version="0.9.0")
+
+    snapshot = build_snapshot(current_graph, run_state, events, engine, grader_registry=registry)
+
+    end_view = next(v for v in snapshot.evidence if v.node_id == "end")
+    assert end_view.stale_warning is not None
+    assert end_view.stale_warning in snapshot.warnings
 
 
 def test_join_node_with_own_missing_evidence_is_unsatisfied_even_when_upstream_satisfied():

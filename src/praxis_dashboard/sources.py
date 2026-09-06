@@ -43,6 +43,7 @@ import praxis_evidence.graders
 import praxis_executors.registry
 import praxis_runtime.graph
 import praxis_runtime.replay
+import praxis_runtime.transitions
 from praxis_runtime.events import EventLog
 from praxis_runtime.resources.leases import LeaseStore
 from praxis_runtime.state import Cursor, RunState, RunStateStore
@@ -50,18 +51,21 @@ from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 from . import snapshot
 
-_SPEC_VERSION = "1.0.0"
-
 
 class DashboardSourceError(Exception):
     """Raised fail-closed when the graph or run directory cannot be read/validated."""
 
 
 def _entry_pending_state(graph: "praxis_runtime.graph.Graph") -> RunState:
-    """Mirrors TransitionEngine.current_state()'s unchecked fallback (private to that class)."""
+    """Mirrors TransitionEngine.current_state()'s unchecked fallback (private
+    to that class). spec_version is read off
+    praxis_runtime.transitions._SPEC_VERSION by reference, not duplicated as
+    a local literal, so a future bump to that constant can never silently
+    desync this fallback RunState from the one TransitionEngine itself would
+    build."""
     entry = graph.entry_node
     return RunState(
-        spec_version=_SPEC_VERSION,
+        spec_version=praxis_runtime.transitions._SPEC_VERSION,
         run_id=uuid.uuid4().hex,
         cursors={entry: Cursor(node_id=entry, status=NodeStatus.PENDING.value)},
         last_applied_seq=-1,

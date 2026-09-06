@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+import praxis_runtime.transitions as transitions
+from praxis_dashboard import sources
 from praxis_dashboard.sources import DashboardSource, DashboardSourceError
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.registry import ExecutorRegistry
@@ -69,6 +71,23 @@ def _capability_advertising_executor() -> FakeCapabilityExecutor:
         ],
         script={},
     )
+
+
+def test_entry_pending_state_spec_version_tracks_transitions_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # The dashboard's fallback RunState (built when no checkpoint exists yet)
+    # must mirror TransitionEngine.current_state()'s own unchecked fallback,
+    # spec_version included: a future bump to the runtime's own
+    # praxis_runtime.transitions._SPEC_VERSION constant must never silently
+    # desync from this module's fallback, so this reads it by reference
+    # rather than duplicating the literal.
+    monkeypatch.setattr(transitions, "_SPEC_VERSION", "9.9.9")
+    graph = load_graph(SAMPLE_GRAPH_PATH)
+
+    state = sources._entry_pending_state(graph)
+
+    assert state.spec_version == "9.9.9"
 
 
 def test_poll_live_on_fresh_run_directory_shows_only_entry_node(tmp_path: Path):

@@ -242,6 +242,34 @@ def test_propose_promotion_forbidden_configuration_key_raises_guardrail_violatio
         )
 
 
+def test_propose_promotion_forbidden_target_embedded_in_configuration_raises_guardrail_violation(
+    tmp_path: Path,
+):
+    # `_LEARNED_HEURISTIC_TARGET` is a fixed, trusted module constant that can
+    # never collide with `_FORBIDDEN_TARGETS`, so checking only that constant
+    # never exercises the guard against untrusted input. A learned heuristic's
+    # own (untrusted) `proposed_configuration` can still smuggle a `target`
+    # key naming a forbidden subsystem; that must be caught too.
+    heuristic = _heuristic(
+        proposed_configuration={
+            "pattern": "retry-on-timeout",
+            "target": "authority",
+        }
+    )
+    registry = CandidateRegistry(tmp_path / "registry")
+    evaluation = _evaluation_record(candidate_id="unused", measurements=(Measurement(metric="m", value=1.0),))
+    profile = BUILTIN_PROFILES["standard"]
+
+    with pytest.raises(GuardrailViolation):
+        propose_promotion(
+            heuristic,
+            registry=registry,
+            evaluation=evaluation,
+            baseline_evaluation=None,
+            profile=profile,
+        )
+
+
 @pytest.mark.parametrize("profile_name", sorted(BUILTIN_PROFILES))
 def test_propose_promotion_well_formed_heuristic_is_human_required_under_every_builtin_profile(
     tmp_path: Path, profile_name: str

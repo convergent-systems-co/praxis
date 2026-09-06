@@ -115,6 +115,13 @@ def propose_promotion(
 
     guardrails.check_configuration(heuristic.proposed_configuration)
     guardrails.check_target(_LEARNED_HEURISTIC_TARGET)
+    # `_LEARNED_HEURISTIC_TARGET` is a fixed constant that can never collide
+    # with a forbidden target, so the check above is a self-check against a
+    # future edit to that constant, not input validation. The heuristic's own
+    # (untrusted) `proposed_configuration` may still carry its own `target`
+    # key -- `check_configuration` only inspects keys, never this value -- so
+    # it must be checked too.
+    guardrails.check_target(heuristic.proposed_configuration.get("target"))
 
     candidate = candidates.build_candidate_config(
         heuristic.proposed_configuration,

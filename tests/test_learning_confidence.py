@@ -118,6 +118,7 @@ def test_apply_observation_corroborating_evidence_updates_confidence_and_evidenc
         confidence=0.0,
         evidence_ids=(),
         created_at="2026-09-01T00:00:00+00:00",
+        updated_at="2026-09-01T00:00:00+00:00",
     )
     observation = _observation(observation_id="o1", observed_outcome="retry")
 
@@ -185,6 +186,7 @@ def test_apply_observation_repeated_observation_id_is_idempotent_for_evidence():
         confidence=0.0,
         evidence_ids=(),
         created_at="2026-09-01T00:00:00+00:00",
+        updated_at="2026-09-01T00:00:00+00:00",
     )
     observation = _observation(observation_id="o1", observed_outcome="retry")
 
@@ -193,6 +195,32 @@ def test_apply_observation_repeated_observation_id_is_idempotent_for_evidence():
 
     assert twice.evidence_ids == ("o1",)
     assert twice.confidence == once.confidence
+
+
+def test_apply_observation_decays_from_last_reinforcement_not_creation():
+    # Reinforced 9 times since creation, most recently 1 day before `now`;
+    # created 10 days before `now`. docs/learning.md documents decay as
+    # happening "since the heuristic's last reinforcement" (updated_at), so
+    # only the 1-day gap since the last reinforcement should count -- not the
+    # full 10-day gap since creation. At evidence_count=10, base=1-1/11=0.9091;
+    # decay over 1 day (half_life=30) is ~0.977, giving confidence ~0.888,
+    # comfortably above MIN_CONFIDENCE=0.75. Anchoring decay to created_at
+    # instead would use age_days=10, giving confidence ~0.7215 -- below
+    # MIN_CONFIDENCE -- which is exactly the bug this test pins.
+    heuristic = _heuristic(
+        status="candidate",
+        confidence=0.8,
+        evidence_ids=tuple(f"o{i}" for i in range(9)),
+        created_at="2026-08-22T00:00:00+00:00",
+        updated_at="2026-08-31T00:00:00+00:00",
+    )
+    observation = _observation(observation_id="o9", observed_outcome="retry")
+
+    updated = apply_observation(heuristic, observation, now="2026-09-01T00:00:00+00:00")
+
+    assert updated.evidence_ids == tuple(f"o{i}" for i in range(9)) + ("o9",)
+    assert updated.confidence > 0.75
+    assert updated.confidence == pytest.approx(0.8884, abs=1e-3)
 
 
 def test_apply_observation_repeated_observation_id_is_idempotent_for_contradiction():

@@ -68,9 +68,9 @@ def apply_observation(
         if observation.observation_id not in evidence_ids:
             evidence_ids = evidence_ids + (observation.observation_id,)
 
-    created_at = datetime.fromisoformat(heuristic.created_at)
+    last_reinforced_at = datetime.fromisoformat(heuristic.updated_at)
     now_dt = datetime.fromisoformat(resolved_now)
-    age_days = (now_dt - created_at).total_seconds() / 86400.0
+    age_days = (now_dt - last_reinforced_at).total_seconds() / 86400.0
 
     confidence = compute_confidence(
         len(evidence_ids),

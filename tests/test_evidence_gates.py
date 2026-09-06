@@ -10,6 +10,7 @@ required/preferred/prohibited constraint semantics.
 
 from __future__ import annotations
 
+from conftest import _PassthroughGrader
 from praxis_evidence.gates import evaluate_gate
 from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import build_proof_record
@@ -49,24 +50,6 @@ def _record(
         confidence=confidence,
     )
     return proof_record_to_document(record)
-
-
-class _PassthroughGrader:
-    """Mirrors the record's own submitted status/confidence -- used where the
-    test wants the grader's verdict to track whatever each record claims."""
-
-    def __init__(self, grader_kind: str = "deterministic", advisory: bool = False) -> None:
-        self._grader_kind = grader_kind
-        self._advisory = advisory
-
-    def grade(self, record: ProofRecord) -> GradeResult:
-        return GradeResult(
-            proof_type=record.proof_type,
-            status=record.status,
-            confidence=record.confidence,
-            grader_kind=self._grader_kind,
-            advisory=self._advisory,
-        )
 
 
 class _FixedGrader:

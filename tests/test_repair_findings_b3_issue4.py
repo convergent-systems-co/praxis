@@ -91,10 +91,10 @@ from pathlib import Path
 
 import pytest
 
-from conftest import _linear_graph
+from conftest import _linear_graph, _PassthroughGrader
 from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import build_proof_record
-from praxis_evidence.types import GradeResult, ProofRecord, proof_record_to_document
+from praxis_evidence.types import proof_record_to_document
 from praxis_runtime import replay as replay_module
 from praxis_runtime import state as state_module
 from praxis_runtime.events import Event, EventLog, EventLogError
@@ -108,21 +108,6 @@ SAMPLE_GRAPH_PATH = REPO_ROOT / "examples" / "sample-graph.json"
 RUNTIME_DOC_PATH = REPO_ROOT / "docs" / "runtime.md"
 
 _GRAPH_VERSION = "1.0.0"
-
-
-class _PassthroughGrader:
-    """Mirrors the record's own submitted status -- these tests only need a
-    deterministic grader so evaluate_gate can grade the submitted record,
-    not exercise the grading algorithm itself."""
-
-    def grade(self, record: ProofRecord) -> GradeResult:
-        return GradeResult(
-            proof_type=record.proof_type,
-            status=record.status,
-            confidence=record.confidence,
-            grader_kind="deterministic",
-            advisory=False,
-        )
 
 
 def _proof_record(proof_type: str, status: str, *, node_id: str = "n1") -> dict:

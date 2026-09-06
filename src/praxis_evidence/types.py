@@ -1,10 +1,15 @@
 """Shared data shapes for the evidence/proof subsystem.
 
-ProofRecord and GateResult mirror proof-record.schema.json and
-gate-result.schema.json respectively; the *_to_document/_from_document
-functions convert between the dataclasses and the plain-dict document shape
+ProofRecord mirrors proof-record.schema.json; the *_to_document/_from_document
+functions convert between the dataclass and the plain-dict document shape
 that praxis_contracts.validator.validate_document validates, following the
 convention in praxis_runtime/state.py.
+
+GateResult is the outcome of evaluate_gate()/aggregate_gate_results(): it
+carries node_id, satisfied (bool), reasons (human-readable explanations for
+any unsatisfied or contradictory proof_type), and evaluated (every proof_type
+considered). It has no backing schema file -- it is never validated against
+or built from an external document.
 """
 
 from __future__ import annotations

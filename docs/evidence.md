@@ -36,10 +36,10 @@ secret-scanning logic.
 ## `GateResult`
 
 A `GateResult` (`src/praxis_evidence/types.py`) is the outcome of evaluating a graph node's
-evidence requirement against the proof records collected for it, mirroring
-`schemas/v1/gate-result.schema.json`. It carries `node_id`, `satisfied: bool`, `reasons: tuple[str, ...]`
-(human-readable explanations for any unsatisfied or contradictory `proof_type`), and
-`evaluated: tuple[str, ...]` (every `proof_type` named in the requirement, in order).
+evidence requirement against the proof records collected for it. It carries `node_id`,
+`satisfied: bool`, `reasons: tuple[str, ...]` (human-readable explanations for any unsatisfied or
+contradictory `proof_type`), and `evaluated: tuple[str, ...]` (every `proof_type` named in the
+requirement, in order).
 
 ## The `Grader` / `GraderRegistry` extension point
 
@@ -120,4 +120,3 @@ already reached `TERMINAL_SUCCESS` (see [`docs/runtime.md`](runtime.md)).
 | File | Purpose |
 | --- | --- |
 | `schemas/v1/proof-record.schema.json` | A single piece of evidence produced against a node's evidence requirement (`proof_type`, `grader_kind`, `status`, optional `confidence`/`artifacts`/`inputs`). Closed schema, reference-only artifacts. |
-| `schemas/v1/gate-result.schema.json` | The outcome of grading a node's collected proof records against its evidence requirement (`satisfied`, `reasons`, `evaluated`). |

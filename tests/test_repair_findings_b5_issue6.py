@@ -49,6 +49,18 @@ Each test reproduces one finding before its fix and must pass after it:
     anywhere in `src/` or `tests/` -- `GateResult` was never constructed from
     or validated against a document, so the dataclass and schema could
     silently drift with no caller ever noticing.
+13. `docs/evidence.md` still documented `schemas/v1/gate-result.schema.json`
+    as an existing file (in the `GateResult` section and in the schema files
+    table), even though that schema was deleted (see finding 12 above) --
+    the doc referenced a nonexistent schema file.
+14. `praxis_evidence.types`'s module docstring still said `GateResult`
+    mirrors `gate-result.schema.json`, which no longer exists.
+15. `_PassthroughGrader` was duplicated near-verbatim across
+    `tests/test_evidence_gates.py`, `tests/test_transitions.py`,
+    `tests/test_checkpoint_resume.py`, and
+    `tests/test_repair_findings_b3_issue4.py` instead of being factored into
+    `tests/conftest.py`, which already holds `_linear_graph` for exactly
+    this purpose.
 """
 
 from __future__ import annotations
@@ -360,3 +372,35 @@ def test_gate_result_schema_file_removed_as_unused():
         "a document, so the unused schema should be removed rather than left to "
         "silently drift from the dataclass it was meant to describe"
     )
+
+
+def test_evidence_doc_does_not_reference_deleted_gate_result_schema_file():
+    doc = _read_evidence_doc()
+    assert "gate-result.schema.json" not in doc, (
+        "gate-result.schema.json was deleted as unused dead code -- "
+        "docs/evidence.md must not document it as an existing schema file, "
+        "either in the GateResult section or the schema files table"
+    )
+
+
+def test_types_module_docstring_does_not_reference_deleted_gate_result_schema_file():
+    doc = types_module.__doc__
+    assert doc, "praxis_evidence.types must have a module docstring"
+    assert "gate-result.schema.json" not in doc, (
+        "gate-result.schema.json was deleted as unused dead code -- the module "
+        "docstring must describe GateResult's shape directly instead of "
+        "claiming it mirrors a nonexistent schema file"
+    )
+
+
+def test_passthrough_grader_is_shared_from_conftest():
+    import conftest
+    import test_checkpoint_resume
+    import test_evidence_gates
+    import test_repair_findings_b3_issue4
+    import test_transitions
+
+    assert test_evidence_gates._PassthroughGrader is conftest._PassthroughGrader
+    assert test_transitions._PassthroughGrader is conftest._PassthroughGrader
+    assert test_checkpoint_resume._PassthroughGrader is conftest._PassthroughGrader
+    assert test_repair_findings_b3_issue4._PassthroughGrader is conftest._PassthroughGrader

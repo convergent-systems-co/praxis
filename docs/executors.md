@@ -146,8 +146,9 @@ feed `DenyListPolicy`/`as_eligibility_callable` above.
 ## `praxis_executors.registry`
 
 `ExecutorRegistry` (`src/praxis_executors/registry.py`) tracks registered adapters and mediates
-selection and execution. It has no dependency on `praxis_runtime`; wiring `ExecutionResult`'s
-`evidence` through to `TransitionEngine.apply` is the caller's responsibility, not the registry's.
+selection and execution. It has no dependency on `praxis_runtime`; dispatching converted proof
+records into `TransitionEngine.apply` is still the caller's responsibility, not the registry's —
+no executor-to-runtime orchestrator module exists in this codebase today.
 
 - `def evidence_to_proof_records(evidence: dict, *, run_id: str, graph_version: str, node_id: str, executor_id: str, grader_kind: str = "deterministic") -> list[dict]`:
   the reusable conversion from an `ExecutionResult.evidence` flat `{proof_type: claim}` dict into
@@ -167,6 +168,11 @@ selection and execution. It has no dependency on `praxis_runtime`; wiring `Execu
     selects an executor, launches the request, polls `status()` until a terminal
     `ExecutorStatus` (calling the optional `poll` callback between checks), then returns
     `result()`. Raises `RegistryError` if `select` finds no candidate.
+  - `def execute_with_proof_records(self, requirement: dict, request: ExecutionRequest, *, run_id: str, graph_version: str, node_id: str, grader_kind: str = "deterministic", is_eligible=None, poll: Callable[[], None] | None = None) -> tuple[ExecutionResult, list[dict]]`:
+    like `execute`, but also calls `evidence_to_proof_records` using the `executor_id` this call's
+    own `select()` actually chose, so a caller with run/graph/node context gets back the converted
+    proof-record list alongside the raw `ExecutionResult` without re-deriving the winning
+    `executor_id` out of band. This is `evidence_to_proof_records`'s production caller.
 - `class RegistryError(Exception)`.
 
 ## Adding a new executor adapter

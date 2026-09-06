@@ -13,14 +13,23 @@ Each test reproduces one finding before its fix and must pass after it:
    used a manual try/except/else/raise AssertionError instead of
    `pytest.raises`, inconsistent with every other exception test in this
    bundle.
+3. `praxis_overlay.manifest.validate_manifest_document` is exported (and
+   documented in `docs/overlays.md` as "exposed standalone for callers that
+   only need shape validation... e.g. a future manifest linter") but no test
+   exercised it directly -- every existing test only reached it indirectly
+   through `load_manifest`.
 """
 
 from __future__ import annotations
 
+import copy
 import inspect
 from pathlib import Path
 
-from praxis_contracts.validator import validate_document
+import pytest
+
+from praxis_contracts.validator import ContractValidationError, validate_document
+from praxis_overlay.manifest import validate_manifest_document
 
 import overlays.development.graph as development_graph_module
 import test_overlay_resource_extension as resource_extension_test_module
@@ -29,6 +38,21 @@ from overlays.development.graph import build_development_graph
 _REQUIREMENT_SCHEMA_PATH = (
     Path(__file__).resolve().parent.parent / "schemas" / "v1" / "requirement.schema.json"
 )
+
+_VALID_MANIFEST_DOCUMENT = {
+    "spec_version": "1.0.0",
+    "overlay_id": "development-overlay",
+    "namespace": "development",
+    "version": "0.1.0",
+    "description": "Ports the current develop skill's graph/policy semantics onto Praxis.",
+    "declares": {
+        "capability_kinds": ["development.code-generation"],
+        "proof_types": ["development.test-pass"],
+        "resource_types": ["development.filesystem"],
+        "authority_scopes": [],
+    },
+    "requested_capability_kinds": ["development.code-generation"],
+}
 
 
 def test_development_graph_requirements_are_valid_promise_documents():
@@ -62,3 +86,19 @@ def test_resource_extension_test_uses_pytest_raises_not_manual_try_except():
         "try/except/else/raise AssertionError"
     )
     assert "pytest.raises(ResourceExtensionError)" in source
+
+
+def test_validate_manifest_document_accepts_a_valid_document_standalone():
+    # Previously untested standalone: every prior test only reached
+    # validate_manifest_document() indirectly via load_manifest(), so a
+    # regression that broke this specific entry point (without breaking
+    # load_manifest's own schema-validation call) would have gone unnoticed.
+    validate_manifest_document(copy.deepcopy(_VALID_MANIFEST_DOCUMENT))
+
+
+def test_validate_manifest_document_rejects_an_invalid_document_standalone():
+    document = copy.deepcopy(_VALID_MANIFEST_DOCUMENT)
+    document["vendor"] = "acme-model-vendor"
+
+    with pytest.raises(ContractValidationError):
+        validate_manifest_document(document)

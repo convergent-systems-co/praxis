@@ -407,6 +407,8 @@ convergent-systems-co/praxis
 
 When Praxis reaches an appropriate release state, AI Atoms may publish a Praxis bundle/descriptor and `develop` may declare it as a dependency. Runtime source, issues, architecture, and implementation remain here.
 
+See also: [`docs/distribution.md`](docs/distribution.md) for the full statement of this repository's relationship to the `ai-atoms` distribution surface.
+
 ---
 
 ## External Inspiration and Provenance

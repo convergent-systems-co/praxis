@@ -82,7 +82,7 @@ neither can count toward satisfying a requirement.
 1. A registered `"deterministic"` grader is always authoritative for that `proof_type`.
 2. If a `"model"` grader is *also* registered alongside a `"deterministic"` one, its verdict is
    graded too but recorded only as an `"advisory: model grader for <proof_type> returned
-   status=...`" reason — a model grade can never flip satisfaction when a deterministic grader
+   status=..."` reason — a model grade can never flip satisfaction when a deterministic grader
    exists.
 3. With no deterministic grader registered, a registered `"model"` grader is authoritative on its
    own.

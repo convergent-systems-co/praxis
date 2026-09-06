@@ -61,6 +61,11 @@ Each test reproduces one finding before its fix and must pass after it:
     `tests/test_repair_findings_b3_issue4.py` instead of being factored into
     `tests/conftest.py`, which already holds `_linear_graph` for exactly
     this purpose.
+16. `docs/evidence.md`'s inline-code span documenting the advisory-reason
+    string closed its backtick before the closing double-quote instead of
+    after it (`` status=...`" reason `` instead of `` status=..."` reason ``),
+    spanning lines 84-85 and producing a stray backtick with broken
+    code-span rendering.
 """
 
 from __future__ import annotations
@@ -390,6 +395,19 @@ def test_types_module_docstring_does_not_reference_deleted_gate_result_schema_fi
         "gate-result.schema.json was deleted as unused dead code -- the module "
         "docstring must describe GateResult's shape directly instead of "
         "claiming it mirrors a nonexistent schema file"
+    )
+
+
+def test_evidence_doc_advisory_reason_code_span_closes_after_quote():
+    doc = _read_evidence_doc()
+    assert 'status=...`" reason' not in doc, (
+        "docs/evidence.md's inline-code span for the advisory-reason string "
+        "closes its backtick before the closing double-quote instead of "
+        "after it, producing a stray backtick and broken code-span rendering"
+    )
+    assert 'status=..."` reason' in doc, (
+        "docs/evidence.md must close the advisory-reason inline-code span "
+        "with the backtick after the closing double-quote"
     )
 
 

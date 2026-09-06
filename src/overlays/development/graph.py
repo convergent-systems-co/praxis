@@ -9,14 +9,21 @@ overlay contract, not a full port of every recovery/scheduler node; see
 docs/overlays/development.md for the scoping rationale.
 
 Each node's `requirement` metadata entry (node.metadata["requirement"])
-requests a `development.*` capability kind -- a Promise.kind-shaped string
-per docs/ontology.md, never a vendor/model name. Unlike `evidence_requirement`
-and `policy_requirement`, which `TransitionEngine`/`praxis_policy` actually
-enforce, this `requirement` entry is declarative metadata only: no core
-module (`TransitionEngine`, `praxis_executors.matching`, `praxis_policy`)
-currently reads or enforces it. The terminal node's `evidence_requirement`
-requires both "development.test-pass" and "development.review-approved" and
-is enforced by `TransitionEngine`'s evidence gate.
+requests a `development.*` capability kind. `Promise.kind`
+(schemas/v1/promise.schema.json) matches the flat, undotted pattern
+`^[a-z0-9]+(-[a-z0-9]+)*$`, while a namespaced capability_kind like
+`"development.code-generation"` (schemas/v1/overlay-manifest.schema.json's
+dotted namespacedString form) does not -- so `_requirement()` flattens the
+namespace dot to a hyphen (`"development-code-generation"`) before using it
+as `Promise.kind`, keeping the result both Promise.kind-shaped per
+docs/ontology.md and traceable to its owning namespace, never a vendor/model
+name. Unlike `evidence_requirement` and `policy_requirement`, which
+`TransitionEngine`/`praxis_policy` actually enforce, this `requirement` entry
+is declarative metadata only: no core module (`TransitionEngine`,
+`praxis_executors.matching`, `praxis_policy`) currently reads or enforces it.
+The terminal node's `evidence_requirement` requires both
+"development.test-pass" and "development.review-approved" and is enforced by
+`TransitionEngine`'s evidence gate.
 """
 
 from __future__ import annotations
@@ -35,11 +42,17 @@ _EVIDENCE_REQUIREMENT = {
 
 
 def _requirement(capability_kind: str) -> dict:
+    # capability_kind is namespace-dotted (e.g. "development.code-generation",
+    # per overlay-manifest.schema.json's namespacedString pattern), but
+    # Promise.kind (schemas/v1/promise.schema.json) matches the flat pattern
+    # ^[a-z0-9]+(-[a-z0-9]+)*$ and forbids dots -- flatten the namespace dot
+    # to a hyphen so the resulting Promise document validates.
+    promise_kind = capability_kind.replace(".", "-")
     return {
         "spec_version": _SPEC_VERSION,
         "requirements": [
             {
-                "promise": {"spec_version": _SPEC_VERSION, "kind": capability_kind},
+                "promise": {"spec_version": _SPEC_VERSION, "kind": promise_kind},
                 "constraint": "required",
             }
         ],

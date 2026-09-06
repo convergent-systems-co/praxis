@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from praxis_overlay.manifest import OverlayDeclarations, OverlayManifest
 from praxis_overlay.resources import ResourceExtensionError, check_provider_declares_subset
 from praxis_runtime.resources.leases import LeaseStore
@@ -51,12 +53,8 @@ def test_provider_with_undeclared_resource_type_raises():
     manifest = _manifest(["fixture.filesystem"])
     provider = _FakeProvider(frozenset({"fixture.filesystem", "fixture.undeclared"}))
 
-    try:
+    with pytest.raises(ResourceExtensionError):
         check_provider_declares_subset(manifest, provider)
-    except ResourceExtensionError:
-        pass
-    else:
-        raise AssertionError("expected ResourceExtensionError for undeclared resource_type")
 
 
 def test_build_lease_store_returns_real_lease_store(tmp_path):

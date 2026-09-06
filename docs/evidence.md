@@ -2,9 +2,10 @@
 
 See also: [`docs/ontology.md`](ontology.md) for the `EvidenceRequirement` shape (schema file
 `evidence-requirement.schema.json`) a graph node declares (`proof_type`, `constraint`, optional
-`min_confidence`) and [`docs/runtime.md`](runtime.md)
+`min_confidence`), [`docs/runtime.md`](runtime.md)
 for how `TransitionEngine.apply` invokes this subsystem when a node transitions to a terminal
-status.
+status, and [`docs/dashboard.md`](dashboard.md) for how stored proof-record data is surfaced
+read-only to an operator.
 
 This document describes `src/praxis_evidence/` — the proof-record data shape, the grader
 extension point, the single-node gate evaluation engine, and fan-in/join result aggregation.

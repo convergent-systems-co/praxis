@@ -1,8 +1,10 @@
 # Resource Claims & Leases
 
 See also: [`docs/ontology.md`](ontology.md#resource-claim) for the `ResourceClaim` schema this
-module extends, and [`docs/runtime.md`](runtime.md#praxis_runtimetransitions) for
-`TransitionEngine`, the single mutation entrypoint this module's gating hooks into.
+module extends, [`docs/runtime.md`](runtime.md#praxis_runtimetransitions) for
+`TransitionEngine`, the single mutation entrypoint this module's gating hooks into, and
+[`docs/dashboard.md`](dashboard.md) for how active lease data is surfaced read-only to an
+operator.
 
 This document describes `src/praxis_runtime/resources/` — issue #7's scheduling/lease layer on
 top of the `resource-claim.schema.json` contract: the extended claim shape (`identifier` +

@@ -215,3 +215,6 @@ scripted decision.
 - **The policy layer (profiles, authority, budgets)** also decides which `TransitionEngine.apply`
   `event_type` to use next (`"handoff"`, `"block"`, `"fail"`, ...), without adding a new interface
   to `praxis_runtime` itself — see [`docs/policy.md`](policy.md).
+- **#9 (dashboard/observability)** reads `RunState`, `Event`, and `replay()` purely as a read-only
+  projection, without adding a new interface to `praxis_runtime` itself — see
+  [`docs/dashboard.md`](dashboard.md).

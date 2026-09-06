@@ -93,6 +93,12 @@ Each test reproduces one finding before its fix and must pass after it:
     `resume(graph, state_store, event_log) -> TransitionEngine`, omitting
     the `grader_registry`, `resource_lease_store`, `resource_policy`, and
     `resource_ttl` keyword-only parameters the actual function accepts.
+22. `praxis_executors.registry`'s module docstring described
+    `evidence_to_proof_records` as a reusable conversion "callers (and
+    tests) never need to duplicate", without ever stating that no
+    production caller actually exists yet -- read on its own, this made an
+    unwired library function look like completed wiring into
+    `TransitionEngine.apply`.
 """
 
 from __future__ import annotations
@@ -105,6 +111,7 @@ import pytest
 from conftest import _PassthroughGrader
 
 import praxis_evidence.types as types_module
+from praxis_executors import registry as registry_module
 from praxis_evidence import gates as gates_module
 from praxis_evidence.gates import evaluate_gate
 from praxis_evidence.graders import GraderRegistry
@@ -585,3 +592,19 @@ def test_runtime_doc_resume_signature_documents_resource_and_grader_params():
     assert "resource_policy: ResourceAccessPolicy = ResourceAccessPolicy.STRICT" in doc
     assert "resource_ttl: float = 60.0" in doc
     assert "grader_registry: GraderRegistry | None = None" in doc
+
+
+def test_registry_docstring_states_no_production_caller_yet():
+    doc = registry_module.__doc__
+    assert doc, "praxis_executors.registry must have a module docstring"
+
+    lowered = doc.lower()
+    assert "no production caller yet" in lowered, (
+        "the module docstring must explicitly state evidence_to_proof_records has "
+        "no production caller yet -- otherwise it reads as completed wiring into "
+        "TransitionEngine.apply when no orchestrator module actually invokes it"
+    )
+    assert "not evidence that wiring" in lowered, (
+        "the module docstring must explicitly disclaim that evidence_to_proof_records' "
+        "existence is not evidence that executor-to-runtime wiring is complete"
+    )

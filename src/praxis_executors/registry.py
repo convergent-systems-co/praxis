@@ -6,8 +6,12 @@ is a flat claim dict, not the `list[dict]` of proof-record documents
 `TransitionEngine.apply(node_id, event_type, evidence=...)` requires; a
 caller with run/graph/node context must convert it first -- wiring that call
 into `TransitionEngine.apply` is the caller's responsibility, not the
-registry's, but `evidence_to_proof_records` below is the reusable conversion
-itself, so callers (and tests) never need to duplicate it.
+registry's. `evidence_to_proof_records` below is that reusable conversion,
+but it has no production caller yet: no executor-to-runtime orchestrator
+module exists in this codebase today to invoke it. It is provided so a
+future orchestrator does not have to duplicate the conversion logic --
+its existence here is not evidence that wiring into `TransitionEngine.apply`
+is complete.
 """
 
 from __future__ import annotations

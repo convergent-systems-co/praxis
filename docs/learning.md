@@ -256,7 +256,7 @@ reimplementing.
   on `task_success_rate` when `extra_thresholds` is empty, since `promotion-policy.schema.json`
   requires at least one threshold and a learned pattern's own minimal bar is "does not make task
   success worse."
-- `def propose_promotion(heuristic, *, registry, evaluation, baseline_evaluation, profile, granted_scopes=frozenset()) -> tuple[CandidateConfig, PromotionDecision]`:
+- `def propose_promotion(heuristic, *, registry, evaluation, baseline_evaluation, profile, granted_scopes=frozenset(), heuristic_registry=None) -> tuple[CandidateConfig, PromotionDecision]`:
   - Raises `LearningPromotionError` fail-closed, before doing anything else, unless
     `heuristic.scope == "project"`, `heuristic.status == "candidate"`,
     `len(heuristic.evidence_ids) >= MIN_EVIDENCE_COUNT`, and `heuristic.confidence >=
@@ -272,12 +272,22 @@ reimplementing.
     `build_promotion_policy` always demands a `"required"` authority scope that no built-in policy
     profile auto-approves, this call can only ever produce a `HUMAN_REQUIRED` or `REJECTED`
     decision, never `ACCEPTED`, under any `BUILTIN_PROFILE`.
-- `def accept_promotion(ledger, registry, decision, *, evaluation_ids: list[str]) -> praxis_eval.types.PromotionRecord`:
-  a thin, non-bypassing wrapper — literally `praxis_eval.promotion.promote(ledger, registry,
-  decision, evaluation_ids=evaluation_ids)` — kept as a named seam so a caller never needs to import
+  - When the optional `heuristic_registry` is supplied, writes the heuristic back with
+    `status="proposed"` after the checks above succeed — without this, nothing in a real pipeline
+    ever transitions a heuristic out of `"candidate"`, leaving
+    `confidence.apply_observation`'s settled-status guard unreachable. Passing `heuristic_registry`
+    is optional so callers that only need the decision, not the registry side effect, are
+    unaffected.
+- `def accept_promotion(ledger, registry, decision, *, evaluation_ids: list[str], heuristic=None, heuristic_registry=None) -> praxis_eval.types.PromotionRecord`:
+  a thin, non-bypassing wrapper over `praxis_eval.promotion.promote(ledger, registry, decision,
+  evaluation_ids=evaluation_ids)` — kept as a named seam so a caller never needs to import
   `praxis_eval.promotion` directly for the learned-pattern path, without reimplementing any of
   `promote()`'s own fail-closed checks (an `ACCEPTED`-only outcome requirement and a non-empty
-  `evaluation_ids`, see [`docs/eval.md`](eval.md)).
+  `evaluation_ids`, see [`docs/eval.md`](eval.md)). When both the optional `heuristic` and
+  `heuristic_registry` are supplied, it additionally writes the heuristic back with
+  `status="promoted"` after `promote()` succeeds — the counterpart to `propose_promotion`'s
+  `"proposed"` write-back, and together the only code path that makes
+  `confidence.apply_observation`'s settled-status guard reachable in a real pipeline.
 
 **The human hand-off this module depends on:** `propose_promotion` and `accept_promotion` are two
 separate, explicit calls precisely because turning a `HUMAN_REQUIRED` `PromotionDecision` into an

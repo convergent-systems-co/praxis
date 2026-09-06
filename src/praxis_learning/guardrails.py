@@ -78,6 +78,8 @@ def require_authority_review(policy: "praxis_eval.types.PromotionPolicy") -> Non
             "promotion policy must declare an authority_requirement"
         )
     scopes = authority_requirement.get("scopes", [])
+    if not isinstance(scopes, list):
+        scopes = []
     for scope in scopes:
         if (
             isinstance(scope, dict)

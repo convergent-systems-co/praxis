@@ -1,15 +1,16 @@
 """Tests for `PolicyGate`, which ties profiles, authority, budgets, and
 failure classification together into `PolicyDecision`s.
 
-`authorize_start` scenarios reuse T2's authority scenarios (AUTO_APPROVED /
-HUMAN_REQUIRED / DENIED), now routed through `PolicyGate` instead of calling
-`authority.evaluate_authority` directly. `decide_on_failure` scenarios prove
-the priority order from the plan: substantive failure always escalates
-regardless of budget; retry-budget exhaustion escalates deterministically;
-transient failures with budget remaining retry same-executor by default, or
-alternate-executor when the profile allows it, previously-tried executors
-were passed in, and repair budget remains; repair exhaustion falls back to
-same-executor retry rather than escalating, as long as retry budget remains.
+`authorize_start` scenarios reuse `test_authority_boundaries.py`'s authority
+scenarios (AUTO_APPROVED / HUMAN_REQUIRED / DENIED), now routed through
+`PolicyGate` instead of calling `authority.evaluate_authority` directly.
+`decide_on_failure` scenarios prove this priority order: substantive failure
+always escalates regardless of budget; retry-budget exhaustion escalates
+deterministically; transient failures with budget remaining retry
+same-executor by default, or alternate-executor when the profile allows it,
+previously-tried executors were passed in, and repair budget remains; repair
+exhaustion falls back to same-executor retry rather than escalating, as long
+as retry budget remains.
 """
 
 from __future__ import annotations

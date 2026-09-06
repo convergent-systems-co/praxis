@@ -203,5 +203,5 @@ above is the caller's job, the same "decide here, wire there" separation
 - **`BudgetLedger`'s in-memory-only persistence is a follow-up integration seam.** Consumption
   counters live only for the lifetime of one `BudgetLedger` instance; they are not persisted to
   survive a process restart. Reconciling this against `praxis_runtime`'s durable event log is left
-  for issue #12, parallel to the evidence-gate persistence seam already noted in
-  `docs/runtime.md`'s "How issues #5, #6, #7 are expected to depend on this" section.
+  as a follow-up integration task, parallel to the evidence-gate persistence seam already noted in
+  `docs/runtime.md`.

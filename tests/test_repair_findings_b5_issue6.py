@@ -39,6 +39,16 @@ Each test reproduces one finding before its fix and must pass after it:
     a stale `evidence: dict | None` annotation after
     `TransitionEngine.apply`'s `evidence` parameter changed to
     `list[dict] | None`.
+11. `evaluate_gate` indexed `requirement["evidence"]` and
+    `item["proof_type"]`/`item["constraint"]` directly with no schema
+    validation or `.get()` fallback. `graph.schema.json`'s node metadata is
+    `additionalProperties: true` (unvalidated), so a malformed
+    `evidence_requirement` raised an uncaught `KeyError` out of
+    `TransitionEngine.apply()` instead of a fail-closed `TransitionError`.
+12. `schemas/v1/gate-result.schema.json` had no validator or consumer
+    anywhere in `src/` or `tests/` -- `GateResult` was never constructed from
+    or validated against a document, so the dataclass and schema could
+    silently drift with no caller ever noticing.
 """
 
 from __future__ import annotations
@@ -339,4 +349,14 @@ def test_counting_engine_apply_annotation_matches_transition_engine_apply():
     assert hints["evidence"] == (list[dict] | None), (
         "_CountingEngine.apply's evidence annotation is stale relative to "
         "TransitionEngine.apply's evidence: list[dict] | None signature"
+    )
+
+
+def test_gate_result_schema_file_removed_as_unused():
+    schema_path = Path(__file__).resolve().parent.parent / "schemas" / "v1" / "gate-result.schema.json"
+    assert not schema_path.exists(), (
+        "gate-result.schema.json had no validator or consumer anywhere in src/ "
+        "or tests/ -- GateResult is never constructed from or validated against "
+        "a document, so the unused schema should be removed rather than left to "
+        "silently drift from the dataclass it was meant to describe"
     )

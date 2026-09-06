@@ -71,7 +71,21 @@ def evaluate_gate(
     - `GateResult.satisfied` is `True` only if every `"required"` item is
       satisfied and no `"prohibited"` item is violated. `evaluated` lists
       every `proof_type` named in the requirement, in order.
+    - `requirement` arrives from a graph node's unvalidated metadata (open
+      `additionalProperties`), so it is never trusted blindly: a missing or
+      non-list `evidence` key, or an evidence item missing `proof_type` or
+      `constraint`, is fail-closed as unsatisfied with a
+      `"malformed requirement: ..."` reason rather than raising `KeyError`.
     """
+    evidence_items = requirement.get("evidence") if isinstance(requirement, dict) else None
+    if not isinstance(evidence_items, list):
+        return GateResult(
+            node_id=node_id,
+            satisfied=False,
+            reasons=("malformed requirement: missing or non-list 'evidence'",),
+            evaluated=(),
+        )
+
     reasons: list[str] = []
     raw_proof_types: set[str] = set()
     for doc in records:
@@ -102,7 +116,14 @@ def evaluate_gate(
 
     satisfied = True
     evaluated: list[str] = []
-    for item in requirement["evidence"]:
+    for item in evidence_items:
+        if not isinstance(item, dict) or "proof_type" not in item or "constraint" not in item:
+            reasons.append(
+                "malformed requirement: evidence item missing 'proof_type' or 'constraint'"
+            )
+            satisfied = False
+            continue
+
         proof_type = item["proof_type"]
         constraint = item["constraint"]
         min_confidence = item.get("min_confidence")

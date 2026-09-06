@@ -304,3 +304,43 @@ def test_required_proof_type_satisfied_by_deterministic_pass():
 
     assert result.satisfied is True
     assert tuple(result.evaluated) == ("test-pass",)
+
+
+def test_requirement_missing_evidence_key_fails_closed_without_raising():
+    # graph.schema.json's node metadata is additionalProperties: true, so a
+    # malformed evidence_requirement can reach evaluate_gate unvalidated. It
+    # must fail closed (an unsatisfied GateResult), never raise a KeyError
+    # out of this function.
+    registry = GraderRegistry()
+    malformed_requirement = {"spec_version": _SPEC_VERSION}
+
+    result = evaluate_gate(
+        malformed_requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
+
+    assert result.satisfied is False
+    assert any("malformed requirement" in reason for reason in result.reasons)
+
+
+def test_requirement_item_missing_proof_type_fails_closed_without_raising():
+    registry = GraderRegistry()
+    malformed_requirement = _requirement({"constraint": "required"})
+
+    result = evaluate_gate(
+        malformed_requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
+
+    assert result.satisfied is False
+    assert any("malformed requirement" in reason for reason in result.reasons)
+
+
+def test_requirement_item_missing_constraint_fails_closed_without_raising():
+    registry = GraderRegistry()
+    malformed_requirement = _requirement({"proof_type": "test-pass"})
+
+    result = evaluate_gate(
+        malformed_requirement, [], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
+
+    assert result.satisfied is False
+    assert any("malformed requirement" in reason for reason in result.reasons)

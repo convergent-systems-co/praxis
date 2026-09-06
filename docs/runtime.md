@@ -1,7 +1,9 @@
 # Praxis Runtime
 
 See also: [`docs/ontology.md`](ontology.md) for the Promise/Capability/Requirement/Evidence
-Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`).
+Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`), and
+[`docs/policy.md`](policy.md) for the node/run-level policy layer (#8) that decides which
+`TransitionEngine.apply` `event_type` to use next.
 
 This document describes `src/praxis_runtime/` — the generic graph, run-state, event, checkpoint,
 and transition engine. It covers each module's purpose, its public interface, the atomicity/
@@ -170,3 +172,6 @@ scripted decision.
   resource claims are expected to live in node `metadata` alongside evidence requirements, and
   scheduling decisions are expected to be enforced through `TransitionEngine.apply`, the single
   mutation entrypoint, rather than a new bypass path.
+- **#8 (policy: profiles, authority, budgets)** also decides which `TransitionEngine.apply`
+  `event_type` to use next (`"handoff"`, `"block"`, `"fail"`, ...), without adding a new interface
+  to `praxis_runtime` itself — see [`docs/policy.md`](policy.md).

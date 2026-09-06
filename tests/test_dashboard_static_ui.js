@@ -129,7 +129,7 @@ const FIXTURE = {
       evidence_confidence: { 'test-pass': 0.42 },
     },
   ],
-  warnings: ['evidence-stale-warning-marker-ccc', 'lease-stale-warning-marker-fff'],
+  warnings: ['warning-banner-marker-hhh', 'warning-banner-marker-iii'],
 };
 
 function readSource(filePath) {

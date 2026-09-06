@@ -38,6 +38,12 @@ from praxis_runtime.state import Cursor, RunState, RunStateStore
 _SPEC_VERSION = "1.0.0"
 
 
+def _default_identifier_overlap(a: str, b: str) -> bool:
+    # Mirrors leases.acquire's own default conflict_fn: identifier equality,
+    # with the workspace-wide "*" fallback always treated as overlapping.
+    return a == b or a == "*" or b == "*"
+
+
 class NodeStatus(enum.Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -493,19 +499,41 @@ class TransitionEngine:
     def _active_foreign_claims(
         self, node_id: str, requested: claims.ResourceClaim
     ) -> list[claims.ResourceClaim]:
-        existing = self._resource_lease_store.load(requested.resource_type, requested.identifier)
-        if existing is None or existing.owner == node_id:
-            return []
-        if existing.status != "active" or leases.is_expired(existing, time.time()):
-            return []
-        # The lease itself does not record the access mode it was granted
-        # for, so a foreign active lease is treated conservatively as
-        # EXCLUSIVE: fail closed rather than assume it would have been
-        # compatible.
-        return [
-            claims.ResourceClaim(
-                resource_type=existing.resource_type,
-                identifier=existing.identifier,
-                access_mode=claims.AccessMode.EXCLUSIVE.value,
-            )
-        ]
+        # Mirrors leases.acquire's own overlap scan (active_writer_leases /
+        # active_reader_leases with the resource type's conflict_fn) instead
+        # of a single exact-key load(): an exact-key lookup misses both a
+        # foreign lease held under a different-but-overlapping identifier
+        # (e.g. the "*" workspace-wide fallback, or a glob-overlapping
+        # filesystem path) and any reader lease, which is stored under a
+        # separate per-owner file that load() never sees.
+        now = time.time()
+        overlaps = self._lease_conflict_fn(requested.resource_type) or _default_identifier_overlap
+        foreign: list[claims.ResourceClaim] = []
+        for lease in self._resource_lease_store.active_writer_leases(requested.resource_type, now):
+            if lease.owner == node_id:
+                continue
+            if lease.identifier == requested.identifier or overlaps(lease.identifier, requested.identifier):
+                # The lease store does not record which access mode a
+                # canonical writer lease was granted under (write vs.
+                # exclusive), so it is treated conservatively as EXCLUSIVE:
+                # fail closed rather than assume it would have been
+                # compatible.
+                foreign.append(
+                    claims.ResourceClaim(
+                        resource_type=requested.resource_type,
+                        identifier=requested.identifier,
+                        access_mode=claims.AccessMode.EXCLUSIVE.value,
+                    )
+                )
+        for lease in self._resource_lease_store.active_reader_leases(requested.resource_type, now):
+            if lease.owner == node_id:
+                continue
+            if lease.identifier == requested.identifier or overlaps(lease.identifier, requested.identifier):
+                foreign.append(
+                    claims.ResourceClaim(
+                        resource_type=requested.resource_type,
+                        identifier=requested.identifier,
+                        access_mode=claims.AccessMode.READ.value,
+                    )
+                )
+        return foreign

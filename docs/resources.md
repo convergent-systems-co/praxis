@@ -105,6 +105,20 @@ closed with `LeaseError` rather than proceeding. `epoch` is the generation count
 distinguishes a fresh acquisition after expiry from the lease it replaced, so a caller holding a
 stale reference can never renew or release a lease that has since moved to a new owner.
 
+## `praxis_runtime.resources.observed`
+
+Records the resources a node's execution actually touched, as opposed to the claims it declared
+ahead of time in its `resource_claims` metadata, so a policy can check the two against each other.
+
+- `def parse_observed_resources(document: dict) -> list[ResourceClaim]`: parses an
+  `observed_resources` document using the same `resource-claim.schema.json` shape and
+  `claims.parse_claims` logic as a declared `resource_claims` document (fail-closed — raises
+  `ContractValidationError` on a malformed document). `TransitionEngine` calls this on a node's
+  `observed_resources` metadata and checks each returned claim against the node's declared claims
+  via `policy.authorize_access` before a terminal transition commits (see "Wiring into
+  `TransitionEngine`" below), so a node that touched an undeclared resource cannot silently have
+  that mutation committed under a `STRICT` policy.
+
 ## `praxis_runtime.resources.policy`
 
 The undeclared-resource-access policy: what happens when a node requests access to a resource it

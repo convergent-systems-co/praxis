@@ -500,6 +500,46 @@ def test_failed_declared_claim_settlement_leaves_no_phantom_observed_resource_le
     assert LeaseStore(lease_dir).load(RESOURCE_TYPE, UNDECLARED_IDENTIFIER) is None
 
 
+def test_dynamic_acquisition_conflicting_with_foreign_fallback_lease_raises_undeclared(
+    tmp_path: Path,
+):
+    # Repair finding (Important): _active_foreign_claims did an exact-key
+    # store.load() instead of an overlap-aware scan (mirroring
+    # leases.acquire's own active_writer_leases/active_reader_leases scan),
+    # so it never saw a foreign lease held on a different-but-overlapping
+    # identifier (e.g. the "*" workspace-wide fallback). That let
+    # policy.authorize_access wrongly decide there was no active conflict and
+    # grant the dynamic acquisition; the transition still ultimately failed,
+    # but only because _record_dynamic_grants's later leases.acquire call
+    # redundantly re-ran the real overlap scan -- surfacing a LeaseError
+    # ("overlaps a lease held by...") instead of the correct
+    # UndeclaredResourceError ("undeclared access ... conflicts with an
+    # active claim") that authorize_access should have raised.
+    lease_dir = tmp_path / "leases"
+    leases.acquire(
+        LeaseStore(lease_dir),
+        RESOURCE_TYPE,
+        "*",
+        "other-owner",
+        now=time.time(),
+        ttl=3600.0,
+    )
+
+    graph = _single_node_graph("n1", None)
+    graph.nodes["n1"].metadata["observed_resources"] = OBSERVED_UNDECLARED_WRITE
+    engine = TransitionEngine(
+        graph,
+        RunStateStore(tmp_path / "run-state.json"),
+        EventLog(tmp_path / "events"),
+        resource_lease_store=LeaseStore(lease_dir),
+        resource_policy=ResourceAccessPolicy.DYNAMIC,
+    )
+    engine.apply("n1", "start")
+
+    with pytest.raises(TransitionError, match="undeclared access.*conflicts with an active claim"):
+        engine.apply("n1", "complete")
+
+
 def test_completing_with_undeclared_observed_resource_raises_under_strict_policy(
     tmp_path: Path,
 ):

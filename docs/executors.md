@@ -1,8 +1,9 @@
 # Praxis Executors
 
 See also: [`docs/ontology.md`](ontology.md) for the Promise/Capability/Requirement vocabulary
-this module matches against, and [`docs/runtime.md`](runtime.md) for the `TransitionEngine` an
-`ExecutionResult`'s `evidence` is ultimately passed to.
+this module matches against, [`docs/runtime.md`](runtime.md) for the `TransitionEngine` an
+`ExecutionResult`'s `evidence` is ultimately passed to, and [`docs/policy.md`](policy.md) for the
+node/run-level policy system whose alternate-executor retry feeds this module's eligibility hook.
 
 This document describes `src/praxis_executors/` — the pluggable executor abstraction that lets a
 graph's abstract Promise be matched to, and run on, a concrete backend without either side naming
@@ -131,6 +132,10 @@ concern, not something a Promise or Requirement encodes.
   adapts a policy plus a snapshot of advertisements into the plain `Callable[[str], bool]` shape
   `matching.match`'s `is_eligible` parameter expects (an id absent from the snapshot is treated as
   ineligible), so `matching.py` never needs to import `policy.py`.
+
+See [`docs/policy.md`](policy.md) for the broader node/run-level policy system (profiles,
+authority, budgets) — in particular, how its `PolicyGate`'s alternate-executor retry decisions
+feed `DenyListPolicy`/`as_eligibility_callable` above.
 
 ## `praxis_executors.registry`
 

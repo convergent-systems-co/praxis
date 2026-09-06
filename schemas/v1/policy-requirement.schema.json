@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/policy-requirement.schema.json",
+  "title": "Policy Requirement",
+  "description": "The shape a graph node stores at node.metadata['policy_requirement'] to declare the minimum policy-profile strictness it requires, exactly parallel to how an evidence requirement lives at node.metadata['evidence_requirement'] (see src/praxis_runtime/transitions.py::_check_evidence, which reads node.metadata.get('evidence_requirement'), and tests/test_transitions.py::_gated_graph, which sets it -- policy_requirement follows the same node-metadata convention).",
+  "type": "object",
+  "required": ["spec_version", "minimum_profile"],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "minimum_profile": {
+      "enum": ["fast", "standard", "strict", "regulated"]
+    }
+  },
+  "additionalProperties": false
+}

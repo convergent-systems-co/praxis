@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/policy-profile.schema.json",
+  "title": "Policy Profile",
+  "description": "A named strictness bundle a deployment selects (or a node declares as its minimum) to control auto-approval of authority scopes and default retry/repair budgets, without embedding domain-specific logic in the core.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "name",
+    "strictness",
+    "auto_approved_authority_scopes",
+    "default_retry_budget",
+    "default_repair_budget"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "enum": ["fast", "standard", "strict", "regulated"]
+    },
+    "strictness": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "auto_approved_authority_scopes": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "string",
+        "description": "An open, illustrative authority scope, e.g. 'destructive', 'credential-access' -- not a fixed enum."
+      }
+    },
+    "allow_alternate_executor_retry": {
+      "type": "boolean"
+    },
+    "default_retry_budget": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "default_repair_budget": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "default_max_cost": {
+      "type": ["number", "null"]
+    },
+    "default_max_time_seconds": {
+      "type": ["number", "null"]
+    }
+  },
+  "additionalProperties": false
+}

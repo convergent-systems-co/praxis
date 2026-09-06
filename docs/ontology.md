@@ -103,6 +103,10 @@ is a plain JSON Schema (draft 2020-12) document:
 | `schemas/v1/capability-advertisement.schema.json` | The document an executor publishes: an `executor_id` plus a list of Capabilities. References `capability.schema.json`. |
 | `schemas/v1/evidence-requirement.schema.json` | A graph node's list of proof requirements (`proof_type`, constraint, optional `min_confidence`). |
 | `schemas/v1/resource-claim.schema.json` | A graph node's list of abstract resource claims (`resource_type`, `quantity`, optional `unit`). |
+| `schemas/v1/policy-profile.schema.json` | A named strictness bundle controlling auto-approved authority scopes and default retry/repair budgets. See [`docs/policy.md`](policy.md). |
+| `schemas/v1/policy-requirement.schema.json` | A graph node's declared minimum policy-profile strictness. See [`docs/policy.md`](policy.md). |
+| `schemas/v1/authority-requirement.schema.json` | A graph node's list of authority scopes a claimed outcome touches, each with a `required`/`preferred`/`prohibited` constraint. See [`docs/policy.md`](policy.md). |
+| `schemas/v1/budget-requirement.schema.json` | A graph node's optional per-node ceilings on retry/repair counts, cost, and wall-clock time. See [`docs/policy.md`](policy.md). |
 
 Two accompanying example documents under `examples/` show a matching request/offer pair:
 `examples/graph-requests-capability.json` (a `requirement.schema.json` instance) and

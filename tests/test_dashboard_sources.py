@@ -17,13 +17,58 @@ from pathlib import Path
 import pytest
 
 from praxis_dashboard.sources import DashboardSource, DashboardSourceError
+from praxis_executors.adapters.fake import FakeCapabilityExecutor
+from praxis_executors.registry import ExecutorRegistry
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import GraphValidationError, load_graph
+from praxis_runtime.resources import leases
+from praxis_runtime.resources.leases import LeaseStore
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.testing.fake_executor import FakeExecutor
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 SAMPLE_GRAPH_PATH = Path(__file__).resolve().parent.parent / "examples" / "sample-graph.json"
+_SPEC_VERSION = "1.0.0"
+
+_RESOURCE_CLAIM_GRAPH_DOCUMENT = {
+    "spec_version": _SPEC_VERSION,
+    "nodes": [
+        {
+            "id": "n1",
+            "kind": "task",
+            "metadata": {
+                "resource_claims": {
+                    "spec_version": _SPEC_VERSION,
+                    "claims": [
+                        {
+                            "resource_type": "filesystem",
+                            "quantity": 1,
+                            "identifier": "/workspace/output.txt",
+                            "access_mode": "write",
+                        }
+                    ],
+                }
+            },
+        }
+    ],
+    "edges": [],
+    "entry_node": "n1",
+    "terminal_nodes": ["n1"],
+}
+
+
+def _capability_advertising_executor() -> FakeCapabilityExecutor:
+    return FakeCapabilityExecutor(
+        "executor-1",
+        [
+            {
+                "spec_version": _SPEC_VERSION,
+                "id": "cap-primary",
+                "satisfies": [{"kind": "text-generation", "parameters": {"cost": 0.5}}],
+            }
+        ],
+        script={},
+    )
 
 
 def test_poll_live_on_fresh_run_directory_shows_only_entry_node(tmp_path: Path):
@@ -107,3 +152,98 @@ def test_lease_directory_and_executor_registry_defaults_yield_empty_resources_an
 
     assert snapshot.resources == ()
     assert snapshot.capabilities == ()
+
+
+def test_poll_live_with_populated_lease_directory_and_executor_registry_surfaces_real_data(
+    tmp_path: Path,
+):
+    # Unlike the defaults test above, this exercises the non-None
+    # lease_directory/executor_registry path end-to-end through poll_live:
+    # a real acquired lease under a resource_type the graph actually
+    # declares, and a real registered executor's advertisement, must both
+    # flow all the way through to the returned snapshot's resources/
+    # capabilities -- not just through build_resource_views/
+    # build_capability_views in isolation (see test_dashboard_resource_view.py
+    # and test_dashboard_executor_view.py for those unit-level proofs).
+    graph_path = tmp_path / "graph.json"
+    graph_path.write_text(json.dumps(_RESOURCE_CLAIM_GRAPH_DOCUMENT))
+    run_directory = tmp_path / "run"
+    lease_directory = tmp_path / "leases"
+
+    lease = leases.acquire(
+        LeaseStore(lease_directory),
+        "filesystem",
+        "/workspace/output.txt",
+        "owner-a",
+        now=0.0,
+        ttl=10.0,
+    )
+
+    registry = ExecutorRegistry()
+    registry.register("executor-1", _capability_advertising_executor())
+
+    source = DashboardSource(
+        graph_path,
+        run_directory,
+        lease_directory=lease_directory,
+        executor_registry=registry,
+    )
+
+    snapshot = source.poll_live()
+
+    assert len(snapshot.resources) == 1
+    resource_view = snapshot.resources[0]
+    assert resource_view.resource_type == "filesystem"
+    assert resource_view.identifier == "/workspace/output.txt"
+    assert resource_view.owner == "owner-a"
+    assert resource_view.access_mode == "write"
+    assert resource_view.epoch == lease.epoch
+
+    assert len(snapshot.capabilities) == 1
+    capability_view = snapshot.capabilities[0]
+    assert capability_view.executor_id == "executor-1"
+    assert capability_view.satisfied_kinds == ("text-generation",)
+    assert capability_view.cost_hint == 0.5
+
+
+def test_replay_snapshot_with_populated_lease_directory_and_executor_registry_surfaces_real_data(
+    tmp_path: Path,
+):
+    graph_path = tmp_path / "graph.json"
+    graph_path.write_text(json.dumps(_RESOURCE_CLAIM_GRAPH_DOCUMENT))
+    run_directory = tmp_path / "run"
+    lease_directory = tmp_path / "leases"
+
+    graph = load_graph(graph_path)
+    store = RunStateStore(run_directory / "run-state.json")
+    log = EventLog(run_directory / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("n1", "start")
+    engine.apply("n1", "complete")
+
+    leases.acquire(
+        LeaseStore(lease_directory),
+        "filesystem",
+        "/workspace/output.txt",
+        "owner-a",
+        now=0.0,
+        ttl=10.0,
+    )
+
+    registry = ExecutorRegistry()
+    registry.register("executor-1", _capability_advertising_executor())
+
+    source = DashboardSource(
+        graph_path,
+        run_directory,
+        lease_directory=lease_directory,
+        executor_registry=registry,
+    )
+
+    snapshot = source.replay_snapshot()
+
+    assert snapshot.mode == "replay"
+    assert len(snapshot.resources) == 1
+    assert snapshot.resources[0].owner == "owner-a"
+    assert len(snapshot.capabilities) == 1
+    assert snapshot.capabilities[0].executor_id == "executor-1"

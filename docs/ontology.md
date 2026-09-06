@@ -107,6 +107,10 @@ is a plain JSON Schema (draft 2020-12) document:
 | `schemas/v1/policy-requirement.schema.json` | A graph node's declared minimum policy-profile strictness. See [`docs/policy.md`](policy.md). |
 | `schemas/v1/authority-requirement.schema.json` | A graph node's list of authority scopes a claimed outcome touches, each with a `required`/`preferred`/`prohibited` constraint. See [`docs/policy.md`](policy.md). |
 | `schemas/v1/budget-requirement.schema.json` | A graph node's optional per-node ceilings on retry/repair counts, cost, and wall-clock time. See [`docs/policy.md`](policy.md). |
+| `schemas/v1/candidate-config.schema.json` | A single evaluatable configuration under consideration for promotion, content-addressed by `candidate_id`. See [`docs/eval.md`](eval.md). |
+| `schemas/v1/evaluation-record.schema.json` | A record of measurements produced by evaluating a candidate against a workload, optionally paired against a baseline candidate. See [`docs/eval.md`](eval.md). |
+| `schemas/v1/promotion-policy.schema.json` | The metric thresholds, and optionally the authority scopes, a candidate must satisfy before it can be promoted. See [`docs/eval.md`](eval.md). |
+| `schemas/v1/promotion-record.schema.json` | A ledger entry recording a promotion or rollback decision for a candidate. See [`docs/eval.md`](eval.md). |
 
 Two accompanying example documents under `examples/` show a matching request/offer pair:
 `examples/graph-requests-capability.json` (a `requirement.schema.json` instance) and

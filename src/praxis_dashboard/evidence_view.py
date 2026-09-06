@@ -158,6 +158,22 @@ def build_evidence_view(
             stale_warning=_stale_warning(records, graph.spec_version),
         )
 
+    if requirement and own_result is None:
+        # Mirrors TransitionEngine._check_evidence's unconditional
+        # `evaluate_gate(requirement, evidence or [], ...)` call
+        # (src/praxis_runtime/transitions.py): when this node has its own
+        # requirement and join_sources exist, the real terminal transition
+        # always grades this node's own (possibly empty) stored evidence --
+        # it never treats a join node's own missing evidence as merely
+        # "not yet attempted" the way the non-join branch above does.
+        own_result = praxis_evidence.gates.evaluate_gate(
+            requirement,
+            records,
+            node_id=node.id,
+            graph_version=graph.spec_version,
+            registry=registry,
+        )
+
     source_results = [
         _source_gate_result(source, graph, events, registry) for source in join_sources
     ]

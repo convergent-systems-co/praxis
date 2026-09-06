@@ -265,3 +265,42 @@ def test_join_node_evidence_view_satisfied_when_upstream_source_satisfied():
     view = build_evidence_view(node_end, events, graph, grader_registry=registry)
 
     assert view.satisfied is True
+
+
+def _join_graph_with_own_requirement(spec_version: str = _GRAPH_VERSION) -> Graph:
+    return Graph(
+        spec_version=spec_version,
+        nodes={
+            "a": Node(
+                id="a",
+                kind="task",
+                metadata={"evidence_requirement": _requirement(_item("signoff"))},
+            ),
+            "b": Node(id="b", kind="task"),
+            "end": Node(
+                id="end",
+                kind="task",
+                metadata={"evidence_requirement": _requirement(_item("final-check"))},
+            ),
+        },
+        edges=[
+            Edge(source="a", target="end", kind="join"),
+            Edge(source="b", target="end", kind="join"),
+        ],
+        entry_node="a",
+        terminal_nodes={"end"},
+    )
+
+
+def test_join_node_with_own_missing_evidence_is_unsatisfied_even_when_upstream_satisfied():
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    registry.register("final-check", "deterministic", _PassthroughGrader())
+    graph = _join_graph_with_own_requirement()
+    node_end = graph.nodes["end"]
+    events = [_event({"evidence": [_proof_document("signoff", status="pass")]}, node_id="a")]
+
+    view = build_evidence_view(node_end, events, graph, grader_registry=registry)
+
+    assert view.satisfied is False
+    assert any("final-check" in reason for reason in view.reasons)

@@ -12,10 +12,18 @@ event.schema.json nor run-state.schema.json declares a timestamp property.
 
 from __future__ import annotations
 
+import re
+
+import praxis_dashboard.metrics as metrics_module
 from praxis_dashboard.metrics import NodeMetrics, build_node_metrics
 from praxis_runtime.events import Event
 
 _SPEC_VERSION = "1.0.0"
+
+
+def test_module_docstring_avoids_delivery_process_vocabulary():
+    assert metrics_module.__doc__ is not None
+    assert not re.search(r"\bbundle\b", metrics_module.__doc__, re.IGNORECASE)
 
 
 def _event(

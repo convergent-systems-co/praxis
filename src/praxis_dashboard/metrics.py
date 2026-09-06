@@ -10,7 +10,7 @@ state existing at all.
 
 No wall-clock timing metric is produced: neither schemas/v1/event.schema.json
 nor schemas/v1/run-state.schema.json declares a timestamp property (verified
-against both). "Time" is out of scope for this bundle beyond whatever a
+against both). "Time" is out of scope for this package beyond whatever a
 stored proof record's own optional `produced_at` string happens to record --
 surfaced, unparsed, alongside confidence, not synthesized here.
 

@@ -3,11 +3,12 @@ budget_requirement composes with a policy profile's defaults, and how the
 ledger tracks per-node retry/repair consumption against that budget.
 
 A minimal stand-in profile (`_FakeProfile`) is used instead of importing
-`praxis_policy.profiles.PolicyProfile`/`BUILTIN_PROFILES`, per the task
-brief: this task takes `PolicyProfile` only as a type reference for
+`praxis_policy.profiles.PolicyProfile`/`BUILTIN_PROFILES`: this module
+takes `PolicyProfile` only as a type reference for
 `default_retry_budget`/`default_repair_budget`/`default_max_cost`/
-`default_max_time_seconds` duck-typing, and must not depend on T1's concrete
-implementation (same convention `test_authority_boundaries.py` uses for T2).
+`default_max_time_seconds` duck-typing, and must not depend on
+`profiles.py`'s concrete implementation (same convention
+`test_authority_boundaries.py` uses for its own duck-typed profile).
 """
 
 from __future__ import annotations

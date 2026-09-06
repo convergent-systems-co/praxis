@@ -4,16 +4,16 @@
 defaults, and tracking per-node consumption against that budget.
 
 A node-declared field is a ceiling, never a floor: it can only tighten the
-selected profile's default, never loosen it. This mirrors T1's "cannot
-lower below a declared minimum" direction but for the opposite quantity --
-budgets only shrink under a stricter constraint, they never grow past what
-the node itself was declared safe for.
+selected profile's default, never loosen it. This mirrors the policy
+profile's "cannot lower below a declared minimum" direction but for the
+opposite quantity -- budgets only shrink under a stricter constraint, they
+never grow past what the node itself was declared safe for.
 
 `BudgetLedger` is a plain in-memory counter, scoped to one `BudgetLedger`
 instance -- no file persistence in this bundle. Persisting budget
-consumption across a process restart is a follow-up integration seam
-(parallel to the evidence-gate seam noted in the bundle spec for #12 to
-reconcile), not required by this issue's acceptance criteria.
+consumption across a process restart is a follow-up integration seam for a
+future overlay/integration layer to reconcile, not required by this
+module's own contract.
 """
 
 from __future__ import annotations

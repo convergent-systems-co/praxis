@@ -2,10 +2,10 @@
 scopes are auto-approved, require a human, or are denied outright.
 
 A minimal stand-in profile (`_FakeProfile`) is used instead of importing
-`praxis_policy.profiles.PolicyProfile`/`BUILTIN_PROFILES`, per the task
-brief: this task takes `PolicyProfile` only as a type reference for
-`auto_approved_authority_scopes` duck-typing, and must not depend on T1's
-concrete implementation.
+`praxis_policy.profiles.PolicyProfile`/`BUILTIN_PROFILES`: this module
+takes `PolicyProfile` only as a type reference for
+`auto_approved_authority_scopes` duck-typing, and must not depend on
+`profiles.py`'s concrete implementation.
 """
 
 from __future__ import annotations

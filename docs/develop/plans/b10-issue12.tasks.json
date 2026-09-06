@@ -1,0 +1,133 @@
+{
+  "bundle": "b10-issue12",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Overlay manifest schema + module (bootstrap)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/overlay-manifest.schema.json",
+        "src/praxis_overlay/__init__.py",
+        "src/praxis_overlay/manifest.py",
+        "src/overlays/__init__.py",
+        "tests/test_overlay_manifest.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Overlay lifecycle and registration",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_overlay/registry.py",
+        "tests/test_overlay_lifecycle.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Resource-provider extension point",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_overlay/resources.py",
+        "tests/test_overlay_resource_extension.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Evidence/grader extension point",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_overlay/evidence.py",
+        "tests/test_overlay_evidence_extension.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Core-boundary guard test",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "tests/test_core_overlay_boundary.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Development overlay (ports current develop graph/policy semantics)",
+      "depends_on": ["T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "src/overlays/development/**",
+        "tests/test_overlay_development.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Trivial non-development overlay fixture",
+      "depends_on": ["T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "src/overlays/trivial/**",
+        "tests/test_overlay_trivial_fixture.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Compatibility adapter for the current AI Atoms bundle/develop",
+      "depends_on": ["T6"],
+      "kind": "code",
+      "files": [
+        "src/overlays/development/compat.py",
+        "tests/test_overlay_development_compat.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Compatibility/migration plan documentation",
+      "depends_on": ["T8"],
+      "kind": "docs",
+      "files": [
+        "docs/overlays/development-compat.md"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Overlay contract documentation (core)",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "kind": "docs",
+      "files": [
+        "docs/overlays.md"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Development overlay documentation",
+      "depends_on": ["T6"],
+      "kind": "docs",
+      "files": [
+        "docs/overlays/development.md"
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Trivial overlay fixture documentation",
+      "depends_on": ["T7"],
+      "kind": "docs",
+      "files": [
+        "docs/overlays/trivial-fixture.md"
+      ]
+    },
+    {
+      "id": "T13",
+      "title": "ai-atoms distribution-surface documentation",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "docs/distribution.md",
+        "README.md"
+      ]
+    }
+  ]
+}

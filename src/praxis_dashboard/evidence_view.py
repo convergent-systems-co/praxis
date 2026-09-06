@@ -186,10 +186,23 @@ def build_evidence_view(
         satisfied = own_result.satisfied and upstream.satisfied
         reasons = (*own_result.reasons, *upstream.reasons)
 
+    # A join node's own `records` (possibly []) is not the only place a stale
+    # proof can live: each upstream join source's own stored evidence is
+    # re-graded independently above via `_source_gate_result`, so a stale
+    # record on a source must also be checked here, or a join node with no
+    # `evidence_requirement` of its own (`records` always []) would never
+    # surface a non-None `stale_warning` even when `reasons` already contains
+    # a `"stale: <proof_type>"` entry from that source's gate result.
+    source_records = [
+        record
+        for source in join_sources
+        for record in stored_evidence_for(source, events)
+    ]
+
     return EvidenceView(
         node_id=node.id,
         required_proof_types=required_proof_types,
         satisfied=satisfied,
         reasons=reasons,
-        stale_warning=_stale_warning(records, graph.spec_version),
+        stale_warning=_stale_warning([*records, *source_records], graph.spec_version),
     )

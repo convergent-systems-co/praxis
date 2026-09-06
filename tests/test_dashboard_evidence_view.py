@@ -292,6 +292,23 @@ def _join_graph_with_own_requirement(spec_version: str = _GRAPH_VERSION) -> Grap
     )
 
 
+def test_join_node_without_own_requirement_surfaces_upstream_stale_warning():
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    graph = _join_graph(spec_version="1.0.0")
+    node_end = graph.nodes["end"]
+    events = [
+        _event(
+            {"evidence": [_proof_document("signoff", status="pass", graph_version="0.9.0")]},
+            node_id="a",
+        )
+    ]
+
+    view = build_evidence_view(node_end, events, graph, grader_registry=registry)
+
+    assert view.stale_warning is not None
+
+
 def test_join_node_with_own_missing_evidence_is_unsatisfied_even_when_upstream_satisfied():
     registry = GraderRegistry()
     registry.register("signoff", "deterministic", _PassthroughGrader())

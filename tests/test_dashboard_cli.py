@@ -11,9 +11,11 @@ tests/test_dashboard_replay_fake_executor.py: a `RunStateStore` +
 `EventLog` on `tmp_path`, driven to completion with
 `praxis_runtime.testing.fake_executor.FakeExecutor`) and asserted to print
 valid JSON to stdout and return 0 promptly -- it must never import/start
-`server`, so the test doesn't even need to patch `server.serve` to prove
-this: if a live server were started, `main` would block on
-`serve_forever()` and the test itself would hang rather than return.
+`server`, so the test patches `server.serve` and asserts it is never
+called: without the patch, a `main` that incorrectly started a server
+despite `--replay-only` would block on a real `serve_forever()` and hang
+the test instead of failing cleanly; the mock turns that potential hang
+into a deterministic `assert_not_called()` failure.
 """
 
 from __future__ import annotations

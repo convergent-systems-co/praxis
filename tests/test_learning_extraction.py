@@ -158,6 +158,54 @@ def test_extract_observations_workflow_efficiency_non_positive_improvement_is_sk
     assert observations == []
 
 
+def test_extract_observations_recurrent_failure_missing_seq_is_skipped():
+    records = [
+        {
+            "event_id": "e1",
+            "node_id": "n1",
+            "event_type": "fail",
+            "payload": {"failure_class": "timeout"},
+            # missing "seq" -- must not raise KeyError when sorting the group.
+        },
+        {
+            "event_id": "e2",
+            "node_id": "n1",
+            "event_type": "fail",
+            "payload": {"failure_class": "timeout"},
+            "seq": 1,
+        },
+    ]
+
+    # Should not raise despite the first record missing "seq".
+    observations = extract_observations(records, project_id=_PROJECT_ID)
+
+    assert observations == []
+
+
+def test_extract_observations_successful_recovery_missing_seq_is_skipped():
+    records = [
+        {
+            "event_id": "e1",
+            "node_id": "n1",
+            "event_type": "fail",
+            "payload": {"failure_class": "timeout"},
+            # missing "seq" -- must not raise KeyError when sorting by node.
+        },
+        {
+            "event_id": "e2",
+            "node_id": "n1",
+            "event_type": "complete",
+            "payload": {},
+            "seq": 1,
+        },
+    ]
+
+    # Should not raise despite the first record missing "seq".
+    observations = extract_observations(records, project_id=_PROJECT_ID)
+
+    assert observations == []
+
+
 def test_extract_observations_skips_malformed_record_missing_node_id():
     records = [
         {

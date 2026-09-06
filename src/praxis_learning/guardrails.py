@@ -55,7 +55,7 @@ def _walk(node: object) -> None:
                     f"forbidden configuration key: {key!r}"
                 )
             _walk(value)
-    elif isinstance(node, list):
+    elif isinstance(node, (list, tuple)):
         for item in node:
             _walk(item)
 
@@ -79,7 +79,11 @@ def require_authority_review(policy: "praxis_eval.types.PromotionPolicy") -> Non
         )
     scopes = authority_requirement.get("scopes", [])
     for scope in scopes:
-        if isinstance(scope, dict) and scope.get("constraint") == "required":
+        if (
+            isinstance(scope, dict)
+            and scope.get("scope") == _REQUIRED_PROMOTION_AUTHORITY_SCOPE
+            and scope.get("constraint") == "required"
+        ):
             return
     raise GuardrailViolation(
         "promotion policy must require authority review "

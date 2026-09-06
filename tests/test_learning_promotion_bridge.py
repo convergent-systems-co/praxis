@@ -39,6 +39,7 @@ from praxis_eval.types import (
 )
 from praxis_learning import guardrails
 from praxis_learning.guardrails import GuardrailViolation
+from praxis_learning.heuristics import HeuristicRegistry
 from praxis_learning.promotion_bridge import (
     MIN_CONFIDENCE,
     MIN_EVIDENCE_COUNT,
@@ -307,6 +308,98 @@ def test_propose_promotion_well_formed_heuristic_is_human_required_under_every_b
         f"authority scope(s) require human approval: "
         f"{guardrails._REQUIRED_PROMOTION_AUTHORITY_SCOPE}",
     )
+
+
+def test_propose_promotion_marks_heuristic_proposed_in_registry_when_given(
+    tmp_path: Path,
+):
+    # Without this, confidence.apply_observation's settled-status guard
+    # (status in {"proposed", "promoted", "rejected"}) is unreachable via any
+    # real pipeline flow, because nothing ever writes the status transition
+    # back to the HeuristicRegistry.
+    policy = build_promotion_policy()
+    measurements = _matching_measurements(policy)
+    heuristic = _heuristic()
+    heuristic_registry = HeuristicRegistry(tmp_path / "heuristics")
+    heuristic_registry.save(heuristic)
+    registry = CandidateRegistry(tmp_path / "registry")
+    evaluation = _evaluation_record(candidate_id="unused", measurements=measurements)
+    baseline_evaluation = _evaluation_record(candidate_id="unused-baseline", measurements=measurements)
+    profile = BUILTIN_PROFILES["standard"]
+
+    propose_promotion(
+        heuristic,
+        registry=registry,
+        evaluation=evaluation,
+        baseline_evaluation=baseline_evaluation,
+        profile=profile,
+        heuristic_registry=heuristic_registry,
+    )
+
+    stored = heuristic_registry.get(heuristic.heuristic_id)
+    assert stored is not None
+    assert stored.status == "proposed"
+
+
+def test_propose_promotion_does_not_touch_heuristic_registry_when_not_given(
+    tmp_path: Path,
+):
+    # heuristic_registry is optional -- omitting it must not raise, and must
+    # leave no trace (backward-compatible with every existing caller).
+    policy = build_promotion_policy()
+    measurements = _matching_measurements(policy)
+    heuristic = _heuristic()
+    registry = CandidateRegistry(tmp_path / "registry")
+    evaluation = _evaluation_record(candidate_id="unused", measurements=measurements)
+    baseline_evaluation = _evaluation_record(candidate_id="unused-baseline", measurements=measurements)
+    profile = BUILTIN_PROFILES["standard"]
+
+    candidate, decision = propose_promotion(
+        heuristic,
+        registry=registry,
+        evaluation=evaluation,
+        baseline_evaluation=baseline_evaluation,
+        profile=profile,
+    )
+
+    assert decision.outcome is PromotionOutcome.HUMAN_REQUIRED
+
+
+def test_accept_promotion_marks_heuristic_promoted_in_registry_when_given(
+    tmp_path: Path,
+):
+    registry = CandidateRegistry(tmp_path / "registry")
+    candidate = build_candidate_config(dict(_CLEAN_CONFIGURATION), target="learned-heuristic")
+    registry.register(candidate)
+    decision = PromotionDecision(
+        outcome=PromotionOutcome.ACCEPTED,
+        candidate_id=candidate.candidate_id,
+        gate_result=PromotionGateResult(
+            candidate_id=candidate.candidate_id,
+            satisfied=True,
+            reasons=(),
+            evaluated=(),
+        ),
+        authority_outcome="human_required",
+        reasons=(),
+    )
+    ledger = PromotionLedger(tmp_path / "ledger")
+    heuristic_registry = HeuristicRegistry(tmp_path / "heuristics")
+    proposed_heuristic = _heuristic(status="proposed")
+    heuristic_registry.save(proposed_heuristic)
+
+    accept_promotion(
+        ledger,
+        registry,
+        decision,
+        evaluation_ids=["eval-1"],
+        heuristic=proposed_heuristic,
+        heuristic_registry=heuristic_registry,
+    )
+
+    stored = heuristic_registry.get(proposed_heuristic.heuristic_id)
+    assert stored is not None
+    assert stored.status == "promoted"
 
 
 def test_accept_promotion_round_trips_a_forced_accepted_decision_into_the_ledger(

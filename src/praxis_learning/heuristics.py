@@ -20,7 +20,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from praxis_contracts.validator import validate_document
+from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_learning.types import (
     HEURISTIC_CANDIDATE_SCHEMA_PATH,
     HeuristicCandidate,
@@ -109,11 +109,22 @@ class HeuristicRegistry:
         os.replace(tmp_path, file_path)
         return heuristic
 
+    def _load_validated(self, file_path: Path) -> dict:
+        document = json.loads(file_path.read_text())
+        try:
+            validate_document(document, HEURISTIC_CANDIDATE_SCHEMA_PATH)
+        except ContractValidationError as exc:
+            raise HeuristicRegistryError(
+                f"stored heuristic document {file_path.name!r} failed schema "
+                f"validation: {exc.reason}"
+            ) from exc
+        return document
+
     def get(self, heuristic_id: str) -> HeuristicCandidate | None:
         file_path = self._file_path(heuristic_id)
         if not file_path.is_file():
             return None
-        document = json.loads(file_path.read_text())
+        document = self._load_validated(file_path)
         return heuristic_candidate_from_document(document)
 
     def list_for_project(self, project_id: str) -> list[HeuristicCandidate]:
@@ -121,7 +132,7 @@ class HeuristicRegistry:
             return []
         candidates = []
         for file_path in sorted(self._path.glob("*.json")):
-            document = json.loads(file_path.read_text())
+            document = self._load_validated(file_path)
             if document.get("project_id") == project_id:
                 candidates.append(heuristic_candidate_from_document(document))
         return candidates

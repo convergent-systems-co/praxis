@@ -53,6 +53,18 @@ def test_check_configuration_forbidden_key_nested_in_list_of_dicts_raises():
         check_configuration(configuration)
 
 
+def test_check_configuration_forbidden_key_nested_in_tuple_of_dicts_raises():
+    # _walk claims to "recursively walk" configuration; a tuple is not a
+    # JSON type but can appear in a Python-constructed configuration dict,
+    # and must be walked the same way a list is.
+    configuration = {
+        "steps": ({"name": "harmless"}, {"nested": {"policy_floor": "high"}}),
+    }
+
+    with pytest.raises(GuardrailViolation):
+        check_configuration(configuration)
+
+
 def test_check_configuration_clean_configuration_passes():
     configuration = {
         "pattern": "retry-on-timeout",
@@ -105,6 +117,24 @@ def test_require_authority_review_only_preferred_and_prohibited_scopes_raises():
             "scopes": [
                 {"scope": "billing", "constraint": "preferred"},
                 {"scope": "destructive", "constraint": "prohibited"},
+            ],
+        }
+    )
+
+    with pytest.raises(GuardrailViolation):
+        require_authority_review(policy)
+
+
+def test_require_authority_review_required_scope_with_wrong_name_raises():
+    # A "required" constraint on some other scope must not satisfy the
+    # promotion-specific authority gate -- the error message names
+    # `learned-heuristic-promotion` explicitly, implying scope-specific
+    # enforcement, not merely "some scope is required".
+    policy = _policy(
+        authority_requirement={
+            "spec_version": _SPEC_VERSION,
+            "scopes": [
+                {"scope": "unrelated-required-scope", "constraint": "required"},
             ],
         }
     )

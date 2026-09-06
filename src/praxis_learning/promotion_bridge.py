@@ -19,10 +19,21 @@ kept as a separate, explicit step.
 a future edit accidentally weakening it. Since no `BUILTIN_PROFILE`
 auto-approves that scope, `propose_promotion` can only ever produce a
 `HUMAN_REQUIRED` or `REJECTED` decision, never `ACCEPTED`.
+
+When callers pass an optional `heuristic_registry`, `propose_promotion` and
+`accept_promotion` write the heuristic's settled status (`"proposed"` /
+`"promoted"`) back to it after their respective step succeeds -- without
+this, nothing in a real pipeline ever transitions a heuristic out of
+`"candidate"`, leaving `confidence.apply_observation`'s settled-status guard
+unreachable. Passing `heuristic_registry` is optional so existing callers
+that only need the decision/record, not the registry side effect, are
+unaffected.
 """
 
 from __future__ import annotations
 
+import dataclasses
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from praxis_eval import candidates, promotion
@@ -35,6 +46,7 @@ if TYPE_CHECKING:
     import praxis_eval.promotion
     import praxis_eval.types
     import praxis_policy.profiles
+    from praxis_learning.heuristics import HeuristicRegistry
     from praxis_learning.types import HeuristicCandidate
 
 _SPEC_VERSION = "1.0.0"
@@ -91,6 +103,7 @@ def propose_promotion(
     baseline_evaluation: "praxis_eval.types.EvaluationRecord | None",
     profile: "praxis_policy.profiles.PolicyProfile",
     granted_scopes: frozenset[str] = frozenset(),
+    heuristic_registry: "HeuristicRegistry | None" = None,
 ) -> tuple["praxis_eval.types.CandidateConfig", "praxis_eval.promotion.PromotionDecision"]:
     if heuristic.scope != "project":
         raise LearningPromotionError(
@@ -141,6 +154,16 @@ def propose_promotion(
         profile=profile,
         granted_scopes=granted_scopes,
     )
+
+    if heuristic_registry is not None:
+        heuristic_registry.save(
+            dataclasses.replace(
+                heuristic,
+                status="proposed",
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+
     return candidate, decision
 
 
@@ -150,5 +173,18 @@ def accept_promotion(
     decision: "praxis_eval.promotion.PromotionDecision",
     *,
     evaluation_ids: list[str],
+    heuristic: "HeuristicCandidate | None" = None,
+    heuristic_registry: "HeuristicRegistry | None" = None,
 ) -> "praxis_eval.types.PromotionRecord":
-    return promotion.promote(ledger, registry, decision, evaluation_ids=evaluation_ids)
+    record = promotion.promote(ledger, registry, decision, evaluation_ids=evaluation_ids)
+
+    if heuristic is not None and heuristic_registry is not None:
+        heuristic_registry.save(
+            dataclasses.replace(
+                heuristic,
+                status="promoted",
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+
+    return record

@@ -16,8 +16,11 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from praxis_learning.heuristics import (
     HeuristicRegistry,
+    HeuristicRegistryError,
     build_heuristic_candidate_from_observation,
     cluster_key,
     compute_heuristic_id,
@@ -177,6 +180,33 @@ def test_get_unknown_heuristic_returns_none(tmp_path: Path):
     registry = HeuristicRegistry(tmp_path)
 
     assert registry.get("does-not-exist") is None
+
+
+def test_get_raises_heuristic_registry_error_on_schema_invalid_stored_document(tmp_path: Path):
+    # A corrupted/hand-edited document on disk must fail closed with a
+    # domain-specific error, not an unrelated KeyError/TypeError from
+    # heuristic_candidate_from_document, and not silently pass through.
+    registry = HeuristicRegistry(tmp_path)
+    heuristic_id = "corrupt-heuristic"
+    file_path = tmp_path / f"{heuristic_id}.json"
+    file_path.write_text(json.dumps({"spec_version": "1.0.0", "heuristic_id": heuristic_id}))
+
+    with pytest.raises(HeuristicRegistryError):
+        registry.get(heuristic_id)
+
+
+def test_list_for_project_raises_heuristic_registry_error_on_schema_invalid_stored_document(
+    tmp_path: Path,
+):
+    registry = HeuristicRegistry(tmp_path)
+    heuristic_id = "corrupt-heuristic"
+    file_path = tmp_path / f"{heuristic_id}.json"
+    file_path.write_text(
+        json.dumps({"spec_version": "1.0.0", "heuristic_id": heuristic_id, "project_id": "proj-1"})
+    )
+
+    with pytest.raises(HeuristicRegistryError):
+        registry.list_for_project("proj-1")
 
 
 def test_list_for_project_returns_only_matching_project(tmp_path: Path):

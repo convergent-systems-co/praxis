@@ -29,6 +29,8 @@ def _well_formed(record: dict) -> bool:
     for key in ("node_id", "event_type", "event_id"):
         if not record.get(key):
             return False
+    if "seq" not in record or record.get("seq") is None:
+        return False
     return True
 
 

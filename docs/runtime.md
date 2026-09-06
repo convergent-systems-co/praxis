@@ -1,15 +1,17 @@
 # Praxis Runtime
 
 See also: [`docs/ontology.md`](ontology.md) for the Promise/Capability/Requirement/Evidence
-Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`), and
+Requirement/Resource Claim vocabulary this runtime consumes (via node `metadata`),
 [`docs/evidence.md`](evidence.md) for the `ProofRecord`/`GateResult`/`Grader` subsystem that
-grades evidence against a node's evidence requirement.
+grades evidence against a node's evidence requirement, and [`docs/policy.md`](policy.md) for the
+node/run-level policy layer that decides which `TransitionEngine.apply` `event_type` to use next.
 
 This document describes `src/praxis_runtime/` — the generic graph, run-state, event, checkpoint,
 and transition engine. It covers each module's purpose, its public interface, the atomicity/
-append-only guarantees the implementation provides, and how issue #6 (evidence grading, now
-delivered) uses it, plus how the still-unbuilt issues #5 (matching) and #7 (resource scheduling)
-are expected to depend on it.
+append-only guarantees the implementation provides, and how issue #5 (matching, implemented in
+`src/praxis_executors/`; see [`docs/executors.md`](executors.md)), #6 (evidence grading, delivered
+— see [`docs/evidence.md`](evidence.md)), and #7 (resource scheduling, delivered — see
+[`docs/resources.md`](resources.md)) depend on it.
 
 ## `praxis_runtime.graph`
 
@@ -87,10 +89,13 @@ transition legality" true by construction.
 
 - `class NodeStatus(enum.Enum)`: `PENDING`, `RUNNING`, `BLOCKED`, `HANDOFF`, `RECOVERING`, `TERMINAL_SUCCESS`, `TERMINAL_FAILED`.
 - `class TransitionError(Exception)`.
-- `class TransitionEngine(graph: Graph, state_store: RunStateStore, event_log: EventLog, *, grader_registry: GraderRegistry | None = None)`:
+- `class TransitionEngine(graph: Graph, state_store: RunStateStore, event_log: EventLog, *, grader_registry: GraderRegistry | None = None, resource_lease_store: LeaseStore | None = None, resource_policy: ResourceAccessPolicy = ResourceAccessPolicy.STRICT, resource_ttl: float = 60.0)`:
   the optional `grader_registry` (`praxis_evidence.graders.GraderRegistry`) is how a domain
   overlay supplies its own registered graders; omitting it defaults to a fresh, empty
-  `praxis_evidence.graders.default_registry()`.
+  `praxis_evidence.graders.default_registry()`. `resource_lease_store` (see
+  [`docs/resources.md`](resources.md)) is how a caller opts into resource-claim gating; omitting
+  it (the default) disables resource-claim checks entirely, so a node's `resource_claims`
+  metadata is only enforced when a `LeaseStore` is supplied.
   - `def current_state(self) -> RunState`.
   - `def legal_next(self, node_id: str) -> set[str]`.
   - `def apply(self, node_id: str, event_type: str, *, evidence: list[dict] | None = None) -> RunState`:
@@ -119,6 +124,13 @@ written (fail-closed). For a node reached via one or more join edges, each incom
 `praxis_evidence.aggregate.aggregate_gate_results` — see [`docs/evidence.md`](evidence.md) — so a
 join can never advance past an upstream branch whose gate is unsatisfied even if that branch
 already reached `TERMINAL_SUCCESS`.
+
+**Resource-claim gating:** see [`docs/resources.md`](resources.md#wiring-into-transitionengine)
+for how `TransitionEngine` gates a node's declared `resource_claims` against a `LeaseStore` —
+resource-claim gating follows the same fail-closed pattern as evidence-gating above: the check
+runs synchronously inside `apply`, before anything is written, so a rejected acquisition never
+appends an event or persists a checkpoint. Evidence is checked before resource claims are
+settled — see the ordering note in `TransitionEngine._apply_locked`.
 
 **Concurrency guarantee:** `apply()` holds an exclusive `flock` on a sidecar lock file next to
 the run-state checkpoint for the duration of its read-check-append-save sequence, so two
@@ -171,11 +183,13 @@ cannot itself bypass transition legality. The mechanical `PENDING -> RUNNING` "s
 applied automatically since it is the only legal transition from `PENDING` and requires no
 scripted decision.
 
-## How issues #5, #6, #7 are expected to depend on this
+## How issues #5, #6, #7, and the policy layer depend on this
 
 - **#5 (matching)** builds on top of `Graph`'s node `metadata`/`kind` vocabulary and
   `TransitionEngine` — a matching algorithm reads `Requirement`/`Capability` shapes out of node
   `metadata` and decides what an executor may run, but does not need a new core interface here.
+  Implemented in `src/praxis_executors/`; see [`docs/executors.md`](executors.md), which
+  confirms no change was needed here.
 - **#6 (evidence grading)** is delivered: `TransitionEngine.apply`'s `_check_evidence` hook now
   grades a node's `evidence_requirement` (read from node `metadata`) against the supplied
   `evidence` via `praxis_evidence.gates.evaluate_gate`, using the `grader_registry` passed to the
@@ -183,7 +197,12 @@ scripted decision.
   `praxis_evidence.aggregate.aggregate_gate_results`. An unsatisfied gate raises `TransitionError`
   before any event or checkpoint is written. No new transition or storage interface was needed —
   see [`docs/evidence.md`](evidence.md) for the full `ProofRecord`/`GateResult`/`Grader` shape.
-- **#7 (resource scheduling)** builds on top of the same `Graph`/`RunState`/`Event` shapes —
-  resource claims are expected to live in node `metadata` alongside evidence requirements, and
-  scheduling decisions are expected to be enforced through `TransitionEngine.apply`, the single
-  mutation entrypoint, rather than a new bypass path.
+- **#7 (resource scheduling)** is delivered: `TransitionEngine.apply`'s `_check_resource_claims`
+  hook gates a node's declared `resource_claims` (read from node `metadata`) against a
+  `LeaseStore` supplied as the engine's `resource_lease_store`, using the same fail-closed,
+  before-anything-is-written pattern as evidence gating. Resource claims live in node `metadata`
+  alongside evidence requirements, and no new transition or storage interface was needed — see
+  [`docs/resources.md`](resources.md) for the full claim/lease/policy/scheduler shape.
+- **The policy layer (profiles, authority, budgets)** also decides which `TransitionEngine.apply`
+  `event_type` to use next (`"handoff"`, `"block"`, `"fail"`, ...), without adding a new interface
+  to `praxis_runtime` itself — see [`docs/policy.md`](policy.md).

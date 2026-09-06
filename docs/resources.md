@@ -129,8 +129,9 @@ did not declare in its `resource_claims` metadata up front.
 - `def authorize_access(declared, requested, policy, active_claims) -> ResourceClaim`:
   - If `requested` is already covered by an entry in `declared` (same `resource_type` and
     `identifier`, and the declared claim's `access_mode` permits the requested one —
-    `EXCLUSIVE`/`WRITE` declared covers `WRITE` and `READ` requests, `READ` declared covers only
-    `READ` requests), returns that declared claim unchanged.
+    `EXCLUSIVE` declared covers `EXCLUSIVE`, `WRITE`, and `READ` requests; `WRITE` declared covers
+    only `WRITE` and `READ` requests; `READ` declared covers only `READ` requests), returns that
+    declared claim unchanged.
   - Otherwise, under `STRICT`, always raises `UndeclaredResourceError` — undeclared access is a
     planning defect, never silently granted.
   - Otherwise, under `DYNAMIC`, grants the requested claim only if it does not conflict (per

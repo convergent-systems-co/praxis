@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/overlay-manifest.schema.json",
+  "title": "Overlay Manifest",
+  "description": "The document a domain overlay publishes to declare its namespace and the vocabulary it owns within that namespace, without ever naming a vendor/model. The schema is closed at every level (additionalProperties: false) so no vendor/model field can ever be added.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "overlay_id",
+    "namespace",
+    "version",
+    "description",
+    "declares",
+    "requested_capability_kinds"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "overlay_id": {
+      "type": "string",
+      "description": "An opaque identifier; must not encode a vendor/model name (same rule as CapabilityAdvertisement.executor_id, docs/ontology.md)."
+    },
+    "namespace": {
+      "type": "string",
+      "$comment": "Same pattern as Promise.kind, schemas/v1/promise.schema.json.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "The overlay's own semver, distinct from spec_version."
+    },
+    "description": {
+      "type": "string"
+    },
+    "declares": {
+      "type": "object",
+      "required": ["capability_kinds", "proof_types", "resource_types", "authority_scopes"],
+      "properties": {
+        "capability_kinds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namespacedString" }
+        },
+        "proof_types": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namespacedString" }
+        },
+        "resource_types": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namespacedString" }
+        },
+        "authority_scopes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namespacedString" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "requested_capability_kinds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/namespacedString" },
+      "description": "Promise.kind-shaped strings this overlay's graphs may request; open vocabulary, never a vendor/model name."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "namespacedString": {
+      "type": "string",
+      "$comment": "Namespace-dotted form. The schema cannot check that the dotted prefix actually equals this instance's own `namespace` value -- that cross-field check is load_manifest's job.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+    }
+  }
+}

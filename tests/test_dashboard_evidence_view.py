@@ -24,7 +24,7 @@ from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
 from praxis_runtime.events import Event
-from praxis_runtime.graph import Graph, Node
+from praxis_runtime.graph import Edge, Graph, Node
 
 _SPEC_VERSION = "1.0.0"
 _GRAPH_VERSION = "1.0.0"
@@ -185,3 +185,83 @@ def test_matching_graph_version_has_no_stale_warning():
     view = build_evidence_view(node, [event], _graph(), grader_registry=registry)
 
     assert view.stale_warning is None
+
+
+def test_required_proof_types_excludes_prohibited_items():
+    node = Node(
+        id="n1",
+        kind="task",
+        metadata={
+            "evidence_requirement": _requirement(
+                _item("test-pass", constraint="required"),
+                _item("banned-proof", constraint="prohibited"),
+            )
+        },
+    )
+
+    view = build_evidence_view(node, [], _graph(), grader_registry=GraderRegistry())
+
+    assert view.required_proof_types == ("test-pass",)
+
+
+def test_required_proof_types_excludes_preferred_items():
+    node = Node(
+        id="n1",
+        kind="task",
+        metadata={
+            "evidence_requirement": _requirement(
+                _item("test-pass", constraint="required"),
+                _item("nice-to-have", constraint="preferred"),
+            )
+        },
+    )
+
+    view = build_evidence_view(node, [], _graph(), grader_registry=GraderRegistry())
+
+    assert view.required_proof_types == ("test-pass",)
+
+
+def _join_graph(spec_version: str = _GRAPH_VERSION) -> Graph:
+    return Graph(
+        spec_version=spec_version,
+        nodes={
+            "a": Node(
+                id="a",
+                kind="task",
+                metadata={"evidence_requirement": _requirement(_item("signoff"))},
+            ),
+            "b": Node(id="b", kind="task"),
+            "end": Node(id="end", kind="task"),
+        },
+        edges=[
+            Edge(source="a", target="end", kind="join"),
+            Edge(source="b", target="end", kind="join"),
+        ],
+        entry_node="a",
+        terminal_nodes={"end"},
+    )
+
+
+def test_join_node_evidence_view_reflects_unsatisfied_upstream_source():
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    graph = _join_graph()
+    node_end = graph.nodes["end"]
+    events = [_event({"evidence": [_proof_document("signoff", status="fail")]}, node_id="a")]
+
+    view = build_evidence_view(node_end, events, graph, grader_registry=registry)
+
+    assert view.satisfied is False
+    assert any("signoff" in reason for reason in view.reasons)
+
+
+def test_join_node_evidence_view_satisfied_when_upstream_source_satisfied():
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    graph = _join_graph()
+    node_end = graph.nodes["end"]
+    events = [_event({"evidence": [_proof_document("signoff", status="pass")]}, node_id="a")]
+
+    view = build_evidence_view(node_end, events, graph, grader_registry=registry)
+
+    assert view.satisfied is True

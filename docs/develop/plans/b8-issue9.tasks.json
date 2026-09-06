@@ -1,0 +1,156 @@
+{
+  "bundle": "b8-issue9",
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Package bootstrap",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/__init__.py"
+      ]
+    },
+    {
+      "id": "T1",
+      "title": "Core run/node projection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/projection.py",
+        "tests/test_dashboard_projection.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Evidence/proof projection and stale-proof detection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/evidence_view.py",
+        "tests/test_dashboard_evidence_view.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Resource claim/lease projection and stale-lease detection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/resource_view.py",
+        "tests/test_dashboard_resource_view.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Executor assignment / capability projection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/executor_view.py",
+        "tests/test_dashboard_executor_view.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Cost/time/retry metrics projection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/metrics.py",
+        "tests/test_dashboard_metrics.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Snapshot assembly",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/snapshot.py",
+        "tests/test_dashboard_snapshot.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Live-attach and replay sources",
+      "depends_on": ["T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/sources.py",
+        "tests/test_dashboard_sources.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "HTTP server / JSON API",
+      "depends_on": ["T7"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/server.py",
+        "tests/test_dashboard_server.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Static browser UI",
+      "depends_on": ["T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/static/index.html",
+        "src/praxis_dashboard/static/app.js",
+        "src/praxis_dashboard/static/style.css"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "CLI entrypoint",
+      "depends_on": ["T7", "T8"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/cli.py",
+        "src/praxis_dashboard/__main__.py",
+        "tests/test_dashboard_cli.py"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Read-only/no-mutation guarantee test",
+      "depends_on": ["T7"],
+      "kind": "code",
+      "files": [
+        "tests/test_dashboard_readonly_guarantee.py"
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Replay-after-exit and fake-executor functional test",
+      "depends_on": ["T7"],
+      "kind": "code",
+      "files": [
+        "tests/test_dashboard_replay_fake_executor.py"
+      ]
+    },
+    {
+      "id": "T13",
+      "title": "Live-attach update test",
+      "depends_on": ["T7"],
+      "kind": "code",
+      "files": [
+        "tests/test_dashboard_live_attach.py"
+      ]
+    },
+    {
+      "id": "T14",
+      "title": "Dashboard documentation",
+      "depends_on": ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12", "T13"],
+      "kind": "docs",
+      "files": [
+        "docs/dashboard.md",
+        "docs/runtime.md",
+        "docs/evidence.md",
+        "docs/resources.md",
+        "docs/executors.md"
+      ]
+    }
+  ]
+}

@@ -9,7 +9,9 @@ for the runtime this subsystem's promoted candidates ultimately configure,
 `evaluate_promotion_gate` mirrors, and
 [`benchmark/baseline/acceptance-thresholds.md`](../benchmark/baseline/acceptance-thresholds.md)
 for the relative, corpus-cited threshold convention `PromotionPolicy` and `EvaluationRecord`
-follow.
+follow, and [`docs/learning.md`](learning.md) for the project-to-global promotion proposal path
+that bridges a learned, project-scoped pattern into this module's `evaluate_candidate`/`promote`
+through `praxis_learning.promotion_bridge`.
 
 This document describes `src/praxis_eval/` — content-addressed candidate identity, evaluation
 records, configurable promotion policy, paired candidate-vs-baseline comparison, the

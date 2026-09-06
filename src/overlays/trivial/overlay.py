@@ -71,6 +71,7 @@ def build_trivial_graph() -> Graph:
                 kind="task",
                 metadata={
                     "evidence_requirement": {
+                        "spec_version": _SPEC_VERSION,
                         "evidence": [
                             {"proof_type": _QUALITY_CHECK, "constraint": "required"},
                         ],

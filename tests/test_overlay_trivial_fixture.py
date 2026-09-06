@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from praxis_contracts.validator import validate_document
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
 from praxis_overlay.manifest import OverlayManifest
@@ -32,6 +33,22 @@ from overlays.trivial.overlay import (
     build_trivial_graph,
     register_trivial_overlay,
 )
+
+_EVIDENCE_REQUIREMENT_SCHEMA = Path("schemas/v1/evidence-requirement.schema.json")
+
+
+def test_trivial_publish_node_evidence_requirement_matches_schema():
+    # Pins the schema-drift finding from bundle b10-issue12's code review: the
+    # `publish` node's `evidence_requirement` metadata must conform to
+    # `schemas/v1/evidence-requirement.schema.json` (which requires
+    # `spec_version`), the same way `overlays.development`'s equivalent does,
+    # even though `praxis_evidence.gates.evaluate_gate` itself doesn't
+    # schema-validate this dict at runtime.
+    graph = build_trivial_graph()
+    (terminal_node_id,) = graph.terminal_nodes
+    evidence_requirement = graph.nodes[terminal_node_id].metadata["evidence_requirement"]
+
+    validate_document(evidence_requirement, _EVIDENCE_REQUIREMENT_SCHEMA)
 
 
 def test_trivial_manifest_declares_expected_namespace_and_vocabulary():

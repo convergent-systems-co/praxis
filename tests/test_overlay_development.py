@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+import overlays.development.graph as development_graph_module
 from overlays.development.manifest import DEVELOPMENT_MANIFEST
 from overlays.development.graph import build_development_graph
 from overlays.development.overlay import register_development_overlay
@@ -49,6 +50,19 @@ def _build_engine(tmp_path: Path, graph, grader_registry) -> TransitionEngine:
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
     return TransitionEngine(graph, store, log, grader_registry=grader_registry)
+
+
+def test_graph_module_docstring_does_not_overstate_requirement_enforcement():
+    # Pins the code-review finding from bundle b10-issue12: node.metadata["requirement"]
+    # is never read by any core module (TransitionEngine/matching/policy only consume
+    # evidence_requirement/resource_claims/authority_requirement/budget_requirement/
+    # policy_requirement), so the module docstring must not imply it is enforced the
+    # same way those fields are.
+    doc = " ".join((development_graph_module.__doc__ or "").split())
+    assert "requirement" in doc
+    assert "declarative metadata only" in doc
+    assert "no core module" in doc
+    assert "currently reads or enforces it" in doc
 
 
 def test_development_manifest_declares_required_vocabulary():

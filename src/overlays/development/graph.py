@@ -8,12 +8,15 @@ requires demonstrating the existing graph *can be expressed* through the
 overlay contract, not a full port of every recovery/scheduler node; see
 docs/overlays/development.md for the scoping rationale.
 
-Each node's `requirement` metadata entry (node.metadata["requirement"],
-parallel to how `evidence_requirement`/`policy_requirement` already live at
-node.metadata, docs/policy.md) requests a `development.*` capability kind --
-a Promise.kind-shaped string per docs/ontology.md, never a vendor/model name.
-The terminal node's `evidence_requirement` requires both
-"development.test-pass" and "development.review-approved".
+Each node's `requirement` metadata entry (node.metadata["requirement"])
+requests a `development.*` capability kind -- a Promise.kind-shaped string
+per docs/ontology.md, never a vendor/model name. Unlike `evidence_requirement`
+and `policy_requirement`, which `TransitionEngine`/`praxis_policy` actually
+enforce, this `requirement` entry is declarative metadata only: no core
+module (`TransitionEngine`, `praxis_executors.matching`, `praxis_policy`)
+currently reads or enforces it. The terminal node's `evidence_requirement`
+requires both "development.test-pass" and "development.review-approved" and
+is enforced by `TransitionEngine`'s evidence gate.
 """
 
 from __future__ import annotations

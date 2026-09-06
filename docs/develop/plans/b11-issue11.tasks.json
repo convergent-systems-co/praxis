@@ -1,0 +1,107 @@
+{
+  "bundle": "b11-issue11",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Observation/heuristic contract schemas + shared dataclasses (bootstrap)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/observation.schema.json",
+        "schemas/v1/heuristic-candidate.schema.json",
+        "src/praxis_learning/__init__.py",
+        "src/praxis_learning/types.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Observation/event extraction pipeline",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/extraction.py",
+        "tests/test_learning_extraction.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Append-only, project-scoped observation log",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/observations.py",
+        "tests/test_learning_observations.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Heuristic registry: content-addressed identity + clustering/deduplication",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/heuristics.py",
+        "tests/test_learning_heuristics.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Confidence/evidence model + contradiction/decay handling",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/confidence.py",
+        "tests/test_learning_confidence.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Guardrails: prohibition on authority/policy/security/graph-legality injection",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/guardrails.py",
+        "tests/test_learning_guardrails.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Project-to-global promotion proposal path (bridges into praxis_eval)",
+      "depends_on": ["T4", "T5", "T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/promotion_bridge.py",
+        "tests/test_learning_promotion_bridge.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Ingestion pipeline: extraction -> observation log -> heuristic clustering/update",
+      "depends_on": ["T2", "T3", "T4", "T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/pipeline.py",
+        "tests/test_learning_pipeline.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "End-to-end bounded-learning lifecycle test + full-suite regression run",
+      "depends_on": ["T7", "T8"],
+      "kind": "code",
+      "files": [
+        "tests/test_learning_end_to_end.py"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Document the bounded-learning public interface",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+      "kind": "docs",
+      "files": [
+        "docs/learning.md",
+        "docs/ontology.md",
+        "docs/eval.md"
+      ]
+    }
+  ]
+}

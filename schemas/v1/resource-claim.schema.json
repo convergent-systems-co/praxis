@@ -27,6 +27,18 @@
           },
           "unit": {
             "type": "string"
+          },
+          "identifier": {
+            "type": "string",
+            "description": "Opaque identifier for a specific claimed instance of the resource, e.g. a slot or device handle."
+          },
+          "access_mode": {
+            "type": "string",
+            "enum": ["read", "write", "exclusive"]
+          },
+          "scope": {
+            "type": "string",
+            "description": "The scope the claim is bound to, e.g. a workspace or session identifier."
           }
         },
         "additionalProperties": false

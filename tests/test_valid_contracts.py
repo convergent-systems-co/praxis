@@ -59,3 +59,20 @@ def test_valid_resource_claim_instance_validates():
     }
 
     validate_document(instance, SCHEMAS_DIR / "resource-claim.schema.json")
+
+
+def test_valid_resource_claim_with_identifier_instance_validates():
+    instance = {
+        "spec_version": "1.0.0",
+        "claims": [
+            {
+                "resource_type": "compute-slot",
+                "quantity": 1,
+                "identifier": "gpu-0",
+                "access_mode": "exclusive",
+                "scope": "workspace",
+            }
+        ],
+    }
+
+    validate_document(instance, SCHEMAS_DIR / "resource-claim.schema.json")

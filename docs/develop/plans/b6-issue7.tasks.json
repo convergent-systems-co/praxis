@@ -1,0 +1,98 @@
+{
+  "bundle": "b6-issue7",
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Contracts: extend resource-claim schema, add lease schema, seed package",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/resource-claim.schema.json",
+        "schemas/v1/lease.schema.json",
+        "src/praxis_runtime/resources/__init__.py",
+        "tests/test_valid_contracts.py"
+      ]
+    },
+    {
+      "id": "T1",
+      "title": "Claim model and deterministic conflict detection",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/resources/claims.py",
+        "tests/test_resource_claims.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Lease store and acquire/renew/release/revalidate contract",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/resources/leases.py",
+        "tests/test_leases.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Undeclared-resource-access policy",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/resources/policy.py",
+        "tests/test_resource_policy.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Deterministic parking/retry scheduler",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/resources/scheduler.py",
+        "tests/test_resource_scheduler.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Filesystem domain adapter",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/resources/adapters/__init__.py",
+        "src/praxis_runtime/resources/adapters/filesystem.py",
+        "tests/test_filesystem_adapter.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Wire resource-claim/lease gating into TransitionEngine",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/transitions.py",
+        "tests/test_transitions_resource_claims.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Cross-cutting fail-closed acceptance tests",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "tests/test_resource_fail_closed_cases.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Documentation",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "kind": "docs",
+      "files": [
+        "docs/resources.md",
+        "docs/ontology.md",
+        "docs/runtime.md"
+      ]
+    }
+  ]
+}

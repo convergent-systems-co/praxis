@@ -1,0 +1,84 @@
+{
+  "bundle": "b12-issue13",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Parity fixture schema + generic parity-measurement helper (bootstrap)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/parity-fixture.schema.json",
+        "src/praxis_eval/parity.py",
+        "tests/test_parity_module.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Baseline parity fixtures for all 8 corpus scenarios",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "benchmark/fixtures/*.json"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Deterministic fake-executor parity tests",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": [
+        "tests/test_parity_fixtures.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "State/event contract-migration documentation",
+      "depends_on": ["T2"],
+      "kind": "docs",
+      "files": [
+        "docs/parity/state-event-migration.md",
+        "benchmark/fixtures/README.md"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Baseline vs Praxis-candidate evaluation records",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "benchmark/parity/evaluations/*.json",
+        "tests/test_parity_evaluation_records.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Promotion policy + gate + rollback demonstration",
+      "depends_on": ["T5"],
+      "kind": "code",
+      "files": [
+        "benchmark/parity/promotion-policy.json",
+        "tests/test_parity_promotion.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Praxis-candidate real-run capture + report",
+      "depends_on": ["T1"],
+      "kind": "docs",
+      "files": [
+        "benchmark/parity/runs/**"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Parity decision memo (capstone)",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": [
+        "docs/parity/decision.md",
+        "docs/eval.md",
+        "docs/overlays/development.md"
+      ]
+    }
+  ]
+}

@@ -99,10 +99,24 @@ Each test reproduces one finding before its fix and must pass after it:
     production caller actually exists yet -- read on its own, this made an
     unwired library function look like completed wiring into
     `TransitionEngine.apply`.
+23. `evidence_to_proof_records` remained an exported symbol with no
+    non-test caller anywhere in `src/` -- every real caller of `execute()`
+    (including this repo's own end-to-end tests) had to already know, out
+    of band, which `executor_id` `select()` had actually chosen in order to
+    build a correct proof record, instead of getting that answer from the
+    registry that made the selection.
+24. Several regression tests in this file (`test_registry_docstring_...`,
+    `test_gate_result_schema_file_removed_as_unused`,
+    `test_evidence_doc_does_not_reference_deleted_gate_result_schema_file`)
+    asserted on an exact docstring/doc substring or a single hardcoded
+    filename instead of the underlying invariant, so a correct rewording or
+    an accurate historical mention would fail them for no real regression.
 """
 
 from __future__ import annotations
 
+import ast
+import re
 import typing
 from pathlib import Path
 
@@ -111,7 +125,11 @@ import pytest
 from conftest import _PassthroughGrader
 
 import praxis_evidence.types as types_module
+from praxis_contracts.validator import validate_document
 from praxis_executors import registry as registry_module
+from praxis_executors.adapters.fake import FakeCapabilityExecutor
+from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
+from praxis_executors.registry import ExecutorRegistry
 from praxis_evidence import gates as gates_module
 from praxis_evidence.gates import evaluate_gate
 from praxis_evidence.graders import GraderRegistry
@@ -393,22 +411,48 @@ def test_counting_engine_apply_annotation_matches_transition_engine_apply():
     )
 
 
-def test_gate_result_schema_file_removed_as_unused():
-    schema_path = Path(__file__).resolve().parent.parent / "schemas" / "v1" / "gate-result.schema.json"
-    assert not schema_path.exists(), (
-        "gate-result.schema.json had no validator or consumer anywhere in src/ "
-        "or tests/ -- GateResult is never constructed from or validated against "
-        "a document, so the unused schema should be removed rather than left to "
-        "silently drift from the dataclass it was meant to describe"
+def test_no_schema_file_is_left_unreferenced_in_src_or_tests():
+    # Behavioral, not string-exact: rather than pin the historical fact that
+    # one specific file (gate-result.schema.json) was removed, this asserts
+    # the invariant its removal was meant to satisfy -- every schema file
+    # under schemas/v1/ must be named somewhere in src/ or tests/, otherwise
+    # it can silently drift from whatever it was meant to describe with no
+    # caller ever noticing. A correctly-worded removal of a different unused
+    # schema in the future should pass this test without editing it.
+    repo_root = Path(__file__).resolve().parent.parent
+    schema_dir = repo_root / "schemas" / "v1"
+    corpus = "\n".join(
+        path.read_text()
+        for directory in (repo_root / "src", repo_root / "tests")
+        for path in directory.rglob("*.py")
+    )
+    unreferenced = [
+        schema.name
+        for schema in sorted(schema_dir.glob("*.schema.json"))
+        if schema.name not in corpus
+    ]
+    assert not unreferenced, (
+        f"schema file(s) with no reference anywhere in src/ or tests/: "
+        f"{unreferenced} -- either wire them up or remove them as unused "
+        "dead code (this is what happened to gate-result.schema.json)"
     )
 
 
-def test_evidence_doc_does_not_reference_deleted_gate_result_schema_file():
+def test_evidence_doc_schema_files_table_matches_schemas_that_exist():
+    # Behavioral, not string-exact: checking "gate-result.schema.json not in
+    # doc" would break on a correct, accurate historical mention of that
+    # filename (e.g. a changelog note explaining why it was removed). This
+    # instead asserts every schemas/v1/*.schema.json path docs/evidence.md
+    # names actually exists on disk, which is the real invariant a stale
+    # doc reference violates.
     doc = _read_evidence_doc()
-    assert "gate-result.schema.json" not in doc, (
-        "gate-result.schema.json was deleted as unused dead code -- "
-        "docs/evidence.md must not document it as an existing schema file, "
-        "either in the GateResult section or the schema files table"
+    schema_dir = Path(__file__).resolve().parent.parent / "schemas" / "v1"
+    referenced = set(re.findall(r"schemas/v1/([\w.-]+\.schema\.json)", doc))
+    missing = {name for name in referenced if not (schema_dir / name).exists()}
+    assert not missing, (
+        f"docs/evidence.md references schema file(s) that do not exist on "
+        f"disk: {sorted(missing)} -- update the doc to match what's actually "
+        "in schemas/v1/"
     )
 
 
@@ -594,17 +638,105 @@ def test_runtime_doc_resume_signature_documents_resource_and_grader_params():
     assert "grader_registry: GraderRegistry | None = None" in doc
 
 
-def test_registry_docstring_states_no_production_caller_yet():
+def _registry_calls_evidence_to_proof_records() -> bool:
+    source = Path(registry_module.__file__).read_text()
+    tree = ast.parse(source)
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "evidence_to_proof_records"
+        for node in ast.walk(tree)
+    )
+
+
+def test_evidence_to_proof_records_has_a_production_caller():
+    # Repro for the "dead production wiring" finding: evidence_to_proof_records
+    # was an exported symbol with no non-test caller anywhere in src/ -- every
+    # real caller of execute() (including this repo's own end-to-end tests)
+    # had to already know, out of band, which executor_id select() had
+    # actually chosen in order to build a correct proof record.
+    assert _registry_calls_evidence_to_proof_records(), (
+        "evidence_to_proof_records has no caller inside "
+        "praxis_executors/registry.py -- it must be used by a real "
+        "(non-test) code path, not just documented as reusable for a "
+        "future orchestrator"
+    )
+
+
+def test_registry_docstring_accurately_reflects_whether_a_production_caller_exists():
+    # Behavioral, not string-exact: pinning the literal phrase "no
+    # production caller yet" would break on any correctly-reworded
+    # docstring conveying the same fact differently. Instead, derive
+    # whether a real (non-test) caller exists from this module's own
+    # source and require the docstring's claim to match that reality.
     doc = registry_module.__doc__
     assert doc, "praxis_executors.registry must have a module docstring"
 
-    lowered = doc.lower()
-    assert "no production caller yet" in lowered, (
-        "the module docstring must explicitly state evidence_to_proof_records has "
-        "no production caller yet -- otherwise it reads as completed wiring into "
-        "TransitionEngine.apply when no orchestrator module actually invokes it"
+    claims_no_caller = "no production caller" in doc.lower()
+    has_caller = _registry_calls_evidence_to_proof_records()
+
+    assert claims_no_caller != has_caller, (
+        "the module docstring's claim about whether evidence_to_proof_records "
+        "has a production caller does not match reality -- update the "
+        "docstring instead of leaving a stale disclaimer or claim"
     )
-    assert "not evidence that wiring" in lowered, (
-        "the module docstring must explicitly disclaim that evidence_to_proof_records' "
-        "existence is not evidence that executor-to-runtime wiring is complete"
+
+
+def test_executor_registry_composes_evidence_conversion_with_the_selected_executor_id(
+    tmp_path: Path,
+):
+    # The registry already learns which executor_id select() chose while
+    # executing a request; execute_with_proof_records is the production
+    # caller that uses that knowledge to build proof records directly,
+    # instead of leaving every caller to re-derive the winning executor_id
+    # out of band (as the pre-fix end-to-end tests had to).
+    registry = ExecutorRegistry()
+    registry.register(
+        "executor-text",
+        FakeCapabilityExecutor(
+            executor_id="executor-text",
+            capabilities=[
+                {"spec_version": _GRAPH_VERSION, "satisfies": [{"kind": "text-generation"}]}
+            ],
+            script={},
+        ),
     )
+    registry.register(
+        "executor-code",
+        FakeCapabilityExecutor(
+            executor_id="executor-code",
+            capabilities=[
+                {"spec_version": _GRAPH_VERSION, "satisfies": [{"kind": "code-execution"}]}
+            ],
+            script={
+                "code-execution": ExecutionResult(
+                    status=ExecutorStatus.SUCCEEDED,
+                    evidence={"process-exit-status": True},
+                )
+            },
+        ),
+    )
+    requirement = {
+        "spec_version": _GRAPH_VERSION,
+        "requirements": [
+            {
+                "promise": {"spec_version": _GRAPH_VERSION, "kind": "code-execution"},
+                "constraint": "required",
+            }
+        ],
+    }
+    request = ExecutionRequest(promise={"spec_version": _GRAPH_VERSION, "kind": "code-execution"})
+
+    result, records = registry.execute_with_proof_records(
+        requirement, request, run_id="run-1", graph_version=_GRAPH_VERSION, node_id="n1",
+    )
+
+    assert result.evidence == {"process-exit-status": True}
+    assert len(records) == 1
+    validate_document(
+        records[0],
+        Path(__file__).resolve().parent.parent / "schemas" / "v1" / "proof-record.schema.json",
+    )
+    assert records[0]["executor_id"] == "executor-code"
+    assert records[0]["node_id"] == "n1"
+    assert records[0]["status"] == "pass"

@@ -6,12 +6,15 @@ is a flat claim dict, not the `list[dict]` of proof-record documents
 `TransitionEngine.apply(node_id, event_type, evidence=...)` requires; a
 caller with run/graph/node context must convert it first -- wiring that call
 into `TransitionEngine.apply` is the caller's responsibility, not the
-registry's. `evidence_to_proof_records` below is that reusable conversion,
-but it has no production caller yet: no executor-to-runtime orchestrator
-module exists in this codebase today to invoke it. It is provided so a
-future orchestrator does not have to duplicate the conversion logic --
-its existence here is not evidence that wiring into `TransitionEngine.apply`
-is complete.
+registry's. `evidence_to_proof_records` below is that reusable conversion.
+`ExecutorRegistry.execute_with_proof_records` is its production caller: the
+registry already knows which `executor_id` `select()` chose while executing
+a request, so it performs the conversion itself instead of leaving every
+caller to re-derive the winning `executor_id` out of band. This still is
+not full wiring into `TransitionEngine.apply`: no executor-to-runtime
+orchestrator module exists in this codebase today to take the returned
+proof records and dispatch them into a run's transitions, so that
+remaining step is still the caller's responsibility.
 """
 
 from __future__ import annotations
@@ -75,13 +78,58 @@ class ExecutorRegistry:
         is_eligible: Callable[[str], bool] | None = None,
         poll: Callable[[], None] | None = None,
     ) -> ExecutionResult:
+        _, result = self._execute_selected(
+            requirement, request, is_eligible=is_eligible, poll=poll
+        )
+        return result
+
+    def execute_with_proof_records(
+        self,
+        requirement: dict,
+        request: ExecutionRequest,
+        *,
+        run_id: str,
+        graph_version: str,
+        node_id: str,
+        grader_kind: str = "deterministic",
+        is_eligible: Callable[[str], bool] | None = None,
+        poll: Callable[[], None] | None = None,
+    ) -> tuple[ExecutionResult, list[dict]]:
+        """Like `execute`, but also converts the result's flat `evidence`
+        claim dict into the `list[dict]` of proof-record documents
+        `TransitionEngine.apply(..., evidence=...)` requires, using the
+        `executor_id` this call's own `select()` actually chose -- a caller
+        no longer has to re-derive that out of band.
+        """
+        executor_id, result = self._execute_selected(
+            requirement, request, is_eligible=is_eligible, poll=poll
+        )
+        records = evidence_to_proof_records(
+            result.evidence,
+            run_id=run_id,
+            graph_version=graph_version,
+            node_id=node_id,
+            executor_id=executor_id,
+            grader_kind=grader_kind,
+        )
+        return result, records
+
+    def _execute_selected(
+        self,
+        requirement: dict,
+        request: ExecutionRequest,
+        *,
+        is_eligible: Callable[[str], bool] | None = None,
+        poll: Callable[[], None] | None = None,
+    ) -> tuple[str, ExecutionResult]:
         result = self.select(requirement, is_eligible=is_eligible)
         if result.selected is None:
             raise RegistryError(
                 f"no executor selected for requirement: {result.unsatisfied!r}"
             )
 
-        executor = self._executors[result.selected.executor_id]
+        executor_id = result.selected.executor_id
+        executor = self._executors[executor_id]
         handle = executor.launch(request)
 
         while True:
@@ -91,7 +139,7 @@ class ExecutorRegistry:
             if poll is not None:
                 poll()
 
-        return executor.result(handle)
+        return executor_id, executor.result(handle)
 
 
 def evidence_to_proof_records(

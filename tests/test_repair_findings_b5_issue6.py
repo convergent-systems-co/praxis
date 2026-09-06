@@ -66,6 +66,23 @@ Each test reproduces one finding before its fix and must pass after it:
     after it (`` status=...`" reason `` instead of `` status=..."` reason ``),
     spanning lines 84-85 and producing a stray backtick with broken
     code-span rendering.
+17. `gates.py._evaluate_item` never read `GradeResult.advisory` or
+    `GradeResult.reason` -- it re-derived advisory-vs-authoritative
+    precedence entirely from `registry.kinds_for()`, so a grader that
+    self-reported `advisory=True` (with an explanatory `reason`) on its own
+    `GradeResult` was silently treated as an authoritative pass/fail and its
+    `reason` text never surfaced, leaving `advisory`/`reason` dead API
+    surface with no non-test reader.
+18. `evaluate_gate`'s `"no grader registered: <proof_type>"` reason was
+    appended even for a `"prohibited"` requirement item, even though the
+    absence of any determination can never block a `"prohibited"` item --
+    the same non-blocking desired-absence exemption already applied to the
+    `"missing: <proof_type>"` reason (finding 9) was missing here.
+19. `_PassthroughGrader` was re-defined locally in this file even though
+    this file exists to regression-test finding 15 (duplication of exactly
+    this class), and it was excluded from
+    `test_passthrough_grader_is_shared_from_conftest`'s own identity
+    assertions.
 """
 
 from __future__ import annotations
@@ -74,6 +91,8 @@ import typing
 from pathlib import Path
 
 import pytest
+
+from conftest import _PassthroughGrader
 
 import praxis_evidence.types as types_module
 from praxis_evidence import gates as gates_module
@@ -90,19 +109,6 @@ from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionE
 _DOCS_ROOT = Path(__file__).resolve().parent.parent / "docs"
 
 _GRAPH_VERSION = "1.0.0"
-
-
-class _PassthroughGrader:
-    """Mirrors the record's own submitted status/confidence."""
-
-    def grade(self, record: ProofRecord) -> GradeResult:
-        return GradeResult(
-            proof_type=record.proof_type,
-            status=record.status,
-            confidence=record.confidence,
-            grader_kind="deterministic",
-            advisory=False,
-        )
 
 
 class _FixedGrader:
@@ -416,9 +422,64 @@ def test_passthrough_grader_is_shared_from_conftest():
     import test_checkpoint_resume
     import test_evidence_gates
     import test_repair_findings_b3_issue4
+    import test_repair_findings_b5_issue6
     import test_transitions
 
     assert test_evidence_gates._PassthroughGrader is conftest._PassthroughGrader
     assert test_transitions._PassthroughGrader is conftest._PassthroughGrader
     assert test_checkpoint_resume._PassthroughGrader is conftest._PassthroughGrader
     assert test_repair_findings_b3_issue4._PassthroughGrader is conftest._PassthroughGrader
+    assert test_repair_findings_b5_issue6._PassthroughGrader is conftest._PassthroughGrader
+
+
+def test_advisory_grade_result_field_is_consulted_not_reimplemented():
+    class _AdvisoryGrader:
+        def grade(self, record: ProofRecord) -> GradeResult:
+            return GradeResult(
+                proof_type=record.proof_type,
+                status="pass",
+                confidence=record.confidence,
+                grader_kind="deterministic",
+                advisory=True,
+                reason="advisory-only: needs escalation",
+            )
+
+    registry = GraderRegistry()
+    registry.register("escalation-check", "deterministic", _AdvisoryGrader())
+    requirement = {
+        "spec_version": _GRAPH_VERSION,
+        "evidence": [{"proof_type": "escalation-check", "constraint": "required"}],
+    }
+    record = _proof_record("escalation-check", "pass", node_id="n1")
+
+    # A GradeResult that marks itself advisory must never single-handedly
+    # satisfy a required item -- previously gates.py never read `.advisory`
+    # at all, only re-derived precedence from registry.kinds_for(), so an
+    # advisory-flagged deterministic grade of status="pass" satisfied the
+    # requirement outright and its `.reason` was never surfaced.
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
+
+    assert result.satisfied is False
+    assert any("advisory-only: needs escalation" in reason for reason in result.reasons)
+
+
+def test_prohibited_item_with_records_but_no_grader_has_no_reason():
+    registry = GraderRegistry()  # no grader registered for "banned-check"
+    requirement = {
+        "spec_version": _GRAPH_VERSION,
+        "evidence": [{"proof_type": "banned-check", "constraint": "prohibited"}],
+    }
+    record = _proof_record("banned-check", "pass", node_id="n1")
+
+    # A record was submitted, but with no grader registered there is no way
+    # to determine a violation -- absence of a determination can never block
+    # a "prohibited" item, so it must not produce a "no grader registered"
+    # reason either (the same exemption already applied to "missing:").
+    result = evaluate_gate(
+        requirement, [record], node_id="n1", graph_version=_GRAPH_VERSION, registry=registry
+    )
+
+    assert result.satisfied is True
+    assert not any(reason.startswith("no grader registered:") for reason in result.reasons)

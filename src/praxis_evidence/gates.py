@@ -7,6 +7,8 @@ documents collected for that node, and produces a `GateResult`.
 
 from __future__ import annotations
 
+import dataclasses
+
 from praxis_contracts.validator import ContractValidationError
 from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import validate_proof_record
@@ -43,7 +45,14 @@ def evaluate_gate(
       least one surviving record with `grader_kind="human"` graded
       `status="pass"` -- absence is unsatisfied, never default-approved.
       With no grader registered at all for a required `proof_type`, the
-      result is unsatisfied with reason `"no grader registered: <proof_type>"`.
+      result is unsatisfied with reason `"no grader registered: <proof_type>"`
+      (a `"prohibited"` item never gets this reason -- absence of a
+      determination can never violate a prohibition, so it is not flagged).
+      A `GradeResult` that self-reports `advisory=True` is never authoritative
+      regardless of which grader_kind produced it, and its `reason` (if set)
+      is surfaced as an `"advisory: <reason>"` entry -- this is the single
+      mechanism honored for advisory precedence, including the
+      deterministic+model case above.
     - If the authoritative grader, applied to 2+ surviving records of the
       same `proof_type`, yields more than one distinct `status`, that is
       contradictory -- a `"contradictory: <proof_type>"` reason is added and
@@ -175,7 +184,10 @@ def _evaluate_item(
 
     kinds = registry.kinds_for(proof_type)
     if not kinds:
-        reasons.append(f"no grader registered: {proof_type}")
+        # As with "missing" above, a "prohibited" item can never be blocked
+        # by the absence of a determination -- do not report it as a problem.
+        if constraint != "prohibited":
+            reasons.append(f"no grader registered: {proof_type}")
         return False, False, reasons
 
     if "deterministic" in kinds:
@@ -193,29 +205,42 @@ def _evaluate_item(
 
     assert grader is not None
     grades = [grader.grade(record) for record in candidates]
-    statuses = {grade.status for grade in grades}
 
-    if len(grades) >= 2 and len(statuses) > 1:
+    # A grader may self-report advisory=True on its own GradeResult (not
+    # only the deterministic-vs-model precedence case below) -- honor that
+    # flag directly rather than only inferring advisory status from which
+    # grader_kinds are registered: an advisory grade can never determine
+    # satisfaction on its own, but its `reason` (if any) is still surfaced.
+    authoritative = [grade for grade in grades if not grade.advisory]
+    for grade in grades:
+        if grade.advisory:
+            reasons.append(f"advisory: {grade.reason or f'{proof_type} status={grade.status!r}'}")
+
+    statuses = {grade.status for grade in authoritative}
+
+    if len(authoritative) >= 2 and len(statuses) > 1:
         reasons.append(f"contradictory: {proof_type}")
         satisfied = False
         confidence = None
     else:
         status = statuses.pop() if statuses else None
         satisfied = status == "pass"
-        confidence = _min_confidence(grades)
+        confidence = _min_confidence(authoritative)
         if not satisfied:
-            reasons.append(f"failed: {proof_type} (status={status!r})")
+            reason = next((grade.reason for grade in authoritative if grade.reason), None)
+            reasons.append(reason or f"failed: {proof_type} (status={status!r})")
 
-    pass_exists = any(grade.status == "pass" for grade in grades)
+    pass_exists = any(grade.status == "pass" for grade in authoritative)
 
     if "deterministic" in kinds and "model" in kinds:
         model_grader = registry.get(proof_type, "model")
         assert model_grader is not None
-        model_grades = [model_grader.grade(record) for record in group]
-        for model_status in sorted({grade.status for grade in model_grades}):
-            reasons.append(
-                f"advisory: model grader for {proof_type} returned status={model_status!r}"
-            )
+        model_grades = [
+            dataclasses.replace(model_grader.grade(record), advisory=True) for record in group
+        ]
+        for grade in model_grades:
+            text = grade.reason or f"model grader for {proof_type} returned status={grade.status!r}"
+            reasons.append(f"advisory: {text}")
 
     if satisfied and min_confidence is not None:
         if confidence is None or confidence < min_confidence:

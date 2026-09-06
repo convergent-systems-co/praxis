@@ -1,0 +1,79 @@
+{
+  "bundle": "b5-issue6",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Evidence/proof contract schemas + shared dataclasses",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/proof-record.schema.json",
+        "schemas/v1/gate-result.schema.json",
+        "src/praxis_evidence/__init__.py",
+        "src/praxis_evidence/types.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Proof record construction, validation, and no-secrets-by-default provenance",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_evidence/proof.py",
+        "tests/test_proof_records.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Grader interfaces (deterministic/model/human) and overlay grader registry",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_evidence/graders.py",
+        "tests/test_graders.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Single-node gate evaluation engine (missing/malformed/stale/contradictory, confidence, deterministic-preference, human-review)",
+      "depends_on": ["T2", "T3"],
+      "kind": "code",
+      "files": [
+        "src/praxis_evidence/gates.py",
+        "tests/test_evidence_gates.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Aggregate gate results for fan-in/join nodes",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_evidence/aggregate.py",
+        "tests/test_aggregate_gates.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Wire evidence/proof/gate engine into TransitionEngine and replay",
+      "depends_on": ["T4", "T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/transitions.py",
+        "src/praxis_runtime/replay.py",
+        "tests/test_transitions.py",
+        "tests/test_checkpoint_resume.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Document the evidence/proof/gate public interface",
+      "depends_on": ["T6"],
+      "kind": "docs",
+      "files": [
+        "docs/evidence.md",
+        "docs/runtime.md"
+      ]
+    }
+  ]
+}

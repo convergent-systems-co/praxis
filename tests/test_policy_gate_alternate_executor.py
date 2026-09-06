@@ -15,10 +15,12 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from conftest import _PassthroughGrader
+from praxis_evidence.graders import GraderRegistry
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
 from praxis_executors.policy import DenyListPolicy, as_eligibility_callable
-from praxis_executors.registry import ExecutorRegistry
+from praxis_executors.registry import ExecutorRegistry, evidence_to_proof_records
 from praxis_policy.budgets import BudgetLedger
 from praxis_policy.gate import PolicyGate, PolicyOutcome
 from praxis_policy.profiles import BUILTIN_PROFILES
@@ -84,7 +86,9 @@ def _single_node_graph() -> Graph:
 def _make_engine(tmp_path: Path) -> TransitionEngine:
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    return TransitionEngine(_single_node_graph(), store, log)
+    registry = GraderRegistry()
+    registry.register("peer-attestation", "deterministic", _PassthroughGrader())
+    return TransitionEngine(_single_node_graph(), store, log, grader_registry=registry)
 
 
 def test_alternate_executor_retry_recovers_a_transient_failure_end_to_end(tmp_path: Path):
@@ -155,6 +159,13 @@ def test_alternate_executor_retry_recovers_a_transient_failure_end_to_end(tmp_pa
     engine.apply("n1", "start")
     engine.apply("n1", second_decision.event_type)
     engine.apply("n1", "resume")
-    state = engine.apply("n1", "complete", evidence=second_result.evidence)
+    evidence = evidence_to_proof_records(
+        second_result.evidence,
+        run_id="run-1",
+        graph_version=_SPEC_VERSION,
+        node_id="n1",
+        executor_id=second_match.selected.executor_id,
+    )
+    state = engine.apply("n1", "complete", evidence=evidence)
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value

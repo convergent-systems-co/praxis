@@ -14,7 +14,10 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from conftest import _linear_graph
+from conftest import _linear_graph, _PassthroughGrader
+from praxis_evidence.graders import GraderRegistry
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import proof_record_to_document
 from praxis_runtime.events import Event, EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.replay import replay, resume
@@ -97,10 +100,25 @@ def test_replay_reconstructs_state_for_node_with_evidence_requirement(tmp_path: 
     graph = _evidence_gated_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    registry = GraderRegistry()
+    registry.register("signoff", "deterministic", _PassthroughGrader())
+    engine = TransitionEngine(graph, store, log, grader_registry=registry)
 
     engine.apply("n1", "start")
-    final_state = engine.apply("n1", "complete", evidence={"signoff": {"approved": True}})
+    evidence = [
+        proof_record_to_document(
+            build_proof_record(
+                run_id=engine.current_state().run_id,
+                graph_version=graph.spec_version,
+                node_id="n1",
+                proof_type="signoff",
+                executor_id="executor-1",
+                grader_kind="deterministic",
+                status="pass",
+            )
+        )
+    ]
+    final_state = engine.apply("n1", "complete", evidence=evidence)
 
     replayed_state = replay(log, graph)
 

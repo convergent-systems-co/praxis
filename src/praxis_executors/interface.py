@@ -48,11 +48,19 @@ class ExecutionHandle:
 class ExecutionResult:
     """The outcome of a completed (or failed/cancelled) execution.
 
-    `evidence` keys must match the `proof_type` vocabulary used by the target
-    node's `evidence_requirement` (see
-    `src/praxis_runtime/transitions.py::_check_evidence` and
-    `docs/runtime.md`), so it can be passed straight through to
-    `TransitionEngine.apply(..., evidence=result.evidence)`.
+    `evidence` is a flat `{proof_type: claim}` dict; its keys must match the
+    `proof_type` vocabulary used by the target node's `evidence_requirement`
+    (see `src/praxis_runtime/transitions.py::_check_evidence` and
+    `docs/runtime.md`). It cannot be passed straight through to
+    `TransitionEngine.apply(..., evidence=...)`: that method requires
+    `list[dict]` of raw proof-record documents (see
+    `schemas/v1/proof-record.schema.json`). A caller that has the
+    run/graph/node context this flat dict lacks (this module deliberately
+    has none, so adapters stay independent of `praxis_runtime`) is
+    responsible for converting each `evidence` entry into a proof-record
+    document before dispatching into `TransitionEngine.apply` --
+    `praxis_executors.registry.evidence_to_proof_records` is the reusable
+    conversion function for this.
     """
 
     status: ExecutorStatus

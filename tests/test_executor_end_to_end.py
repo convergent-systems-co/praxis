@@ -16,10 +16,12 @@ from pathlib import Path
 
 import pytest
 
+from conftest import _PassthroughGrader
 from praxis_contracts.validator import validate_document
+from praxis_evidence.graders import GraderRegistry
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.interface import ExecutionRequest, ExecutionResult, ExecutorStatus
-from praxis_executors.registry import ExecutorRegistry, RegistryError
+from praxis_executors.registry import ExecutorRegistry, RegistryError, evidence_to_proof_records
 from praxis_runtime.events import EventLog
 from praxis_runtime.graph import Graph, Node
 from praxis_runtime.state import RunStateStore
@@ -58,7 +60,9 @@ def _make_engine(tmp_path: Path) -> TransitionEngine:
     graph = _single_node_graph()
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    return TransitionEngine(graph, store, log)
+    registry = GraderRegistry()
+    registry.register("process-exit-status", "deterministic", _PassthroughGrader())
+    return TransitionEngine(graph, store, log, grader_registry=registry)
 
 
 def _requirement(kind: str) -> dict:
@@ -115,7 +119,11 @@ def test_registry_execution_evidence_drives_real_node_to_terminal_success(tmp_pa
 
     engine = _make_engine(tmp_path)
     engine.apply("n1", "start")
-    state = engine.apply("n1", "complete", evidence=result.evidence)
+    evidence = evidence_to_proof_records(
+        result.evidence, run_id="run-1", graph_version=_SPEC_VERSION,
+        node_id="n1", executor_id="executor-code",
+    )
+    state = engine.apply("n1", "complete", evidence=evidence)
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value
 
@@ -134,7 +142,11 @@ def test_swapping_which_registered_executor_satisfies_the_kind_still_reaches_ter
 
     engine = _make_engine(tmp_path)
     engine.apply("n1", "start")
-    state = engine.apply("n1", "complete", evidence=result.evidence)
+    evidence = evidence_to_proof_records(
+        result.evidence, run_id="run-1", graph_version=_SPEC_VERSION,
+        node_id="n1", executor_id="executor-text",
+    )
+    state = engine.apply("n1", "complete", evidence=evidence)
 
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_SUCCESS.value
 

@@ -91,7 +91,10 @@ from pathlib import Path
 
 import pytest
 
-from conftest import _linear_graph
+from conftest import _linear_graph, _PassthroughGrader
+from praxis_evidence.graders import GraderRegistry
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import proof_record_to_document
 from praxis_runtime import replay as replay_module
 from praxis_runtime import state as state_module
 from praxis_runtime.events import Event, EventLog, EventLogError
@@ -103,6 +106,27 @@ from praxis_runtime.transitions import NodeStatus, TransitionEngine, TransitionE
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_GRAPH_PATH = REPO_ROOT / "examples" / "sample-graph.json"
 RUNTIME_DOC_PATH = REPO_ROOT / "docs" / "runtime.md"
+
+_GRAPH_VERSION = "1.0.0"
+
+
+def _proof_record(proof_type: str, status: str, *, node_id: str = "n1") -> dict:
+    record = build_proof_record(
+        run_id="run-1",
+        graph_version=_GRAPH_VERSION,
+        node_id=node_id,
+        proof_type=proof_type,
+        executor_id="executor-1",
+        grader_kind="deterministic",
+        status=status,
+    )
+    return proof_record_to_document(record)
+
+
+def _registry_for(proof_type: str) -> GraderRegistry:
+    registry = GraderRegistry()
+    registry.register(proof_type, "deterministic", _PassthroughGrader())
+    return registry
 
 
 def test_replay_closes_its_scratch_event_log(monkeypatch, tmp_path: Path):
@@ -202,13 +226,17 @@ def test_evidence_required_enforced_on_transition_to_terminal_failed(tmp_path: P
     )
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    engine = TransitionEngine(
+        graph, store, log, grader_registry=_registry_for("incident-report")
+    )
     engine.apply("n1", "start")
 
     with pytest.raises(TransitionError):
         engine.apply("n1", "fail", evidence=None)
 
-    state = engine.apply("n1", "fail", evidence={"incident-report": {"ref": "r1"}})
+    state = engine.apply(
+        "n1", "fail", evidence=[_proof_record("incident-report", "pass")]
+    )
     assert state.cursors["n1"].status == NodeStatus.TERMINAL_FAILED.value
 
 
@@ -328,13 +356,14 @@ def test_evidence_supplied_to_apply_is_persisted_on_the_event(tmp_path: Path):
     )
     store = RunStateStore(tmp_path / "run-state.json")
     log = EventLog(tmp_path / "events")
-    engine = TransitionEngine(graph, store, log)
+    engine = TransitionEngine(graph, store, log, grader_registry=_registry_for("signoff"))
     engine.apply("n1", "start")
 
-    engine.apply("n1", "complete", evidence={"signoff": {"approved": True}})
+    submitted = [_proof_record("signoff", "pass")]
+    engine.apply("n1", "complete", evidence=submitted)
 
     events = log.read_all()
-    assert events[-1].payload.get("evidence") == {"signoff": {"approved": True}}, (
+    assert events[-1].payload.get("evidence") == submitted, (
         "evidence supplied to apply() must be persisted onto the committed "
         "Event so there is a durable audit trail of what evidence satisfied "
         "a gate"

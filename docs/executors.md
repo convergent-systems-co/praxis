@@ -37,9 +37,15 @@ execution's outcome — see [Health and availability](#health-and-availability) 
   `command` key).
 - `class ExecutionHandle`: `handle_id: str`, an opaque reference to a single launched execution.
 - `class ExecutionResult`: `status: ExecutorStatus`, an `evidence: dict`, and an open
-  `payload: dict`. `evidence` keys must match the `proof_type` vocabulary used
-  by the target node's evidence requirement, so a caller can pass it straight through to
-  `TransitionEngine.apply(node_id, event_type, evidence=result.evidence)` (see `docs/runtime.md`).
+  `payload: dict`. `evidence` is a flat `{proof_type: claim}` dict whose keys must match the
+  `proof_type` vocabulary used by the target node's evidence requirement, but it cannot be passed
+  straight through to `TransitionEngine.apply(node_id, event_type, evidence=...)`: that method
+  requires `list[dict]` of raw proof-record documents (see `docs/evidence.md`). A caller with
+  run/graph/node context (which this module deliberately lacks, keeping adapters independent of
+  `praxis_runtime`) must convert each `evidence` entry into a proof-record document before
+  dispatching into `TransitionEngine.apply` (see `docs/runtime.md`) --
+  `praxis_executors.registry.evidence_to_proof_records` (see below) is the reusable function that
+  does this.
 - `class ExecutorStatus(enum.Enum)`: `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED` — the
   lifecycle of a single execution.
 - `class ExecutorError(Exception)`: raised by an `Executor` implementation when an operation
@@ -140,8 +146,17 @@ feed `DenyListPolicy`/`as_eligibility_callable` above.
 ## `praxis_executors.registry`
 
 `ExecutorRegistry` (`src/praxis_executors/registry.py`) tracks registered adapters and mediates
-selection and execution. It has no dependency on `praxis_runtime`; wiring `ExecutionResult`'s
-`evidence` through to `TransitionEngine.apply` is the caller's responsibility, not the registry's.
+selection and execution. It has no dependency on `praxis_runtime`; dispatching converted proof
+records into `TransitionEngine.apply` is still the caller's responsibility, not the registry's —
+no executor-to-runtime orchestrator module exists in this codebase today.
+
+- `def evidence_to_proof_records(evidence: dict, *, run_id: str, graph_version: str, node_id: str, executor_id: str, grader_kind: str = "deterministic") -> list[dict]`:
+  the reusable conversion from an `ExecutionResult.evidence` flat `{proof_type: claim}` dict into
+  the `list[dict]` of proof-record documents `TransitionEngine.apply(..., evidence=...)` requires
+  -- one record per claimed `proof_type`, `status="pass"` for a truthy claim and `"fail"`
+  otherwise. A caller with the run/graph/node context `praxis_executors` deliberately lacks calls
+  this once it has selected and executed an executor, before dispatching into
+  `TransitionEngine.apply` (see `docs/runtime.md`).
 
 - `class ExecutorRegistry`:
   - `def register(self, executor_id: str, executor: Executor) -> None`: raises `RegistryError` on
@@ -153,6 +168,11 @@ selection and execution. It has no dependency on `praxis_runtime`; wiring `Execu
     selects an executor, launches the request, polls `status()` until a terminal
     `ExecutorStatus` (calling the optional `poll` callback between checks), then returns
     `result()`. Raises `RegistryError` if `select` finds no candidate.
+  - `def execute_with_proof_records(self, requirement: dict, request: ExecutionRequest, *, run_id: str, graph_version: str, node_id: str, grader_kind: str = "deterministic", is_eligible=None, poll: Callable[[], None] | None = None) -> tuple[ExecutionResult, list[dict]]`:
+    like `execute`, but also calls `evidence_to_proof_records` using the `executor_id` this call's
+    own `select()` actually chose, so a caller with run/graph/node context gets back the converted
+    proof-record list alongside the raw `ExecutionResult` without re-deriving the winning
+    `executor_id` out of band. This is `evidence_to_proof_records`'s production caller.
 - `class RegistryError(Exception)`.
 
 ## Adding a new executor adapter

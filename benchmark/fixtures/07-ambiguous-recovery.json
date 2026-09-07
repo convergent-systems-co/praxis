@@ -34,11 +34,10 @@
     {
       "node_or_event": "NEEDS_CONTEXT",
       "expressible_in_overlay": false
-    },
-    {
-      "node_or_event": "verify/commit_task (praxis_script structural artifact: drives these to terminal_success only because FakeExecutor requires every overlay node to reach a terminal status; this scenario's defining recovery path has no representation in the overlay past implement, per docs/parity/state-event-migration.md -- not a claim that the overlay expresses recovered-and-resumed behavior)",
-      "expressible_in_overlay": false
     }
+  ],
+  "notes": [
+    "verify/commit_task (praxis_script structural artifact: drives these to terminal_success only because FakeExecutor requires every overlay node to reach a terminal status; this scenario's defining recovery path has no representation in the overlay past implement, per docs/parity/state-event-migration.md -- not a claim that the overlay expresses recovered-and-resumed behavior)"
   ],
   "praxis_script": {
     "write_tdd": {

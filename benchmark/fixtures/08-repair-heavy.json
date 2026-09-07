@@ -126,11 +126,10 @@
     {
       "node_or_event": "BRANCH_READY",
       "expressible_in_overlay": false
-    },
-    {
-      "node_or_event": "verify/commit_task (praxis_script structural artifact: scripts a single, first-attempt terminal_success pass because the overlay has no repair lane -- there is no node to script a fail-then-repair_task-then-retry cycle against, per docs/parity/state-event-migration.md; this fixture does not claim the overlay exercises the repair loop itself, only that the FakeExecutor script drives every overlay node to a terminal status)",
-      "expressible_in_overlay": false
     }
+  ],
+  "notes": [
+    "verify/commit_task (praxis_script structural artifact: scripts a single, first-attempt terminal_success pass because the overlay has no repair lane -- there is no node to script a fail-then-repair_task-then-retry cycle against, per docs/parity/state-event-migration.md; this fixture does not claim the overlay exercises the repair loop itself, only that the FakeExecutor script drives every overlay node to a terminal status)"
   ],
   "praxis_script": {
     "write_tdd": {

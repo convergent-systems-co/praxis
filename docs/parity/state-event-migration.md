@@ -74,7 +74,15 @@ migration is done; the graph-node half is the gap this document records.
 
 Each table lists every `legacy_expected` entry for that fixture, in the fixture's own order.
 "Expressible" repeats the fixture's `expressible_in_overlay` value; "Category" is `E`
-(expressible, task lane) or one of `B`/`R`/`H` above.
+(expressible, task lane) or one of `B`/`R`/`H` above. `tests/test_parity_fixtures.py`'s
+`test_state_event_migration_doc_lists_every_legacy_expected_entry` re-proves this completeness
+claim against live fixture data, so a fixture whose `legacy_expected` array is expanded without
+its table being updated here now fails the suite instead of silently going stale.
+
+A fixture may also carry a top-level `notes` array (`schemas/v1/parity-fixture.schema.json`) for
+prose disclosures that don't fit the `node_or_event`/`expressible_in_overlay` shape -- these are
+quoted verbatim under the fixture's table as "Fixture notes", not represented as a table row, and
+`test_state_event_migration_doc_reflects_fixture_notes` checks they are actually quoted here.
 
 ### `01-simple-bug-fix` (`benchmark/fixtures/01-simple-bug-fix.json`)
 
@@ -201,15 +209,28 @@ Each table lists every `legacy_expected` entry for that fixture, in the fixture'
 | Node/event | Expressible | Category |
 | --- | --- | --- |
 | `plan_bundle` | no | B |
+| `task_scheduler` | no | B |
+| `write_tdd` | yes | E |
+| `implement` | yes | E |
+| `verify` | yes | E |
+| `commit_task` | yes | E |
 | `bundle_verify` | no | B |
 | `final_review` | no | B |
 | `documentation_review` | no | B |
 | `create_pr` | no | B |
-| `implement` | yes | E |
-| `write_tdd` | yes | E |
-| `verify` | yes | E |
-| `commit_task` | yes | E |
+| `bundle_scheduler` | no | B |
 | `repair_task` | no | R |
+| `PLAN_DONE` | no | B |
+| `TDD_DONE` | no | B |
+| `IMPLEMENT_DONE` | no | B |
+| `VERIFY_DONE` | yes | E |
+| `TASK_COMMITTED` | no | B |
+| `BUNDLE_TASKS_COMPLETE` | no | B |
+| `BUNDLE_VERIFY_PASSED` | no | B |
+| `REVIEW_APPROVED` | yes | E |
+| `DOC_REVIEW_DONE` | no | B |
+| `PR_CREATED` | no | B |
+| `BRANCH_READY` | no | B |
 
 ### `06-dependency-upgrade` (`benchmark/fixtures/06-dependency-upgrade.json`)
 
@@ -258,6 +279,11 @@ recovery-and-escalation path (`implement` fails to make progress -> `NEEDS_CONTE
 overlay at any point past `implement`, because the overlay has neither a recovery lane nor a
 human-interrupt node.
 
+**Fixture notes** (`benchmark/fixtures/07-ambiguous-recovery.json`'s top-level `notes` array,
+quoted verbatim, one line per entry):
+
+> verify/commit_task (praxis_script structural artifact: drives these to terminal_success only because FakeExecutor requires every overlay node to reach a terminal status; this scenario's defining recovery path has no representation in the overlay past implement, per docs/parity/state-event-migration.md -- not a claim that the overlay expresses recovered-and-resumed behavior)
+
 ### `08-repair-heavy` (`benchmark/fixtures/08-repair-heavy.json`)
 
 | Node/event | Expressible | Category |
@@ -293,6 +319,11 @@ human-interrupt node.
 | `DOC_REVIEW_DONE` | no | B |
 | `PR_CREATED` | no | B |
 | `BRANCH_READY` | no | B |
+
+**Fixture notes** (`benchmark/fixtures/08-repair-heavy.json`'s top-level `notes` array, quoted
+verbatim, one line per entry):
+
+> verify/commit_task (praxis_script structural artifact: scripts a single, first-attempt terminal_success pass because the overlay has no repair lane -- there is no node to script a fail-then-repair_task-then-retry cycle against, per docs/parity/state-event-migration.md; this fixture does not claim the overlay exercises the repair loop itself, only that the FakeExecutor script drives every overlay node to a terminal status)
 
 ## This is an accepted contract migration, not silent normalization
 

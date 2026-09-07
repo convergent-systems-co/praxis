@@ -31,13 +31,23 @@
         "required": ["node_or_event", "expressible_in_overlay"],
         "properties": {
           "node_or_event": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "description": "A bare legacy node id or event name only, e.g. `plan_bundle` or `VERIFY_DONE` -- never prose. A caveat that doesn't fit this shape belongs in the fixture's top-level `notes` array instead, so it stays structurally visible to documentation generation rather than silently falling out of it."
           },
           "expressible_in_overlay": {
             "type": "boolean"
           }
         },
         "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "array",
+      "description": "Fixture-level prose disclosures that don't fit legacy_expected's node/event shape (e.g. explaining why a praxis_script drives every overlay node to a terminal status even though the scenario's own defining behavior isn't expressible). Optional; omit if a fixture needs no such caveat.",
+      "items": {
+        "type": "string",
+        "minLength": 1
       }
     },
     "praxis_script": {

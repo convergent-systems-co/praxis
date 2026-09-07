@@ -1,0 +1,81 @@
+{
+  "spec_version": "1.0.0",
+  "fixture_id": "07-ambiguous-recovery",
+  "workload_id": "07-ambiguous-recovery.md",
+  "legacy_expected": [
+    {
+      "node_or_event": "plan_bundle",
+      "expressible_in_overlay": false
+    },
+    {
+      "node_or_event": "task_scheduler",
+      "expressible_in_overlay": false
+    },
+    {
+      "node_or_event": "write_tdd",
+      "expressible_in_overlay": true
+    },
+    {
+      "node_or_event": "implement",
+      "expressible_in_overlay": true
+    },
+    {
+      "node_or_event": "context_recovery",
+      "expressible_in_overlay": false
+    },
+    {
+      "node_or_event": "human_required",
+      "expressible_in_overlay": false
+    },
+    {
+      "node_or_event": "awaiting_human",
+      "expressible_in_overlay": false
+    },
+    {
+      "node_or_event": "NEEDS_CONTEXT",
+      "expressible_in_overlay": false
+    }
+  ],
+  "praxis_script": {
+    "write_tdd": {
+      "event_type": "complete",
+      "evidence": null
+    },
+    "implement": {
+      "event_type": "complete",
+      "evidence": null
+    },
+    "verify": {
+      "event_type": "complete",
+      "evidence": null
+    },
+    "commit_task": {
+      "event_type": "complete",
+      "evidence": [
+        {
+          "spec_version": "1.0.0",
+          "proof_id": "07-ambiguous-recovery-development.test-pass",
+          "run_id": "07-ambiguous-recovery-fixture-run",
+          "graph_version": "1.0.0",
+          "node_id": "commit_task",
+          "proof_type": "development.test-pass",
+          "executor_id": "benchmark-fixture-harness",
+          "grader_kind": "deterministic",
+          "status": "pass"
+        },
+        {
+          "spec_version": "1.0.0",
+          "proof_id": "07-ambiguous-recovery-development.review-approved",
+          "run_id": "07-ambiguous-recovery-fixture-run",
+          "graph_version": "1.0.0",
+          "node_id": "commit_task",
+          "proof_type": "development.review-approved",
+          "executor_id": "benchmark-fixture-harness",
+          "grader_kind": "deterministic",
+          "status": "pass"
+        }
+      ]
+    }
+  },
+  "expected_terminal_status": "terminal_success"
+}

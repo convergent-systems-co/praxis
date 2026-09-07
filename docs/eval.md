@@ -1,4 +1,5 @@
 # Praxis Candidate Evaluation, Promotion, and Rollback
+
 See also: [`docs/parity/decision.md`](parity/decision.md) for issue #13's parity-acceptance
 decision memo, which cites this module's promotion gate as part of its evidence;
 [`docs/ontology.md`](ontology.md) for the `required`/`preferred`/`prohibited`

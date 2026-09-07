@@ -23,20 +23,17 @@ scripted evidence (with its `development.test-pass` proof flipped to
 gate fails closed -- mirroring `test_overlay_development.py`'s own
 `TransitionError` assertion.
 
-Repair-cycle additions (b12-issue13 repair-findings.md): `docs/parity/
-state-event-migration.md` claims "each table lists every `legacy_expected`
-entry for that fixture", but that claim silently went false twice for the
-same reason -- a fixture's `legacy_expected` entries were regenerated/
-expanded without the doc being regenerated to match, and once a
-paragraph-length caveat was stored as a `node_or_event` value it fell
-through table generation entirely. `test_state_event_migration_doc_lists_
-every_legacy_expected_entry` re-proves the doc's own completeness claim
-against live fixture data so this can't regress silently again;
-`test_state_event_migration_doc_reflects_fixture_notes` proves the fixture-
-level `notes` field (the root-cause fix: prose disclosures belong there, not
-in `node_or_event`) is actually quoted in the doc, not just moved and
-dropped; `test_fixture_workload_id_matches_real_corpus_file` closes the
-previously-unguarded `workload_id` citation convention.
+`docs/parity/state-event-migration.md` claims "each table lists every
+`legacy_expected` entry for that fixture". `test_state_event_migration_doc_
+lists_every_legacy_expected_entry` re-proves that completeness claim against
+live fixture data, so a fixture's `legacy_expected` entries can never drift
+ahead of the doc's per-scenario tables without the test catching it.
+`test_state_event_migration_doc_reflects_fixture_notes` proves that a
+fixture-level `notes` entry -- the structured home for a prose disclosure
+that doesn't fit `node_or_event` -- is actually quoted in the doc, not
+silently dropped. `test_fixture_workload_id_matches_real_corpus_file`
+enforces the `workload_id` citation convention: the value must name a real
+file under `benchmark/corpus/`.
 """
 
 from __future__ import annotations
@@ -77,6 +74,17 @@ FIXTURES = [_load(path) for path in sorted(FIXTURES_DIR.glob("*.json"))]
 
 def test_schema_path_is_imported_from_parity_module_not_rederived() -> None:
     assert SCHEMA_PATH is PARITY_FIXTURE_SCHEMA_PATH
+
+
+def test_module_docstring_documents_invariants_not_pipeline_process() -> None:
+    docstring = (__doc__ or "").lower()
+    forbidden = ("repair-findings.md", "repair-cycle", "repair cycle", "b12-issue13")
+    for phrase in forbidden:
+        assert phrase not in docstring, (
+            f"module docstring references {phrase!r}, an external delivery-pipeline artifact "
+            "name; the docstring should document the invariant each test enforces, not narrate "
+            "the process that produced the test"
+        )
 
 
 def _build_engine(tmp_path: Path, graph, grader_registry) -> TransitionEngine:

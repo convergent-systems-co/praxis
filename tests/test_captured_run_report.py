@@ -1,27 +1,20 @@
-"""RED-phase proof for task T7 (bundle b12-issue13).
+"""Acceptance proof for task T7 (bundle b12-issue13).
 
-T7's deliverable is a *captured* Praxis-candidate real run, not new source
-code: a real (non-`tmp_path`) run directory under
+T7's deliverable is a *captured* Praxis-candidate real run: a real
+(non-`tmp_path`) run directory under
 `benchmark/parity/runs/run-<UTC-timestamp>-development-overlay/` holding the
 `state.json`/`events.jsonl` produced by driving
 `overlays.development.graph.build_development_graph()` through a real
 `TransitionEngine`/`RunStateStore`/`EventLog`/`FakeExecutor` to
 `TERMINAL_SUCCESS`, plus a `report.md` filled in against
-`benchmark/report-format/real-run-report-format.md`'s template. This test
-defines that acceptance shape and is expected to fail until the capture
-exists -- it is not part of `pytest`'s default collection (`testpaths =
-["tests"]` in pyproject.toml), so run it explicitly:
+`benchmark/report-format/real-run-report-format.md`'s template.
 
-    python3 -c "
-    import sys; sys.path.insert(0, 'src')
-    import pytest
-    raise SystemExit(pytest.main(['benchmark/parity/runs/test_captured_run_report.py', '-q']))
-    "
-
-(`sys.path.insert(0, 'src')` works around this environment's stale
-cross-worktree editable install of `praxis-contracts`; see T7's `RESULT_JSON`
-evidence for the base `pytest` invocation that fails for the wrong reason
-without it.)
+This module lives under `tests/` (not `benchmark/parity/runs/`) specifically
+so it is collected by a plain `pytest` invocation -- `pyproject.toml` sets
+`testpaths = ["tests"]`, and a test file that is the only automated check
+that these committed run artifacts stay consistent with the overlay code
+must actually run as part of the standard suite, not sit uncollected next to
+the artifacts it verifies.
 """
 
 from __future__ import annotations
@@ -38,9 +31,11 @@ from praxis_runtime.state import RunStateStore
 from praxis_runtime.testing.fake_executor import FakeExecutor
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
-_RUNS_DIR = Path(__file__).resolve().parent
+_RUNS_DIR = Path(__file__).resolve().parent.parent / "benchmark" / "parity" / "runs"
 _TEST_PASS = "development.test-pass"
 _REVIEW_APPROVED = "development.review-approved"
+
+_GITIGNORE_PATH = Path(__file__).resolve().parent.parent / ".gitignore"
 
 
 def _proof_record(*, node_id: str, proof_type: str, graph_version: str) -> dict:
@@ -101,6 +96,21 @@ def test_captured_run_directory_exists_with_real_committed_artifacts():
     assert (run_dir / "state.json").is_file(), "state.json must be a committed artifact, not tmp_path"
     assert (run_dir / "events.jsonl").is_file(), "events.jsonl must be a committed artifact, not tmp_path"
     assert (run_dir / "report.md").is_file()
+
+
+def test_event_log_lock_sidecar_is_gitignored():
+    # praxis_runtime.events.EventLog creates an `events.jsonl.lock` sidecar the moment it is
+    # opened -- including read-only replays of this test's own committed run directory a few
+    # tests below -- so the file reappears on disk as an unavoidable runtime side effect. The
+    # report-format spec (benchmark/report-format/real-run-report-format.md) requires only
+    # state.json/events.jsonl/report.md as committed artifacts, so this sidecar must be
+    # gitignored rather than asserted absent from the working tree (which it cannot reliably be
+    # once any code reads the committed run's events).
+    gitignore_text = _GITIGNORE_PATH.read_text()
+    assert "events.jsonl.lock" in gitignore_text, (
+        "events.jsonl.lock must be gitignored so EventLog's sidecar lock file is never "
+        "accidentally committed alongside a captured run's real state.json/events.jsonl"
+    )
 
 
 def test_captured_state_reached_terminal_success_for_every_overlay_node():
@@ -188,7 +198,8 @@ def test_capture_is_reproducible_by_replaying_the_same_script(tmp_path):
         engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
         started = time.monotonic()
         final_state = FakeExecutor(engine, script).run_to_completion()
-        time.monotonic() - started  # mirrors how the captured run itself timed its replay
+        elapsed_seconds = time.monotonic() - started
+        assert elapsed_seconds >= 0.0, "monotonic replay timing must not go backwards"
 
         for node_id in graph.nodes:
             assert final_state.cursors[node_id].status == committed_state.cursors[node_id].status

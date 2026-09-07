@@ -48,6 +48,22 @@ returns `satisfied: True` — a real, recorded decision, not an assertion of int
 file also promotes the legacy candidate first and the Praxis candidate second, then demonstrates
 `rollback.rollback` restoring the legacy candidate as active without re-running the gate.
 
+**Honesty caveat on the `completion_success` inputs themselves:** the baseline record
+(`benchmark/parity/evaluations/baseline-02-feature-implementation.json`) carries
+`completion_success: 0.0` against the candidate's `1.0` — but that `0.0` is **not** a recorded v4
+completion failure. Per
+[`benchmark/baseline/baseline-report.md`](../../benchmark/baseline/baseline-report.md), the sole
+captured baseline sample is a **point-in-time snapshot** taken while the run's `status` was still
+`running` (20 of 22 dispatched tasks complete), not a terminal capture; `completion_success` encodes
+that snapshot's non-terminal state honestly as `0.0` rather than fabricating a terminal outcome the
+capture never reached. So the promotion gate's `satisfied: True` result is a real, mechanically
+correct comparison of the two recorded values, but it is **not** evidence that the Praxis candidate
+out-performed an actual v4 completion failure — it compares a genuine candidate success against a
+baseline value that means "no terminal outcome was captured," a distinct claim from "the baseline
+failed to complete." This is the same disclosure discipline this document already applies to
+`wall_seconds`'s incomparable measurement basis, applied here to `completion_success`'s baseline
+input.
+
 Performance is a different, honest story. Per
 [`benchmark/baseline/acceptance-thresholds.md`](../../benchmark/baseline/acceptance-thresholds.md),
 every timing/latency candidate-gate metric is only ever "within N% of the baseline, or
@@ -75,7 +91,10 @@ does not claim to be, a timing comparison against the legacy baseline.
 Structural parity (T3), evidence-gate parity (T3), and completion/safety parity (T6) are
 demonstrated with recorded, reproducible evidence: `tests/test_parity_fixtures.py` (all 8
 fixtures), `tests/test_parity_promotion.py`, `benchmark/parity/promotion-policy.json`, and
-`benchmark/fixtures/*.json`.
+`benchmark/fixtures/*.json`. As noted in the T6 section above, "completion/safety parity" here
+means the gate mechanically compares the candidate's real success against the baseline's recorded
+non-terminal snapshot value, not against a recorded v4 completion failure — real, reproducible
+evidence for the comparison that exists, not a claim that the baseline is known to have failed.
 
 Performance parity remains **open**. It is not resolved, and this document does not claim
 otherwise: closing it requires either (a) a second real legacy baseline sample, so

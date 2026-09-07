@@ -1,8 +1,10 @@
 """Core/overlay vocabulary boundary guard.
 
-The six core packages (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`,
-`praxis_executors`, `praxis_policy`, `praxis_overlay`) and the core ontology
-schemas (plus `overlay-manifest.schema.json`) must stay domain-neutral: no
+The nine core packages (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`,
+`praxis_executors`, `praxis_policy`, `praxis_eval`, `praxis_overlay`,
+`praxis_dashboard`, `praxis_learning` -- the exact list the epic spec names as
+"Praxis core packages") and the core ontology schemas (plus
+`overlay-manifest.schema.json`) must stay domain-neutral: no
 software-development/VCS-specific vocabulary (GitHub, pull requests, commits,
 branches, TDD, code review, ...) may leak into them. That vocabulary belongs
 in `src/overlays/development/`, the one concrete overlay that models the
@@ -37,7 +39,10 @@ CORE_PACKAGE_DIRS = (
     REPO_ROOT / "src" / "praxis_evidence",
     REPO_ROOT / "src" / "praxis_executors",
     REPO_ROOT / "src" / "praxis_policy",
+    REPO_ROOT / "src" / "praxis_eval",
     REPO_ROOT / "src" / "praxis_overlay",
+    REPO_ROOT / "src" / "praxis_dashboard",
+    REPO_ROOT / "src" / "praxis_learning",
 )
 
 SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"

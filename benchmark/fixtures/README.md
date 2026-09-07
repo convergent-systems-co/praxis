@@ -1,6 +1,23 @@
 # Fixtures: fake-executor deterministic fixtures for state-machine parity
 
-## Status: blocked on issue #2
+## Status update (issue #13): #2's contracts landed, fixtures delivered
+
+Issue #2 (contracts/ontology) has since landed: `schemas/v1/event.schema.json` and
+`schemas/v1/run-state.schema.json` define the field/shape contract this file's original blocker
+narrative (below) said was missing. Bundle #13 built on that landed contract to define
+`schemas/v1/parity-fixture.schema.json` and deliver the actual fixtures at
+`benchmark/fixtures/*.json` — one per `benchmark/corpus/*.md` scenario — each validated against
+that schema and driven through the real development overlay by
+`tests/test_parity_fixtures.py`.
+
+The historical blocker narrative below is kept as accurate project history, not deleted: it
+records why this file originally shipped without fixtures, and what "final schema alignment"
+means in this repository's terms. For what the delivered fixtures actually cover against the
+legacy `develop` v4 state/event vocabulary recorded further down this file — and, just as
+importantly, what they deliberately do **not** cover and why — see
+[`docs/parity/state-event-migration.md`](../../docs/parity/state-event-migration.md).
+
+## Historical blocker note (superseded — see status update above)
 
 This deliverable — issue [#3](https://github.com/convergent-systems-co/praxis/issues/3)'s
 "fake-executor deterministic fixtures for state-machine parity" (the

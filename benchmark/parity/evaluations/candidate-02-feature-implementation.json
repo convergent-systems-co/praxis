@@ -1,0 +1,27 @@
+{
+  "spec_version": "1.0.0",
+  "evaluation_id": "candidate-02-feature-implementation-eval",
+  "candidate_id": "develop-on-praxis-overlay",
+  "workload_id": "02-feature-implementation.md",
+  "measurements": [
+    {
+      "metric": "wall_seconds",
+      "value": 0.000115
+    },
+    {
+      "metric": "event_count",
+      "value": 8.0
+    },
+    {
+      "metric": "node_count",
+      "value": 4.0
+    },
+    {
+      "metric": "completion_success",
+      "value": 1.0
+    }
+  ],
+  "produced_at": "2026-09-06T00:00:00+00:00",
+  "baseline_candidate_id": "develop-v4-baseline",
+  "evaluator_id": "fake-executor-parity-replay"
+}

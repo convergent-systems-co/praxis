@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.praxis.dev/v1/parity-fixture.schema.json",
+  "title": "Parity Fixture",
+  "description": "A single baseline-vs-Praxis-candidate parity comparison fixture: which legacy nodes/events a workload expects, which of those are expressible through the current overlay, and the deterministic FakeExecutor script that drives the overlay's expressible subset to a terminal status. Generic field names only -- domain-specific vocabulary lives in fixture instances (benchmark/fixtures/*.json), never in this schema.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "fixture_id",
+    "workload_id",
+    "legacy_expected",
+    "praxis_script",
+    "expected_terminal_status"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$"
+    },
+    "fixture_id": {
+      "type": "string"
+    },
+    "workload_id": {
+      "type": "string",
+      "description": "Cites an exact external workload identifier, e.g. a benchmark/corpus/*.md filename -- never a paraphrase. The schema can only check it's a non-empty string; the exact-filename convention is enforced by the fixture's own test."
+    },
+    "legacy_expected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["node_or_event", "expressible_in_overlay"],
+        "properties": {
+          "node_or_event": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "description": "A bare legacy node id or event name only, e.g. `plan_bundle` or `VERIFY_DONE` -- never prose. A caveat that doesn't fit this shape belongs in the fixture's top-level `notes` array instead, so it stays structurally visible to documentation generation rather than silently falling out of it."
+          },
+          "expressible_in_overlay": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "array",
+      "description": "Fixture-level prose disclosures that don't fit legacy_expected's node/event shape (e.g. explaining why a praxis_script drives every overlay node to a terminal status even though the scenario's own defining behavior isn't expressible). Optional; omit if a fixture needs no such caveat.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "praxis_script": {
+      "type": "object",
+      "description": "Maps an overlay node id to its scripted outcome, exactly the shape praxis_runtime.testing.fake_executor.FakeExecutor consumes as its `script` argument: {node_id: {event_type, evidence}}, where evidence is passed straight through to TransitionEngine.apply(node_id, event_type, evidence=...).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["event_type"],
+        "properties": {
+          "event_type": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "expected_terminal_status": {
+      "type": "string",
+      "description": "One of praxis_runtime.transitions.NodeStatus's value strings.",
+      "enum": [
+        "pending",
+        "running",
+        "blocked",
+        "handoff",
+        "recovering",
+        "terminal_success",
+        "terminal_failed"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

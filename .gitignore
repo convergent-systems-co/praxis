@@ -5,3 +5,9 @@ __pycache__/
 .venv/
 build/
 dist/
+
+# praxis_runtime.events.EventLog always creates this flock sidecar file the
+# moment it is opened, even for a read-only replay of a committed run
+# directory -- it must never be committed alongside the real state.json/
+# events.jsonl capture.
+events.jsonl.lock

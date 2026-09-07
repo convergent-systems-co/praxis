@@ -1,6 +1,7 @@
 # Praxis Candidate Evaluation, Promotion, and Rollback
-
-See also: [`docs/ontology.md`](ontology.md) for the `required`/`preferred`/`prohibited`
+See also: [`docs/parity/decision.md`](parity/decision.md) for issue #13's parity-acceptance
+decision memo, which cites this module's promotion gate as part of its evidence;
+[`docs/ontology.md`](ontology.md) for the `required`/`preferred`/`prohibited`
 constraint vocabulary this module reuses for metric thresholds, [`docs/runtime.md`](runtime.md)
 for the runtime this subsystem's promoted candidates ultimately configure,
 [`docs/policy.md`](policy.md) for the `PolicyProfile`/`evaluate_authority` authority layer

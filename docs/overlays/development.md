@@ -2,7 +2,9 @@
 
 **A note on vocabulary:** this document, and the package it describes
 (`src/overlays/development/`), legitimately use TDD/PR/branch/review vocabulary throughout, and
-that is expected, not a violation. The core-boundary rule enforced by
+that is expected, not a violation. (See [`docs/parity/decision.md`](../parity/decision.md) for
+issue #13's parity-acceptance decision memo, which cites this overlay's scope.) The core-boundary
+rule enforced by
 `tests/test_core_overlay_boundary.py` (`docs/overlays.md`) forbids software-development vocabulary
 in Praxis *core* (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`, `praxis_executors`,
 `praxis_policy`, `praxis_overlay`) so that core stays generic across domains. It does not reach

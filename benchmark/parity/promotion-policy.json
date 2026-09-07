@@ -1,0 +1,17 @@
+{
+  "spec_version": "1.0.0",
+  "name": "b12-issue13 parity-proof promotion policy",
+  "thresholds": [
+    {
+      "metric": "completion_success",
+      "constraint": "required",
+      "direction": "higher_is_better",
+      "max_regression_pct": 0
+    },
+    {
+      "metric": "wall_seconds",
+      "constraint": "preferred",
+      "direction": "lower_is_better"
+    }
+  ]
+}

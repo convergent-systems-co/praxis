@@ -37,6 +37,7 @@ from overlays.development.graph import build_development_graph
 from overlays.development.manifest import DEVELOPMENT_MANIFEST
 from overlays.development.overlay import register_development_overlay
 from praxis_contracts.validator import validate_document
+from praxis_eval.parity import PARITY_FIXTURE_SCHEMA_PATH
 from praxis_overlay.registry import OverlayRegistry
 from praxis_runtime.events import EventLog
 from praxis_runtime.state import RunStateStore
@@ -45,7 +46,7 @@ from praxis_runtime.transitions import TransitionEngine, TransitionError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = REPO_ROOT / "benchmark" / "fixtures"
-SCHEMA_PATH = REPO_ROOT / "schemas" / "v1" / "parity-fixture.schema.json"
+SCHEMA_PATH = PARITY_FIXTURE_SCHEMA_PATH
 
 _TEST_PASS = "development.test-pass"
 
@@ -55,6 +56,10 @@ def _load(path: Path) -> dict:
 
 
 FIXTURES = [_load(path) for path in sorted(FIXTURES_DIR.glob("*.json"))]
+
+
+def test_schema_path_is_imported_from_parity_module_not_rederived() -> None:
+    assert SCHEMA_PATH is PARITY_FIXTURE_SCHEMA_PATH
 
 
 def _build_engine(tmp_path: Path, graph, grader_registry) -> TransitionEngine:

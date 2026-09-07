@@ -1,0 +1,23 @@
+{
+  "spec_version": "1.0.0",
+  "run_id": "a077e92d620046f1b394603f82fbb382",
+  "cursors": {
+    "write_tdd": {
+      "node_id": "write_tdd",
+      "status": "terminal_success"
+    },
+    "implement": {
+      "node_id": "implement",
+      "status": "terminal_success"
+    },
+    "verify": {
+      "node_id": "verify",
+      "status": "terminal_success"
+    },
+    "commit_task": {
+      "node_id": "commit_task",
+      "status": "terminal_success"
+    }
+  },
+  "last_applied_seq": 7
+}

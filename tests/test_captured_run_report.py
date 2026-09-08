@@ -68,6 +68,31 @@ def _all_passing_script(graph, terminal_node_id: str) -> dict:
     return script
 
 
+def _reachable_node_ids(graph) -> set[str]:
+    # TransitionEngine.current_state() seeds cursors with only entry_node,
+    # and _advance_successors only ever adds a target cursor once its source
+    # reaches TERMINAL_SUCCESS via an edge -- so a real (or replayed) run's
+    # state.cursors can only ever contain nodes reachable from entry_node,
+    # never every node in graph.nodes. Since b2-issue28 added a bundle lane
+    # (plan_bundle -> ... -> create_pr / repair_bundle) that has no edge
+    # connecting it to the task lane's entry_node ("write_tdd"), those nodes
+    # are structurally unreachable and must be excluded here rather than
+    # asserted equal to the full node set.
+    adjacency: dict[str, list[str]] = {}
+    for edge in graph.edges:
+        adjacency.setdefault(edge.source, []).append(edge.target)
+
+    visited = {graph.entry_node}
+    stack = [graph.entry_node]
+    while stack:
+        current = stack.pop()
+        for neighbor in adjacency.get(current, []):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                stack.append(neighbor)
+    return visited
+
+
 def _find_run_dir() -> Path:
     candidates = sorted(_RUNS_DIR.glob("run-*-development-overlay"))
     assert candidates, (
@@ -122,7 +147,7 @@ def test_captured_state_reached_terminal_success_for_every_overlay_node():
     state = RunStateStore(run_dir / "state.json").load()
     assert state is not None
 
-    assert set(state.cursors) == set(graph.nodes)
+    assert set(state.cursors) == _reachable_node_ids(graph)
     for node_id, cursor in state.cursors.items():
         assert cursor.status == NodeStatus.TERMINAL_SUCCESS.value, (node_id, cursor.status)
 
@@ -201,7 +226,7 @@ def test_capture_is_reproducible_by_replaying_the_same_script(tmp_path):
         elapsed_seconds = time.monotonic() - started
         assert elapsed_seconds >= 0.0, "monotonic replay timing must not go backwards"
 
-        for node_id in graph.nodes:
+        for node_id in _reachable_node_ids(graph):
             assert final_state.cursors[node_id].status == committed_state.cursors[node_id].status
         assert len(log.read_all()) == committed_event_count
     finally:

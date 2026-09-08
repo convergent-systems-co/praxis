@@ -18,13 +18,13 @@ An executor may be Claude, Codex, Copilot, OpenCode, a local model, a determinis
 
 ## Status
 
-Praxis is currently in **initial architecture and implementation**.
+Praxis's core substrate is built and working: the graph/transition engine, durable run state and event log, evidence/proof gates, resource claims and leases, the executor and overlay contracts, policy/authority/budgets, candidate evaluation/promotion/rollback, bounded learning, and a live dashboard all exist and are exercised by the test suite. That work is tracked in the now-closed [Epic #1](https://github.com/convergent-systems-co/praxis/issues/1) (12 child issues, shipped 2026-09-05 through 2026-09-07).
 
-The repository has been established and the implementation plan is tracked in [Epic #1](https://github.com/convergent-systems-co/praxis/issues/1).
+Epic #1's capstone deliverable was a **parity memo** ([`docs/parity/decision.md`](docs/parity/decision.md)) comparing a Praxis-native expression of `develop`'s task lane against the `develop` v4 baseline. It was explicitly evidence for a human decision, not the decision itself — and that decision has now been made: Praxis becomes the runtime dependency beneath `/develop`.
 
-The first production overlay will be **`develop`**, the existing graph-driven autonomous software-delivery workflow maintained by Convergent Systems. `develop` will be used to build Praxis and will then be migrated to run on Praxis as its first domain overlay.
+Getting there is itself real, additional work, tracked in [Epic #26](https://github.com/convergent-systems-co/praxis/issues/26): the development overlay (`src/overlays/development/`) today only expresses `develop` v4's 4-node task lane, not its bundle lane, recovery lane, or human-interrupt handling, and a resource-matching bug means even that task lane lacks real footprint-conflict parity. Epic #26 closes those gaps inside this repository. The actual runtime cutover — wiring `/develop`'s own `runtime/*.py` (a separate, actively-developed repository) to drive Praxis's `TransitionEngine` instead of its current bespoke state machine — is tracked as a roadmap rather than filed issues until that repository's working tree is ready for it.
 
-Do not treat the current repository as a finished runtime until the compatibility and parity milestones in the epic are complete.
+Treat the runtime as usable for experimentation and overlay development today (see Installation/Usage below), and not yet as `develop`'s actual execution engine.
 
 ---
 
@@ -262,6 +262,13 @@ An overlay may not bypass Praxis state, authority, transition, or evidence rules
 
 Those concepts remain outside the Praxis core.
 
+### Where Praxis fits today
+
+- **`/develop`** is the in-progress target: its v4 GRAPH.yaml runtime is being replaced by Praxis's `TransitionEngine`, in phases (see Status above and [Epic #26](https://github.com/convergent-systems-co/praxis/issues/26)). Not yet cut over.
+- **`/enhance`** is not a separate integration. It has no graph or state machine of its own — it's a rubric-driven document review that runs as a single node (`enhance_spec`) inside `/develop`'s graph. It rides along automatically once `/develop`'s bundle lane is expressed on Praxis; there is nothing independent to migrate.
+- **`/make sprint`** (and the `/make` skill family) describes the same shape as `/develop` — checkpointed, multi-agent, issue-queue-driven delivery — but has no persistent runtime behind it today (no graph file, no state/event log). Adopting Praxis there means building a new overlay and runtime, not migrating an existing one. A plausible future overlay, not in progress.
+- Tools built around a different meaning of "graph" — e.g. `graphify`'s codebase knowledge graph — are out of scope by design; Praxis is an execution/delivery substrate, not a code-analysis one.
+
 ---
 
 ## Intended Uses
@@ -286,75 +293,113 @@ Praxis is **not** intended to grant unrestricted autonomy to a language model. I
 
 ---
 
-## How To Use Praxis
+## Installation
 
-### Today
-
-Praxis is still being built. The current way to participate or follow development is:
-
-1. Review [Epic #1](https://github.com/convergent-systems-co/praxis/issues/1).
-2. Follow the child issues in dependency order.
-3. Use the current `develop` v4 implementation as the behavioral baseline while the generic runtime is extracted.
-4. Do not build production dependencies against unreleased contracts until they are versioned and accepted.
-
-### Target usage
-
-Once the first runtime milestone is complete, expected usage will follow this shape:
-
-```text
-1. Install Praxis
-2. Install or select an overlay
-3. Register available executors
-4. Start a graph
-5. Monitor the live dashboard
-6. Resume from durable state when interrupted
-```
-
-Conceptually:
+Praxis is a Python 3.10+ library, installed from a source checkout — it is not yet published to PyPI, and there is no `praxis` console script (see "Usage" below for what *is* runnable today).
 
 ```bash
-praxis run ./graph.yaml
+git clone https://github.com/convergent-systems-co/praxis.git
+cd praxis
+pip install -e ".[dev]"
 ```
 
-or through an overlay:
+This installs the packages under `src/` (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`, `praxis_executors`, `praxis_eval`, `praxis_policy`, `praxis_learning`, `praxis_overlay`, `praxis_dashboard`, and the example overlays under `src/overlays/`) plus `pytest` for the test suite.
+
+**Run everything from a repo checkout, not an installed wheel.** `schemas/v1/*.json` (the JSON Schemas every contract validates against) live outside `src/` and are not yet packaged as package data — code that loads them (including the test suite and the snippets below) resolves them as relative paths from the repository root.
+
+Verify the install:
 
 ```bash
-praxis run --overlay develop
+pytest
 ```
 
-The exact CLI is not yet a stable contract. These examples describe the intended operator model rather than a currently released interface.
+## Usage
 
-A future execution flow will resemble:
+### Quickstart: drive a graph to completion
 
-```text
-request
-  ↓
-overlay selects/builds graph
-  ↓
-Praxis validates graph
-  ↓
-node requests promises
-  ↓
-Praxis matches executor
-  ↓
-executor performs bounded work
-  ↓
-evidence is evaluated
-  ↓
-Praxis performs legal transition
-  ↓
-checkpoint/event persisted
-  ↓
-repeat until terminal state
+There is no top-level `praxis` CLI yet. The way to exercise Praxis today is as a library: build or load a graph, construct a `TransitionEngine` over it, and drive it with an executor. `src/overlays/trivial/` is a minimal (two-node, non-software-development-shaped) worked example built for exactly this purpose. Run this from the repo root after installing:
+
+```python
+from pathlib import Path
+import tempfile
+
+from praxis_evidence.proof import build_proof_record
+from praxis_evidence.types import proof_record_to_document
+from praxis_runtime.events import EventLog
+from praxis_runtime.state import RunStateStore
+from praxis_runtime.testing.fake_executor import FakeExecutor
+from praxis_runtime.transitions import NodeStatus, TransitionEngine
+
+from overlays.trivial.overlay import build_trivial_grader_registry, build_trivial_graph
+
+graph = build_trivial_graph()
+grader_registry = build_trivial_grader_registry()
+
+with tempfile.TemporaryDirectory() as run_dir:
+    run_dir = Path(run_dir)
+    store = RunStateStore(run_dir / "run-state.json")
+    log = EventLog(run_dir / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=grader_registry)
+
+    (terminal_node_id,) = graph.terminal_nodes
+    passing_proof = proof_record_to_document(
+        build_proof_record(
+            run_id="quickstart-run",
+            graph_version=graph.spec_version,
+            node_id=terminal_node_id,
+            proof_type="trivial.quality-check",
+            executor_id="quickstart-executor",
+            grader_kind="deterministic",
+            status="pass",
+        )
+    )
+    script = {
+        node_id: {
+            "event_type": "complete",
+            "evidence": [passing_proof] if node_id == terminal_node_id else None,
+        }
+        for node_id in graph.nodes
+    }
+
+    final_state = FakeExecutor(engine, script).run_to_completion()
+    for node_id in graph.nodes:
+        print(node_id, final_state.cursors[node_id].status)
+    # draft: terminal_success
+    # publish: terminal_success
+```
+
+`FakeExecutor` here stands in for a real executor during development/testing — it plays a scripted sequence of events and evidence against the engine so you can see the transition/evidence-gate behavior without wiring up an actual model or tool call. `TransitionEngine` persists every cursor move to `run_dir/run-state.json` and every event to `run_dir/events/`, so the run above is fully durable and resumable even though it finishes in one process.
+
+To see the evidence gate fail closed instead, change `status="pass"` to `status="fail"` — `run_to_completion()` raises `TransitionError` rather than advancing the terminal node.
+
+For a fuller worked example closer to real software-delivery shape (not yet wired to `/develop`'s actual dispatch — see Status above), read `src/overlays/development/` alongside [`docs/overlays/development.md`](docs/overlays/development.md) and `tests/test_parity_fixtures.py`.
+
+### Inspecting a run: the dashboard
+
+`praxis_dashboard` is a small argparse CLI, runnable via `python -m`:
+
+```bash
+# one-shot JSON snapshot of a run directory against its graph, no server:
+python -m praxis_dashboard --graph examples/sample-graph.json --run-dir /path/to/run-dir --replay-only
+
+# live view, served over HTTP:
+python -m praxis_dashboard --graph examples/sample-graph.json --run-dir /path/to/run-dir
+```
+
+`--graph` takes a path to a JSON graph document (`examples/sample-graph.json` is a runnable, non-overlay-specific 7-node sample); `--run-dir` takes the directory a `RunStateStore`/`EventLog` pair (as constructed above) writes into. `--lease-dir`, `--host`, and `--port` are optional; omitting `--replay-only` starts a live HTTP server instead of printing one snapshot and exiting.
+
+### Running the test suite
+
+```bash
+pytest                     # full suite (~90 test files)
+pytest tests/test_parity_fixtures.py   # the develop-v4 parity fixtures specifically
 ```
 
 ---
 
 ## Development Plan
 
-The initial implementation is tracked in [Epic #1](https://github.com/convergent-systems-co/praxis/issues/1).
-
-Major milestones include:
+The initial substrate build is tracked in the closed [Epic #1](https://github.com/convergent-systems-co/praxis/issues/1) — all 12 milestones below shipped 2026-09-05 through 2026-09-07:
 
 1. Promise/capability ontology and versioned contracts
 2. `develop` v4 compatibility baseline
@@ -366,8 +411,10 @@ Major milestones include:
 8. live dashboard
 9. candidate evaluation/promotion/rollback
 10. bounded learning
-11. `develop` overlay integration
+11. `develop` overlay integration (task lane only)
 12. parity proof against the accepted `develop` baseline
+
+The next phase — closing the overlay's remaining lane gap ahead of an actual `/develop` runtime cutover — is tracked in [Epic #26](https://github.com/convergent-systems-co/praxis/issues/26).
 
 The migration rule is simple:
 
@@ -467,4 +514,6 @@ Maintained by **Convergent Systems**.
 
 Repository: `convergent-systems-co/praxis`
 
-Primary implementation tracker: [Epic #1 — Build Praxis deterministic execution substrate and integrate develop as first overlay](https://github.com/convergent-systems-co/praxis/issues/1)
+Substrate build (closed): [Epic #1 — Build Praxis deterministic execution substrate and integrate develop as first overlay](https://github.com/convergent-systems-co/praxis/issues/1)
+
+Current tracker: [Epic #26 — Praxis overlay completeness: close the develop v4 lane gap ahead of a v5 runtime cutover](https://github.com/convergent-systems-co/praxis/issues/26)

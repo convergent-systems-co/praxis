@@ -151,10 +151,10 @@ quoted verbatim under the fixture's table as "Fixture notes", not represented as
 | `create_pr` | yes | E |
 | `bundle_scheduler` | no | B |
 | `repair_task` | no | R |
-| `repair_bundle` | no | R |
-| `context_recovery` | no | R |
-| `blocker_recovery` | no | R |
-| `awaiting_human` | no | R |
+| `repair_bundle` | yes | E |
+| `context_recovery` | yes | E |
+| `blocker_recovery` | yes | E |
+| `awaiting_human` | yes | E |
 | `human_required` | no | H |
 | `PLAN_DONE` | yes | E |
 | `TASK_STARTED` | no | B |
@@ -200,8 +200,8 @@ quoted verbatim under the fixture's table as "Fixture notes", not represented as
 
 | Node/event | Expressible | Category |
 | --- | --- | --- |
-| `plan_bundle` | no | B |
-| `task_scheduler` | no | B |
+| `plan_bundle` | yes | E |
+| `task_scheduler` | yes | E |
 | `write_tdd` | yes | E |
 | `implement` | yes | E |
 | `verify` | yes | E |
@@ -315,14 +315,18 @@ quoted verbatim under the fixture's table as "Fixture notes", not represented as
 
 | Node/event | Expressible | Category |
 | --- | --- | --- |
-| `plan_bundle` | no | B |
-| `task_scheduler` | no | B |
+| `plan_bundle` | no | B* |
+| `task_scheduler` | no | B* |
 | `write_tdd` | yes | E |
 | `implement` | yes | E |
 | `context_recovery` | yes | E |
 | `human_required` | no | H |
 | `awaiting_human` | yes | E |
 | `NEEDS_CONTEXT` | yes | E |
+
+\* `plan_bundle`/`task_scheduler` are bundle-lane node ids that now exist on the overlay (see
+"Why the rest isn't expressible" above) — this is not a category-B structural gap like
+`bundle_scheduler`, only this scenario's own baseline trace never reaching the bundle lane.
 
 This scenario is the sharpest illustration of categories R and H together: the baseline's
 recovery-and-escalation path (`implement` fails to make progress -> `NEEDS_CONTEXT` ->

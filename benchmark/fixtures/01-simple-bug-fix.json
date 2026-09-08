@@ -53,19 +53,19 @@
     },
     {
       "node_or_event": "repair_bundle",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "context_recovery",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "blocker_recovery",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "awaiting_human",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "human_required",

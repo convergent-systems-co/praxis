@@ -29,15 +29,15 @@
     },
     {
       "node_or_event": "blocker_recovery",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "context_recovery",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "awaiting_human",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "human_required",
@@ -45,11 +45,11 @@
     },
     {
       "node_or_event": "create_pr",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "PLAN_DONE",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "TDD_DONE",
@@ -73,11 +73,11 @@
     },
     {
       "node_or_event": "PR_CREATED",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "BRANCH_READY",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     }
   ],
   "praxis_script": {

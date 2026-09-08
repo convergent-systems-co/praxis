@@ -153,6 +153,36 @@ def _gated_graph() -> Graph:
     )
 
 
+def _on_failure_graph() -> Graph:
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            "a": Node(id="a", kind="task"),
+            "b": Node(id="b", kind="task"),
+            "c": Node(id="c", kind="task"),
+        },
+        edges=[
+            Edge(source="a", target="b", kind="on-failure"),
+            Edge(source="a", target="c", kind="sequential"),
+        ],
+        entry_node="a",
+        terminal_nodes={"b", "c"},
+    )
+
+
+def _on_failure_only_graph() -> Graph:
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            "a": Node(id="a", kind="task"),
+            "b": Node(id="b", kind="task"),
+        },
+        edges=[Edge(source="a", target="b", kind="on-failure")],
+        entry_node="a",
+        terminal_nodes={"b"},
+    )
+
+
 def test_current_state_initializes_entry_node_pending(tmp_path: Path):
     graph = _linear_graph()
     store = RunStateStore(tmp_path / "run-state.json")
@@ -386,6 +416,51 @@ def test_join_advances_only_after_every_incoming_cursor_completes(tmp_path: Path
 
     assert "end" in state.cursors
     assert state.cursors["end"].status == NodeStatus.PENDING.value
+
+
+def test_on_failure_edge_creates_pending_cursor_when_source_reaches_terminal_failed(
+    tmp_path: Path,
+):
+    graph = _on_failure_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("a", "start")
+
+    state = engine.apply("a", "fail")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_FAILED.value
+    assert state.cursors["b"].status == NodeStatus.PENDING.value
+    # "c" is reached only via the "sequential" edge -- only "on-failure"
+    # edges fire on the failure path.
+    assert "c" not in state.cursors
+
+
+def test_on_failure_edge_does_not_fire_when_source_reaches_terminal_success(tmp_path: Path):
+    graph = _on_failure_only_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("a", "start")
+
+    state = engine.apply("a", "complete")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "b" not in state.cursors
+
+
+def test_on_failure_edge_fires_when_terminal_failed_reached_from_recovering(tmp_path: Path):
+    graph = _on_failure_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("a", "start")
+    engine.apply("a", "interrupt")
+
+    state = engine.apply("a", "fail")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_FAILED.value
+    assert state.cursors["b"].status == NodeStatus.PENDING.value
 
 
 def test_running_node_can_be_blocked_and_resumed(tmp_path: Path):

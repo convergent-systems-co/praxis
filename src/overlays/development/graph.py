@@ -27,6 +27,12 @@ is declarative metadata only: no core module (`TransitionEngine`,
 The terminal node's `evidence_requirement` requires both
 "development.test-pass" and "development.review-approved" and is enforced by
 `TransitionEngine`'s evidence gate.
+
+A third, recovery lane (`context_recovery`, `blocker_recovery`,
+`awaiting_human`) is present as topology-only placeholders: each has
+`metadata={}` and, in this task, no edges. They are not dispatched work and
+are not wired into the task or bundle lanes yet -- see #32 and
+docs/overlays/development.md for the scoping rationale.
 """
 
 from __future__ import annotations
@@ -137,6 +143,21 @@ def build_development_graph() -> Graph:
             id="repair_bundle",
             kind="repair-bundle",
             metadata={"requirement": _requirement("development.code-generation")},
+        ),
+        "context_recovery": Node(
+            id="context_recovery",
+            kind="context-recovery",
+            metadata={},
+        ),
+        "blocker_recovery": Node(
+            id="blocker_recovery",
+            kind="blocker-recovery",
+            metadata={},
+        ),
+        "awaiting_human": Node(
+            id="awaiting_human",
+            kind="awaiting-human",
+            metadata={},
         ),
     }
     edges = [

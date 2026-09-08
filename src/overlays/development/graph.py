@@ -177,6 +177,12 @@ def build_development_graph() -> Graph:
         # docs/overlays/development.md disclose elsewhere (filed as #32).
         Edge(source="bundle_verify", target="repair_bundle", kind="sequential"),
         Edge(source="final_review", target="repair_bundle", kind="sequential"),
+        # Same acknowledged gap as above (#32): this edge fires
+        # unconditionally on repair_bundle reaching TERMINAL_SUCCESS, standing
+        # in for GRAPH.yaml's repair_bundle `exhausted` route -- there is no
+        # way to express "only on the exhausted outcome" without the
+        # conditional-edge semantics filed separately as #32.
+        Edge(source="repair_bundle", target="awaiting_human", kind="sequential"),
     ]
     return Graph(
         spec_version=_SPEC_VERSION,

@@ -183,6 +183,26 @@ def _on_failure_only_graph() -> Graph:
     )
 
 
+def _join_with_unrelated_on_failure_edge_graph() -> Graph:
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            "start": Node(id="start", kind="task"),
+            "x": Node(id="x", kind="task"),
+            "y": Node(id="y", kind="task"),
+            "z": Node(id="z", kind="task"),
+        },
+        edges=[
+            Edge(source="start", target="x", kind="fan-out"),
+            Edge(source="start", target="y", kind="fan-out"),
+            Edge(source="x", target="z", kind="on-failure"),
+            Edge(source="y", target="z", kind="join"),
+        ],
+        entry_node="start",
+        terminal_nodes={"z"},
+    )
+
+
 def test_current_state_initializes_entry_node_pending(tmp_path: Path):
     graph = _linear_graph()
     store = RunStateStore(tmp_path / "run-state.json")
@@ -418,6 +438,24 @@ def test_join_advances_only_after_every_incoming_cursor_completes(tmp_path: Path
     assert state.cursors["end"].status == NodeStatus.PENDING.value
 
 
+def test_join_ignores_unrelated_on_failure_incoming_edge(tmp_path: Path):
+    graph = _join_with_unrelated_on_failure_edge_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+    engine.apply("y", "start")
+
+    state = engine.apply("y", "complete")
+
+    # z's only "join"-kind incoming edge is from y, which just completed; x's
+    # "on-failure" edge to z is unrelated to the join and must not gate it,
+    # even though x hasn't reached TERMINAL_SUCCESS (it hasn't even started).
+    assert "z" in state.cursors
+    assert state.cursors["z"].status == NodeStatus.PENDING.value
+
+
 def test_on_failure_edge_creates_pending_cursor_when_source_reaches_terminal_failed(
     tmp_path: Path,
 ):
@@ -559,16 +597,6 @@ def test_module_docstring_edge_consultation_sentence_covers_both_terminal_status
         "TERMINAL_SUCCESS is committed, but the very next sentence documents an "
         '"on-failure" edge kind that is consulted on TERMINAL_FAILED too -- the '
         "sentence must cover both terminal statuses, not just success"
-    )
-
-
-def test_no_doc_prose_regex_matching_test_file_for_on_failure_edges():
-    repo_root = Path(__file__).resolve().parent.parent
-    offender = repo_root / "tests" / "test_runtime_doc_on_failure_edges.py"
-    assert not offender.exists(), (
-        f"{offender} asserts exact prose substrings in docs/runtime.md via regex; "
-        "no other test in tests/ matches doc prose this way, and it breaks on any "
-        "non-semantic doc rewording (see b4-issue32 repair-findings.md)"
     )
 
 

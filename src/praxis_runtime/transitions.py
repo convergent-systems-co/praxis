@@ -7,9 +7,10 @@ transition never appends an event or persists a checkpoint (fail-closed, no
 partial write). The graph's edges play no part in that per-node legality
 check -- they are consulted only afterward, once a transition to
 TERMINAL_SUCCESS or TERMINAL_FAILED is committed, to decide which successor
-cursors to create next. Fan-out edges each create an independent successor cursor as soon as
-their source completes; join edges only create their shared successor
-cursor once every incoming edge's source has reported TERMINAL_SUCCESS.
+cursors to create next. Fan-out edges each create an independent successor
+cursor as soon as their source completes; join edges only create their shared
+successor cursor once every incoming edge's source has reported
+TERMINAL_SUCCESS.
 An "on-failure" edge fires only when its source reaches TERMINAL_FAILED,
 creating each target's cursor unconditionally (fan-out-style, with no
 join-on-failure equivalent) and never firing on TERMINAL_SUCCESS.
@@ -251,7 +252,11 @@ class TransitionEngine:
             cursors[edge.target] = Cursor(node_id=edge.target, status=NodeStatus.PENDING.value)
 
     def _join_ready(self, target: str, cursors: dict[str, Cursor]) -> bool:
-        incoming = [edge for edge in self._graph.edges if edge.target == target]
+        incoming = [
+            edge
+            for edge in self._graph.edges
+            if edge.target == target and edge.kind == "join"
+        ]
         return all(
             cursors.get(edge.source) is not None
             and cursors[edge.source].status == NodeStatus.TERMINAL_SUCCESS.value

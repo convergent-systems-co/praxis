@@ -6,8 +6,8 @@ per-status _TRANSITIONS table before anything is written, and a rejected
 transition never appends an event or persists a checkpoint (fail-closed, no
 partial write). The graph's edges play no part in that per-node legality
 check -- they are consulted only afterward, once a transition to
-TERMINAL_SUCCESS is committed, to decide which successor cursors to create
-next. Fan-out edges each create an independent successor cursor as soon as
+TERMINAL_SUCCESS or TERMINAL_FAILED is committed, to decide which successor
+cursors to create next. Fan-out edges each create an independent successor cursor as soon as
 their source completes; join edges only create their shared successor
 cursor once every incoming edge's source has reported TERMINAL_SUCCESS.
 An "on-failure" edge fires only when its source reaches TERMINAL_FAILED,

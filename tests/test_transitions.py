@@ -544,6 +544,34 @@ def test_module_docstring_does_not_overclaim_edge_derived_status_legality():
     )
 
 
+def test_module_docstring_edge_consultation_sentence_covers_both_terminal_statuses():
+    import praxis_runtime.transitions as transitions_module
+
+    doc = transitions_module.__doc__
+    assert doc, "transitions.py must have a module docstring"
+
+    normalized = " ".join(doc.split())
+    assert (
+        "consulted only afterward, once a transition to TERMINAL_SUCCESS is committed"
+        not in normalized
+    ), (
+        "the docstring claims edges are consulted only once a transition to "
+        "TERMINAL_SUCCESS is committed, but the very next sentence documents an "
+        '"on-failure" edge kind that is consulted on TERMINAL_FAILED too -- the '
+        "sentence must cover both terminal statuses, not just success"
+    )
+
+
+def test_no_doc_prose_regex_matching_test_file_for_on_failure_edges():
+    repo_root = Path(__file__).resolve().parent.parent
+    offender = repo_root / "tests" / "test_runtime_doc_on_failure_edges.py"
+    assert not offender.exists(), (
+        f"{offender} asserts exact prose substrings in docs/runtime.md via regex; "
+        "no other test in tests/ matches doc prose this way, and it breaks on any "
+        "non-semantic doc rewording (see b4-issue32 repair-findings.md)"
+    )
+
+
 def test_concurrent_transition_engine_instances_do_not_race_on_apply(
     tmp_path: Path, monkeypatch
 ):

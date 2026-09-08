@@ -10,6 +10,9 @@ TERMINAL_SUCCESS is committed, to decide which successor cursors to create
 next. Fan-out edges each create an independent successor cursor as soon as
 their source completes; join edges only create their shared successor
 cursor once every incoming edge's source has reported TERMINAL_SUCCESS.
+An "on-failure" edge fires only when its source reaches TERMINAL_FAILED,
+creating each target's cursor unconditionally (fan-out-style, with no
+join-on-failure equivalent) and never firing on TERMINAL_SUCCESS.
 Evidence supplied to apply() -- a list of raw proof-record documents -- is
 persisted onto the committed Event's payload under the "evidence" key,
 giving a durable audit trail of what evidence satisfied a gate. A node's own
@@ -213,8 +216,8 @@ class TransitionEngine:
 
         new_cursors = dict(state.cursors)
         new_cursors[node_id] = Cursor(node_id=node_id, status=new_status.value)
-        if new_status == NodeStatus.TERMINAL_SUCCESS:
-            self._advance_successors(node_id, new_cursors)
+        if new_status in _TERMINAL_STATUSES:
+            self._advance_successors(node_id, new_cursors, new_status)
 
         new_state = RunState(
             spec_version=state.spec_version,
@@ -225,9 +228,22 @@ class TransitionEngine:
         self._state_store.save(new_state)
         return new_state
 
-    def _advance_successors(self, node_id: str, cursors: dict[str, Cursor]) -> None:
+    def _advance_successors(
+        self, node_id: str, cursors: dict[str, Cursor], status: NodeStatus
+    ) -> None:
         outgoing: list[Edge] = [edge for edge in self._graph.edges if edge.source == node_id]
+        if status is NodeStatus.TERMINAL_FAILED:
+            for edge in outgoing:
+                if edge.kind != "on-failure":
+                    continue
+                if edge.target in cursors:
+                    continue
+                cursors[edge.target] = Cursor(node_id=edge.target, status=NodeStatus.PENDING.value)
+            return
+
         for edge in outgoing:
+            if edge.kind == "on-failure":
+                continue
             if edge.target in cursors:
                 continue
             if edge.kind == "join" and not self._join_ready(edge.target, cursors):

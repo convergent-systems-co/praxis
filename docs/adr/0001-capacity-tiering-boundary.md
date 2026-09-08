@@ -64,7 +64,8 @@ linear chain (`write_tdd -> implement -> verify -> commit_task`) plus the
 recovery lane, and the human-interrupt node is `expressible_in_overlay: false`" — and
 capacity/handoff tiering lives entirely in the orchestrator and bundle-lane recovery
 machinery, not the task lane the overlay expresses. The same document's
-"Performance parity remains open" section states plainly that no live, timing-comparable Praxis
+"Recommendation for acceptance criterion 6" section states plainly, in its
+"Performance parity remains **open**" passage, that no live, timing-comparable Praxis
 orchestrator run exists yet — the one captured run is "a deterministic
 structural/evidence-gate proxy run, not a live timing-comparable capture." There is
 therefore no Praxis-side orchestrator today that a tiering mechanism would even attach to.
@@ -101,9 +102,10 @@ draws this exact line for the three `runtime/*.py` modules — checkpoint.py inc
 and its "Follow-up, out of scope here" section already names *routing `/develop`
 through Praxis* as the one change that would ever make tiering a Praxis concern, which
 has not happened. `decision.md`'s T4 section confirms the overlay does not even reach
-the bundle/recovery lane where tiering lives, and its "Performance parity remains
-open" section confirms no live Praxis orchestrator exists yet for a promoted mechanism
-to serve. `BudgetLedger` is not a near-miss that merely needs extending: it counts a
+the bundle/recovery lane where tiering lives, and its "Recommendation for acceptance
+criterion 6" section, in its "Performance parity remains open" passage, confirms no
+live Praxis orchestrator exists yet for a promoted mechanism to serve. `BudgetLedger`
+is not a near-miss that merely needs extending: it counts a
 different quantity (retry/repair attempts, not context consumption), on a different
 lifecycle (in-memory-only, not persisted across process restarts), for a different
 consumer (a single node's execution, not a whole orchestrating context) — conflating

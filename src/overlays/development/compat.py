@@ -30,7 +30,14 @@ guessing.
 transliteration, per this task's scope note -- mapping evidence-bearing
 events onto the development overlay's own declared proof types
 (`overlays.development.manifest.DEVELOPMENT_MANIFEST`) and everything else
-(bookkeeping events, or events this slice doesn't name) to `None`.
+(bookkeeping events, or events this slice doesn't name) to `None`. This
+slice now also covers the bundle-lane events (`PLAN_DONE`,
+`BUNDLE_VERIFY_PASSED`, `DOC_REVIEW_DONE`, `PR_CREATED`, `BRANCH_READY`,
+`BUNDLE_VERIFY_FAILED`, `REVIEW_FINDINGS`) from the same graph, with
+`PR_CREATED` and `BRANCH_READY` sharing one proof type since they represent
+the same delivery outcome under `delivery.github`/`delivery.local`
+respectively, and `BUNDLE_VERIFY_FAILED`/`REVIEW_FINDINGS` mapping to `None`
+as they carry no evidence meaning of their own.
 """
 
 from __future__ import annotations
@@ -50,6 +57,13 @@ _EVENT_PROOF_TYPE_MAP: dict[str, str | None] = {
     "VERIFY_DONE": "development.test-pass",
     "REVIEW_APPROVED": "development.review-approved",
     "PERSONA_DISPATCHED": None,
+    "PLAN_DONE": "development.plan-done",
+    "BUNDLE_VERIFY_PASSED": "development.bundle-verify-pass",
+    "DOC_REVIEW_DONE": "development.doc-review-done",
+    "PR_CREATED": "development.pr-created",
+    "BRANCH_READY": "development.pr-created",
+    "BUNDLE_VERIFY_FAILED": None,
+    "REVIEW_FINDINGS": None,
 }
 
 

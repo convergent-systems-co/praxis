@@ -59,7 +59,7 @@ beyond what the record itself states.
 (`docs/resources.md`). `register_development_overlay` (`overlay.py`) checks this provider's
 `resource_types()` against the manifest via `check_provider_declares_subset` before registering.
 
-**`conflict_fn` wiring gap:** `TransitionEngine`'s own lease-acquire call site
+**`conflict_fn` wiring:** `TransitionEngine`'s own lease-acquire call site
 (`TransitionEngine._lease_conflict_fn`, `src/praxis_runtime/transitions.py`) selects the glob-aware
 `paths_overlap` conflict function (`docs/resources.md`) for any resource type whose final
 `.`-separated segment is `"filesystem"`, not just the bare literal string — matching the

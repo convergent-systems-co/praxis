@@ -18,7 +18,7 @@ DEVELOPMENT_DOC_PATH = REPO_ROOT / "docs" / "overlays" / "development.md"
 
 def _wiring_gap_paragraph() -> str:
     text = DEVELOPMENT_DOC_PATH.read_text()
-    marker = "**`conflict_fn` wiring gap:**"
+    marker = "**`conflict_fn` wiring:**"
     start = text.index(marker)
     end = text.index("\n## ", start)
     return text[start:end]

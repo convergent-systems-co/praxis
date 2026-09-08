@@ -423,7 +423,10 @@ Per acceptance criterion 2, the gap documented above is **accepted and scoped, n
   scoped the overlay to the task-lane 4-node chain, and #28/#29's widening of that scope.
 - [`docs/overlays/development-compat.md`](../overlays/development-compat.md) — the
   `overlays/development/compat.py` status/event translation layer this document cites for
-  category H and the recovery-lane routing events.
+  category H. Note: that document was not updated by #28/#29 and still describes only
+  `compat.py`'s original two-function, `VERIFY_DONE`/`REVIEW_APPROVED`-only surface — it does not
+  yet cover the bundle-lane events or the recovery-lane routing events
+  (`legacy_event_to_recovery_node`/`_EVENT_NODE_MAP`) this bundle added.
 - [`docs/parity/decision.md`](decision.md) — T8's synthesis of this document's structural
   breakdown together with the real-run comparison, and its addendum covering #30's gap closure,
   for the overall parity-acceptance decision.

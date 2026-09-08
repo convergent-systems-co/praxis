@@ -27,6 +27,7 @@ from overlays.development.graph import build_development_graph
 from overlays.development.overlay import register_development_overlay
 from praxis_overlay.registry import OverlayRegistry
 from praxis_runtime.events import EventLog
+from praxis_runtime.graph import _reachable_from
 from praxis_runtime.state import RunStateStore
 from praxis_runtime.testing.fake_executor import FakeExecutor
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
@@ -77,20 +78,10 @@ def _reachable_node_ids(graph) -> set[str]:
     # (plan_bundle -> ... -> create_pr / repair_bundle) that has no edge
     # connecting it to the task lane's entry_node ("write_tdd"), those nodes
     # are structurally unreachable and must be excluded here rather than
-    # asserted equal to the full node set.
-    adjacency: dict[str, list[str]] = {}
-    for edge in graph.edges:
-        adjacency.setdefault(edge.source, []).append(edge.target)
-
-    visited = {graph.entry_node}
-    stack = [graph.entry_node]
-    while stack:
-        current = stack.pop()
-        for neighbor in adjacency.get(current, []):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                stack.append(neighbor)
-    return visited
+    # asserted equal to the full node set. Reuses the same BFS already
+    # implemented as praxis_runtime.graph._reachable_from() rather than
+    # duplicating it.
+    return _reachable_from(graph.entry_node, graph.edges)
 
 
 def _find_run_dir() -> Path:

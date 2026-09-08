@@ -69,10 +69,11 @@ through the overlay contract today — not that "retry on failure" itself is exp
 
 **`build_development_graph()` bypasses `load_graph()`'s reachability check.** `load_graph()`
 (`src/praxis_runtime/graph.py`) validates edges' source/target IDs and `entry_node` against the
-node set, but performs no reachability check from `entry_node` over the edge set. That check does
-not exist to bypass here regardless — `build_development_graph()` hand-constructs a `Graph(...)`
+node set, and *does* perform a reachability check from `entry_node` over the edge set (via
+`_reachable_from()`), raising `GraphValidationError` if any node is unreachable.
+`build_development_graph()` bypasses that check entirely — it hand-constructs a `Graph(...)`
 directly rather than calling `load_graph()` on a JSON document, so no schema or reachability
-validation runs at all. The bundle lane, `repair_bundle`, and the recovery lane are all unreachable
+validation runs at all for this graph. The bundle lane, `repair_bundle`, and the recovery lane are all unreachable
 from `entry_node="write_tdd"` (the task lane and bundle lane are two separate chains with no edge
 connecting them). That is legal today only because construction bypasses `load_graph()` entirely;
 if this function were ever refactored to build its document and call `load_graph()` instead, the

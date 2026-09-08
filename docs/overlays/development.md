@@ -60,14 +60,14 @@ beyond what the record itself states.
 `resource_types()` against the manifest via `check_provider_declares_subset` before registering.
 
 **`conflict_fn` wiring gap:** `TransitionEngine`'s own lease-acquire call site
-(`TransitionEngine._lease_conflict_fn`, `src/praxis_runtime/transitions.py`) only selects the
-glob-aware `paths_overlap` conflict function (`docs/resources.md`) for the literal resource type
-string `"filesystem"`, and exposes no hook through which a caller can request that same glob-aware
-matching for a differently-namespaced resource type like `development.filesystem`. Claims against
-`development.filesystem` therefore fall back to `leases.acquire`'s default exact-identifier
-conflict check rather than glob-aware overlap detection. Reaching into `TransitionEngine` internals
-to add such a hook is outside this overlay's footprint, so `DevelopmentResourceProvider` constructs
-a plain `LeaseStore` and this gap is documented here rather than worked around in the provider.
+(`TransitionEngine._lease_conflict_fn`, `src/praxis_runtime/transitions.py`) selects the glob-aware
+`paths_overlap` conflict function (`docs/resources.md`) for any resource type whose final
+`.`-separated segment is `"filesystem"`, not just the bare literal string — matching the
+namespace-dotted convention every overlay's `declares.resource_types` follows. Claims against
+`development.filesystem` therefore get real glob-aware footprint-conflict detection through
+`TransitionEngine`, the same as the bare `"filesystem"` type. `DevelopmentResourceProvider` still
+constructs a plain `LeaseStore` — the glob-aware matching lives in core's `_lease_conflict_fn`
+rather than being worked around in the provider.
 
 ## Composition (`src/overlays/development/overlay.py`)
 

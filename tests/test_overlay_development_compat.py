@@ -55,6 +55,11 @@ def test_unrecognized_status_fails_closed():
 _EVIDENCE_EVENT_TO_EXPECTED_PROOF_TYPE = [
     ("VERIFY_DONE", "development.test-pass"),
     ("REVIEW_APPROVED", "development.review-approved"),
+    ("PLAN_DONE", "development.plan-done"),
+    ("BUNDLE_VERIFY_PASSED", "development.bundle-verify-pass"),
+    ("DOC_REVIEW_DONE", "development.doc-review-done"),
+    ("PR_CREATED", "development.pr-created"),
+    ("BRANCH_READY", "development.pr-created"),
 ]
 
 
@@ -72,3 +77,15 @@ def test_evidence_events_map_to_a_declared_development_proof_type(
 
 def test_bookkeeping_event_with_no_evidence_meaning_maps_to_none():
     assert legacy_event_to_proof_type("PERSONA_DISPATCHED") is None
+
+
+@pytest.mark.parametrize("legacy_event", ["BUNDLE_VERIFY_FAILED", "REVIEW_FINDINGS"])
+def test_bundle_lane_event_with_no_evidence_meaning_maps_to_none(legacy_event):
+    assert legacy_event_to_proof_type(legacy_event) is None
+
+
+def test_pr_created_and_branch_ready_share_the_same_proof_type():
+    # Both legacy events represent the same delivery outcome (delivery.github /
+    # delivery.local respectively), so they intentionally collapse onto one
+    # proof type rather than each getting its own.
+    assert legacy_event_to_proof_type("PR_CREATED") == legacy_event_to_proof_type("BRANCH_READY")

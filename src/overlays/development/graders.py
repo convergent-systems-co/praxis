@@ -18,6 +18,10 @@ from overlays.development.manifest import DEVELOPMENT_MANIFEST
 
 _TEST_PASS = "development.test-pass"
 _REVIEW_APPROVED = "development.review-approved"
+_PLAN_DONE = "development.plan-done"
+_BUNDLE_VERIFY_PASS = "development.bundle-verify-pass"
+_DOC_REVIEW_DONE = "development.doc-review-done"
+_PR_CREATED = "development.pr-created"
 
 
 class _StatusPassthroughGrader:
@@ -39,5 +43,9 @@ def build_development_grader_registry() -> GraderRegistry:
         {
             (_TEST_PASS, "deterministic"): _StatusPassthroughGrader(),
             (_REVIEW_APPROVED, "deterministic"): _StatusPassthroughGrader(),
+            (_PLAN_DONE, "deterministic"): _StatusPassthroughGrader(),
+            (_BUNDLE_VERIFY_PASS, "deterministic"): _StatusPassthroughGrader(),
+            (_DOC_REVIEW_DONE, "deterministic"): _StatusPassthroughGrader(),
+            (_PR_CREATED, "deterministic"): _StatusPassthroughGrader(),
         },
     )

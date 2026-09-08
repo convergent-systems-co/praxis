@@ -38,6 +38,15 @@ slice now also covers the bundle-lane events (`PLAN_DONE`,
 the same delivery outcome under `delivery.github`/`delivery.local`
 respectively, and `BUNDLE_VERIFY_FAILED`/`REVIEW_FINDINGS` mapping to `None`
 as they carry no evidence meaning of their own.
+
+`legacy_event_to_recovery_node` / `_EVENT_NODE_MAP` is a second, parallel
+mapping rather than folded into `_EVENT_PROOF_TYPE_MAP`: `CONCERN_TRIAGED`,
+`TASK_REPAIR_DONE`, and `NEEDS_CONTEXT` are bookkeeping/routing signals that
+identify which Praxis node handles legacy recovery, not pass/fail evidence,
+so they don't fit `_EVENT_PROOF_TYPE_MAP`'s `str | None`-as-proof-type shape.
+`CONCERN_TRIAGED` maps to `repair_bundle` -- the adjacent node this bundle
+does add -- rather than `repair_task`, which this bundle deliberately does
+not add.
 """
 
 from __future__ import annotations
@@ -76,3 +85,20 @@ def legacy_status_to_node_status(legacy_status: str) -> NodeStatus:
 
 def legacy_event_to_proof_type(legacy_event: str) -> str | None:
     return _EVENT_PROOF_TYPE_MAP.get(legacy_event)
+
+
+# Routing/bookkeeping events, not proof-bearing ones -- see module docstring
+# for why this is kept separate from _EVENT_PROOF_TYPE_MAP. Note: this bundle
+# does not add a `repair_task` node, so CONCERN_TRIAGED routes to the
+# adjacent `repair_bundle` node instead.
+_EVENT_NODE_MAP: dict[str, str | None] = {
+    "CONCERN_TRIAGED": "repair_bundle",
+    "TASK_REPAIR_DONE": "verify",
+    "NEEDS_CONTEXT": "context_recovery",
+}
+
+
+def legacy_event_to_recovery_node(legacy_event: str) -> str | None:
+    """Map a legacy routing/bookkeeping event to the Praxis node id that
+    handles its recovery, mirroring `legacy_event_to_proof_type`'s shape."""
+    return _EVENT_NODE_MAP.get(legacy_event)

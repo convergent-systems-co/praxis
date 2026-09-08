@@ -50,8 +50,9 @@ treats `HANDOFF` as an opaque pause a caller enters and later accepts out of, no
 scheduling), and `runtime/run_bundle.py` (the headless tech-lead driver) are "not
 touched, wrapped, or reimplemented by this bundle" — `compat.py` only translates the
 *vocabulary* those modules emit into Praxis types for code that wants to reason about a
-legacy run's state after the fact. The same document's "Follow-up, out of scope here"
-section names the one path that would actually change this: having
+legacy run's state after the fact. The same document's "Existing `develop` invocation is
+preserved, not transitioned" heading names, in its "Follow-up, out of scope here" passage,
+the one path that would actually change this: having
 `runtime/run_bundle.py` "drive the development overlay's graph through
 `praxis_runtime.transitions.TransitionEngine` instead of (or in addition to) today's
 standalone `GRAPH.yaml` execution" is called out as "a concrete starting point for a
@@ -99,7 +100,7 @@ not promoted into `praxis_policy.budgets` or any other Praxis-core module.
 The evidence points at this option, not its alternative, on every axis this bundle
 already established. `development-compat.md`'s "What is not mapped" section already
 draws this exact line for the three `runtime/*.py` modules — checkpoint.py included —
-and its "Follow-up, out of scope here" section already names *routing `/develop`
+and its "Follow-up, out of scope here" passage already names *routing `/develop`
 through Praxis* as the one change that would ever make tiering a Praxis concern, which
 has not happened. `decision.md`'s T4 section confirms the overlay does not even reach
 the bundle/recovery lane where tiering lives, and its "Recommendation for acceptance
@@ -110,8 +111,8 @@ different quantity (retry/repair attempts, not context consumption), on a differ
 lifecycle (in-memory-only, not persisted across process restarts), for a different
 consumer (a single node's execution, not a whole orchestrating context) — conflating
 the two would bolt `develop`-specific, cross-process, multi-signal semantics onto a
-module whose own docstring and `docs/policy.md`'s fail-closed-design section describe
-it as a deliberately narrow, domain-agnostic primitive.
+module whose own docstring and `docs/policy.md`'s "Fail-closed, no domain logic in core."
+bullet describe it as a deliberately narrow, domain-agnostic primitive.
 
 ## Consequences
 

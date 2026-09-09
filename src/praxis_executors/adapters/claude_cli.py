@@ -6,6 +6,8 @@ src/praxis_contracts/schemas/v1/capability.schema.json.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -80,9 +82,22 @@ class ClaudeCliExecutor(Executor):
             pass
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
-        # No verified safe, side-effect-free `claude` subcommand for auth
-        # state is known in this repo; report unknown rather than guess.
-        return None
+        try:
+            result = subprocess.run(
+                [cli_path, "auth", "status", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return json.loads(result.stdout)["loggedIn"]
+        except (
+            subprocess.TimeoutExpired,
+            OSError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+        ):
+            return None
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
         if "prompt" not in request.parameters:
@@ -92,12 +107,16 @@ class ClaudeCliExecutor(Executor):
             raise ExecutorError("claude CLI is not available on PATH")
         extra_args = request.parameters.get("extra_args", [])
         argv = [cli_path, "-p", request.parameters["prompt"], *extra_args]
+        env = os.environ.copy()
+        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"):
+            env.pop(key, None)
         try:
             process = subprocess.Popen(
                 argv,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=env,
             )
         except OSError as exc:
             raise ExecutorError(f"failed to launch claude CLI: {_redact(str(exc))}") from exc

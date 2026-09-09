@@ -170,12 +170,15 @@ class OllamaExecutor(Executor):
 
         capabilities = []
         for model in response.get("models", []):
+            if not isinstance(model, dict):
+                raise ExecutorError(
+                    f"ollama /api/tags returned a non-dict model entry: {model!r}"
+                )
             if "name" not in model:
                 raise ExecutorError(
                     f"ollama /api/tags returned a model entry without a 'name': {model!r}"
                 )
             model_name = model["name"]
-            show_capabilities = None
             context_window = None
             try:
                 show = _http_post_json(
@@ -183,18 +186,22 @@ class OllamaExecutor(Executor):
                 )
                 show_capabilities = show.get("capabilities")
                 context_window = _extract_context_window(show)
-            except (_OllamaUnreachable, _OllamaHTTPError, KeyError, TypeError, ValueError):
+                kinds = _classify_kinds(model_name, show_capabilities)
+            except (_OllamaUnreachable, _OllamaHTTPError, KeyError, TypeError, ValueError, AttributeError):
                 # Best-effort: a malformed/non-JSON/non-UTF8 `/api/show` response
                 # (json.JSONDecodeError and UnicodeDecodeError are both ValueError
                 # subclasses) must not fail the whole capabilities() call -- just
-                # omit context_window for this model.
-                context_window = None
+                # omit context_window for this model. Do not reset context_window
+                # here: it may already have been successfully extracted before an
+                # unrelated exception (e.g. a non-list `capabilities` field raising
+                # inside `_classify_kinds`), and that valid data must be kept.
+                kinds = _classify_kinds(model_name, None)
 
             capability = {
                 "spec_version": _SPEC_VERSION,
                 "satisfies": [
                     {"kind": kind, "parameters": {"model": model_name}}
-                    for kind in _classify_kinds(model_name, show_capabilities)
+                    for kind in kinds
                 ],
                 "auth_transport": "local",
             }
@@ -266,6 +273,18 @@ class OllamaExecutor(Executor):
             self._results[handle_id] = ExecutionResult(status=status, payload={"error": str(exc)})
             return
 
+        if handle_id in self._cancelled:
+            self._results[handle_id] = ExecutionResult(
+                status=ExecutorStatus.CANCELLED,
+                payload={"response": None, "model": None, "done": None},
+            )
+            return
+        if not isinstance(payload, dict):
+            self._results[handle_id] = ExecutionResult(
+                status=ExecutorStatus.FAILED,
+                payload={"error": f"/api/generate returned a non-dict payload: {payload!r}"},
+            )
+            return
         self._results[handle_id] = ExecutionResult(
             status=ExecutorStatus.SUCCEEDED,
             payload={

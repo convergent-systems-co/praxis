@@ -41,6 +41,7 @@ class SubprocessExecutor(Executor):
                 {
                     "spec_version": _SPEC_VERSION,
                     "satisfies": [{"kind": kind} for kind in self._satisfies_kinds],
+                    "auth_transport": "local",
                 }
             ],
         }

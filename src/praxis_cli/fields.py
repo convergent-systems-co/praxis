@@ -75,9 +75,17 @@ def capability_kinds(advertisement: dict) -> list[str]:
 
 
 def auth_transports(advertisement: dict) -> list[str]:
+    """Every transport named in the advertisement, first-seen order, deduped.
+
+    `capability.schema.json` requires only `spec_version` and `satisfies`, so a
+    conforming capability may name no transport at all. Such a capability
+    contributes nothing here rather than taking the whole command down for one
+    row -- the same defence `installed_field` makes for an unknown adapter
+    class, and the same `.get()` `AuthTransportPolicy` already reads it with.
+    """
     transports: list[str] = []
     for capability in advertisement["capabilities"]:
-        transport = capability["auth_transport"]
-        if transport not in transports:
+        transport = capability.get("auth_transport")
+        if transport is not None and transport not in transports:
             transports.append(transport)
     return transports

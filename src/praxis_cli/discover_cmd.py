@@ -65,6 +65,12 @@ def print_discover_rows(rows: list[dict]) -> None:
             # `error` is the one column that says nothing on a healthy row.
             if column == "error" and not row[column]:
                 continue
+            # Spec criterion 5's wording for a row whose probe failed. The row
+            # itself keeps an empty list here so a consumer never type-switches;
+            # only the human-readable block says `unavailable`.
+            if column == "capabilities" and row["error"]:
+                print(f"  capabilities: unavailable ({row['error']})")
+                continue
             print(f"  {column}: {render_cell(row[column])}".rstrip())
 
 

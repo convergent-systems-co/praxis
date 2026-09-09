@@ -56,6 +56,11 @@ def _candidate_reason(
     wording is candidate-scoped: `match`'s own reasons speak about the whole
     advertisement set, which reads as a contradiction beside a single row.
     """
+    if not advertisement["capabilities"]:
+        # `AuthTransportPolicy` rejects an empty advertisement outright, so
+        # there is no transport to have excluded and no kind it fell short of.
+        # Naming the required kind here would leave `eligible=no` unexplained.
+        return "advertises no capabilities"
     result = matching.match(requirement, [advertisement], is_eligible=is_eligible)
     if result.unsatisfied:
         kinds = ", ".join(entry.kind for entry in result.unsatisfied)
@@ -74,19 +79,31 @@ def _candidate_reason(
 def run_match(
     adapters: Mapping[str, Executor], *, capabilities: list[str], explain: bool
 ) -> int:
-    advertisements: list[dict] = []
-    for executor in adapters.values():
+    # Kept paired: the mapping key is the id `discover` and `status` print, so
+    # it is the one this command prints too, while `matching.match` and the
+    # policy only ever know a candidate by the advertisement's own
+    # `executor_id`. Every lookup below goes through the latter, every printed
+    # name through the former.
+    gathered: list[tuple[str, dict]] = []
+    for name, executor in adapters.items():
         try:
-            advertisements.append(executor.capabilities())
+            gathered.append((name, executor.capabilities()))
         except ExecutorError:
             continue
+
+    advertisements = [advertisement for _, advertisement in gathered]
+    # Reversed so the first adapter wins if two advertise the same id.
+    name_by_advertised_id = {
+        advertisement["executor_id"]: name for name, advertisement in reversed(gathered)
+    }
 
     requirement = build_requirement(capabilities)
     is_eligible = policy.as_eligibility_callable(policy.AuthTransportPolicy(), advertisements)
     full_result = matching.match(requirement, advertisements, is_eligible=is_eligible)
 
     if full_result.selected is not None:
-        print(full_result.selected.executor_id)
+        selected_id = full_result.selected.executor_id
+        print(name_by_advertised_id.get(selected_id, selected_id))
     else:
         print("no executor selected")
         _print_unsatisfied(full_result.unsatisfied)
@@ -96,16 +113,13 @@ def run_match(
             candidate.executor_id: rank
             for rank, candidate in enumerate(full_result.ranked, start=1)
         }
-        for advertisement in advertisements:
-            # The mapping key names the adapter, but `matching.match`
-            # identifies a candidate by the advertisement's own `executor_id`,
-            # so the ranking has to be read back under that.
+        for name, advertisement in gathered:
             executor_id = advertisement["executor_id"]
             if executor_id in rank_by_id:
-                print(f"{executor_id}: eligible=yes score={rank_by_id[executor_id]}")
+                print(f"{name}: eligible=yes score={rank_by_id[executor_id]}")
                 continue
             reason = _candidate_reason(requirement, advertisement, is_eligible)
             eligible = "yes" if is_eligible(executor_id) else "no"
-            print(f"{executor_id}: eligible={eligible} reason={reason}")
+            print(f"{name}: eligible={eligible} reason={reason}")
 
     return 0

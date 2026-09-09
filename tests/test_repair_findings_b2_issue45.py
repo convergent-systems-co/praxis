@@ -4,36 +4,39 @@ Each test below pins one behaviour that a review round found broken. They are
 grouped by the surface they exercise rather than by the review that filed
 them:
 
-* `praxis_cli.fields` must tolerate an adapter class it does not recognise,
-  because `adapters.build_adapters()` grows a new entry every time a new
-  adapter lands.
+* `praxis_cli.fields` must tolerate an adapter class it does not recognise
+  and an advertisement that leaves an optional key out, because
+  `adapters.build_adapters()` grows a new entry every time a new adapter
+  lands and `capability.schema.json` requires only `spec_version` and
+  `satisfies`.
 * `praxis executors` / `--json` must name every executor by its real id and
   emit one stable type per column, whether or not its advertisement could be
   read.
 * `praxis executors discover` must report the auth transport alongside the
-  capability kinds.
-* `praxis executors match --explain` must give a per-candidate reason, not
-  echo the requirement-level one.
+  capability kinds, and say `unavailable` for a probe that failed.
+* `praxis executors match --explain` must name every candidate by the same id
+  the other commands use, and give a per-candidate reason that explains that
+  candidate's own eligibility verdict.
 * `praxis` argument parsing must reject `--json` where it would be ignored.
+
+Behaviour these tests do not re-pin lives in the per-module suites:
+`test_cli_fields.py`, `test_cli_status.py`, `test_cli_discover.py`,
+`test_cli_match.py` and `test_praxis_cli_executors.py`.
 
 Nothing here touches a real `claude` binary or a real Ollama socket.
 """
 
 from __future__ import annotations
 
-import inspect
 import json
-import os
-import subprocess
-import sys
 
 import pytest
 
 from praxis_cli import fields
-from praxis_cli.discover_cmd import build_discover_rows
+from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows
 from praxis_cli.main import _build_parser, main
 from praxis_cli.match_cmd import run_match
-from praxis_cli.status_cmd import build_status_rows, print_status_table
+from praxis_cli.status_cmd import build_status_rows
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
@@ -106,10 +109,6 @@ def _mapping() -> dict[str, Executor]:
 # praxis_cli.fields -- an unrecognised adapter class must not abort a command
 
 
-def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():
-    assert fields.installed_field(_good()) == "n/a"
-
-
 def test_discover_survives_an_adapter_class_fields_does_not_recognise():
     rows = build_discover_rows(_mapping())
 
@@ -122,13 +121,62 @@ def test_status_survives_an_adapter_class_fields_does_not_recognise():
     assert [row["executor_id"] for row in rows] == ["executor-good", "executor-bad"]
 
 
-def test_version_field_marks_its_unused_parameter_as_unused():
-    # No adapter exposes a queryable version, so `version_field` reads nothing
-    # from its argument; the name records that rather than looking like an
-    # oversight. It stays in the signature so every field function in this
-    # module is callable the same way.
-    (name,) = inspect.signature(fields.version_field).parameters
-    assert name.startswith("_")
+# praxis_cli.fields -- an advertisement may leave `auth_transport` out
+
+
+def _partial_transport_advertisement(executor_id: str) -> dict:
+    """Schema-valid without an `auth_transport` on every capability.
+
+    `capability.schema.json` requires only `spec_version` and `satisfies`, so
+    a conforming adapter may advertise a capability that names no transport.
+    """
+    return {
+        "spec_version": _SPEC_VERSION,
+        "executor_id": executor_id,
+        "capabilities": [
+            {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "local",
+                "satisfies": [{"kind": "reasoning"}],
+            },
+        ],
+    }
+
+
+def _transportless() -> _StubExecutor:
+    return _StubExecutor(
+        _partial_transport_advertisement("executor-transportless"),
+        ExecutorAvailability.AVAILABLE,
+    )
+
+
+def test_auth_transports_skips_a_capability_that_names_no_transport():
+    transports = fields.auth_transports(_partial_transport_advertisement("executor-x"))
+
+    assert transports == ["local"]
+
+
+def test_auth_transports_is_empty_when_no_capability_names_a_transport():
+    advertisement = {
+        "spec_version": _SPEC_VERSION,
+        "executor_id": "executor-x",
+        "capabilities": [{"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]}],
+    }
+
+    assert fields.auth_transports(advertisement) == []
+
+
+def test_status_survives_an_advertisement_that_names_no_auth_transport():
+    rows = build_status_rows({"executor-transportless": _transportless()})
+
+    assert rows[0]["auth_transport"] == "local"
+
+
+def test_discover_survives_an_advertisement_that_names_no_auth_transport():
+    rows = build_discover_rows({"executor-transportless": _transportless()})
+
+    assert rows[0]["auth_transport"] == "local"
 
 
 # praxis executors -- real ids and one stable type per column
@@ -162,47 +210,6 @@ def test_status_json_columns_keep_one_type_across_healthy_and_failed_rows(capsys
     assert parsed[1]["auth_transport"] == ""
 
 
-def _header_offsets(header: str) -> tuple[list[str], list[int]]:
-    names = header.split()
-    return names, [header.index(name) for name in names]
-
-
-def _cells(line: str, offsets: list[int]) -> list[str]:
-    bounds = [*offsets, len(line) + 1]
-    return [line[bounds[i] : bounds[i + 1]].rstrip() for i in range(len(offsets))]
-
-
-def test_status_table_prints_a_header_and_column_aligned_rows(capsys):
-    print_status_table(build_status_rows(_mapping()))
-
-    lines = capsys.readouterr().out.splitlines()
-    names, offsets = _header_offsets(lines[0])
-    assert names == ["EXECUTOR_ID", "AUTH_TRANSPORT", "STATUS", "CAPABILITIES", "ERROR"]
-    assert _cells(lines[1], offsets) == [
-        "executor-good",
-        "local,subscription_cli",
-        "available",
-        "coding,reasoning",
-        "",
-    ]
-    # The failing row's boundaries survive even though its last cell is a
-    # free-text sentence containing spaces.
-    assert _cells(lines[2], offsets) == [
-        "executor-bad",
-        "",
-        "unavailable",
-        "",
-        "service unreachable",
-    ]
-
-
-def test_status_table_omits_the_error_column_when_every_probe_succeeded(capsys):
-    print_status_table(build_status_rows({"executor-good": _good()}))
-
-    names, _ = _header_offsets(capsys.readouterr().out.splitlines()[0])
-    assert names == ["EXECUTOR_ID", "AUTH_TRANSPORT", "STATUS", "CAPABILITIES"]
-
-
 # praxis executors discover -- auth transport alongside the capability kinds
 
 
@@ -223,6 +230,21 @@ def test_discover_row_id_comes_from_the_adapter_mapping_not_the_advertisement():
     adapters = {"executor-registered": mismatched}
 
     assert build_discover_rows(adapters)[0]["executor_id"] == "executor-registered"
+
+
+def test_discover_says_capabilities_are_unavailable_with_the_reason(capsys):
+    # Spec criterion 5 prescribes this wording for a row whose probe failed.
+    print_discover_rows(build_discover_rows({"executor-bad": _bad()}))
+
+    assert "  capabilities: unavailable (service unreachable)" in capsys.readouterr().out
+
+
+def test_discover_says_nothing_about_availability_on_a_healthy_row(capsys):
+    print_discover_rows(build_discover_rows({"executor-good": _good()}))
+
+    out = capsys.readouterr().out
+    assert "  capabilities: coding,reasoning" in out
+    assert "unavailable" not in out
 
 
 # praxis executors match --explain -- candidate-scoped reasons
@@ -279,6 +301,51 @@ def test_explain_names_the_policy_as_the_reason_for_an_ineligible_candidate(caps
     assert "policy_excluded" in excluded
 
 
+def test_match_names_a_candidate_by_its_mapping_key_not_the_advertisement(capsys):
+    # `discover` and `status` name a row by the `build_adapters()` mapping
+    # key; `match` must not print the same adapter under a second id.
+    adapters = {"executor-registered": _candidate("something-else", "kind-a", "local")}
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    assert capsys.readouterr().out.splitlines() == [
+        "executor-registered",
+        "executor-registered: eligible=yes score=1",
+    ]
+
+
+def test_match_names_an_unranked_candidate_by_its_mapping_key(capsys):
+    adapters = {
+        "executor-registered": _candidate("something-else", "kind-a", "metered_api"),
+    }
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[-1].startswith("executor-registered: eligible=no")
+
+
+def test_explain_reason_for_an_empty_advertisement_does_not_blame_kind_coverage(capsys):
+    # `AuthTransportPolicy.is_eligible` is False for an empty `capabilities`
+    # list, so `eligible=no` is about the advertisement being empty -- naming
+    # the required kind instead leaves that verdict unexplained.
+    empty = _StubExecutor(
+        {"spec_version": _SPEC_VERSION, "executor_id": "executor-empty", "capabilities": []},
+        ExecutorAvailability.AVAILABLE,
+    )
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-empty": empty,
+    }
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-empty"] == (
+        "executor-empty: eligible=no reason=advertises no capabilities"
+    )
+
+
 # praxis argument parsing
 
 
@@ -293,68 +360,3 @@ def test_top_level_parser_stores_no_unread_subcommand_destination():
     args = _build_parser().parse_args(["executors"])
 
     assert not hasattr(args, "command")
-
-
-# Lazy import of the adapter modules on the version-only path
-
-
-_PROBE = """
-import json, os, sys, types
-
-watched = [
-    "praxis_cli.discover_cmd",
-    "praxis_cli.status_cmd",
-    "praxis_cli.match_cmd",
-    "praxis_cli.fields",
-    "praxis_executors.adapters.claude_cli",
-    "praxis_executors.adapters.ollama",
-]
-
-if os.environ.get("PRAXIS_STUB_ADAPTERS"):
-    # Keeps the probe hermetic: main() must still import praxis_cli.adapters
-    # lazily, but the stub never touches a real CLI or socket.
-    stub = types.ModuleType("praxis_cli.adapters")
-    stub.build_adapters = lambda: {}
-    sys.modules["praxis_cli.adapters"] = stub
-else:
-    watched.append("praxis_cli.adapters")
-
-import praxis_cli.main as m
-
-before = [name for name in watched if name in sys.modules]
-code = m.main(sys.argv[1:] or None)
-after = [name for name in watched if name in sys.modules]
-sys.stderr.write(json.dumps({"before": before, "after": after, "code": code}))
-"""
-
-
-def _probe(*argv: str, stub_adapters: bool = False) -> dict:
-    environment = dict(os.environ)
-    if stub_adapters:
-        environment["PRAXIS_STUB_ADAPTERS"] = "1"
-    completed = subprocess.run(
-        [sys.executable, "-c", _PROBE, *argv],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=environment,
-    )
-    return {**json.loads(completed.stderr), "stdout": completed.stdout}
-
-
-def test_version_path_never_imports_the_adapter_modules():
-    result = _probe("--version")
-
-    assert result["before"] == []
-    assert result["after"] == []
-    assert result["code"] == 0
-    assert result["stdout"].strip() != ""
-
-
-def test_executors_path_imports_the_command_modules_on_demand():
-    result = _probe("executors", "--json", stub_adapters=True)
-
-    assert result["before"] == []
-    assert "praxis_cli.status_cmd" in result["after"]
-    assert result["code"] == 0
-    assert json.loads(result["stdout"]) == []

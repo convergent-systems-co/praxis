@@ -153,7 +153,9 @@ def test_explain_reason_for_an_eligible_candidate_is_about_that_candidate(capsys
 def test_explain_does_not_blame_the_policy_for_an_advertisement_with_no_capabilities(capsys):
     # `AuthTransportPolicy.is_eligible` returns False for an empty
     # `capabilities` list, but there is no auth transport to have excluded --
-    # the candidate simply advertises nothing.
+    # the candidate simply advertises nothing. Naming the required kind would
+    # blame kind coverage for a verdict the empty advertisement caused, so the
+    # reason says what is actually true of this candidate.
     empty = _FixedAdvertisementExecutor(
         {"spec_version": _SPEC_VERSION, "executor_id": "executor-empty", "capabilities": []}
     )
@@ -164,7 +166,7 @@ def test_explain_does_not_blame_the_policy_for_an_advertisement_with_no_capabili
 
     lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
     assert lines["executor-empty"] == (
-        "executor-empty: eligible=no reason=does not satisfy required kind(s): kind-a"
+        "executor-empty: eligible=no reason=advertises no capabilities"
     )
 
 

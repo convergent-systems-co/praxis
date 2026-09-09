@@ -6,6 +6,7 @@ src/praxis_contracts/schemas/v1/capability.schema.json.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -80,9 +81,22 @@ class ClaudeCliExecutor(Executor):
             pass
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
-        # No verified safe, side-effect-free `claude` subcommand for auth
-        # state is known in this repo; report unknown rather than guess.
-        return None
+        try:
+            result = subprocess.run(
+                [cli_path, "auth", "status", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return json.loads(result.stdout)["loggedIn"]
+        except (
+            subprocess.TimeoutExpired,
+            OSError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+        ):
+            return None
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
         if "prompt" not in request.parameters:

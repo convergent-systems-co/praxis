@@ -132,16 +132,58 @@ def test_health_degraded_when_authentication_unknown():
         assert executor.health() == ExecutorAvailability.DEGRADED
 
 
-def test_detect_authenticated_unmocked_returns_none_by_default():
-    # Proves the "no guess" default is actually wired in, not just mockable:
-    # with only shutil.which/subprocess.run patched (not _detect_authenticated
-    # itself), the real implementation must still report unknown.
+def test_detect_authenticated_returns_none_when_subprocess_run_output_is_unmocked_and_unparseable():
+    # A bare, return-value-less subprocess.run mock yields a MagicMock for
+    # .stdout, which json.loads cannot parse -- this exercises the
+    # unparseable-output fallback path, not "no guess is wired in."
     with (
         patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
         patch("praxis_executors.adapters.claude_cli.subprocess.run"),
     ):
         executor = _executor()
         assert executor._detect_authenticated("/usr/bin/claude") is None
+
+
+def _mock_run_result(stdout: str) -> MagicMock:
+    result = MagicMock()
+    result.stdout = stdout
+    return result
+
+
+def test_health_available_when_subprocess_run_reports_logged_in_true():
+    with (
+        patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "praxis_executors.adapters.claude_cli.subprocess.run",
+            return_value=_mock_run_result('{"loggedIn": true}'),
+        ),
+    ):
+        executor = _executor()
+        assert executor.health() == ExecutorAvailability.AVAILABLE
+
+
+def test_health_unavailable_when_subprocess_run_reports_logged_in_false():
+    with (
+        patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "praxis_executors.adapters.claude_cli.subprocess.run",
+            return_value=_mock_run_result('{"loggedIn": false}'),
+        ),
+    ):
+        executor = _executor()
+        assert executor.health() == ExecutorAvailability.UNAVAILABLE
+
+
+def test_health_degraded_when_subprocess_run_output_is_unparseable_json():
+    with (
+        patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "praxis_executors.adapters.claude_cli.subprocess.run",
+            return_value=_mock_run_result("not json"),
+        ),
+    ):
+        executor = _executor()
+        assert executor.health() == ExecutorAvailability.DEGRADED
 
 
 def test_health_invokes_claude_version_via_subprocess_run():
@@ -153,8 +195,7 @@ def test_health_invokes_claude_version_via_subprocess_run():
         executor.health()
 
     assert mock_run.called
-    argv = mock_run.call_args.args[0]
-    assert argv[-1] == "--version"
+    assert any(call.args[0][-1] == "--version" for call in mock_run.call_args_list)
 
 
 # launch()

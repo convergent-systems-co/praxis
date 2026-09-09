@@ -183,6 +183,19 @@ def test_no_subcommand_still_prints_version(capsys):
     assert re.match(r"\d+\.\d+\.\d+", captured.out.strip())
 
 
+def test_main_with_no_arguments_prints_the_version_and_returns_zero(capsys):
+    # What the installed `praxis` console script does when it is run bare.
+    # `main(["--version"])` above cannot stand in for it: `main()` with no
+    # argument reads `sys.argv[1:]`, which under pytest is pytest's own
+    # arguments, so it only ever exercises the "first argument is not
+    # `executors`" half of the guard.
+    exit_code = main([])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert re.match(r"\d+\.\d+\.\d+", captured.out.strip())
+
+
 # The version-only path must not pay for the executor machinery. Checked in a
 # subprocess because the modules are already imported in this one.
 

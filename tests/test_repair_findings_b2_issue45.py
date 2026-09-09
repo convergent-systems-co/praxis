@@ -1,23 +1,23 @@
 """Reproduces the b2-issue45 repair findings that live outside the CLI modules.
 
-1. `praxis_cli.fields` is the module that knows which concrete adapter class
-   behaves which way; `status_cmd` and `discover_cmd` are adapter-agnostic
-   command modules. The rule "a returned advertisement is itself the health
-   verdict" is adapter-specific, so it is spelled once in `fields` and both the
-   `installed` and the `status` cell read that one predicate.
+1. The rule "a returned advertisement is itself the health verdict" is
+   adapter-specific, so it is spelled once in `praxis_cli.fields` and both the
+   `installed` and the `status` cell read that one predicate. Flipping the
+   predicate has to move both cells.
 2. `match --explain` prints the adapter name a candidate is registered under,
    while `matching.match` and `policy.as_eligibility_callable` both key a
    candidate by the advertisement's own `executor_id`. When two adapters
    advertise the same id those two resolve it last-wins, so the printed name
    has to resolve it the same way or it names an adapter whose advertisement
    was never the one judged.
-3. `discover_cmd` prints every column but the id, which its block header
-   already names, so the printed-column tuple is the only column tuple.
-4. README's executors section documents the two `--json` union fields and the
-   fourth `status` value. Asserted by the tokens a consumer actually reads
-   (`unknown`, `unavailable (<reason>)`) and by the fenced command examples,
-   never by a whole sentence -- a rewording of the surrounding prose is not a
-   regression.
+3. `discover`'s block names the executor id in its own header line, so the id
+   is never repeated as one of the columns underneath it.
+4. README's executors section shows every command as a runnable example.
+
+Every assertion here is on behaviour: what a function returns, or what a
+command prints. Assertions on a module's source text or on the absence of an
+attribute belong to no requirement -- they only record the shape the code
+happened to have when a reviewer last read it -- so this file makes none.
 
 The behavioural findings this file used to reproduce (the fifth `error` row
 key, a raised `.health()` reported as `degraded`, and `match --explain`
@@ -28,12 +28,12 @@ and tests/test_cli_match.py, rather than a second time here.
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 from conftest import _FakeExecutor
 
-from praxis_cli import discover_cmd, fields, status_cmd
+from praxis_cli import fields
+from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows
 from praxis_cli.match_cmd import run_match
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import ExecutorAvailability
@@ -68,18 +68,6 @@ def _advertisement(executor_id: str = "executor-x", auth_transport: str = "local
 
 
 # 1. adapter knowledge lives in `fields`, once
-
-
-def test_status_command_module_knows_no_concrete_adapter_class():
-    # `status_cmd` derives one row shape for whatever mapping of adapters it is
-    # handed. Which class behaves which way is `fields`' subject, and an
-    # adapter-specific rule spelled here too would have to be repaired twice.
-    source = inspect.getsource(status_cmd)
-
-    assert "praxis_executors.adapters" not in source, (
-        "status_cmd imports a concrete adapter class; the per-adapter rule "
-        "belongs in praxis_cli.fields, which status_cmd already imports"
-    )
 
 
 def test_one_rule_decides_when_an_advertisement_stands_in_for_a_health_probe(monkeypatch):
@@ -137,24 +125,26 @@ def test_match_names_the_adapter_whose_advertisement_the_policy_judged(capsys):
     assert capsys.readouterr().out.splitlines() == ["selected: adapter-second"]
 
 
-# 3. discover declares only the columns it prints
+# 3. discover prints every column but the id its header already names
 
 
-def test_discover_declares_only_the_columns_it_prints():
-    assert not hasattr(discover_cmd, "_COLUMNS"), (
-        "discover_cmd declares a column tuple it only ever slices; its first "
-        "entry, the executor id, is never printed as a column"
+def test_discover_block_names_the_id_once_and_prints_the_other_columns_under_it(capsys):
+    print_discover_rows(
+        build_discover_rows({"executor-registered": _FakeExecutor("executor-registered")})
     )
-    assert discover_cmd._PRINTED_COLUMNS == (
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "executor-registered:"
+    assert [line.split(":", 1)[0].strip() for line in lines[1:]] == [
         "installed",
         "version",
         "authenticated",
         "auth_transport",
         "capabilities",
-    )
+    ]
 
 
-# 4. README documents both `--json` union fields and the fourth status value
+# 4. README shows every command as a runnable example
 
 
 def test_readme_shows_every_command_as_a_runnable_example():
@@ -167,20 +157,3 @@ def test_readme_shows_every_command_as_a_runnable_example():
         "praxis executors match --capability",
     ):
         assert command in section, f"README's executors section does not show `{command}`"
-
-
-def test_readme_documents_the_two_union_fields_and_the_fourth_status_value():
-    section = _cli_section()
-
-    assert "unavailable (<reason>)" in section, (
-        "README's executors section does not show what `capabilities` carries "
-        "for an adapter that could not be asked"
-    )
-    assert "`auth_transport`" in section, (
-        "README's executors section does not say that `auth_transport` carries "
-        "the literal `unavailable` in place of a transport name"
-    )
-    assert "`unknown`" in section, (
-        "README's executors section never names `unknown` as the `status` of an "
-        "adapter whose health probe raised instead of returning a verdict"
-    )

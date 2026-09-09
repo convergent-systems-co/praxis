@@ -24,6 +24,19 @@ UNAVAILABLE = "unavailable"
 # filtering on it could not tell the two apart.
 UNDETERMINED = "unknown"
 
+# What a `.capabilities()` or `.health()` probe can raise, spelled once so
+# `discover`, `status` and `match` all degrade one row on the same set rather
+# than each guessing at it.
+#
+# `ExecutorError` is the vocabulary an adapter raises deliberately. The other
+# three are what its transport layer leaks when something answers on the
+# configured port with a body the adapter never type-checked: `ValueError` for
+# a body that is not JSON at all (`json.JSONDecodeError` is a subclass), and
+# `AttributeError`/`TypeError` for valid JSON that is not an object, which the
+# adapter then subscripts or calls `.get()` on. All three are a failure to read
+# one adapter, which is a degraded row -- never a reason to abandon the report.
+PROBE_FAILED = (ExecutorError, ValueError, AttributeError, TypeError)
+
 
 def _advertisement_answers_for_health(executor: Executor) -> bool:
     """Does this adapter's advertisement already carry its availability verdict?
@@ -44,6 +57,23 @@ def _advertisement_answers_for_health(executor: Executor) -> bool:
     return isinstance(executor, OllamaExecutor)
 
 
+def _health_verdict(executor: Executor) -> ExecutorAvailability | None:
+    """This adapter's `.health()` verdict, or `None` when the probe raised.
+
+    One guard for both field functions below: they ask the same method of the
+    same adapters, so a failure mode either degrades a cell in both or in
+    neither. Guarding each call site separately is what let one malformed
+    response reach `discover` as a crash and `status` as a row.
+
+    `None` rather than a verdict because a probe that raised produced no
+    availability at all -- the caller renders that as `UNDETERMINED`.
+    """
+    try:
+        return executor.health()
+    except PROBE_FAILED:
+        return None
+
+
 def installed_field(executor: Executor, advertisement: dict | None) -> str:
     """`advertisement` is the caller's one `.capabilities()` result, or `None`.
 
@@ -57,13 +87,11 @@ def installed_field(executor: Executor, advertisement: dict | None) -> str:
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"
     if isinstance(executor, OllamaExecutor):
-        try:
-            health = executor.health()
-        except ValueError:
-            # A malformed response (e.g. `json.JSONDecodeError`, a `ValueError`
-            # subclass) is a mid-probe failure, not a verdict -- neither "yes"
-            # nor "no" would be honest, so this degrades the same way an
-            # unrecognised adapter class does below.
+        health = _health_verdict(executor)
+        if health is None:
+            # A mid-probe failure is not a verdict -- neither "yes" nor "no"
+            # would be honest, so this degrades the same way an unrecognised
+            # adapter class does below.
             return UNDETERMINED
         return "yes" if health != ExecutorAvailability.UNAVAILABLE else "no"
     if isinstance(executor, (SubprocessExecutor, FakeCapabilityExecutor)):
@@ -85,10 +113,8 @@ def status_field(executor: Executor, advertisement: dict | None) -> str:
     """
     if advertisement is not None and _advertisement_answers_for_health(executor):
         return ExecutorAvailability.AVAILABLE.value
-    try:
-        return executor.health().value
-    except (ExecutorError, ValueError):
-        return UNDETERMINED
+    health = _health_verdict(executor)
+    return UNDETERMINED if health is None else health.value
 
 
 def version_field(_executor: Executor) -> str:
@@ -101,9 +127,9 @@ def version_field(_executor: Executor) -> str:
 
 
 def authenticated_field(executor: Executor, installed: str) -> str:
-    """No `ValueError` guard here, unlike `installed_field`'s Ollama branch.
+    """Probes unguarded, unlike the `_health_verdict` both other fields go through.
 
-    That branch needs one because `OllamaExecutor.health()` decodes a JSON
+    Those need a guard because `OllamaExecutor.health()` decodes a JSON
     body it does not control. Every path through `ClaudeCliExecutor.health()`
     either returns an availability or is already handled inside the adapter:
     `shutil.which` cannot raise, `_probe_version` catches its own subprocess

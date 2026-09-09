@@ -10,7 +10,7 @@ from typing import Callable, Mapping
 
 from praxis_cli import fields
 from praxis_executors import matching, policy
-from praxis_executors.interface import Executor, ExecutorError
+from praxis_executors.interface import Executor
 
 _SPEC_VERSION = "1.0.0"
 
@@ -114,12 +114,14 @@ def run_match(
     # An adapter that could not be asked is not a candidate `match` can rank,
     # but dropping it silently leaves a user unable to tell it was considered
     # at all -- `--explain` reports it below, the way `discover` and `status`
-    # both report the same failure.
+    # both report the same failure. Caught on the same `fields.PROBE_FAILED`
+    # those two degrade a row on, so an adapter that costs `status` one line
+    # cannot cost `match` the whole command.
     unreadable: dict[str, str] = {}
     for name, executor in adapters.items():
         try:
             gathered.append((name, executor.capabilities()))
-        except (ExecutorError, ValueError) as exc:
+        except fields.PROBE_FAILED as exc:
             unreadable[name] = str(exc)
 
     advertisements = [advertisement for _, advertisement in gathered]

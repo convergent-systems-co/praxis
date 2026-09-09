@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Mapping
 
 from praxis_cli.fields import (
+    PROBE_FAILED,
     UNAVAILABLE,
     auth_transports,
     authenticated_field,
@@ -13,7 +14,7 @@ from praxis_cli.fields import (
     render_cell,
     version_field,
 )
-from praxis_executors.interface import Executor, ExecutorError
+from praxis_executors.interface import Executor
 
 # Every column but the executor id, which the block's own header line already
 # names rather than repeating as a column.
@@ -39,12 +40,16 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     The advertisement is probed first and then handed to `installed_field`, so
     an adapter whose `.capabilities()` and `.health()` hit the same endpoint
     is asked once rather than waited on twice at its own timeout.
+
+    A failed probe is caught on `fields.PROBE_FAILED`, the one set `status` and
+    `match` also degrade a row on, so the three commands cannot disagree about
+    which failure is survivable.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
         try:
             advertisement = executor.capabilities()
-        except (ExecutorError, ValueError) as exc:
+        except PROBE_FAILED as exc:
             # One adapter whose backing CLI or service is absent must not take
             # the whole report down -- its row degrades, the rest still print.
             advertisement = None

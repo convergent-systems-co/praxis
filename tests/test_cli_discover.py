@@ -63,6 +63,18 @@ def _malformed(executor_id: str = "executor-broken") -> _FakeExecutor:
     )
 
 
+def _non_object_json(executor_id: str = "executor-nonobject") -> _FakeExecutor:
+    """A transport layer answering 200 with valid JSON that is not an object.
+
+    `OllamaExecutor` decodes the body and calls `.get()` on it without checking
+    its type, so a JSON array comes back out of both probes as an
+    `AttributeError` -- neither the adapter's own `ExecutorError` nor a
+    `ValueError`, and just as much a one-row failure as either.
+    """
+    error = AttributeError("'list' object has no attribute 'get'")
+    return _FakeExecutor(executor_id, capabilities_error=error, health_error=error)
+
+
 # build_discover_rows()
 
 
@@ -118,6 +130,18 @@ def test_build_discover_rows_json_decode_error_from_capabilities_degrades_its_ro
     assert broken["executor_id"] == "executor-broken"
     assert broken["auth_transport"] == "unavailable"
     assert "Expecting value" in broken["capabilities"]
+
+
+def test_build_discover_rows_attribute_error_from_capabilities_degrades_its_row_instead_of_crashing():
+    rows = build_discover_rows(
+        {"executor-nonobject": _non_object_json(), "executor-fake-good": _succeeding()}
+    )
+
+    assert rows[0]["executor_id"] == "executor-nonobject"
+    assert rows[0]["auth_transport"] == "unavailable"
+    assert "object has no attribute" in rows[0]["capabilities"]
+    # The rest of the report still prints.
+    assert rows[1]["capabilities"] == ["coding", "reasoning"]
 
 
 def test_build_discover_rows_carry_the_same_columns_across_healthy_and_failed_rows():

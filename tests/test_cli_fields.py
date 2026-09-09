@@ -19,8 +19,15 @@ from praxis_cli.fields import (
     capability_kinds,
     installed_field,
     render_cell,
+    status_field,
     version_field,
 )
+
+# What `OllamaExecutor` leaks from `health()` when the configured port answers
+# 200 with valid JSON that is not an object: the decoded body is returned
+# unchecked and `response.get("models")` then lands on a list. Neither the
+# adapter's own `ExecutorError` nor a `ValueError`.
+_NON_OBJECT_JSON = AttributeError("'list' object has no attribute 'get'")
 
 
 class _UnknownExecutor(Executor):
@@ -139,6 +146,37 @@ def test_installed_field_ollama_unknown_when_health_raises_json_decode_error(mon
     monkeypatch.setattr(executor, "health", _raise)
 
     assert installed_field(executor, None) == "unknown"
+
+
+def _raising_health(monkeypatch, executor, error: BaseException) -> None:
+    def _raise():
+        raise error
+
+    monkeypatch.setattr(executor, "health", _raise)
+
+
+def test_installed_field_ollama_unknown_when_health_leaks_an_attribute_error(monkeypatch):
+    executor = _ollama()
+    _raising_health(monkeypatch, executor, _NON_OBJECT_JSON)
+
+    assert installed_field(executor, None) == "unknown"
+
+
+def test_the_health_probe_degrades_the_same_way_in_both_field_functions(monkeypatch):
+    # One adapter, one method, one failure contract: `installed_field` and
+    # `status_field` ask the same `health()` of the same adapters, so a probe
+    # failure either degrades a cell in both or in neither. Asymmetric guards
+    # are what let a crash reach one command and not the other.
+    for error in (
+        ValueError("Expecting value: line 1 column 1 (char 0)"),
+        _NON_OBJECT_JSON,
+        TypeError("string indices must be integers"),
+    ):
+        executor = _ollama()
+        _raising_health(monkeypatch, executor, error)
+
+        assert installed_field(executor, None) == "unknown"
+        assert status_field(executor, None) == "unknown"
 
 
 def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():

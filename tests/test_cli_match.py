@@ -41,6 +41,20 @@ def _malformed(executor_id: str = "executor-broken") -> _FakeExecutor:
     return _FakeExecutor(executor_id, capabilities_error=_json_decode_error())
 
 
+def _non_object_json(executor_id: str = "executor-nonobject") -> _FakeExecutor:
+    """`.capabilities()` raises `AttributeError` -- a server answering 200 with
+    valid JSON that is not an object.
+
+    `OllamaExecutor` decodes the body and calls `.get()` on it unchecked, so a
+    JSON array leaks out as an `AttributeError`: neither the adapter's own
+    `ExecutorError` nor a `ValueError`, and just as much a one-candidate
+    failure as either.
+    """
+    return _FakeExecutor(
+        executor_id, capabilities_error=AttributeError("'list' object has no attribute 'get'")
+    )
+
+
 def _adapters() -> dict[str, Executor]:
     """The same `{executor_id: instance}` mapping shape `discover`/`status` take.
 
@@ -129,6 +143,31 @@ def test_run_match_json_decode_error_from_capabilities_is_dropped_not_raised(cap
     captured = capsys.readouterr()
     assert exit_code == 0
     assert captured.out.splitlines() == ["selected: executor-good"]
+
+
+def test_run_match_attribute_error_from_capabilities_is_dropped_not_raised(capsys):
+    adapters = {**_adapters(), "executor-nonobject": _non_object_json()}
+
+    exit_code = run_match(adapters, capabilities=["kind-a"], explain=False)
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out.splitlines() == ["selected: executor-good"]
+
+
+def test_explain_accounts_for_a_candidate_whose_probe_raised_an_attribute_error(capsys):
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-nonobject": _non_object_json(),
+    }
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-nonobject"] == (
+        "executor-nonobject: eligible=unknown reason=advertisement unavailable "
+        "('list' object has no attribute 'get')"
+    )
 
 
 def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candidates(capsys):

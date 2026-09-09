@@ -92,6 +92,7 @@ from pathlib import Path
 import pytest
 
 from conftest import _linear_graph, _PassthroughGrader
+from praxis_contracts.schema_paths import schema_path
 from praxis_evidence.graders import GraderRegistry
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
@@ -188,9 +189,7 @@ def test_linear_graph_helper_is_shared_from_conftest():
 
 
 def test_state_module_exposes_public_schema_path():
-    assert state_module.SCHEMA_PATH == (
-        REPO_ROOT / "schemas" / "v1" / "run-state.schema.json"
-    )
+    assert state_module.SCHEMA_PATH == schema_path("run-state.schema.json")
 
 
 def test_cursor_and_run_state_are_frozen():

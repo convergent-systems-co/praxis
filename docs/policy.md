@@ -205,3 +205,7 @@ above is the caller's job, the same "decide here, wire there" separation
   survive a process restart. Reconciling this against `praxis_runtime`'s durable event log is left
   as a follow-up integration task, parallel to the evidence-gate persistence seam already noted in
   `docs/runtime.md`.
+- **Capacity/handoff tiering stays skill-side, not a `BudgetLedger` extension.** See
+  [ADR 0001](adr/0001-capacity-tiering-boundary.md), which decides that the `develop` skill's
+  persisted, multi-signal capacity tiering remains in `~/ai/skills/develop/runtime/checkpoint.py`
+  rather than being promoted into `praxis_policy.budgets`.

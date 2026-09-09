@@ -1,0 +1,7 @@
+{"bundle": "b3-issue31",
+ "tasks": [
+   {"id": "T1", "title": "Write ADR 0001 (capacity/handoff/budget tiering boundary)", "depends_on": [], "kind": "docs",
+    "files": ["docs/adr/0001-capacity-tiering-boundary.md"]},
+   {"id": "T2", "title": "Link ADR from docs/policy.md and verify no runtime drift", "depends_on": ["T1"], "kind": "docs",
+    "files": ["docs/policy.md"]}
+ ]}

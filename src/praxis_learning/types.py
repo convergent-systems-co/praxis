@@ -10,9 +10,9 @@ convention in praxis_eval/types.py.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1"
+from praxis_contracts.schema_paths import SCHEMA_DIR
+
 OBSERVATION_SCHEMA_PATH = SCHEMA_DIR / "observation.schema.json"
 HEURISTIC_CANDIDATE_SCHEMA_PATH = SCHEMA_DIR / "heuristic-candidate.schema.json"
 

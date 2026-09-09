@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from praxis_cli.fields import authenticated_field, capability_kinds, installed_field, version_field
+from praxis_cli.fields import (
+    authenticated_field,
+    capability_kinds,
+    fallback_executor_id,
+    installed_field,
+    version_field,
+)
 from praxis_executors.interface import Executor, ExecutorError
 
 _COLUMNS = ("executor_id", "installed", "version", "authenticated", "capabilities")
@@ -13,7 +19,7 @@ def build_discover_rows(adapters: list[Executor]) -> list[dict]:
     for index, executor in enumerate(adapters):
         installed = installed_field(executor)
         row = {
-            "executor_id": f"{type(executor).__name__}#{index}",
+            "executor_id": fallback_executor_id(executor, index),
             "installed": installed,
             "version": version_field(executor),
             "authenticated": authenticated_field(executor, installed),

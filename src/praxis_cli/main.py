@@ -4,8 +4,6 @@ import argparse
 import importlib.metadata
 import sys
 
-from praxis_cli import adapters, discover_cmd, match_cmd, status_cmd
-
 
 def _print_version() -> None:
     print(importlib.metadata.version("praxis-contracts"))
@@ -38,6 +36,11 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    # Imported here, not at module load: the legacy version path above never
+    # needs an adapter, and importing them eagerly pulls in every backing
+    # adapter module for a command that only prints a version string.
+    from praxis_cli import adapters, discover_cmd, match_cmd, status_cmd
 
     built = adapters.build_adapters()
 

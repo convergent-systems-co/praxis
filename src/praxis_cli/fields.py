@@ -15,6 +15,16 @@ from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability
 
 
+def fallback_executor_id(executor: Executor, index: int) -> str:
+    """Display id for an executor whose advertisement could not be read.
+
+    The advertisement dict is the only public source of a real `executor_id`,
+    so a failed `.capabilities()` call leaves nothing to read one from. The
+    index keeps two failing adapters of the same class from colliding.
+    """
+    return f"{type(executor).__name__}#{index}"
+
+
 def installed_field(executor: Executor) -> str:
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"

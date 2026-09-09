@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from praxis_cli.fields import auth_transports, capability_kinds
+from praxis_cli.fields import auth_transports, capability_kinds, fallback_executor_id
 from praxis_executors.interface import Executor, ExecutorError
 
 _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities")
@@ -19,7 +19,7 @@ def build_status_rows(adapters: list[Executor]) -> list[dict]:
         except ExecutorError as exc:
             rows.append(
                 {
-                    "executor_id": f"{type(executor).__name__}#{index}",
+                    "executor_id": fallback_executor_id(executor, index),
                     "auth_transport": f"unavailable ({exc})",
                     "status": status,
                     "capabilities": f"unavailable ({exc})",

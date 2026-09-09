@@ -234,8 +234,27 @@ def test_launch_raises_and_skips_popen_when_cli_absent():
         mock_popen.assert_not_called()
 
 
-def test_launch_strips_openai_api_key_from_subprocess_env_while_preserving_other_vars(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "fake-key-value")
+@pytest.mark.parametrize(
+    "stripped_var",
+    [
+        "OPENAI_API_KEY",
+        "OPENAI_ORGANIZATION",
+        "OPENAI_PROJECT",
+        "OPENAI_BASE_URL",
+        # Verified live (repair session, real installed `codex` 0.153.4):
+        # setting CODEX_API_KEY in the parent env flips `codex doctor`'s
+        # reported auth mode from chatgpt (subscription) to api_key
+        # (metered) -- the same silent-metered-fallback risk this bundle
+        # must not repeat. CODEX_ACCESS_TOKEN is the equivalent
+        # alternate-credential var documented alongside it.
+        "CODEX_API_KEY",
+        "CODEX_ACCESS_TOKEN",
+    ],
+)
+def test_launch_strips_each_env_var_to_strip_from_subprocess_env_while_preserving_other_vars(
+    stripped_var, monkeypatch
+):
+    monkeypatch.setenv(stripped_var, "fake-value")
     monkeypatch.setenv("SOME_UNRELATED_VAR", "keep-me")
     process = _mock_process(returncode=0, stdout="ok", stderr="")
     with (
@@ -252,7 +271,7 @@ def test_launch_strips_openai_api_key_from_subprocess_env_while_preserving_other
         executor.launch(request)
 
     env_kwarg = mock_popen.call_args.kwargs["env"]
-    assert "OPENAI_API_KEY" not in env_kwarg
+    assert stripped_var not in env_kwarg
     assert env_kwarg.get("SOME_UNRELATED_VAR") == "keep-me"
 
 

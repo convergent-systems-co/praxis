@@ -40,7 +40,21 @@ def _redact(text: str) -> str:
 # base-URL-override variables the plan asked to look for. These route
 # requests to OpenAI's metered API the same way `OPENAI_API_KEY` does, so
 # they are stripped alongside it.
-_ENV_VARS_TO_STRIP = ("OPENAI_API_KEY", "OPENAI_ORGANIZATION", "OPENAI_PROJECT", "OPENAI_BASE_URL")
+#
+# Repair session addendum: verified live against the same installed binary
+# that `CODEX_API_KEY` is an alternate/overriding credential source --
+# setting it in the parent process env flips `codex doctor`'s reported auth
+# mode from `chatgpt` (subscription) to `api_key` (metered). `CODEX_ACCESS_TOKEN`
+# is the equivalent alternate-credential var and is stripped alongside it for
+# the same reason.
+_ENV_VARS_TO_STRIP = (
+    "OPENAI_API_KEY",
+    "OPENAI_ORGANIZATION",
+    "OPENAI_PROJECT",
+    "OPENAI_BASE_URL",
+    "CODEX_API_KEY",
+    "CODEX_ACCESS_TOKEN",
+)
 
 
 def _subprocess_env() -> dict[str, str]:

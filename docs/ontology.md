@@ -1,6 +1,6 @@
 # Praxis Contracts Ontology
 
-This document describes the vocabulary defined in `schemas/v1/` — the machine-readable
+This document describes the vocabulary defined in `src/praxis_contracts/schemas/v1/` — the machine-readable
 contracts that let a graph request "what it needs" and let an executor advertise "what it can
 do," without either side ever naming a specific model or vendor.
 
@@ -92,8 +92,9 @@ constraints, or resolves `prohibited` conflicts). That algorithm is implemented 
 
 ## Schema files
 
-All schemas live under `schemas/v1/` — `v1` is the schema directory's major version. Each file
-is a plain JSON Schema (draft 2020-12) document:
+All schemas live under `src/praxis_contracts/schemas/v1/`, shipped as package data and resolved
+via `importlib.resources` (see `praxis_contracts.schema_paths`) — `v1` is the schema directory's
+major version. Each file is a plain JSON Schema (draft 2020-12) document:
 
 | File | Purpose |
 | --- | --- |

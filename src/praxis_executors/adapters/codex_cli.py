@@ -300,10 +300,25 @@ class CodexCliExecutor(Executor):
             )
         except OSError as exc:
             raise ExecutorError(f"failed to launch codex CLI: {_redact(str(exc))}") from exc
+        # Start draining immediately, not at result() time -- see _OutputPump.
+        # The handle is registered only once its pump exists, so the two
+        # registries stay in step: a `Thread.start()` that fails (thread
+        # exhaustion raises RuntimeError) would otherwise leave a handle whose
+        # pump is missing, and result() would raise KeyError for it instead of
+        # ExecutorError. The child is already running and nothing is draining
+        # its pipes at that point, so it is killed and reaped here rather than
+        # left behind.
+        try:
+            pump = _OutputPump(process)
+        except RuntimeError as exc:
+            process.kill()
+            process.wait()
+            raise ExecutorError(
+                f"failed to start the codex output reader: {_redact(str(exc))}"
+            ) from exc
         handle_id = uuid.uuid4().hex
         self._processes[handle_id] = process
-        # Start draining immediately, not at result() time -- see _OutputPump.
-        self._output_pumps[handle_id] = _OutputPump(process)
+        self._output_pumps[handle_id] = pump
         return ExecutionHandle(handle_id=handle_id)
 
     # `_process_for`, `status`, `_terminal_status` and `cancel` below are
@@ -370,4 +385,13 @@ class CodexCliExecutor(Executor):
             # before the pump is ever consulted again. Leaving it uncached
             # lets a later result() pick up what the read has since finished.
             self._results[handle.handle_id] = result
+            # Settled the other way round, that same ordering is what makes
+            # the pump droppable: from here on every result() call for this
+            # handle returns from the cache above, so the pump's finished
+            # thread and its second copy of the transcript have no reader
+            # left. Dropping it keeps a long-lived executor from retaining a
+            # whole transcript twice per launch. The `no cached result implies
+            # a live pump` invariant this relies on holds because nothing ever
+            # removes an entry from `_results`.
+            del self._output_pumps[handle.handle_id]
         return result

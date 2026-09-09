@@ -412,6 +412,38 @@ def test_launch_strips_each_env_var_to_strip_from_subprocess_env_while_preservin
     assert env_kwarg.get("SOME_UNRELATED_VAR") == "keep-me"
 
 
+def test_launch_kills_the_process_and_raises_executor_error_when_the_output_reader_cannot_start():
+    # The pump's Thread.start() can fail outright (thread exhaustion). Letting
+    # that propagate would leave three problems behind: a non-ExecutorError
+    # out of launch(), a live child nobody drains or reaps, and a handle
+    # registered whose pump is missing -- so result() would then raise
+    # KeyError rather than ExecutorError for it.
+    process = _mock_process(returncode=None)
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+        patch(
+            "praxis_executors.adapters.codex_cli._OutputPump",
+            side_effect=RuntimeError("can't start new thread"),
+        ),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+
+        with pytest.raises(ExecutorError):
+            executor.launch(request)
+
+    process.kill.assert_called_once()
+    process.wait.assert_called_once()
+    assert executor._processes == {}, (
+        "a launch that could not start its output reader must not leave the "
+        "process registered under a handle with no pump behind it"
+    )
+
+
 def test_scripted_successful_run_reaches_succeeded_with_true_evidence():
     process = _mock_process(returncode=0, stdout="ok", stderr="")
     with (
@@ -645,6 +677,55 @@ def test_result_caches_a_genuinely_failed_read_rather_than_re_reading_it():
         handle = executor.launch(request)
 
         assert executor.result(handle) is executor.result(handle)
+
+
+def test_status_is_running_and_result_refuses_while_the_process_has_not_exited():
+    # The RUNNING half of the lifecycle: poll() still returning None is the
+    # only state in which result() has no exit status to report, so it must
+    # refuse rather than answer from a half-finished run.
+    process = _mock_process(returncode=None)
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        handle = executor.launch(request)
+
+        assert executor.status(handle) == ExecutorStatus.RUNNING
+
+        with pytest.raises(ExecutorError, match="RUNNING"):
+            executor.result(handle)
+
+
+def test_result_releases_the_output_reader_once_the_transcript_has_settled():
+    # A settled transcript lives in the cached result from then on, and the
+    # cache is consulted before the pump ever is -- so holding the pump past
+    # that point retains one thread object and one full transcript copy per
+    # launch for the lifetime of the executor.
+    process = _mock_process(returncode=0, stdout="ok", stderr="")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        handle = executor.launch(request)
+
+        settled = executor.result(handle)
+
+        assert executor._output_pumps == {}, (
+            "a settled result must release its output reader rather than "
+            "retaining the transcript twice for the executor's lifetime"
+        )
+        assert executor.result(handle) is settled
+        assert settled.payload["stdout"] == "ok"
 
 
 def test_cancel_on_running_process_terminates_and_reaches_cancelled():

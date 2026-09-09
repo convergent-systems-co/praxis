@@ -88,13 +88,6 @@ def test_env_strip_comment_states_what_codex_doctor_actually_reports() -> None:
     # with and without CODEX_API_KEY leaves "stored auth mode" reported as
     # `chatgpt` in both runs. The only delta is an added "auth env vars
     # present" line, which is what the adapter's comment must record.
-    #
-    # A companion assertion here used to check that the comment did *not*
-    # match r"flips[^.]*reported auth mode" -- the phrasing of the earlier,
-    # wrong claim. No text matching it exists anywhere in the tree, so it
-    # guarded a wording rather than a behaviour and could only fail if
-    # someone retyped that exact sentence. The positive assertion below
-    # carries the regression value on its own.
     comments = _adapter_comments()
 
     assert "auth env vars present" in comments, (
@@ -128,10 +121,10 @@ def test_adapter_records_its_models_and_modes_discovery_decision() -> None:
         "decision rests on: the contract has no field a discovered model "
         "list could travel in"
     )
-    assert "vendor/model-neutral" in comments, (
-        "codex_cli.py's models/modes note must name the contract property "
-        "that settles it -- a Capability is vendor/model-neutral"
-    )
+    # Deliberately not also pinned to the phrase "vendor/model-neutral": that
+    # quotes capability.schema.json's own wording, so the assertion would
+    # break on a reword in either file while the decision it guards stayed
+    # true. The reason matcher above carries that claim.
     assert "capability.schema.json" in comments, (
         "codex_cli.py's models/modes note must cite the contract that "
         "settles it -- capability.schema.json"

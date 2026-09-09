@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "repository": "/Users/polliard/.ai/worktrees/convergent-systems-co/praxis/develop-b2-issue43",
-  "built_at": "2026-09-09T17:30:34.058353Z",
+  "built_at": "2026-09-09T17:48:28.087088Z",
   "nodes": [
     {
       "id": "directory:00142276f3176e8aef2a0e22",
@@ -7621,7 +7621,7 @@
       "id": "file:032887561f5d7995abe5473b",
       "kind": "file",
       "path": ".pytest_cache/v/cache/nodeids",
-      "content_hash": "e201eaf34520c51235357aa3aaf321ff0c71cb04b62c2b7ee035363f1024d2d0"
+      "content_hash": "1db2890d59a5ba765be8abfd725e5c2b137e9f0b20aba0044820be5289aa9f11"
     },
     {
       "id": "file:035df5711e4a190da2487ebb",
@@ -15517,7 +15517,7 @@
       "id": "file:7e8924a3cf5bf05824d77edf",
       "kind": "file",
       "path": "tests/test_ollama_executor.py",
-      "content_hash": "8236e984eecbcf4f092e2c4f1aa8ade777ec93bf2157fb3cfdd5aa590cc081f3"
+      "content_hash": "862f35318759528a821751917cdc77ff70e22f5c269e206b19c4e73ec91b32f3"
     },
     {
       "id": "file:7e8f6c36c793e6a242ec865d",
@@ -19573,7 +19573,7 @@
       "id": "file:c1a84fcaac939b66bf92c51f",
       "kind": "file",
       "path": "tests/__pycache__/test_ollama_executor.cpython-314-pytest-9.1.1.pyc",
-      "content_hash": "2a2352a5208c2697e922c53a65bf2fde5608dd8f4cfe44d867cd5533a8eed8bc"
+      "content_hash": "e5836141f283b854be42f816159f9f21a0fac491f23adf3da794c34b24a38ea8"
     },
     {
       "id": "file:c1ddd7d7e89391996f096357",

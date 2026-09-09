@@ -169,6 +169,18 @@ def test_capabilities_advertisement_validates_against_schema(running_ollama_serv
     validate_document(advertisement, SCHEMA_DIR / "capability-advertisement.schema.json")
 
 
+def test_capabilities_executor_id_is_taken_verbatim_from_constructor(running_ollama_server):
+    """Spec criterion 2: `executor_id` must come from the caller, never be
+    hardcoded or defaulted to a literal containing the vendor/model name."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    executor = OllamaExecutor(executor_id="my-custom-executor-42", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert advertisement["executor_id"] == "my-custom-executor-42"
+
+
 def _wait_for_terminal(executor: OllamaExecutor, handle, timeout: float = 5.0) -> ExecutorStatus:
     deadline = time.monotonic() + timeout
     status = executor.status(handle)
@@ -265,3 +277,31 @@ def test_cancel_closes_in_flight_request(running_ollama_server):
     status = _wait_for_terminal(executor, handle, timeout=1.5)
     assert status == ExecutorStatus.CANCELLED
     assert executor.result(handle).status == ExecutorStatus.CANCELLED
+
+
+def test_real_ollama_smoke():
+    """Conditional smoke test against a real, locally-running Ollama service.
+
+    Separate from the fake-server suite above (spec criterion 7). Skips
+    rather than fails whenever no real Ollama is reachable, or is reachable
+    but has no models installed -- this must never fail the standard suite
+    on a machine with no local Ollama running. Only when a real service
+    reports AVAILABLE does this drive an actual generation against one of
+    its installed models and assert it reaches SUCCEEDED.
+    """
+    executor = OllamaExecutor(executor_id="real-ollama-smoke")
+    availability = executor.health()
+    if availability != ExecutorAvailability.AVAILABLE:
+        pytest.skip(f"no real local Ollama service available (health={availability})")
+
+    advertisement = executor.capabilities()
+    model_name = advertisement["capabilities"][0]["satisfies"][0]["parameters"]["model"]
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": model_name, "prompt": "Say 'hi' and nothing else."},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle, timeout=60.0) == ExecutorStatus.SUCCEEDED

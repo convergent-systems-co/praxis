@@ -295,7 +295,7 @@ Praxis is **not** intended to grant unrestricted autonomy to a language model. I
 
 ## Installation
 
-Praxis is a Python 3.10+ library, installed from a source checkout — it is not yet published to PyPI, and there is no `praxis` console script (see "Usage" below for what *is* runnable today).
+Praxis is a Python 3.10+ library, installed from a source checkout — it is not yet published to PyPI. `pip install` (editable or from a built wheel) provides a `praxis` console script; run `praxis --version` as the install smoke-check (see "Usage" below for what else is runnable today).
 
 ```bash
 git clone https://github.com/convergent-systems-co/praxis.git
@@ -305,7 +305,7 @@ pip install -e ".[dev]"
 
 This installs the packages under `src/` (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`, `praxis_executors`, `praxis_eval`, `praxis_policy`, `praxis_learning`, `praxis_overlay`, `praxis_dashboard`, and the example overlays under `src/overlays/`) plus `pytest` for the test suite.
 
-**Run everything from a repo checkout, not an installed wheel.** `schemas/v1/*.json` (the JSON Schemas every contract validates against) live outside `src/` and are not yet packaged as package data — code that loads them (including the test suite and the snippets below) resolves them as relative paths from the repository root.
+`schemas/v1/*.schema.json` (the JSON Schemas every contract validates against) ships as package data under `praxis_contracts` and is resolved via `importlib.resources` regardless of cwd or install location.
 
 Verify the install:
 
@@ -317,7 +317,7 @@ pytest
 
 ### Quickstart: drive a graph to completion
 
-There is no top-level `praxis` CLI yet. The way to exercise Praxis today is as a library: build or load a graph, construct a `TransitionEngine` over it, and drive it with an executor. `src/overlays/trivial/` is a minimal (two-node, non-software-development-shaped) worked example built for exactly this purpose. Run this from the repo root after installing:
+`praxis --version` exists today as an install smoke-check. The way to drive a graph to completion is still as a library: build or load a graph, construct a `TransitionEngine` over it, and drive it with an executor (this bundle adds no graph-driving subcommands to the CLI — that's separate, later work). `src/overlays/trivial/` is a minimal (two-node, non-software-development-shaped) worked example built for exactly this purpose. Run this from the repo root after installing:
 
 ```python
 from pathlib import Path

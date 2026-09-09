@@ -25,6 +25,7 @@ from praxis_contracts.schema_paths import SCHEMA_DIR
 from praxis_contracts.validator import validate_document
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import (
+    ExecutionHandle,
     ExecutionRequest,
     ExecutorAvailability,
     ExecutorError,
@@ -132,6 +133,29 @@ def test_health_reports_available_when_models_installed(running_ollama_server):
     executor = OllamaExecutor(executor_id="e", base_url=base_url)
 
     assert executor.health() == ExecutorAvailability.AVAILABLE
+
+
+def test_health_reports_degraded_not_unavailable_when_service_returns_http_error(running_ollama_server):
+    """A reachable-but-erroring service is distinct from a down one.
+
+    `urllib.error.HTTPError` is a subclass of `URLError`; `_do_request` must
+    catch it separately so a non-2xx response doesn't get misreported as
+    `_OllamaUnreachable` (UNAVAILABLE) the same as a genuinely down service.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (500, {"error": "internal error"})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    assert executor.health() == ExecutorAvailability.DEGRADED
+
+
+def test_capabilities_raises_executor_error_when_service_returns_http_error(running_ollama_server):
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (500, {"error": "internal error"})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
 
 
 def test_capabilities_emits_one_entry_per_installed_model(running_ollama_server):
@@ -316,6 +340,15 @@ def test_cancel_closes_in_flight_request(running_ollama_server):
     status = _wait_for_terminal(executor, handle, timeout=1.5)
     assert status == ExecutorStatus.CANCELLED
     assert executor.result(handle).status == ExecutorStatus.CANCELLED
+
+
+def test_cancel_raises_executor_error_for_unknown_handle(running_ollama_server):
+    """Matches status()/result()/SubprocessExecutor.cancel()'s validation."""
+    base_url, _responses, _delays = running_ollama_server
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.cancel(ExecutionHandle(handle_id="never-launched"))
 
 
 def test_real_ollama_smoke():

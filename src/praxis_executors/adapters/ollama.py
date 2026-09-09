@@ -40,6 +40,16 @@ class _OllamaUnreachable(Exception):
     """
 
 
+class _OllamaHTTPError(Exception):
+    """Raised when Ollama was reached but returned a non-2xx HTTP response.
+
+    `urllib.error.HTTPError` is a subclass of `urllib.error.URLError`, so it
+    must be caught before the broader `URLError` clause in `_do_request` or
+    it would be misreported as `_OllamaUnreachable` (service down) instead
+    of "service up but erroring."
+    """
+
+
 def _is_loopback_host(host: str) -> bool:
     """True for `127.0.0.1`, `::1`, `localhost`, and any `127.0.0.0/8` address.
 
@@ -81,6 +91,8 @@ def _do_request(request: urllib.request.Request, timeout: float) -> dict:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read()
+    except urllib.error.HTTPError as exc:
+        raise _OllamaHTTPError(f"{request.full_url} returned HTTP {exc.code}: {exc}") from exc
     except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
         raise _OllamaUnreachable(f"could not reach {request.full_url}: {exc}") from exc
     return json.loads(raw.decode("utf-8"))
@@ -153,6 +165,8 @@ class OllamaExecutor(Executor):
             response = _http_get_json(self._base_url, "/api/tags", self._timeout)
         except _OllamaUnreachable as exc:
             raise ExecutorError(f"ollama service unreachable: {exc}") from exc
+        except _OllamaHTTPError as exc:
+            raise ExecutorError(f"ollama service returned an error: {exc}") from exc
 
         capabilities = []
         for model in response.get("models", []):
@@ -169,7 +183,7 @@ class OllamaExecutor(Executor):
                 )
                 show_capabilities = show.get("capabilities")
                 context_window = _extract_context_window(show)
-            except (_OllamaUnreachable, KeyError, TypeError, ValueError):
+            except (_OllamaUnreachable, _OllamaHTTPError, KeyError, TypeError, ValueError):
                 # Best-effort: a malformed/non-JSON/non-UTF8 `/api/show` response
                 # (json.JSONDecodeError and UnicodeDecodeError are both ValueError
                 # subclasses) must not fail the whole capabilities() call -- just
@@ -204,6 +218,10 @@ class OllamaExecutor(Executor):
             response = _http_get_json(self._base_url, "/api/tags", self._timeout)
         except _OllamaUnreachable:
             return ExecutorAvailability.UNAVAILABLE
+        except _OllamaHTTPError:
+            # Reachable, but erroring -- distinct from "down": the service
+            # process is up, something else is wrong.
+            return ExecutorAvailability.DEGRADED
         if not response.get("models"):
             return ExecutorAvailability.DEGRADED
         return ExecutorAvailability.AVAILABLE
@@ -241,6 +259,7 @@ class OllamaExecutor(Executor):
             finally:
                 with self._lock:
                     self._connections.pop(handle_id, None)
+                response.close()
             payload = json.loads(raw.decode("utf-8"))
         except Exception as exc:  # noqa: BLE001 -- worker thread must always resolve the handle
             status = ExecutorStatus.CANCELLED if handle_id in self._cancelled else ExecutorStatus.FAILED
@@ -269,6 +288,7 @@ class OllamaExecutor(Executor):
         return self._results[handle.handle_id].status
 
     def cancel(self, handle: ExecutionHandle) -> None:
+        self._thread_for(handle)  # raises ExecutorError for an unknown handle_id
         handle_id = handle.handle_id
         self._cancelled.add(handle_id)
         with self._lock:

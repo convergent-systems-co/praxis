@@ -86,6 +86,43 @@ def _do_request(request: urllib.request.Request, timeout: float) -> dict:
     return json.loads(raw.decode("utf-8"))
 
 
+def _classify_kinds(model_name: str, show_capabilities: list[str] | None) -> list[str]:
+    """Heuristically classify what a model can do, for advertisement purposes.
+
+    Prefers capability names Ollama's own `/api/show` response already
+    reports (when they match this project's standard vocabulary) over
+    guessing from the model name. `"reasoning"` is always included since
+    every Ollama text model can be used for it.
+    """
+    kinds: list[str] = []
+    standard_vocabulary = {"vision", "tools", "coding", "reasoning"}
+    for capability in show_capabilities or []:
+        if capability in standard_vocabulary and capability not in kinds:
+            kinds.append(capability)
+    name = model_name.lower()
+    if "coding" not in kinds and ("code" in name or "coder" in name):
+        kinds.append("coding")
+    if "reasoning" not in kinds:
+        kinds.append("reasoning")
+    return kinds
+
+
+def _extract_context_window(show_response: dict) -> int | None:
+    """Best-effort read of the context length from an `/api/show` response.
+
+    Ollama nests this under `model_info` with an architecture-specific key
+    prefix (e.g. `"llama.context_length"`, `"qwen2.context_length"`), so the
+    key is matched by suffix rather than assumed to have a fixed name.
+    """
+    model_info = show_response.get("model_info")
+    if not isinstance(model_info, dict):
+        return None
+    for key, value in model_info.items():
+        if key.endswith(".context_length") and isinstance(value, int):
+            return value
+    return None
+
+
 class OllamaExecutor(Executor):
     """Executes work against a local Ollama service over its HTTP API."""
 
@@ -108,7 +145,42 @@ class OllamaExecutor(Executor):
         self._cancelled: set[str] = set()
 
     def capabilities(self) -> dict:
-        raise NotImplementedError
+        try:
+            response = _http_get_json(self._base_url, "/api/tags", self._timeout)
+        except _OllamaUnreachable as exc:
+            raise ExecutorError(f"ollama service unreachable: {exc}") from exc
+
+        capabilities = []
+        for model in response.get("models", []):
+            model_name = model["name"]
+            show_capabilities = None
+            context_window = None
+            try:
+                show = _http_post_json(
+                    self._base_url, "/api/show", {"name": model_name}, self._timeout
+                )
+                show_capabilities = show.get("capabilities")
+                context_window = _extract_context_window(show)
+            except (_OllamaUnreachable, KeyError, TypeError):
+                context_window = None
+
+            capability = {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [
+                    {"kind": kind, "parameters": {"model": model_name}}
+                    for kind in _classify_kinds(model_name, show_capabilities)
+                ],
+                "auth_transport": "local",
+            }
+            if context_window is not None:
+                capability["context_window"] = context_window
+            capabilities.append(capability)
+
+        return {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": self._executor_id,
+            "capabilities": capabilities,
+        }
 
     def health(self) -> ExecutorAvailability:
         try:

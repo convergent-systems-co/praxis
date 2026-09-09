@@ -111,7 +111,13 @@ class OllamaExecutor(Executor):
         raise NotImplementedError
 
     def health(self) -> ExecutorAvailability:
-        raise NotImplementedError
+        try:
+            response = _http_get_json(self._base_url, "/api/tags", self._timeout)
+        except _OllamaUnreachable:
+            return ExecutorAvailability.UNAVAILABLE
+        if not response.get("models"):
+            return ExecutorAvailability.DEGRADED
+        return ExecutorAvailability.AVAILABLE
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
         raise NotImplementedError

@@ -14,12 +14,14 @@ test needing its own handler subclass.
 from __future__ import annotations
 
 import json
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
 from praxis_executors.adapters.ollama import OllamaExecutor
+from praxis_executors.interface import ExecutorAvailability
 
 
 class _OllamaTestHandler(BaseHTTPRequestHandler):
@@ -73,3 +75,33 @@ def running_ollama_server():
 def test_base_url_must_be_loopback_or_raises():
     with pytest.raises(ValueError):
         OllamaExecutor(executor_id="e", base_url="http://example.com:11434")
+
+
+def _unused_loopback_port() -> int:
+    """A loopback port not currently bound, for exercising "service down"."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def test_health_reports_unavailable_when_service_unreachable():
+    port = _unused_loopback_port()
+    executor = OllamaExecutor(executor_id="e", base_url=f"http://127.0.0.1:{port}")
+
+    assert executor.health() == ExecutorAvailability.UNAVAILABLE
+
+
+def test_health_reports_degraded_when_no_models_installed(running_ollama_server):
+    base_url, responses = running_ollama_server
+    responses["/api/tags"] = (200, {"models": []})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    assert executor.health() == ExecutorAvailability.DEGRADED
+
+
+def test_health_reports_available_when_models_installed(running_ollama_server):
+    base_url, responses = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    assert executor.health() == ExecutorAvailability.AVAILABLE

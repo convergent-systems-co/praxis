@@ -251,7 +251,9 @@ document — the extension path is entirely local to `praxis_executors`:
 6. Once registered, the adapter is selectable through the existing `matching`/`policy`/`registry`
    machinery with no further wiring.
 
-None of those adapters exist in this bundle. `FakeCapabilityExecutor`
-(`src/praxis_executors/adapters/fake.py`) and `SubprocessExecutor`
-(`src/praxis_executors/adapters/subprocess_executor.py`) are the two adapters this bundle ships —
-a deterministic, scripted executor for tests, and a real OS-subprocess executor, respectively.
+None of those adapters exist yet. `FakeCapabilityExecutor`
+(`src/praxis_executors/adapters/fake.py`), `SubprocessExecutor`
+(`src/praxis_executors/adapters/subprocess_executor.py`), and `OllamaExecutor`
+(`src/praxis_executors/adapters/ollama.py`) are the adapters shipped so far — a deterministic,
+scripted executor for tests, a real OS-subprocess executor, and a local-HTTP-backed executor
+against a locally-running Ollama service (`auth_transport: "local"`), respectively.

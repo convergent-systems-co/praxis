@@ -19,8 +19,11 @@ from __future__ import annotations
 
 import re
 import subprocess
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
@@ -28,6 +31,7 @@ from praxis_executors.interface import (
     ExecutionRequest,
     Executor,
     ExecutorAvailability,
+    ExecutorError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -310,6 +314,104 @@ def test_redaction_still_covers_a_bearer_token_separated_by_tabs() -> None:
     # The counterpart: narrowing the separator to horizontal whitespace must
     # not narrow it to a single space.
     assert SHORT_BEARER_TOKEN not in codex_cli._redact(f"Authorization:\tBearer\t{SHORT_BEARER_TOKEN}")
+
+
+def test_credential_field_redaction_does_not_cross_a_line_boundary() -> None:
+    # The same rule the `Bearer` pattern already follows, applied to the
+    # field-name pattern: a line ending in a credential-shaped field name and
+    # its separator is prose, and the first word of the *next* line is another
+    # line's content, not the field's value. `\s` around the separator spans
+    # newlines and swallowed it.
+    transcript = "auth token:\nnextline-word rest"
+
+    assert codex_cli._redact(transcript) == transcript
+
+
+def test_credential_field_redaction_still_spans_spaces_and_tabs() -> None:
+    # The counterpart: horizontal whitespace either side of the separator is
+    # still part of the same field, so narrowing it must not narrow it to none.
+    assert OPAQUE_TOKEN not in codex_cli._redact(f'access_token \t: \t"{OPAQUE_TOKEN}"')
+
+
+# result(): dropping the output pump is a race, and its failure must be an ExecutorError
+
+
+def _launched(process: MagicMock) -> tuple[CodexCliExecutor, object]:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        return executor, executor.launch(request)
+
+
+def _settled_process() -> MagicMock:
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.communicate.return_value = ("transcript", "")
+    process.returncode = 0
+    return process
+
+
+def test_a_second_result_call_racing_the_first_does_not_raise_keyerror() -> None:
+    # Two result() calls for the same handle can both pass the cache check
+    # while the pump is still there; whichever finishes second then found the
+    # pump already dropped and raised KeyError. The adapter itself starts
+    # threads, so concurrent callers are not hypothetical.
+    executor, handle = _launched(_settled_process())
+    raced_result: list = []
+    raced_error: list = []
+
+    class _RacingPump:
+        """Runs a competing result() call for the same handle mid-read.
+
+        Only the first `output()` races, so the competing call reaches the
+        real pump and completes -- caching its result and dropping the pump
+        -- before the outer call resumes.
+        """
+
+        def __init__(self, inner) -> None:
+            self._inner = inner
+            self._raced = False
+
+        def output(self):
+            if not self._raced:
+                self._raced = True
+                competitor = threading.Thread(target=self._compete)
+                competitor.start()
+                competitor.join(10)
+            return self._inner.output()
+
+        def _compete(self) -> None:
+            try:
+                raced_result.append(executor.result(handle))
+            except Exception as exc:  # recorded, so the assertion names it
+                raced_error.append(exc)
+
+    executor._output_pumps[handle.handle_id] = _RacingPump(
+        executor._output_pumps[handle.handle_id]
+    )
+
+    result = executor.result(handle)
+
+    assert not raced_error, f"the racing result() call failed: {raced_error}"
+    assert result.payload["stdout"] == "transcript"
+    assert raced_result and raced_result[0].payload["stdout"] == "transcript"
+
+
+def test_result_raises_an_executor_error_when_the_output_pump_is_gone() -> None:
+    # The unreachable-by-invariant case still has to fail in the adapter's own
+    # currency: every other lookup failure here is an ExecutorError, and a
+    # KeyError escaping result() is a contract break for its callers.
+    executor, handle = _launched(_settled_process())
+    del executor._output_pumps[handle.handle_id]
+
+    with pytest.raises(ExecutorError):
+        executor.result(handle)
 
 
 # Output pump: an unexpected reader failure is still a failed read

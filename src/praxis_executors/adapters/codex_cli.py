@@ -64,8 +64,12 @@ _CREDENTIAL_PATTERNS = (
     # ending in the word "bearer" would redact the first token of the next
     # line, which is a different line's content and no part of any credential.
     (re.compile(r"(?i)\b(bearer[ \t]+)[A-Za-z0-9._~+/=-]+"), rf"\1{_REDACTED}"),
+    # Horizontal whitespace around the separator for the same reason as the
+    # `Bearer` pattern above: a line ending in a credential-shaped field name
+    # and its `=`/`:` is prose, and the first word of the following line is
+    # that line's content, no part of this field's value.
     (
-        re.compile(rf"(?i)\b({_CREDENTIAL_FIELD}\"?\s*[=:]\s*\"?)" r"[^\s\"',;}\]]{8,}"),
+        re.compile(rf"(?i)\b({_CREDENTIAL_FIELD}\"?[ \t]*[=:][ \t]*\"?)" r"[^\s\"',;}\]]{8,}"),
         rf"\1{_REDACTED}",
     ),
 )
@@ -430,7 +434,23 @@ class CodexCliExecutor(Executor):
             return cached
         if process.poll() is None:
             raise ExecutorError("cannot fetch result while execution is still RUNNING")
-        stdout, stderr, read_error, settled = self._output_pumps[handle.handle_id].output()
+        pump = self._output_pumps.get(handle.handle_id)
+        if pump is None:
+            # Reachable only by racing another result() call for this same
+            # handle: both can pass the cache check above while the pump is
+            # still registered, and the one that finishes first caches its
+            # result and drops the pump. That ordering -- cache, then drop --
+            # is what makes the cached result the right answer here. A
+            # subscript would instead raise KeyError, which is not the
+            # currency this adapter reports lookup failures in.
+            settled_by_the_other_caller = self._results.get(handle.handle_id)
+            if settled_by_the_other_caller is None:
+                raise ExecutorError(
+                    "the codex output reader is gone and no result was recorded "
+                    f"for handle: {handle.handle_id!r}"
+                )
+            return settled_by_the_other_caller
+        stdout, stderr, read_error, settled = pump.output()
         returncode = process.returncode
         payload = {
             "stdout": _redact(stdout),
@@ -461,5 +481,10 @@ class CodexCliExecutor(Executor):
             # whole transcript twice per launch. The `no cached result implies
             # a live pump` invariant this relies on holds because nothing ever
             # removes an entry from `_results`.
-            del self._output_pumps[handle.handle_id]
+            #
+            # `pop`, not `del`: a concurrent result() call for this handle can
+            # have dropped the pump already, and dropping an entry twice is
+            # not an error worth raising -- both callers reached the same
+            # settled result.
+            self._output_pumps.pop(handle.handle_id, None)
         return result

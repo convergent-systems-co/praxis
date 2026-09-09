@@ -299,6 +299,29 @@ def test_successful_generate_reaches_succeeded(running_ollama_server):
     assert executor.result(handle).payload["response"] == "hello there"
 
 
+def test_generate_with_non_dict_payload_reaches_failed(running_ollama_server):
+    """Regression test for #69: a malformed `/api/generate` response body that
+    decodes to valid JSON but isn't a dict (e.g. a bare JSON array) must not
+    permanently corrupt the handle. Before the fix, `payload.get(...)` on a
+    non-dict payload raised `AttributeError` inside the worker thread before
+    `self._results[handle_id]` was ever set, leaving `status()`/`result()`
+    raising `KeyError` forever instead of resolving to a terminal state.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (200, ["not", "a", "dict"])
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.FAILED
+    assert executor.result(handle).status == ExecutorStatus.FAILED
+
+
 def test_cancel_closes_in_flight_request(running_ollama_server):
     base_url, responses, delays = running_ollama_server
     delays["/api/generate"] = 2.0

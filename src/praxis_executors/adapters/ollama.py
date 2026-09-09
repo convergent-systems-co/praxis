@@ -266,14 +266,21 @@ class OllamaExecutor(Executor):
             self._results[handle_id] = ExecutionResult(status=status, payload={"error": str(exc)})
             return
 
-        status = ExecutorStatus.CANCELLED if handle_id in self._cancelled else ExecutorStatus.SUCCEEDED
+        if handle_id in self._cancelled:
+            self._results[handle_id] = ExecutionResult(
+                status=ExecutorStatus.CANCELLED,
+                payload={"response": None, "model": None, "done": None},
+            )
+            return
+        if not isinstance(payload, dict):
+            self._results[handle_id] = ExecutionResult(
+                status=ExecutorStatus.FAILED,
+                payload={"error": f"/api/generate returned a non-dict payload: {payload!r}"},
+            )
+            return
         self._results[handle_id] = ExecutionResult(
-            status=status,
-            payload={
-                "response": payload.get("response"),
-                "model": payload.get("model"),
-                "done": payload.get("done"),
-            },
+            status=ExecutorStatus.SUCCEEDED,
+            payload={"response": payload.get("response"), "model": payload.get("model"), "done": payload.get("done")},
         )
 
     def _thread_for(self, handle: ExecutionHandle) -> threading.Thread:

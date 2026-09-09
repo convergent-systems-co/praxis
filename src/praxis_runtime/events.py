@@ -28,10 +28,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_runtime.migrations import migrate_document
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "event.schema.json"
+SCHEMA_PATH = schema_path("event.schema.json")
 
 LOG_FILENAME = "events.jsonl"
 _KIND = "event"

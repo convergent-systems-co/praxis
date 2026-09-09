@@ -21,13 +21,11 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from itertools import combinations
-from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import validate_document
 
-SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent.parent.parent / "schemas" / "v1" / "resource-claim.schema.json"
-)
+SCHEMA_PATH = schema_path("resource-claim.schema.json")
 
 
 class AccessMode(enum.Enum):

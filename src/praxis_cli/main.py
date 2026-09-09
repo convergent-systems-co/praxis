@@ -52,7 +52,5 @@ def main(argv: list[str] | None = None) -> int:
     if args.executors_command == "discover":
         return discover_cmd.run_discover(built)
     if args.executors_command == "match":
-        return match_cmd.run_match(
-            built.values(), capabilities=args.capability, explain=args.explain
-        )
+        return match_cmd.run_match(built, capabilities=args.capability, explain=args.explain)
     return status_cmd.run_status(built, as_json=args.json)

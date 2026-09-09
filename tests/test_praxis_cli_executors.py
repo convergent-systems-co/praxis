@@ -14,7 +14,10 @@ each route is covered per-module in test_cli_discover.py / test_cli_status.py
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -85,8 +88,12 @@ def test_discover_returns_zero_and_prints_all_four_executors(capsys):
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    header_lines = [line for line in captured.out.splitlines() if line.endswith(":")]
-    assert len(header_lines) == 4
+    # Each block opens with an unindented `<executor_id>:` line; an indented
+    # line is one of that block's fields.
+    header_lines = [
+        line for line in captured.out.splitlines() if line.endswith(":") and line[:1] != " "
+    ]
+    assert header_lines == ["executor-a:", "executor-b:", "executor-c:", "executor-d:"]
 
 
 def test_bare_executors_prints_a_header_and_one_line_per_executor(capsys):
@@ -134,3 +141,69 @@ def test_no_subcommand_still_prints_version(capsys):
     captured = capsys.readouterr()
     assert exit_code == 0
     assert re.match(r"\d+\.\d+\.\d+", captured.out.strip())
+
+
+# The version-only path must not pay for the executor machinery. Checked in a
+# subprocess because the modules are already imported in this one.
+
+
+_PROBE = """
+import json, os, sys, types
+
+watched = [
+    "praxis_cli.discover_cmd",
+    "praxis_cli.status_cmd",
+    "praxis_cli.match_cmd",
+    "praxis_cli.fields",
+    "praxis_executors.adapters.claude_cli",
+    "praxis_executors.adapters.ollama",
+]
+
+if os.environ.get("PRAXIS_STUB_ADAPTERS"):
+    # Keeps the probe hermetic: main() must still import praxis_cli.adapters
+    # lazily, but the stub never touches a real CLI or socket.
+    stub = types.ModuleType("praxis_cli.adapters")
+    stub.build_adapters = lambda: {}
+    sys.modules["praxis_cli.adapters"] = stub
+else:
+    watched.append("praxis_cli.adapters")
+
+import praxis_cli.main as m
+
+before = [name for name in watched if name in sys.modules]
+code = m.main(sys.argv[1:] or None)
+after = [name for name in watched if name in sys.modules]
+sys.stderr.write(json.dumps({"before": before, "after": after, "code": code}))
+"""
+
+
+def _probe(*argv: str, stub_adapters: bool = False) -> dict:
+    environment = dict(os.environ)
+    if stub_adapters:
+        environment["PRAXIS_STUB_ADAPTERS"] = "1"
+    completed = subprocess.run(
+        [sys.executable, "-c", _PROBE, *argv],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=environment,
+    )
+    return {**json.loads(completed.stderr), "stdout": completed.stdout}
+
+
+def test_version_path_never_imports_the_adapter_modules():
+    result = _probe("--version")
+
+    assert result["before"] == []
+    assert result["after"] == []
+    assert result["code"] == 0
+    assert result["stdout"].strip() != ""
+
+
+def test_executors_path_imports_the_command_modules_on_demand():
+    result = _probe("executors", "--json", stub_adapters=True)
+
+    assert result["before"] == []
+    assert "praxis_cli.status_cmd" in result["after"]
+    assert result["code"] == 0
+    assert json.loads(result["stdout"]) == []

@@ -6,6 +6,10 @@ Advertisement fixtures follow schemas/v1/capability-advertisement.schema.json.
 `run_match` wires in the same way `registry.py` does (recognized/safe
 "local" is eligible; "metered_api" is unsafe-by-default and produces
 `policy_excluded=True` when it's the only advertisement of a required kind).
+
+`--explain`'s per-candidate lines are asserted whole rather than by
+substring: a reason is only useful if it says the right thing about the
+right candidate, and `"yes" in line` passes on output that no longer does.
 """
 
 from __future__ import annotations
@@ -56,18 +60,24 @@ def _advertisement(executor_id: str, kind: str, auth_transport: str) -> dict:
     }
 
 
-def _adapters() -> list[Executor]:
-    # Satisfies the requested kind and has a policy-eligible auth_transport
-    # -> selected.
-    selected = _FixedAdvertisementExecutor(_advertisement("executor-good", "kind-a", "local"))
-    # Satisfies the requested kind but its only auth_transport is
-    # unsafe-by-default -> excluded by AuthTransportPolicy (policy_excluded).
-    policy_excluded = _FixedAdvertisementExecutor(
-        _advertisement("executor-excluded", "kind-a", "metered_api")
-    )
-    # Policy-eligible, but doesn't satisfy the requested kind at all.
-    wrong_kind = _FixedAdvertisementExecutor(_advertisement("executor-other", "kind-b", "local"))
-    return [selected, policy_excluded, wrong_kind]
+def _candidate(executor_id: str, kind: str, auth_transport: str) -> _FixedAdvertisementExecutor:
+    return _FixedAdvertisementExecutor(_advertisement(executor_id, kind, auth_transport))
+
+
+def _adapters() -> dict[str, Executor]:
+    """The same `{executor_id: instance}` mapping shape `discover`/`status` take.
+
+    * `executor-good` satisfies the requested kind over a policy-eligible
+      transport -> selected.
+    * `executor-excluded` satisfies it too, but only over an
+      unsafe-by-default transport -> `policy_excluded`.
+    * `executor-other` is policy-eligible but satisfies a different kind.
+    """
+    return {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-excluded": _candidate("executor-excluded", "kind-a", "metered_api"),
+        "executor-other": _candidate("executor-other", "kind-b", "local"),
+    }
 
 
 # _format_reason() -- shared by the no-selection path (_print_unsatisfied)
@@ -113,9 +123,7 @@ def test_non_explain_path_prints_only_the_selection(capsys):
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "executor-good" in captured.out
-    assert "executor-excluded" not in captured.out
-    assert "executor-other" not in captured.out
+    assert captured.out.splitlines() == ["executor-good"]
 
 
 def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candidates(capsys):
@@ -123,33 +131,66 @@ def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candi
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    lines = {line.split(":", 1)[0].strip(): line for line in captured.out.splitlines()}
+    assert captured.out.splitlines() == [
+        "executor-good",
+        "executor-good: eligible=yes score=1",
+        "executor-excluded: eligible=no reason=policy excludes this candidate for "
+        "required kind(s): kind-a (policy_excluded)",
+        "executor-other: eligible=yes reason=does not satisfy required kind(s): kind-a",
+    ]
 
-    good_line = lines["executor-good"]
-    assert "yes" in good_line
-    assert "1" in good_line
 
-    excluded_line = lines["executor-excluded"]
-    assert "no" in excluded_line
-    assert "policy_excluded" in excluded_line
+def test_explain_reason_for_an_eligible_candidate_is_about_that_candidate(capsys):
+    # `matching.match`'s own reasons speak about the whole advertisement set
+    # ("no eligible advertisement satisfies ..."), which contradicts
+    # `eligible=yes` on the same line.
+    run_match(_adapters(), capabilities=["kind-a"], explain=True)
 
-    other_line = lines["executor-other"]
-    assert "yes" in other_line
-    assert "policy_excluded" not in other_line
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert "no eligible advertisement satisfies" not in lines["executor-other"]
+
+
+def test_explain_does_not_blame_the_policy_for_an_advertisement_with_no_capabilities(capsys):
+    # `AuthTransportPolicy.is_eligible` returns False for an empty
+    # `capabilities` list, but there is no auth transport to have excluded --
+    # the candidate simply advertises nothing.
+    empty = _FixedAdvertisementExecutor(
+        {"spec_version": _SPEC_VERSION, "executor_id": "executor-empty", "capabilities": []}
+    )
+    adapters = {"executor-good": _candidate("executor-good", "kind-a", "local"),
+                "executor-empty": empty}
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-empty"] == (
+        "executor-empty: eligible=no reason=does not satisfy required kind(s): kind-a"
+    )
 
 
 def test_no_selection_prints_unsatisfied_reasons_unconditionally(capsys):
-    adapters = [_FixedAdvertisementExecutor(_advertisement("executor-other", "kind-b", "local"))]
+    adapters = {"executor-other": _candidate("executor-other", "kind-b", "local")}
 
     exit_code = run_match(adapters, capabilities=["kind-a"], explain=False)
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "no executor selected" in captured.out
-    assert "kind-a" in captured.out
+    assert captured.out.splitlines() == [
+        "no executor selected",
+        "no eligible advertisement satisfies 'kind-a'",
+    ]
 
 
-def test_empty_capabilities_does_not_crash():
+def test_empty_capabilities_ranks_every_eligible_candidate(capsys):
     exit_code = run_match(_adapters(), capabilities=[], explain=True)
 
+    captured = capsys.readouterr()
     assert exit_code == 0
+    # With no required kind, `match` has nothing to report unsatisfied, so the
+    # only thing left to say about an unranked candidate is the policy verdict.
+    assert captured.out.splitlines() == [
+        "executor-good",
+        "executor-good: eligible=yes score=1",
+        "executor-excluded: eligible=no reason=excluded by policy (policy_excluded)",
+        "executor-other: eligible=yes score=2",
+    ]

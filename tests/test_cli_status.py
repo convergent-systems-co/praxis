@@ -152,6 +152,16 @@ def test_build_status_rows_preserves_adapter_order():
 # print_status_table()
 
 
+def _header_offsets(header: str) -> tuple[list[str], list[int]]:
+    names = header.split()
+    return names, [header.index(name) for name in names]
+
+
+def _cells(line: str, offsets: list[int]) -> list[str]:
+    bounds = [*offsets, len(line) + 1]
+    return [line[bounds[i] : bounds[i + 1]].rstrip() for i in range(len(offsets))]
+
+
 def test_print_status_table_prints_a_header_then_one_line_per_row(capsys):
     rows = build_status_rows(_adapters())
 
@@ -160,21 +170,37 @@ def test_print_status_table_prints_a_header_then_one_line_per_row(capsys):
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert len(lines) == 3
-    assert lines[0].split() == [
+    names, offsets = _header_offsets(lines[0])
+    assert names == [
         "EXECUTOR_ID",
         "AUTH_TRANSPORT",
         "STATUS",
         "CAPABILITIES",
         "ERROR",
     ]
-    assert lines[1].split() == [
+    assert _cells(lines[1], offsets) == [
         "executor-good",
         "local,subscription_cli",
         "available",
         "coding,reasoning",
+        "",
     ]
-    assert lines[2].startswith("executor-bad")
-    assert lines[2].endswith("service unreachable")
+    # The failing row's column boundaries survive even though its last cell is
+    # a free-text sentence containing spaces.
+    assert _cells(lines[2], offsets) == [
+        "executor-bad",
+        "",
+        "unavailable",
+        "",
+        "service unreachable",
+    ]
+
+
+def test_print_status_table_omits_the_error_column_when_every_probe_succeeded(capsys):
+    print_status_table(build_status_rows({"executor-good": _AvailableExecutor("executor-good")}))
+
+    names, _ = _header_offsets(capsys.readouterr().out.splitlines()[0])
+    assert names == ["EXECUTOR_ID", "AUTH_TRANSPORT", "STATUS", "CAPABILITIES"]
 
 
 # print_status_json()

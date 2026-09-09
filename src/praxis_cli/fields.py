@@ -50,6 +50,20 @@ def authenticated_field(executor: Executor, installed: str) -> str:
     return "no"
 
 
+def render_cell(value) -> str:
+    """One display string for a row value: `None` is empty, a list joins on ",".
+
+    Shared by `discover`'s block report and `status`'s table so the two
+    commands never disagree on how the same value looks -- and so a list is
+    never printed through `repr` as Python syntax.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return ",".join(value)
+    return str(value)
+
+
 def capability_kinds(advertisement: dict) -> list[str]:
     kinds: list[str] = []
     for capability in advertisement["capabilities"]:

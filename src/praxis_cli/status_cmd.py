@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Mapping
 
-from praxis_cli.fields import auth_transports, capability_kinds
+from praxis_cli.fields import auth_transports, capability_kinds, render_cell
 from praxis_executors.interface import Executor, ExecutorError
 
 _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities", "error")
@@ -48,14 +48,6 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     return rows
 
 
-def _cell(value) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, list):
-        return ",".join(value)
-    return str(value)
-
-
 def print_status_table(rows: list[dict]) -> None:
     columns = list(_COLUMNS)
     # `error` is free text and the only cell that can contain a space, so it
@@ -64,7 +56,7 @@ def print_status_table(rows: list[dict]) -> None:
         columns.remove("error")
 
     lines = [[column.upper() for column in columns]]
-    lines.extend([_cell(row.get(column)) for column in columns] for row in rows)
+    lines.extend([render_cell(row.get(column)) for column in columns] for row in rows)
     widths = [max(len(line[i]) for line in lines) for i in range(len(columns))]
 
     for line in lines:

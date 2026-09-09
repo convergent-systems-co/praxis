@@ -6,6 +6,11 @@ The command takes the `{executor_id: instance}` mapping
 id the CLI knows the adapter as -- including a row whose `.capabilities()`
 call failed and left no advertisement to read an id from.
 
+Rows carry the same per-column types `status_cmd` does: `capabilities` is
+always a list, `auth_transport` always a string, and a failed probe puts its
+reason in `error` rather than replacing another column's value with a
+sentence.
+
 The fakes below implement the `Executor` ABC directly rather than subclassing
 a real adapter: `praxis_cli.fields` degrades to `"n/a"` for a class it does
 not recognise instead of raising, which is what keeps one unknown adapter
@@ -86,6 +91,7 @@ def test_build_discover_rows_succeeding_executor():
             "authenticated": "n/a",
             "auth_transport": "local",
             "capabilities": ["coding", "reasoning"],
+            "error": None,
         }
     ]
 
@@ -104,8 +110,9 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "installed": "n/a",
             "version": "unknown",
             "authenticated": "n/a",
-            "auth_transport": "unavailable",
-            "capabilities": "unavailable (capability probe failed)",
+            "auth_transport": "",
+            "capabilities": [],
+            "error": "capability probe failed",
         },
         {
             "executor_id": "executor-fake-good",
@@ -114,8 +121,53 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "authenticated": "n/a",
             "auth_transport": "local",
             "capabilities": ["coding", "reasoning"],
+            "error": None,
         },
     ]
+
+
+def test_build_discover_rows_keep_one_type_per_column_across_healthy_and_failed_rows():
+    # The same guarantee `status_cmd` makes: no consumer of a discover row
+    # has to type-switch on whether the probe happened to succeed.
+    rows = build_discover_rows(
+        {"executor-fake-bad": _failing(), "executor-fake-good": _succeeding()}
+    )
+
+    for row in rows:
+        assert isinstance(row["capabilities"], list)
+        assert isinstance(row["auth_transport"], str)
+
+
+def test_build_discover_rows_joins_auth_transports_the_way_status_does():
+    multi = _StubExecutor(
+        "executor-fake-multi",
+        [
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": "coding"}],
+                "auth_transport": "local",
+            },
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": "reasoning"}],
+                "auth_transport": "subscription_cli",
+            },
+        ],
+    )
+
+    rows = build_discover_rows({"executor-fake-multi": multi})
+
+    assert rows[0]["auth_transport"] == "local,subscription_cli"
+
+
+def test_build_discover_rows_names_a_row_by_its_mapping_key_not_the_advertisement():
+    # The mapping key is the id the CLI knows an executor by, and it is
+    # available whether or not `.capabilities()` returns.
+    mismatched = _StubExecutor("something-else", _CAPS)
+
+    rows = build_discover_rows({"executor-registered": mismatched})
+
+    assert rows[0]["executor_id"] == "executor-registered"
 
 
 def test_build_discover_rows_names_every_failing_executor_by_its_registered_id():
@@ -144,10 +196,30 @@ def test_print_discover_rows_includes_content_per_row(capsys):
 
     captured = capsys.readouterr()
     assert "executor-fake-bad" in captured.out
-    assert "unavailable (capability probe failed)" in captured.out
+    assert "capability probe failed" in captured.out
     assert "executor-fake-good" in captured.out
     assert "coding" in captured.out
     assert "auth_transport: local" in captured.out
+
+
+def test_print_discover_rows_renders_capabilities_as_text_not_python_syntax(capsys):
+    print_discover_rows(build_discover_rows({"executor-fake-good": _succeeding()}))
+
+    captured = capsys.readouterr()
+    assert "  capabilities: coding,reasoning" in captured.out
+    assert "[" not in captured.out
+    assert "'" not in captured.out
+
+
+def test_print_discover_rows_reports_a_failed_probe_and_omits_error_otherwise(capsys):
+    print_discover_rows(build_discover_rows({"executor-fake-bad": _failing()}))
+    failed = capsys.readouterr().out
+
+    print_discover_rows(build_discover_rows({"executor-fake-good": _succeeding()}))
+    healthy = capsys.readouterr().out
+
+    assert "  error: capability probe failed" in failed
+    assert "error" not in healthy
 
 
 # run_discover() -- must degrade gracefully rather than abort on a failing row.

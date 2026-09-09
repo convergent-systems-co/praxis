@@ -11,15 +11,43 @@ from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
-from praxis_executors.interface import ExecutorAvailability
+from praxis_executors.interface import Executor, ExecutorAvailability
 
 from praxis_cli.fields import (
     auth_transports,
     authenticated_field,
     capability_kinds,
     installed_field,
+    render_cell,
     version_field,
 )
+
+
+class _UnknownExecutor(Executor):
+    """An `Executor` implemented straight off the ABC.
+
+    Deliberately none of the four concrete adapter classes `fields.py`
+    dispatches on -- a stand-in for the fifth adapter that lands after this
+    module was written, which the CLI has to survive.
+    """
+
+    def capabilities(self) -> dict:
+        raise NotImplementedError
+
+    def health(self) -> ExecutorAvailability:
+        raise NotImplementedError
+
+    def launch(self, request):
+        raise NotImplementedError
+
+    def status(self, handle):
+        raise NotImplementedError
+
+    def cancel(self, handle):
+        raise NotImplementedError
+
+    def result(self, handle):
+        raise NotImplementedError
 
 
 def _claude() -> ClaudeCliExecutor:
@@ -73,6 +101,12 @@ def test_installed_field_subprocess_is_builtin():
 
 def test_installed_field_fake_is_builtin():
     assert installed_field(_fake()) == "n/a (built-in)"
+
+
+def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():
+    # "Installed" is not derivable for a class this module knows nothing
+    # about, and raising would take a whole command down for one unknown row.
+    assert installed_field(_UnknownExecutor()) == "n/a"
 
 
 # version_field()
@@ -160,3 +194,16 @@ def test_auth_transports_dedups_preserving_first_seen_order():
     advertisement = _advertisement_with_duplicates()
 
     assert auth_transports(advertisement) == ["local", "subscription_cli"]
+
+
+# render_cell() -- the one display rule `discover` and `status` share
+
+
+def test_render_cell_joins_a_list_without_python_syntax():
+    assert render_cell(["coding", "reasoning"]) == "coding,reasoning"
+
+
+def test_render_cell_renders_none_as_empty_and_leaves_a_string_alone():
+    assert render_cell(None) == ""
+    assert render_cell("available") == "available"
+    assert render_cell([]) == ""

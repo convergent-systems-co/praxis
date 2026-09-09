@@ -1,4 +1,4 @@
-# Praxis
+# Praxis — Universal AI Execution Fabric
 
 **Praxis is a deterministic execution substrate for AI-assisted and autonomous work.**
 

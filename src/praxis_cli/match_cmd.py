@@ -88,7 +88,7 @@ def run_match(
     for name, executor in adapters.items():
         try:
             gathered.append((name, executor.capabilities()))
-        except ExecutorError:
+        except (ExecutorError, ValueError):
             continue
 
     advertisements = [advertisement for _, advertisement in gathered]

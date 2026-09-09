@@ -14,6 +14,8 @@ right candidate, and `"yes" in line` passes on output that no longer does.
 
 from __future__ import annotations
 
+import json
+
 from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
 from praxis_executors.interface import Executor, ExecutorAvailability
 from praxis_executors.matching import UnsatisfiedPromise
@@ -29,6 +31,31 @@ class _FixedAdvertisementExecutor(Executor):
 
     def capabilities(self) -> dict:
         return self._advertisement
+
+    def health(self) -> ExecutorAvailability:
+        raise NotImplementedError
+
+    def launch(self, request):
+        raise NotImplementedError
+
+    def status(self, handle):
+        raise NotImplementedError
+
+    def cancel(self, handle):
+        raise NotImplementedError
+
+    def result(self, handle):
+        raise NotImplementedError
+
+
+class _MalformedResponseExecutor(Executor):
+    """A fake Executor whose `.capabilities()` raises `json.JSONDecodeError`
+    (a `ValueError` subclass, not an `ExecutorError`) -- reproducing a
+    non-Ollama server answering 200 with a non-JSON body."""
+
+    def capabilities(self) -> dict:
+        json.loads("not json")
+        raise AssertionError("unreachable")
 
     def health(self) -> ExecutorAvailability:
         raise NotImplementedError
@@ -120,6 +147,16 @@ def test_build_requirement_maps_each_capability_to_a_required_promise():
 
 def test_non_explain_path_prints_only_the_selection(capsys):
     exit_code = run_match(_adapters(), capabilities=["kind-a"], explain=False)
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out.splitlines() == ["executor-good"]
+
+
+def test_run_match_json_decode_error_from_capabilities_is_dropped_not_raised(capsys):
+    adapters = {**_adapters(), "executor-broken": _MalformedResponseExecutor()}
+
+    exit_code = run_match(adapters, capabilities=["kind-a"], explain=False)
 
     captured = capsys.readouterr()
     assert exit_code == 0

@@ -6,7 +6,7 @@ import json
 from typing import Mapping
 
 from praxis_cli.fields import auth_transports, capability_kinds, render_cell
-from praxis_executors.interface import Executor, ExecutorError
+from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities", "error")
 
@@ -14,16 +14,33 @@ _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities", "error")
 def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     """One row per adapter, with the same type per column on every row.
 
-    A failed `.capabilities()` probe leaves `auth_transport` empty and
-    `capabilities` an empty list, and puts the reason in `error`, so a
-    machine consumer of `--json` never has to type-switch per row.
+    A failed `.health()` or `.capabilities()` probe leaves `auth_transport`
+    empty and `capabilities` an empty list, and puts the reason in `error`,
+    so a machine consumer of `--json` never has to type-switch per row.
+    Catches `ValueError` alongside `ExecutorError`: an adapter's transport
+    layer can surface a malformed response (e.g. `json.JSONDecodeError`,
+    itself a `ValueError` subclass) that is not its own `ExecutorError`, and
+    one such adapter must degrade its own row rather than take the whole
+    command down.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
-        status = executor.health().value
+        try:
+            status = executor.health().value
+        except (ExecutorError, ValueError) as exc:
+            rows.append(
+                {
+                    "executor_id": executor_id,
+                    "auth_transport": "",
+                    "status": ExecutorAvailability.DEGRADED.value,
+                    "capabilities": [],
+                    "error": str(exc),
+                }
+            )
+            continue
         try:
             advertisement = executor.capabilities()
-        except ExecutorError as exc:
+        except (ExecutorError, ValueError) as exc:
             rows.append(
                 {
                     "executor_id": executor_id,

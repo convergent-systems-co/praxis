@@ -44,7 +44,7 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
         }
         try:
             advertisement = executor.capabilities()
-        except ExecutorError as exc:
+        except (ExecutorError, ValueError) as exc:
             # One adapter whose backing CLI or service is absent must not take
             # the whole report down -- its row degrades, the rest still print.
             row["auth_transport"] = ""

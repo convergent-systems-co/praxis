@@ -20,6 +20,8 @@ or opens an Ollama socket.
 
 from __future__ import annotations
 
+import json
+
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows, run_discover
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
@@ -55,6 +57,31 @@ class _StubExecutor(Executor):
         if self._capabilities is None:
             return ExecutorAvailability.UNAVAILABLE
         return ExecutorAvailability.AVAILABLE
+
+    def launch(self, request):
+        raise NotImplementedError
+
+    def status(self, handle):
+        raise NotImplementedError
+
+    def cancel(self, handle):
+        raise NotImplementedError
+
+    def result(self, handle):
+        raise NotImplementedError
+
+
+class _MalformedResponseExecutor(Executor):
+    """A fake Executor whose `.capabilities()` raises `json.JSONDecodeError`
+    (a `ValueError` subclass, not an `ExecutorError`) -- reproducing a
+    non-Ollama server answering 200 with a non-JSON body."""
+
+    def capabilities(self) -> dict:
+        json.loads("not json")
+        raise AssertionError("unreachable")
+
+    def health(self) -> ExecutorAvailability:
+        return ExecutorAvailability.DEGRADED
 
     def launch(self, request):
         raise NotImplementedError
@@ -124,6 +151,18 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "error": None,
         },
     ]
+
+
+def test_build_discover_rows_json_decode_error_from_capabilities_degrades_its_row_instead_of_crashing():
+    rows = build_discover_rows(
+        {"executor-fake-good": _succeeding(), "executor-broken": _MalformedResponseExecutor()}
+    )
+
+    broken = rows[1]
+    assert broken["executor_id"] == "executor-broken"
+    assert broken["auth_transport"] == ""
+    assert broken["capabilities"] == []
+    assert "Expecting value" in broken["error"]
 
 
 def test_build_discover_rows_keep_one_type_per_column_across_healthy_and_failed_rows():

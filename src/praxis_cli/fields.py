@@ -19,7 +19,15 @@ def installed_field(executor: Executor) -> str:
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"
     if isinstance(executor, OllamaExecutor):
-        return "yes" if executor.health() != ExecutorAvailability.UNAVAILABLE else "no"
+        try:
+            health = executor.health()
+        except ValueError:
+            # A malformed response (e.g. `json.JSONDecodeError`, a `ValueError`
+            # subclass) is a mid-probe failure, not a verdict -- neither "yes"
+            # nor "no" would be honest, so this degrades the same way an
+            # unrecognised adapter class does below.
+            return "unknown"
+        return "yes" if health != ExecutorAvailability.UNAVAILABLE else "no"
     if isinstance(executor, (SubprocessExecutor, FakeCapabilityExecutor)):
         return "n/a (built-in)"
     # Every adapter that lands after this module was written arrives here.
@@ -42,7 +50,10 @@ def authenticated_field(executor: Executor, installed: str) -> str:
         return "n/a"
     if installed == "no":
         return "n/a (not installed)"
-    health = executor.health()
+    try:
+        health = executor.health()
+    except ValueError:
+        return "unknown"
     if health == ExecutorAvailability.AVAILABLE:
         return "yes"
     if health == ExecutorAvailability.DEGRADED:

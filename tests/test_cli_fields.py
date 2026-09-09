@@ -103,6 +103,20 @@ def test_installed_field_fake_is_builtin():
     assert installed_field(_fake()) == "n/a (built-in)"
 
 
+def test_installed_field_ollama_unknown_when_health_raises_json_decode_error(monkeypatch):
+    # A non-Ollama server answering 200 with a non-JSON body surfaces as
+    # `json.JSONDecodeError`, a `ValueError` subclass -- not the adapter's own
+    # `ExecutorError` -- and must degrade this one field, not crash the row.
+    executor = _ollama()
+
+    def _raise():
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+    monkeypatch.setattr(executor, "health", _raise)
+
+    assert installed_field(executor) == "unknown"
+
+
 def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():
     # "Installed" is not derivable for a class this module knows nothing
     # about, and raising would take a whole command down for one unknown row.
@@ -145,6 +159,17 @@ def test_authenticated_field_claude_installed_unavailable(monkeypatch):
     monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.UNAVAILABLE)
 
     assert authenticated_field(executor, installed="yes") == "no"
+
+
+def test_authenticated_field_claude_installed_unknown_when_health_raises_json_decode_error(monkeypatch):
+    executor = _claude()
+
+    def _raise():
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+    monkeypatch.setattr(executor, "health", _raise)
+
+    assert authenticated_field(executor, installed="yes") == "unknown"
 
 
 def test_authenticated_field_ollama_is_na():

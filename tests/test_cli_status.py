@@ -95,6 +95,33 @@ class _UnavailableExecutor(Executor):
         raise NotImplementedError
 
 
+class _MalformedResponseExecutor(Executor):
+    """A fake Executor whose transport layer raises `json.JSONDecodeError`
+    (a `ValueError` subclass, not an `ExecutorError`) from both `.health()`
+    and `.capabilities()` -- reproducing a non-Ollama server answering 200
+    with a non-JSON body on the adapter's configured port."""
+
+    def health(self) -> ExecutorAvailability:
+        json.loads("not json")
+        raise AssertionError("unreachable")
+
+    def capabilities(self) -> dict:
+        json.loads("not json")
+        raise AssertionError("unreachable")
+
+    def launch(self, request):
+        raise NotImplementedError
+
+    def status(self, handle):
+        raise NotImplementedError
+
+    def cancel(self, handle):
+        raise NotImplementedError
+
+    def result(self, handle):
+        raise NotImplementedError
+
+
 def _adapters() -> dict[str, Executor]:
     return {
         "executor-good": _AvailableExecutor("executor-good"),
@@ -147,6 +174,20 @@ def test_build_status_rows_preserves_adapter_order():
     rows = build_status_rows(_adapters())
 
     assert [row["executor_id"] for row in rows] == ["executor-good", "executor-bad"]
+
+
+def test_build_status_rows_health_raising_json_decode_error_degrades_its_row_instead_of_crashing():
+    rows = build_status_rows(
+        {"executor-good": _AvailableExecutor("executor-good"), "executor-broken": _MalformedResponseExecutor()}
+    )
+
+    assert rows[1]["executor_id"] == "executor-broken"
+    assert rows[1]["status"] == "degraded"
+    assert rows[1]["auth_transport"] == ""
+    assert rows[1]["capabilities"] == []
+    assert "Expecting value" in rows[1]["error"]
+    # The other row is unaffected.
+    assert rows[0]["status"] == "available"
 
 
 # print_status_table()

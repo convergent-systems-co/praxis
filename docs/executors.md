@@ -190,9 +190,12 @@ concern, not something a Promise or Requirement encodes.
   explicitly listed there is ineligible, even an otherwise-safe one like `oauth_cli` or `local`.
   `denied_auth_transports` additionally denies any otherwise-safe recognized value. It inspects
   **every** entry in the advertisement's `capabilities[]` list and requires all of them to pass — one non-conforming
-  capability makes the whole executor ineligible. Like `AllowListPolicy`/`DenyListPolicy`, it is
-  opt-in: a caller constructs it and wires it via `as_eligibility_callable`, the same as today —
-  it is not auto-applied by `matching.match`, `ExecutorRegistry`, or any default path.
+  capability makes the whole executor ineligible. Like `AllowListPolicy`/`DenyListPolicy`, a caller
+  can construct it and wire it via `as_eligibility_callable` explicitly — but unlike them, it is
+  also the default: `ExecutorRegistry.select`/`execute`/`execute_with_proof_records` apply a
+  default-constructed `AuthTransportPolicy()` whenever no `is_eligible` is supplied. A caller can
+  still loosen or replace this default by passing `is_eligible` explicitly. `matching.match` itself
+  remains policy-agnostic — it only ever sees whatever `is_eligible` callable its caller passes in.
 - `def as_eligibility_callable(policy: ExecutorPolicy, advertisements: list[dict]) -> Callable[[str], bool]`:
   adapts a policy plus a snapshot of advertisements into the plain `Callable[[str], bool]` shape
   `matching.match`'s `is_eligible` parameter expects (an id absent from the snapshot is treated as

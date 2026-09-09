@@ -35,6 +35,7 @@ def _advertisement(executor_id: str, kind: str) -> dict:
                 "spec_version": "1.0.0",
                 "id": f"cap-{executor_id}",
                 "satisfies": [{"kind": kind}],
+                "auth_transport": "local",
             }
         ],
     }
@@ -231,6 +232,39 @@ def test_select_honors_is_eligible_callback():
     result = registry.select(requirement, is_eligible=lambda executor_id: False)
 
     assert result.selected is None
+
+
+def _advertisement_with_auth_transport(executor_id: str, kind: str, auth_transport: str) -> dict:
+    return {
+        "spec_version": "1.0.0",
+        "executor_id": executor_id,
+        "capabilities": [
+            {
+                "spec_version": "1.0.0",
+                "id": f"cap-{executor_id}",
+                "satisfies": [{"kind": kind}],
+                "auth_transport": auth_transport,
+            }
+        ],
+    }
+
+
+def test_execute_raises_registry_error_when_default_policy_denies_auth_transport():
+    registry = ExecutorRegistry()
+    registry.register(
+        "executor-metered",
+        _ScriptedExecutor(
+            "executor-metered",
+            advertisement=_advertisement_with_auth_transport(
+                "executor-metered", "kind-a", "metered_api"
+            ),
+        ),
+    )
+    requirement = _requirement("kind-a")
+    request = ExecutionRequest(promise={"spec_version": "1.0.0", "kind": "kind-a"})
+
+    with pytest.raises(RegistryError):
+        registry.execute(requirement, request)
 
 
 def test_execute_raises_registry_error_embedding_unsatisfied_when_no_selection():

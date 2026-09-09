@@ -7,17 +7,16 @@ optional skipif-guarded smoke test at the bottom of this file.
 
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
-from pathlib import Path
+import sys
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
-from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
     ExecutionHandle,
@@ -219,6 +218,36 @@ def test_discovered_version_probes_the_cli_when_health_has_not_run():
         assert mock_run.call_count == 1
 
 
+def test_health_keeps_an_already_discovered_version_when_a_later_probe_fails():
+    # A second health() whose version probe times out must not erase the
+    # version the first one discovered -- the CLI on PATH has not changed,
+    # and discarding it also forces discovered_version() to respawn a probe
+    # that is already known to be failing.
+    executor = _executor()
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
+        ),
+    ):
+        executor.health()
+        assert executor.discovered_version() == "0.153.4"
+
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd=["codex", "--version"], timeout=5),
+        ) as mock_run,
+    ):
+        executor.health()
+
+        assert executor.discovered_version() == "0.153.4"
+        # The retained version is served without a third probe spawn:
+        # health() ran the version and auth probes, and nothing more.
+        assert mock_run.call_count == 2
+
+
 def test_discovered_version_is_none_when_cli_absent():
     with patch("praxis_executors.adapters.codex_cli.shutil.which", return_value=None):
         assert _executor().discovered_version() is None
@@ -278,33 +307,9 @@ def test_health_is_unavailable_when_the_cli_is_logged_in_with_an_api_key():
         assert executor.health() == ExecutorAvailability.UNAVAILABLE
 
 
-# `codex doctor` behaviour pinned in the adapter's own comments
-
-
-# Assembled from fragments so the pattern cannot match its own source text
-# here; it is searched against codex_cli.py only.
-_FALSE_AUTH_MODE_CLAIM = re.compile("flips" + r"[^.]*" + "reported auth mode", re.IGNORECASE)
-
-
-def test_env_strip_comment_states_what_codex_doctor_actually_reports():
-    # Verified live against the installed binary: running `codex doctor`
-    # with and without CODEX_API_KEY leaves "stored auth mode" reported as
-    # `chatgpt` in both runs. The only delta is an added "auth env vars
-    # present" line, so the adapter's comment must not claim the variable
-    # flips the reported mode.
-    # Unwrap hard-wrapped comment lines before matching, so a phrase that
-    # happens to straddle a line break still reads as one string.
-    source = re.sub(r"\n\s*#\s*", " ", Path(codex_cli.__file__).read_text())
-    source = re.sub(r"\s+", " ", source)
-
-    assert not _FALSE_AUTH_MODE_CLAIM.search(source), (
-        "codex_cli.py must not claim CODEX_API_KEY changes the auth mode "
-        "`codex doctor` reports -- it does not"
-    )
-    assert "auth env vars present" in source, (
-        "codex_cli.py's comment must state what `codex doctor` actually "
-        "reports when CODEX_API_KEY is set"
-    )
+# The adapter's own comments are pinned in
+# tests/test_repair_findings_b1_issue41.py, where doc/prose pinning is the
+# established convention -- those assertions exercise no code path here.
 
 
 # launch()
@@ -408,6 +413,75 @@ def test_scripted_nonzero_exit_run_reaches_failed_with_false_evidence():
 
         assert executor.status(handle) == ExecutorStatus.FAILED
         assert executor.result(handle).evidence == {"process-exit-status": False}
+
+
+# Output volume -- this one drives a real child process on purpose: the
+# failure it guards is an OS pipe-buffer deadlock, which a MagicMock
+# standing in for Popen cannot exhibit. It is still not a real `codex`
+# call: only the Popen construction is redirected, to a chatty python -c.
+
+_PIPE_BUFFER_OVERFLOW_BYTES = 256 * 1024  # 4x macOS's 64KB pipe buffer
+_DEADLOCK_TIMEOUT_SECONDS = 30
+
+
+def _chatty_child_script(size: int) -> str:
+    return (
+        "import sys;"
+        f"sys.stdout.write('o' * {size});"
+        f"sys.stderr.write('e' * {size})"
+    )
+
+
+def test_result_returns_full_output_when_the_run_exceeds_the_os_pipe_buffer():
+    # A `codex exec` transcript readily exceeds the 64KB pipe buffer the OS
+    # gives subprocess.PIPE. A child that fills that buffer blocks on write
+    # until someone reads, so an adapter that only reads after the process
+    # exits deadlocks: status() reports RUNNING forever and result() never
+    # becomes callable.
+    real_popen = subprocess.Popen
+    started: list[subprocess.Popen] = []
+
+    def popen_a_chatty_child(argv, **kwargs):
+        process = real_popen(
+            [sys.executable, "-c", _chatty_child_script(_PIPE_BUFFER_OVERFLOW_BYTES)],
+            **kwargs,
+        )
+        started.append(process)
+        return process
+
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.Popen",
+            side_effect=popen_a_chatty_child,
+        ),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        handle = executor.launch(request)
+        try:
+            deadline = time.monotonic() + _DEADLOCK_TIMEOUT_SECONDS
+            while executor.status(handle) == ExecutorStatus.RUNNING:
+                assert time.monotonic() < deadline, (
+                    "the codex process never exited: its stdout/stderr pipes are "
+                    "not drained while it runs, so it is blocked writing into a "
+                    "full pipe buffer"
+                )
+                time.sleep(0.05)
+
+            result = executor.result(handle)
+        finally:
+            for process in started:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+
+    assert result.status == ExecutorStatus.SUCCEEDED
+    assert len(result.payload["stdout"]) == _PIPE_BUFFER_OVERFLOW_BYTES
+    assert len(result.payload["stderr"]) == _PIPE_BUFFER_OVERFLOW_BYTES
 
 
 def test_cancel_on_running_process_terminates_and_reaches_cancelled():

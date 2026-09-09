@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import uuid
 
 from praxis_executors.interface import (
@@ -91,12 +92,46 @@ def _subprocess_env() -> dict[str, str]:
     return env
 
 
+class _OutputPump:
+    """Drains one launched process's stdout/stderr while it is still running.
+
+    `subprocess.PIPE` backs each stream with a fixed-size OS pipe buffer
+    (64KB on macOS), and a child that fills it blocks on write until
+    something reads. A `codex exec` transcript readily runs past that, so
+    reading only after the process has exited would deadlock: the process
+    cannot exit until it is read, and it is not read until it exits. One
+    reader thread per handle does the read concurrently with the run
+    instead, which is what `communicate()` is designed for.
+    """
+
+    def __init__(self, process: subprocess.Popen) -> None:
+        self._process = process
+        self._output: tuple[str, str] = ("", "")
+        self._thread = threading.Thread(target=self._drain, daemon=True)
+        self._thread.start()
+
+    def _drain(self) -> None:
+        try:
+            stdout, stderr = self._process.communicate()
+        except (OSError, ValueError):
+            # A stream closed underneath the read leaves the empty default;
+            # the exit status is still reported from the process itself.
+            return
+        self._output = (stdout or "", stderr or "")
+
+    def output(self) -> tuple[str, str]:
+        """The process's full (stdout, stderr), waiting for the read to finish."""
+        self._thread.join()
+        return self._output
+
+
 class CodexCliExecutor(Executor):
     """Runs prompts through the locally-installed `codex` subscription CLI as a subprocess."""
 
     def __init__(self, executor_id: str) -> None:
         self._executor_id = executor_id
         self._processes: dict[str, subprocess.Popen] = {}
+        self._output_pumps: dict[str, _OutputPump] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
         self._version: str | None = None
@@ -119,10 +154,28 @@ class CodexCliExecutor(Executor):
         }
 
     def health(self) -> ExecutorAvailability:
+        # Discovery runs exactly three probes: the executable's presence on
+        # PATH, its version, and its auth transport. Supported models and
+        # modes are deliberately not among them. The spec asks for those
+        # "where exposed", and this adapter's contract does not expose
+        # them: capability.schema.json defines a Capability as
+        # "vendor/model-neutral", requires `satisfies[].kind` to "never
+        # name a specific model or vendor", and gives no field for a model
+        # or mode list; capability-advertisement.schema.json then closes
+        # the top level with `additionalProperties: false`. Discovering
+        # models here could therefore only feed something the advertisement
+        # is forbidden to say, so the probe is not worth its process spawn
+        # until the contract grows a model-neutral place to put it.
         cli_path = shutil.which(_CLI_NAME)
         if cli_path is None:
             return ExecutorAvailability.UNAVAILABLE
-        self._version = self._probe_version(cli_path)
+        version = self._probe_version(cli_path)
+        if version is not None:
+            # Only overwrite on success: a probe that times out says
+            # nothing about the CLI whose version was already discovered,
+            # and discarding it would respawn that same failing probe on
+            # the next discovered_version() call.
+            self._version = version
         authenticated = self._detect_authenticated(cli_path)
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
@@ -223,6 +276,8 @@ class CodexCliExecutor(Executor):
             raise ExecutorError(f"failed to launch codex CLI: {_redact(str(exc))}") from exc
         handle_id = uuid.uuid4().hex
         self._processes[handle_id] = process
+        # Start draining immediately, not at result() time -- see _OutputPump.
+        self._output_pumps[handle_id] = _OutputPump(process)
         return ExecutionHandle(handle_id=handle_id)
 
     def _process_for(self, handle: ExecutionHandle) -> subprocess.Popen:
@@ -255,7 +310,7 @@ class CodexCliExecutor(Executor):
             return cached
         if process.poll() is None:
             raise ExecutorError("cannot fetch result while execution is still RUNNING")
-        stdout, stderr = process.communicate()
+        stdout, stderr = self._output_pumps[handle.handle_id].output()
         returncode = process.returncode
         result = ExecutionResult(
             status=self._terminal_status(handle.handle_id, returncode),

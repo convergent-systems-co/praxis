@@ -22,10 +22,16 @@ no file under `src/praxis_executors/` is touched (explicitly out of scope).
   never serializes against the others.
 
 None of `discover_cmd.py`/`status_cmd.py`/`match_cmd.py` import
-`adapters.py` — each takes the already-built `list[Executor]` as a
+`adapters.py` — each takes the already-built `Mapping[str, Executor]` as a
 parameter, so only `main.py` (T6) needs `adapters.build_adapters()`. This
 keeps the DAG real: T1 (adapters) and T5 (match) have no dependents until
 T6; T2 (fields) is the only thing T3/T4 actually need first.
+
+Every `Interfaces` block below states the signature that shipped;
+`tests/test_repair_findings_b2_issue45.py` compares each one against
+`inspect.signature` so the plan cannot drift from the code again. The
+deviations from the first draft, and why each was made, are recorded under
+[Shipped deviations](#shipped-deviations) at the end.
 
 ## Tasks
 
@@ -33,7 +39,7 @@ T6; T2 (fields) is the only thing T3/T4 actually need first.
 
 **Files:** `src/praxis_cli/adapters.py`, `tests/test_cli_adapters.py`
 
-**Interfaces:** `def build_adapters() -> list[praxis_executors.interface.Executor]`
+**Interfaces:** `def build_adapters() -> dict[str, Executor]`
 
 **Depends on:** none
 
@@ -76,11 +82,16 @@ T6; T2 (fields) is the only thing T3/T4 actually need first.
 **Files:** `src/praxis_cli/fields.py`, `tests/test_cli_fields.py`
 
 **Interfaces:**
-- `def installed_field(executor: Executor) -> str`
-- `def version_field(executor: Executor) -> str`
+- `def installed_field(executor: Executor, advertisement: dict | None) -> str`
+- `def status_field(executor: Executor, advertisement: dict | None) -> str`
+- `def version_field(_executor: Executor) -> str`
 - `def authenticated_field(executor: Executor, installed: str) -> str`
+- `def render_cell(value) -> str`
 - `def capability_kinds(advertisement: dict) -> list[str]`
 - `def auth_transports(advertisement: dict) -> list[str]`
+- `def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None`
+- `PROBE_FAILED`, `UNAVAILABLE`, `UNDETERMINED` — the caught-failure tuple and
+  the two display strings, spelled once for all three commands.
 
 **Depends on:** none (dispatches by `isinstance` against the adapter
 classes directly; does not call `adapters.build_adapters()`)
@@ -139,9 +150,9 @@ classes directly; does not call `adapters.build_adapters()`)
 **Files:** `src/praxis_cli/discover_cmd.py`, `tests/test_cli_discover.py`
 
 **Interfaces:**
-- `def build_discover_rows(adapters: list[Executor]) -> list[dict]`
+- `def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]`
 - `def print_discover_rows(rows: list[dict]) -> None`
-- `def run_discover(adapters: list[Executor]) -> int`
+- `def run_discover(adapters: Mapping[str, Executor]) -> int`
 
 **Depends on:** T2 (`fields.py`)
 
@@ -184,10 +195,13 @@ classes directly; does not call `adapters.build_adapters()`)
 **Files:** `src/praxis_cli/status_cmd.py`, `tests/test_cli_status.py`
 
 **Interfaces:**
-- `def build_status_rows(adapters: list[Executor]) -> list[dict]`
+- `def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]`
 - `def print_status_table(rows: list[dict]) -> None`
 - `def print_status_json(rows: list[dict]) -> None`
-- `def run_status(adapters: list[Executor], *, as_json: bool) -> int`
+- `def run_status(adapters: Mapping[str, Executor], *, as_json: bool) -> int`
+- `STATUS_ROW_SCHEMA` — the `--json` row shape as a JSON Schema, declaring
+  both union-typed fields so a consumer validates against them rather than
+  discovering them at runtime.
 
 **Depends on:** T2 (`fields.py`)
 
@@ -227,7 +241,7 @@ classes directly; does not call `adapters.build_adapters()`)
 
 **Interfaces:**
 - `def build_requirement(capabilities: list[str]) -> dict`
-- `def run_match(adapters: list[Executor], *, capabilities: list[str], explain: bool) -> int`
+- `def run_match(adapters: Mapping[str, Executor], *, capabilities: list[str], explain: bool) -> int`
 
 **Depends on:** none (uses `praxis_executors.matching`/`policy`/`interface`
 directly; does not need `fields.py` or `adapters.py`)
@@ -345,3 +359,31 @@ directly; does not need `fields.py` or `adapters.py`)
 - `.venv/bin/python -m pytest` — full suite, per spec Acceptance.
 - Confirm `tests/test_praxis_cli.py` is byte-for-byte unmodified in the
   final diff.
+
+## Shipped deviations
+
+The task steps above are the plan as first written. Each deviation below was
+made during implementation or a later repair round, is justified in the
+module's own docstring, and is recorded here so the plan describes the code
+that exists rather than the code first sketched.
+
+- **Adapters are a mapping, not a list.** `build_adapters()` returns
+  `{executor_id: instance}` so every command names an adapter by its
+  registered id even when the adapter's `.capabilities()` — otherwise the only
+  public source of `executor_id` — raises. T3/T4/T5 take that mapping.
+- **The advertisement is probed before the field functions.** `installed_field`
+  and the new `status_field` take the caller's one `.capabilities()` result, so
+  an adapter whose advertisement and health probe hit the same endpoint is
+  asked once rather than waited on twice at its own timeout.
+- **`status_field` and `render_cell` are new.** The first derives the status
+  column from that shared advertisement; the second gives `discover` and
+  `status` one display rendering, so a list is never printed through `repr`.
+- **Failed probes are caught on `fields.PROBE_FAILED`, not `ExecutorError`
+  alone.** An adapter's transport layer leaks `ValueError`/`AttributeError`/
+  `TypeError` when something answers on the configured port with a body the
+  adapter never type-checked. All three degrade one row. `note_probe_failure`
+  logs the ones outside an adapter's own vocabulary, so a fault in an adapter
+  is distinguishable from an outage in the service it speaks to.
+- **A raised health probe reports `unknown`.** No `ExecutorAvailability` value
+  describes a probe that returned nothing, and `degraded` would claim a result
+  that never happened.

@@ -80,10 +80,20 @@ def _candidate_verdict(
     ]
 
     if eligible:
-        # An eligible candidate is unranked only for kinds it does not cover:
-        # `match` marks nothing `policy_excluded` when the single advertisement
-        # it ran over was itself eligible, and a candidate with no required kind
-        # left to miss would have been ranked.
+        if not unmet_kinds:
+            # An eligible candidate that misses no required kind ranks on its
+            # own, so the full run dropped it for a reason this re-run cannot
+            # reproduce: `match` and the policy both key a candidate by
+            # advertised id and resolve a duplicate last-wins, which leaves
+            # every earlier advertisement of that id unjudged. Naming the
+            # collision beats a kind list with nothing in it.
+            return eligible, (
+                f"another adapter advertises the same executor id "
+                f"({advertisement['executor_id']}); that advertisement was the one ranked"
+            )
+        # Otherwise an eligible candidate is unranked only for kinds it does not
+        # cover: `match` marks nothing `policy_excluded` when the single
+        # advertisement it ran over was itself eligible.
         return eligible, f"does not satisfy required kind(s): {', '.join(unmet_kinds)}"
 
     # The policy verdict is what makes `eligible=no` true, so it is always
@@ -122,6 +132,7 @@ def run_match(
         try:
             gathered.append((name, executor.capabilities()))
         except fields.PROBE_FAILED as exc:
+            fields.note_probe_failure(executor, "capabilities", exc)
             unreadable[name] = str(exc)
 
     advertisements = [advertisement for _, advertisement in gathered]

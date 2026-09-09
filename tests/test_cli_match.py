@@ -14,6 +14,8 @@ right candidate, and `"yes" in line` passes on output that no longer does.
 
 from __future__ import annotations
 
+import logging
+
 from conftest import _FakeExecutor, _json_decode_error
 
 from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
@@ -342,3 +344,44 @@ def test_empty_capabilities_ranks_every_eligible_candidate(capsys):
         "executor-excluded: eligible=no reason=excluded by policy (policy_excluded)",
         "executor-other: eligible=yes score=2",
     ]
+
+
+def test_explain_does_not_print_an_empty_kind_list_for_a_superseded_advertisement(capsys):
+    # Both adapters advertise `executor-dup`, and both `match` and the policy
+    # key a candidate by advertised id, so the second advertisement is the only
+    # one either of them judged. The first is unranked for that reason alone --
+    # re-run by itself it satisfies `kind-a` outright, leaving no unmet kind to
+    # name, which is how this line used to end in a bare colon.
+    adapters = {
+        "adapter-first": _candidate("executor-dup", "kind-a", "local"),
+        "adapter-second": _candidate("executor-dup", "kind-b", "local"),
+    }
+
+    exit_code = run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert exit_code == 0
+    first = next(line for line in lines if line.startswith("adapter-first:"))
+    assert first == (
+        "adapter-first: eligible=yes reason=another adapter advertises the same "
+        "executor id (executor-dup); that advertisement was the one ranked"
+    )
+    # The adapter whose advertisement was actually judged still gets the
+    # kind-shortfall reason, so the two cases stay distinguishable.
+    second = next(line for line in lines if line.startswith("adapter-second:"))
+    assert second == (
+        "adapter-second: eligible=yes reason=does not satisfy required kind(s): kind-a"
+    )
+
+
+def test_explain_logs_a_capabilities_probe_failure_outside_the_adapter_vocabulary(caplog):
+    # `run_match` degrades an unreadable candidate on the same `PROBE_FAILED`
+    # net `status` and `discover` use, so it records the same distinction:
+    # an `AttributeError` out of an adapter is a fault in that adapter, not
+    # the outage its `eligible=unknown` line otherwise reads as.
+    adapters = {"executor-nonobject": _non_object_json()}
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        assert run_match(adapters, capabilities=["kind-a"], explain=True) == 0
+
+    assert "AttributeError" in caplog.text

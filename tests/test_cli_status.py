@@ -23,10 +23,13 @@ here opens an Ollama socket.
 from __future__ import annotations
 
 import json
+import logging
 
+import jsonschema
 from conftest import _FakeExecutor, _json_decode_error
 
 from praxis_cli.status_cmd import (
+    STATUS_ROW_SCHEMA,
     build_status_rows,
     print_status_json,
     print_status_table,
@@ -345,6 +348,92 @@ def test_print_status_json_carries_only_the_four_spec_named_fields(capsys):
         assert list(row) == ["executor_id", "auth_transport", "status", "capabilities"]
         assert isinstance(row["auth_transport"], str)
         assert isinstance(row["status"], str)
+
+
+# STATUS_ROW_SCHEMA
+
+
+def test_status_row_schema_accepts_a_row_from_an_adapter_that_answered():
+    jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA).validate(
+        build_status_rows({"executor-good": _available()})[0]
+    )
+
+
+def test_status_row_schema_accepts_a_row_from_an_adapter_that_could_not_be_asked():
+    jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA).validate(
+        build_status_rows({"executor-bad": _unavailable()})[0]
+    )
+
+
+def test_status_row_schema_declares_capabilities_as_a_union_rather_than_a_bare_list():
+    # The point of the schema: a consumer reads that `capabilities` is either a
+    # list of kinds or a reason string, instead of discovering the string by
+    # iterating it one character at a time. Both branches have to be declared,
+    # so neither is a surprise -- and nothing else is accepted in that slot.
+    validator = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
+    row = build_status_rows({"executor-good": _available()})[0]
+
+    assert validator.is_valid({**row, "capabilities": ["coding"]})
+    assert validator.is_valid({**row, "capabilities": "unavailable (service unreachable)"})
+    assert not validator.is_valid({**row, "capabilities": 7})
+    assert not validator.is_valid({**row, "capabilities": {"coding": True}})
+
+
+def test_status_row_schema_declares_the_auth_transport_slot_that_also_carries_unavailable():
+    validator = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
+    row = build_status_rows({"executor-good": _available()})[0]
+
+    assert validator.is_valid({**row, "auth_transport": "local"})
+    assert validator.is_valid({**row, "auth_transport": "unavailable"})
+    assert not validator.is_valid({**row, "auth_transport": ["local"]})
+
+
+def test_status_row_schema_covers_exactly_the_emitted_keys():
+    validator = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
+
+    for row in build_status_rows(_adapters()):
+        validator.validate(row)
+        assert not validator.is_valid({**row, "error": "a fifth key the spec does not name"})
+        for column in row:
+            assert not validator.is_valid({k: v for k, v in row.items() if k != column})
+
+
+def test_every_row_the_json_path_prints_validates_against_the_schema(capsys):
+    print_status_json(
+        build_status_rows(
+            {
+                "executor-good": _available(),
+                "executor-bad": _unavailable(),
+                "executor-broken": _malformed(),
+                "executor-transportless": _transportless(),
+            }
+        )
+    )
+
+    validator = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
+    for row in json.loads(capsys.readouterr().out):
+        validator.validate(row)
+
+
+# probe-failure logging
+
+
+def test_a_capabilities_probe_outside_the_adapter_vocabulary_is_logged_with_its_type(caplog):
+    # `AttributeError` from an adapter is far more likely a fault in the
+    # adapter than an outage in the service it speaks to, and the row alone
+    # cannot say which -- it reads `unavailable (...)` either way.
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        rows = build_status_rows({"executor-nonobject": _non_object_json()})
+
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert "AttributeError" in caplog.text
+
+
+def test_an_adapters_own_executor_error_is_not_logged_as_a_fault(caplog):
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        build_status_rows({"executor-bad": _unavailable()})
+
+    assert caplog.records == []
 
 
 # run_status()

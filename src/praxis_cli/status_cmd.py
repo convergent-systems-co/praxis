@@ -8,15 +8,70 @@ from typing import Mapping
 from praxis_cli.fields import (
     PROBE_FAILED,
     UNAVAILABLE,
+    UNDETERMINED,
     auth_transports,
     capability_kinds,
+    note_probe_failure,
     render_cell,
     status_field,
 )
-from praxis_executors.interface import Executor
+from praxis_executors.interface import Executor, ExecutorAvailability
 
 # Spec criterion 6 names exactly these four, for both the table and `--json`.
 _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities")
+
+# The `--json` row shape, machine-readable rather than only described in prose.
+#
+# Criterion 6 fixes the row at those four fields, so a row whose probe failed
+# states its reason inside them rather than in a fifth key. Two of the four
+# therefore carry more than one kind of value, and a consumer that assumed
+# `capabilities` were always a list would iterate the reason string one
+# character at a time. Both unions are declared here so that shape is something
+# a consumer reads and validates against, not something it discovers at
+# runtime -- and so neither can widen again without this schema saying so.
+STATUS_ROW_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "praxis executors --json row",
+    "type": "object",
+    "required": list(_COLUMNS),
+    "additionalProperties": False,
+    "properties": {
+        "executor_id": {
+            "type": "string",
+            "description": "The id the adapter is registered under, always present.",
+        },
+        "auth_transport": {
+            "type": "string",
+            "description": (
+                f"Every transport the advertisement names, joined on ',', or the "
+                f"bare string '{UNAVAILABLE}' when the advertisement could not be "
+                f"read. Empty means the advertisement named no transport at all."
+            ),
+        },
+        "status": {
+            "type": "string",
+            "description": (
+                "The adapter's own availability verdict, or "
+                f"'{UNDETERMINED}' when the health probe itself raised."
+            ),
+            "enum": [
+                *(availability.value for availability in ExecutorAvailability),
+                UNDETERMINED,
+            ],
+        },
+        "capabilities": {
+            "description": (
+                "A list of capability kinds when the adapter answered, or the "
+                f"string '{UNAVAILABLE} (<reason>)' when it could not be asked. "
+                "Check the type before iterating."
+            ),
+            "oneOf": [
+                {"type": "array", "items": {"type": "string"}},
+                {"type": "string", "pattern": f"^{UNAVAILABLE} \\("},
+            ],
+        },
+    },
+}
 
 
 def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
@@ -47,6 +102,7 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
             # A failed advertisement probe is not a verdict about availability,
             # so `status_field` still asks `health()` below: a row that names
             # its reason beats a row that only says the status is unknown.
+            note_probe_failure(executor, "capabilities", exc)
             advertisement = None
             auth_transport = UNAVAILABLE
             capabilities = f"{UNAVAILABLE} ({exc})"

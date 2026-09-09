@@ -6,6 +6,7 @@ call `adapters.build_adapters()`.
 
 from __future__ import annotations
 
+import logging
 import shutil
 
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
@@ -35,7 +36,45 @@ UNDETERMINED = "unknown"
 # `AttributeError`/`TypeError` for valid JSON that is not an object, which the
 # adapter then subscripts or calls `.get()` on. All three are a failure to read
 # one adapter, which is a degraded row -- never a reason to abandon the report.
+#
+# The same net also catches a genuine fault inside an adapter, which no row can
+# tell apart from an outage. `note_probe_failure` below is what keeps the two
+# distinguishable: this module's own health probe reports through it, as do
+# `status` and `match` for the advertisement probe they each make.
 PROBE_FAILED = (ExecutorError, ValueError, AttributeError, TypeError)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None:
+    """Record a caught probe failure, naming its type when it is not the
+    adapter's own vocabulary.
+
+    `PROBE_FAILED` nets more than `ExecutorError` so a malformed response
+    degrades one row instead of taking a whole report down. The same net
+    catches a genuine fault inside an adapter's `.capabilities()` or
+    `.health()`, and every caller renders both the same way -- as a service
+    that could not be reached. Only the exception's type tells them apart, so
+    a failure outside the adapter's vocabulary is logged with it.
+
+    `ExecutorError` is what an adapter raises deliberately to report that its
+    backing CLI or service could not answer. That is the outage the row
+    already states in words, so it stays at debug rather than warning about
+    an absent `claude` binary on every invocation.
+    """
+    if isinstance(exc, ExecutorError):
+        _LOGGER.debug("%s.%s() reported: %s", type(executor).__name__, probe, exc)
+        return
+    _LOGGER.warning(
+        "%s.%s() raised %s, which is not an ExecutorError: reported as "
+        "unavailable, but a failure outside an adapter's own vocabulary is "
+        "more likely a fault in the adapter than an outage in the service it "
+        "speaks to (%s)",
+        type(executor).__name__,
+        probe,
+        type(exc).__name__,
+        exc,
+    )
 
 
 def _advertisement_answers_for_health(executor: Executor) -> bool:
@@ -70,7 +109,8 @@ def _health_verdict(executor: Executor) -> ExecutorAvailability | None:
     """
     try:
         return executor.health()
-    except PROBE_FAILED:
+    except PROBE_FAILED as exc:
+        note_probe_failure(executor, "health", exc)
         return None
 
 

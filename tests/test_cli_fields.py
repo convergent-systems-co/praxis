@@ -7,11 +7,13 @@ invoked.
 
 from __future__ import annotations
 
+import logging
+
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
-from praxis_executors.interface import Executor, ExecutorAvailability
+from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 from praxis_cli.fields import (
     auth_transports,
@@ -177,6 +179,41 @@ def test_the_health_probe_degrades_the_same_way_in_both_field_functions(monkeypa
 
         assert installed_field(executor, None) == "unknown"
         assert status_field(executor, None) == "unknown"
+
+
+def test_a_health_probe_failure_outside_the_adapter_vocabulary_names_its_type(monkeypatch, caplog):
+    # `PROBE_FAILED` deliberately nets more than `ExecutorError` so one
+    # malformed response degrades one cell instead of taking a command down.
+    # The same net catches a genuine fault inside an adapter, which the cell
+    # then reports as `unknown` -- indistinguishable from a real outage unless
+    # the exception type is recorded somewhere.
+    for error in (
+        ValueError("Expecting value: line 1 column 1 (char 0)"),
+        _NON_OBJECT_JSON,
+        TypeError("string indices must be integers"),
+    ):
+        executor = _ollama()
+        _raising_health(monkeypatch, executor, error)
+
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+            assert status_field(executor, None) == "unknown"
+
+        assert type(error).__name__ in caplog.text
+        assert "OllamaExecutor" in caplog.text
+
+
+def test_an_adapters_own_executor_error_is_not_logged_as_an_adapter_fault(monkeypatch, caplog):
+    # `ExecutorError` is the vocabulary an adapter raises deliberately: it says
+    # the backing service could not answer, which is a real outage and not a
+    # fault worth warning about.
+    executor = _ollama()
+    _raising_health(monkeypatch, executor, ExecutorError("ollama service unreachable"))
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        assert status_field(executor, None) == "unknown"
+
+    assert caplog.records == []
 
 
 def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():

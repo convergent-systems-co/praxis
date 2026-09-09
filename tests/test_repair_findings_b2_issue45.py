@@ -13,6 +13,10 @@
 3. `discover`'s block names the executor id in its own header line, so the id
    is never repeated as one of the columns underneath it.
 4. README's executors section shows every command as a runnable example.
+5. The implementation plan's per-task `Interfaces` blocks name the signatures
+   that actually shipped. A plan is read as the description of the code, so a
+   signature it states and the code does not have is a wrong answer, not a
+   stale one.
 
 Every assertion here is on behaviour: what a function returns, or what a
 command prints. Assertions on a module's source text or on the absence of an
@@ -28,11 +32,12 @@ and tests/test_cli_match.py, rather than a second time here.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 from conftest import _FakeExecutor
 
-from praxis_cli import fields
+from praxis_cli import adapters, discover_cmd, fields, main, match_cmd, status_cmd
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows
 from praxis_cli.match_cmd import run_match
 from praxis_executors.adapters.ollama import OllamaExecutor
@@ -157,3 +162,48 @@ def test_readme_shows_every_command_as_a_runnable_example():
         "praxis executors match --capability",
     ):
         assert command in section, f"README's executors section does not show `{command}`"
+
+
+# 5. the plan's Interfaces blocks name the signatures that shipped
+
+_PLAN = REPO_ROOT / "docs" / "develop" / "plans" / "b2-issue45.md"
+
+# Every function the plan's per-task `Interfaces` blocks name, in plan order.
+_PLANNED_INTERFACES = (
+    adapters.build_adapters,
+    fields.installed_field,
+    fields.status_field,
+    fields.version_field,
+    fields.authenticated_field,
+    fields.render_cell,
+    fields.capability_kinds,
+    fields.auth_transports,
+    discover_cmd.build_discover_rows,
+    discover_cmd.print_discover_rows,
+    discover_cmd.run_discover,
+    status_cmd.build_status_rows,
+    status_cmd.print_status_table,
+    status_cmd.print_status_json,
+    status_cmd.run_status,
+    match_cmd.build_requirement,
+    match_cmd.run_match,
+    main.main,
+)
+
+
+def _signature_line(function) -> str:
+    """`def name(args) -> return`, as the plan writes it.
+
+    Every CLI module uses `from __future__ import annotations`, so each
+    annotation reaches `inspect` as a string and renders quoted. The quotes are
+    an artefact of that import, never part of a signature anyone writes down.
+    """
+    return f"def {function.__name__}{inspect.signature(function)}".replace("'", "")
+
+
+def test_the_plan_names_the_signatures_that_shipped():
+    plan = _PLAN.read_text()
+
+    for function in _PLANNED_INTERFACES:
+        line = _signature_line(function)
+        assert line in plan, f"docs/develop/plans/b2-issue45.md does not name `{line}`"

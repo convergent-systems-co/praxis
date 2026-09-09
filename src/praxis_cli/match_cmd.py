@@ -6,6 +6,9 @@ Every `--capability` flag maps to a `required` promise only; `preferred` and
 
 from __future__ import annotations
 
+from typing import Iterable
+
+from praxis_cli.fields import capability_kinds
 from praxis_executors import matching, policy
 from praxis_executors.interface import Executor, ExecutorError
 
@@ -37,7 +40,37 @@ def _print_unsatisfied(unsatisfied: list[matching.UnsatisfiedPromise]) -> None:
         print(_format_reason(entry))
 
 
-def run_match(adapters: list[Executor], *, capabilities: list[str], explain: bool) -> int:
+def _required_kinds(capabilities: list[str]) -> list[str]:
+    """The requested kinds, deduplicated in first-seen order.
+
+    Mirrors how `matching.match` collapses the `required` entries
+    `build_requirement` produces, so an explanation never names the same
+    missing kind twice.
+    """
+    kinds: list[str] = []
+    for kind in capabilities:
+        if kind not in kinds:
+            kinds.append(kind)
+    return kinds
+
+
+def _candidate_reason(advertisement: dict, required_kinds: list[str], *, eligible: bool) -> str:
+    """Why this one candidate was not ranked, stated about the candidate.
+
+    `matching.match`'s `unsatisfied` reasons describe the requirement across
+    the whole advertisement set, so echoing one next to a per-candidate
+    `eligible=yes` reads as a contradiction.
+    """
+    if not eligible:
+        return "excluded by auth-transport policy (policy_excluded)"
+    satisfied = set(capability_kinds(advertisement))
+    missing = [kind for kind in required_kinds if kind not in satisfied]
+    if missing:
+        return f"does not satisfy required kind(s): {', '.join(missing)}"
+    return "not ranked for this requirement"
+
+
+def run_match(adapters: Iterable[Executor], *, capabilities: list[str], explain: bool) -> int:
     advertisements: list[dict] = []
     for executor in adapters:
         try:
@@ -60,14 +93,14 @@ def run_match(adapters: list[Executor], *, capabilities: list[str], explain: boo
             candidate.executor_id: rank
             for rank, candidate in enumerate(full_result.ranked, start=1)
         }
+        required_kinds = _required_kinds(capabilities)
         for advertisement in advertisements:
             executor_id = advertisement["executor_id"]
             if executor_id in rank_by_id:
                 print(f"{executor_id}: eligible=yes score={rank_by_id[executor_id]}")
                 continue
-            single_result = matching.match(requirement, [advertisement], is_eligible=is_eligible)
-            eligible = "yes" if is_eligible(executor_id) else "no"
-            reasons = [_format_reason(entry) for entry in single_result.unsatisfied]
-            print(f"{executor_id}: eligible={eligible} reason={'; '.join(reasons)}")
+            eligible = is_eligible(executor_id)
+            reason = _candidate_reason(advertisement, required_kinds, eligible=eligible)
+            print(f"{executor_id}: eligible={'yes' if eligible else 'no'} reason={reason}")
 
     return 0

@@ -11,7 +11,7 @@ def _print_version() -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="praxis")
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers()
 
     executors_parser = subparsers.add_parser("executors")
     executors_parser.add_argument("--json", action="store_true")
@@ -37,6 +37,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    if args.json and args.executors_command is not None:
+        # --json only shapes the bare `praxis executors` status output; every
+        # other route would accept it and silently print the plain report.
+        parser.error(f"--json is not valid for 'executors {args.executors_command}'")
+
     # Imported here, not at module load: the legacy version path above never
     # needs an adapter, and importing them eagerly pulls in every backing
     # adapter module for a command that only prints a version string.
@@ -47,5 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.executors_command == "discover":
         return discover_cmd.run_discover(built)
     if args.executors_command == "match":
-        return match_cmd.run_match(built, capabilities=args.capability, explain=args.explain)
+        return match_cmd.run_match(
+            built.values(), capabilities=args.capability, explain=args.explain
+        )
     return status_cmd.run_status(built, as_json=args.json)

@@ -15,16 +15,6 @@ from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability
 
 
-def fallback_executor_id(executor: Executor, index: int) -> str:
-    """Display id for an executor whose advertisement could not be read.
-
-    The advertisement dict is the only public source of a real `executor_id`,
-    so a failed `.capabilities()` call leaves nothing to read one from. The
-    index keeps two failing adapters of the same class from colliding.
-    """
-    return f"{type(executor).__name__}#{index}"
-
-
 def installed_field(executor: Executor) -> str:
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"
@@ -32,10 +22,18 @@ def installed_field(executor: Executor) -> str:
         return "yes" if executor.health() != ExecutorAvailability.UNAVAILABLE else "no"
     if isinstance(executor, (SubprocessExecutor, FakeCapabilityExecutor)):
         return "n/a (built-in)"
-    raise TypeError(f"unrecognized executor type: {type(executor)!r}")
+    # Every adapter that lands after this module was written arrives here.
+    # "Installed" is not derivable for a class we know nothing about, and a
+    # raise would take down the whole command for one unknown row.
+    return "n/a"
 
 
-def version_field(executor: Executor) -> str:
+def version_field(_executor: Executor) -> str:
+    """Always `"unknown"`: no adapter exposes a version on its public interface.
+
+    The argument is unread -- kept so every field function in this module is
+    callable the same way, and named to say so.
+    """
     return "unknown"
 
 

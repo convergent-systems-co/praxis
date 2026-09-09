@@ -2,23 +2,18 @@
 (`build_status_rows`, `print_status_table`, `print_status_json`, `run_status`)
 in `praxis_cli.status_cmd`.
 
+Two properties the row shape has to hold, both exercised below:
+
+* Every executor is named by the id it is registered under in the
+  `{executor_id: instance}` mapping `praxis_cli.adapters.build_adapters()`
+  returns, so an id never depends on adapter order or on whether the
+  adapter's advertisement could be read.
+* Every column keeps one type across healthy and failed rows -- `capabilities`
+  is always a list, `auth_transport` always a string -- with the failure
+  reason in its own `error` key, so a `--json` consumer never type-switches.
+
 Uses lightweight fake `Executor` subclasses (implementing the ABC directly,
 not the real adapters), matching the pattern used for `match_cmd` tests.
-
-Design decision this test encodes and that the developer/tech lead should
-confirm (see this task's NEEDS_CONTEXT history): `Executor`'s public ABC has
-no accessor for identity outside the dict `.capabilities()` returns, so when
-that call itself raises `ExecutorError` there is no other public,
-in-footprint source for `executor_id` -- reaching into the private
-`_executor_id` attribute and touching `praxis_executors/` are both
-unavailable. This suite asserts the fallback is `f"{type(executor).__name__}#{index}"`
-(the adapter's position in the input list): it needs no adapter changes, no
-private access, still lets a reader distinguish which row failed (unlike
-reusing the `"unavailable (...)"` string, which would make every failing
-row's id identical), and stays unique even when two failing adapters share a
-class (code-review repair for a latent collision in the bare class-name
-fallback). T3 (`discover_cmd.py`) has the same gap and follows the same
-convention for consistency.
 """
 
 from __future__ import annotations
@@ -100,68 +95,86 @@ class _UnavailableExecutor(Executor):
         raise NotImplementedError
 
 
-def _adapters() -> list[Executor]:
-    return [_AvailableExecutor("executor-good"), _UnavailableExecutor()]
+def _adapters() -> dict[str, Executor]:
+    return {
+        "executor-good": _AvailableExecutor("executor-good"),
+        "executor-bad": _UnavailableExecutor(),
+    }
 
 
 # build_status_rows()
 
 
 def test_build_status_rows_succeeding_executor():
-    rows = build_status_rows([_AvailableExecutor("executor-good")])
+    rows = build_status_rows({"executor-good": _AvailableExecutor("executor-good")})
 
     assert rows == [
         {
             "executor_id": "executor-good",
-            "auth_transport": "local, subscription_cli",
+            "auth_transport": "local,subscription_cli",
             "status": "available",
             "capabilities": ["coding", "reasoning"],
+            "error": None,
         }
     ]
 
 
-def test_build_status_rows_failing_executor_reports_unavailable_and_uses_type_name_as_id():
-    executor = _UnavailableExecutor()
-
-    rows = build_status_rows([executor])
+def test_build_status_rows_failing_executor_keeps_its_id_and_carries_the_reason_in_error():
+    rows = build_status_rows({"executor-bad": _UnavailableExecutor()})
 
     assert rows == [
         {
-            "executor_id": f"{type(executor).__name__}#0",
-            "auth_transport": "unavailable (service unreachable)",
+            "executor_id": "executor-bad",
+            "auth_transport": "",
             "status": "unavailable",
-            "capabilities": "unavailable (service unreachable)",
+            "capabilities": [],
+            "error": "service unreachable",
         }
     ]
 
 
-def test_build_status_rows_two_failing_executors_of_same_class_get_distinct_ids():
-    rows = build_status_rows([_UnavailableExecutor(), _UnavailableExecutor()])
+def test_build_status_rows_ids_do_not_shift_with_adapter_order():
+    forward = build_status_rows(_adapters())
+    reversed_mapping = dict(reversed(list(_adapters().items())))
 
-    ids = [row["executor_id"] for row in rows]
-    assert len(set(ids)) == len(ids), f"executor_id collided across same-class failures: {ids}"
+    backward = build_status_rows(reversed_mapping)
+
+    assert {row["executor_id"] for row in forward} == {row["executor_id"] for row in backward}
+    assert [row["executor_id"] for row in backward] == ["executor-bad", "executor-good"]
 
 
 def test_build_status_rows_preserves_adapter_order():
     rows = build_status_rows(_adapters())
 
-    assert [row["executor_id"] for row in rows] == ["executor-good", "_UnavailableExecutor#1"]
+    assert [row["executor_id"] for row in rows] == ["executor-good", "executor-bad"]
 
 
 # print_status_table()
 
 
-def test_print_status_table_includes_all_four_columns_per_row(capsys):
+def test_print_status_table_prints_a_header_then_one_line_per_row(capsys):
     rows = build_status_rows(_adapters())
 
     print_status_table(rows)
 
     captured = capsys.readouterr()
-    assert "executor-good" in captured.out
-    assert "available" in captured.out
-    assert "local, subscription_cli" in captured.out
-    assert "_UnavailableExecutor" in captured.out
-    assert "unavailable (service unreachable)" in captured.out
+    lines = captured.out.splitlines()
+    assert len(lines) == 3
+    assert lines[0].split() == [
+        "EXECUTOR_ID",
+        "AUTH_TRANSPORT",
+        "STATUS",
+        "CAPABILITIES",
+        "ERROR",
+    ]
+    assert lines[1].split() == [
+        "executor-good",
+        "local,subscription_cli",
+        "available",
+        "coding,reasoning",
+    ]
+    assert lines[2].startswith("executor-bad")
+    assert lines[2].endswith("service unreachable")
 
 
 # print_status_json()
@@ -178,6 +191,16 @@ def test_print_status_json_is_one_line_valid_json_round_trip(capsys):
     assert json.loads(lines[0]) == rows
 
 
+def test_print_status_json_keeps_one_type_per_column_across_rows(capsys):
+    print_status_json(build_status_rows(_adapters()))
+
+    parsed = json.loads(capsys.readouterr().out)
+    for row in parsed:
+        assert isinstance(row["capabilities"], list)
+        assert isinstance(row["auth_transport"], str)
+        assert isinstance(row["status"], str)
+
+
 # run_status()
 
 
@@ -187,7 +210,7 @@ def test_run_status_table_path_returns_zero_and_prints_table(capsys):
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "executor-good" in captured.out
-    assert len(captured.out.splitlines()) > 1
+    assert len(captured.out.splitlines()) == 3
 
 
 def test_run_status_json_path_returns_zero_and_prints_one_json_line(capsys):

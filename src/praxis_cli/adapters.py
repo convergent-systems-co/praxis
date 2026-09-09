@@ -22,13 +22,25 @@ _FAKE_CAPABILITIES = [
     }
 ]
 
+# Keyed by the executor id each adapter is constructed with, so the id is
+# spelled once and stays available to a caller even when the adapter's own
+# `.capabilities()` -- otherwise the only public source of `executor_id` --
+# raises.
+_ADAPTER_FACTORIES = {
+    "executor-subprocess-1": lambda executor_id: SubprocessExecutor(
+        executor_id=executor_id, satisfies_kinds=["code-execution"]
+    ),
+    "executor-fake-1": lambda executor_id: FakeCapabilityExecutor(
+        executor_id=executor_id, capabilities=_FAKE_CAPABILITIES, script={}
+    ),
+    "executor-claude-cli-1": lambda executor_id: ClaudeCliExecutor(executor_id=executor_id),
+    "executor-ollama-1": lambda executor_id: OllamaExecutor(executor_id=executor_id),
+}
 
-def build_adapters() -> list[Executor]:
-    return [
-        SubprocessExecutor(executor_id="executor-subprocess-1", satisfies_kinds=["code-execution"]),
-        FakeCapabilityExecutor(
-            executor_id="executor-fake-1", capabilities=_FAKE_CAPABILITIES, script={}
-        ),
-        ClaudeCliExecutor(executor_id="executor-claude-cli-1"),
-        OllamaExecutor(executor_id="executor-ollama-1"),
-    ]
+
+def build_adapters() -> dict[str, Executor]:
+    """Return a fresh `{executor_id: instance}` mapping, in declaration order."""
+    return {
+        executor_id: factory(executor_id)
+        for executor_id, factory in _ADAPTER_FACTORIES.items()
+    }

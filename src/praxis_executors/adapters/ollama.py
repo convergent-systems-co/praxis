@@ -285,7 +285,11 @@ class OllamaExecutor(Executor):
             return
         self._results[handle_id] = ExecutionResult(
             status=ExecutorStatus.SUCCEEDED,
-            payload={"response": payload.get("response"), "model": payload.get("model"), "done": payload.get("done")},
+            payload={
+                "response": payload.get("response"),
+                "model": payload.get("model"),
+                "done": payload.get("done"),
+            },
         )
 
     def _thread_for(self, handle: ExecutionHandle) -> threading.Thread:

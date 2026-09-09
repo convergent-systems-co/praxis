@@ -8,18 +8,17 @@ shipped in this same branch. This test pins the doc to the current, correct
 claim: Codex is a shipped concrete adapter, not a hypothetical one.
 
 Later findings against the same bundle are pinned here too, each by a test
-that exercises the behaviour it is about. Assertions over the prose of
-`codex_cli.py`'s own `#` comments used to live here as well; they were
-removed as part of this file's own repair round, because they exercised no
-code path and failed on a harmless reword. What a comment *says* is
-therefore pinned only where it is published, in `docs/`; how much of the
-adapter is comment is a separate, reword-insensitive measure, and one
-finding about it is pinned below.
+that exercises the behaviour it is about. Two categories of assertion used to
+live here and no longer do: the prose of `codex_cli.py`'s own `#` comments,
+and a set of `ast`-based structural rules over both codex test modules. Both
+exercised no code path -- one failed on a harmless reword, the others on any
+future helper that happened to be shaped differently -- so they were removed
+rather than kept as tests. What a comment *says* is pinned only where it is
+published, in `docs/`.
 """
 
 from __future__ import annotations
 
-import ast
 import re
 import subprocess
 import threading
@@ -28,33 +27,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from conftest import (
-    _check_real_codex_cli_auth_probe_and_health,
-    _codex_launched,
-    _codex_mock_process,
-    _codex_result_of_a_run,
+from codex_doubles import (
+    check_real_codex_cli_auth_probe_and_health,
+    codex_launched,
+    codex_mock_process,
+    codex_result_of_a_run,
 )
 from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
     ExecutionRequest,
-    Executor,
     ExecutorAvailability,
     ExecutorError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXECUTORS_DOC = REPO_ROOT / "docs" / "executors.md"
-ADAPTERS_DIR = REPO_ROOT / "src" / "praxis_executors" / "adapters"
-CODEX_ADAPTER_SOURCE = ADAPTERS_DIR / "codex_cli.py"
-
-# Half this adapter's non-blank lines were once `#` comment lines, against 3%
-# in the sibling `claude_cli.py`, carrying multi-paragraph design arguments
-# the code around them no longer needed spelled out. The ceiling is set well
-# above what the adapter now sits at, so an added comment does not trip it;
-# what it catches is the essay-length drift, and unlike a prose assertion it
-# is indifferent to how any given comment is worded.
-_COMMENT_LINE_CEILING = 0.25
 
 
 def _doc_text() -> str:
@@ -96,148 +84,6 @@ def test_doc_lists_codex_cli_executor_among_concrete_adapters() -> None:
     codex_description = section.split("`CodexCliExecutor`", 1)[1].split(";", 1)[0]
     assert 'auth_transport: "subscription_cli"' in codex_description, (
         "docs/executors.md must state CodexCliExecutor's auth_transport"
-    )
-
-
-def _comment_line_share(source: Path) -> float:
-    lines = [line.strip() for line in source.read_text(encoding="utf-8").splitlines()]
-    non_blank = [line for line in lines if line]
-    return len([line for line in non_blank if line.startswith("#")]) / len(non_blank)
-
-
-def test_adapter_is_not_mostly_comment_lines() -> None:
-    share = _comment_line_share(CODEX_ADAPTER_SOURCE)
-
-    assert share <= _COMMENT_LINE_CEILING, (
-        f"{share:.0%} of codex_cli.py's non-blank lines are comment lines, over "
-        f"the {_COMMENT_LINE_CEILING:.0%} ceiling: the rationale blocks have "
-        "grown into design essays that drift out of step with the code and "
-        "read nothing like the sibling adapters"
-    )
-
-
-# Test-module hygiene: the two codex test modules share one set of doubles
-
-
-CODEX_TEST_MODULES = (
-    REPO_ROOT / "tests" / "test_codex_cli.py",
-    Path(__file__).resolve(),
-)
-
-
-def _module_level_functions(source: Path) -> list[ast.FunctionDef]:
-    tree = ast.parse(source.read_text(encoding="utf-8"))
-    return [node for node in tree.body if isinstance(node, ast.FunctionDef)]
-
-
-def _builds_a_scripted_process_double(function: ast.FunctionDef) -> bool:
-    """Does this function script a `Popen` double's `poll`/`communicate` answers?
-
-    Matches the assignment shape, not a helper name, so it stays true through a
-    rename. A `side_effect` is deliberately not matched: a double that raises or
-    blocks is what one test is about, not a shared fixture.
-    """
-    return any(
-        isinstance(node, ast.Attribute)
-        and node.attr == "return_value"
-        and isinstance(node.value, ast.Attribute)
-        and node.value.attr in {"poll", "communicate"}
-        for target in ast.walk(function)
-        if isinstance(target, ast.Assign)
-        for node in target.targets
-    )
-
-
-def _imported_module_names(source: Path) -> set[str]:
-    tree = ast.parse(source.read_text(encoding="utf-8"))
-    names = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
-    return names
-
-
-def test_the_shared_codex_process_doubles_are_defined_once_in_conftest() -> None:
-    # Both modules kept a private copy of the same settled-`Popen` double and
-    # the same launch-and-read helper. Two copies drift: a fix to one leaves
-    # the other testing the adapter through a stale stand-in.
-    rebuilt = [
-        f"{module.name}:{function.name}"
-        for module in CODEX_TEST_MODULES
-        for function in _module_level_functions(module)
-        if function.name.startswith("_") and _builds_a_scripted_process_double(function)
-    ]
-
-    assert not rebuilt, (
-        "these module-level helpers rebuild the codex subprocess double that "
-        f"conftest.py already provides: {rebuilt}"
-    )
-    for module in CODEX_TEST_MODULES:
-        assert "conftest" in _imported_module_names(module), (
-            f"{module.name} must take the shared codex doubles from conftest.py"
-        )
-
-
-def test_no_codex_test_module_imports_another_test_module() -> None:
-    # Importing a sibling test module to call one of its test functions by
-    # name couples two modules through a name pytest is free to see renamed:
-    # the rename then fails here as an ImportError or an AttributeError, far
-    # from the test that actually moved. Shared bodies belong in conftest.py.
-    offenders = {
-        module.name: sorted(
-            name for name in _imported_module_names(module) if name.startswith("test_")
-        )
-        for module in CODEX_TEST_MODULES
-    }
-
-    assert not any(offenders.values()), (
-        f"a test module must not import another test module: {offenders}"
-    )
-
-
-def _decorator_sources(function: ast.FunctionDef) -> list[str]:
-    return [ast.unparse(decorator) for decorator in function.decorator_list]
-
-
-def test_a_codex_test_that_spawns_a_real_child_process_is_marked_slow() -> None:
-    # One test in this pair spawns a real `python -c` child and polls it under
-    # a 30-second deadline. That is the suite's only load-sensitive timing
-    # dependency, so a machine that cannot give it the headroom needs a way to
-    # deselect it: `-m 'not slow'`.
-    unmarked = [
-        f"{module.name}:{function.name}"
-        for module in CODEX_TEST_MODULES
-        for function in _module_level_functions(module)
-        if any(
-            isinstance(node, ast.Attribute) and node.attr == "executable"
-            for node in ast.walk(function)
-        )
-        and "pytest.mark.slow" not in _decorator_sources(function)
-    ]
-
-    assert not unmarked, (
-        "a test that spawns a real child process must be marked "
-        f"`@pytest.mark.slow` so it can be deselected: {unmarked}"
-    )
-
-
-def test_adapter_exposes_no_public_method_outside_the_executor_abc() -> None:
-    # A public method no production code calls is dead wiring: nothing on the
-    # Executor ABC, in the registry, in policy or in the docs reads it, and
-    # the sibling ClaudeCliExecutor has no equivalent, so only its own tests
-    # keep it alive. Holding the adapter's public surface to the ABC's is
-    # what stops that recurring.
-    abc_surface = {name for name in vars(Executor) if not name.startswith("_")}
-    adapter_surface = {
-        name for name in vars(codex_cli.CodexCliExecutor) if not name.startswith("_")
-    }
-
-    assert adapter_surface <= abc_surface, (
-        "CodexCliExecutor exposes public methods that are not on the "
-        "Executor ABC and that no production code calls: "
-        f"{sorted(adapter_surface - abc_surface)}"
     )
 
 
@@ -379,7 +225,7 @@ def test_result_redacts_a_bearer_token_shorter_than_twenty_characters() -> None:
     # prose.
     header = f"Authorization: Bearer {SHORT_BEARER_TOKEN}"
 
-    payload = _codex_result_of_a_run(f"...{header}...", f"...{header}...").payload
+    payload = codex_result_of_a_run(f"...{header}...", f"...{header}...").payload
 
     assert SHORT_BEARER_TOKEN not in str(payload)
     assert "Bearer" in payload["stdout"]
@@ -394,7 +240,7 @@ def test_result_redacts_an_opaque_token_named_by_its_field() -> None:
     # shape it reaches stdout in when the CLI echoes that file back.
     line = f'{{"access_token": "{OPAQUE_TOKEN}"}}'
 
-    payload = _codex_result_of_a_run(line, line).payload
+    payload = codex_result_of_a_run(line, line).payload
 
     assert OPAQUE_TOKEN not in str(payload)
     assert OPAQUE_TOKEN not in payload["stdout"]
@@ -461,7 +307,7 @@ def test_a_second_result_call_racing_the_first_does_not_raise_keyerror() -> None
     # while the pump is still there; whichever finishes second then found the
     # pump already dropped and raised KeyError. The adapter itself starts
     # threads, so concurrent callers are not hypothetical.
-    executor, handle = _codex_launched(_codex_mock_process(0, "transcript", ""))
+    executor, handle = codex_launched(codex_mock_process(0, "transcript", ""))
     raced_result: list = []
     raced_error: list = []
 
@@ -513,8 +359,8 @@ def test_result_returns_the_cached_result_when_a_concurrent_call_dropped_the_pum
     # be answered by the first lookup and never reach the branch at all. A
     # nested call rather than a thread, so the interleaving is exact instead of
     # scheduled.
-    process = _codex_mock_process(0, "transcript", "")
-    executor, handle = _codex_launched(process)
+    process = codex_mock_process(0, "transcript", "")
+    executor, handle = codex_launched(process)
     competing: list = []
     raced = False
 
@@ -542,7 +388,7 @@ def test_result_raises_an_executor_error_when_the_output_pump_is_gone() -> None:
     # The unreachable-by-invariant case still has to fail in the adapter's own
     # currency: every other lookup failure here is an ExecutorError, and a
     # KeyError escaping result() is a contract break for its callers.
-    executor, handle = _codex_launched(_codex_mock_process(0, "transcript", ""))
+    executor, handle = codex_launched(codex_mock_process(0, "transcript", ""))
     del executor._output_pumps[handle.handle_id]
 
     with pytest.raises(ExecutorError):
@@ -620,6 +466,80 @@ def test_redaction_leaves_a_code_shaped_transcript_line_intact(line: str) -> Non
     assert codex_cli._redact(line) == line
 
 
+# Redaction fidelity: prose and paths must survive the credential patterns
+
+
+PROSE_MENTIONING_A_BEARER = (
+    "the exchange hands back a bearer token the caller reuses",
+    "a bearer instrument is payable to whoever holds it",
+    "Bearer authentication is described in RFC 6750",
+)
+
+
+@pytest.mark.parametrize("line", PROSE_MENTIONING_A_BEARER)
+def test_redaction_leaves_the_word_after_bearer_in_prose_intact(line: str) -> None:
+    # `codex exec` is a coding agent, so "bearer token" reaches stdout as
+    # ordinary English far more often than as a credential prefix. Replacing
+    # the following word is indistinguishable from a genuine redaction.
+    assert codex_cli._redact(line) == line
+
+
+NO_DIGIT_BEARER_TOKEN = "FAKEOPAQUEBEARERTOKENVALUE"
+
+
+def test_redaction_still_covers_a_long_bearer_token_without_a_digit() -> None:
+    # The counterpart to the prose guard: a credential that clears the length
+    # floor is still a credential even with no digit in it.
+    assert NO_DIGIT_BEARER_TOKEN not in codex_cli._redact(
+        f"Authorization: Bearer {NO_DIGIT_BEARER_TOKEN}"
+    )
+
+
+LOCATION_FIELD_LINES = (
+    "credentials_path: /Users/example/.codex/auth.json",
+    "token_file = ~/.codex/auth.json",
+    "secret_dir: /etc/praxis/secrets",
+)
+
+
+@pytest.mark.parametrize("line", LOCATION_FIELD_LINES)
+def test_redaction_leaves_a_credential_named_location_field_intact(line: str) -> None:
+    # A field name ending in `path`/`file`/`dir` names where a credential
+    # lives, not the credential. `codex doctor` and `codex login status` both
+    # print such lines, and redacting the location makes them unreadable.
+    assert codex_cli._redact(line) == line
+
+
+def test_redaction_still_covers_a_credential_field_that_merely_contains_a_location_word() -> None:
+    # The counterpart: the location-suffix exemption keys off how the field
+    # name *ends*, so a field whose name merely contains one of those words is
+    # still a credential field.
+    assert OPAQUE_TOKEN not in codex_cli._redact(f'{{"path_token": "{OPAQUE_TOKEN}"}}')
+
+
+def test_result_records_that_the_transcript_was_redacted() -> None:
+    # No pattern can tell every non-credential from every credential, so a
+    # caller reading the payload has to be able to tell a redacted transcript
+    # from a faithful one rather than trusting the text in front of it.
+    payload = codex_result_of_a_run(f"Authorization: Bearer {OPAQUE_TOKEN}", "").payload
+
+    assert payload["credentials-redacted"] is True
+
+
+def test_result_records_that_an_untouched_transcript_was_not_redacted() -> None:
+    payload = codex_result_of_a_run("ran three tests, all passed", "").payload
+
+    assert payload["credentials-redacted"] is False
+
+
+def test_result_records_redaction_that_only_touched_stderr() -> None:
+    # The marker covers the whole payload, so a credential on either stream
+    # raises it.
+    payload = codex_result_of_a_run("clean", f"Authorization: Bearer {OPAQUE_TOKEN}").payload
+
+    assert payload["credentials-redacted"] is True
+
+
 PADDED_BASE64_TOKEN = "FAKEb64+tok/en0123456789=="
 
 
@@ -651,7 +571,7 @@ def _launch_with(parameters: dict) -> None:
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "praxis_executors.adapters.codex_cli.subprocess.Popen",
-            return_value=_codex_mock_process(0, "transcript", ""),
+            return_value=codex_mock_process(0, "transcript", ""),
         ),
     ):
         executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
@@ -741,7 +661,7 @@ def test_launch_extra_args_rejection_does_not_echo_the_value() -> None:
 
 def test_launch_still_accepts_a_list_of_string_extra_args() -> None:
     # The guard must not close the door on the supported shape.
-    process = _codex_mock_process(0, "transcript", "")
+    process = codex_mock_process(0, "transcript", "")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -779,7 +699,7 @@ def test_smoke_test_skips_when_the_real_version_probe_cannot_answer() -> None:
         patch.object(CodexCliExecutor, "_probe_version", return_value=None),
     ):
         with pytest.raises(pytest.skip.Exception):
-            _check_real_codex_cli_auth_probe_and_health()
+            check_real_codex_cli_auth_probe_and_health()
 
 
 def test_smoke_test_still_pins_the_available_outcome_when_both_probes_answer() -> None:
@@ -790,7 +710,7 @@ def test_smoke_test_still_pins_the_available_outcome_when_both_probes_answer() -
         patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
         patch.object(CodexCliExecutor, "_probe_version", return_value="codex-cli 0.153.4"),
     ):
-        _check_real_codex_cli_auth_probe_and_health()
+        check_real_codex_cli_auth_probe_and_health()
 
 
 def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:

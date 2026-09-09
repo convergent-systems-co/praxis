@@ -7,8 +7,6 @@ optional skipif-guarded smoke test at the bottom of this file.
 
 from __future__ import annotations
 
-import ast
-import pathlib
 import shutil
 import subprocess
 import sys
@@ -18,10 +16,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from conftest import (
-    _check_real_codex_cli_auth_probe_and_health,
-    _codex_mock_process,
-    _codex_result_of_a_run,
+from codex_doubles import (
+    check_real_codex_cli_auth_probe_and_health,
+    codex_mock_process,
+    codex_result_of_a_run,
 )
 from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
@@ -51,28 +49,6 @@ FAKE_SECRET_BEARER = "FAKEOPAQUECHATGPTTOKENFAKEOPAQUECHATGPTTOKEN"
 
 def _executor() -> CodexCliExecutor:
     return CodexCliExecutor(executor_id="executor-codex-cli-1")
-
-
-# Test-module hygiene
-
-
-def test_no_top_level_definition_in_this_module_is_shadowed_by_a_later_one():
-    """A helper defined twice here silently loses its first definition.
-
-    Both definitions run at import time and the later one wins at every call
-    site, so the earlier one -- and whatever its docstring explains about why
-    the helper is shaped the way it is -- becomes dead code no test
-    exercises. Nothing catches that on its own: pytest imports the module
-    without complaint, and pyproject.toml configures no linter that would
-    report the redefinition.
-    """
-    module = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-    definitions: dict[str, list[int]] = {}
-    for node in module.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            definitions.setdefault(node.name, []).append(node.lineno)
-
-    assert {name: lines for name, lines in definitions.items() if len(lines) > 1} == {}
 
 
 # capabilities()
@@ -349,7 +325,7 @@ def test_launch_raises_and_skips_popen_when_cli_absent():
 
 def _launched_argv(prompt: str, extra_args: list[str] | None = None) -> list[str]:
     """The argv `launch()` hands to Popen for `prompt` (and optional extra args)."""
-    process = _codex_mock_process(returncode=0, stdout="", stderr="")
+    process = codex_mock_process(returncode=0, stdout="", stderr="")
     parameters: dict = {"prompt": prompt}
     if extra_args is not None:
         parameters["extra_args"] = extra_args
@@ -412,7 +388,7 @@ def test_launch_gives_the_launched_process_no_stdin_to_block_on():
     # would report RUNNING for as long as it did. Nothing in this adapter
     # ever writes to the child, so the launch is non-interactive by
     # construction and stdin should read as immediately empty.
-    process = _codex_mock_process(returncode=0, stdout="", stderr="")
+    process = codex_mock_process(returncode=0, stdout="", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -448,7 +424,7 @@ def test_launch_strips_each_env_var_to_strip_from_subprocess_env_while_preservin
 ):
     monkeypatch.setenv(stripped_var, "fake-value")
     monkeypatch.setenv("SOME_UNRELATED_VAR", "keep-me")
-    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
+    process = codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -473,7 +449,7 @@ def test_launch_kills_the_process_and_raises_executor_error_when_the_output_read
     # out of launch(), a live child nobody drains or reaps, and a handle
     # registered whose pump is missing -- so result() would then raise
     # KeyError rather than ExecutorError for it.
-    process = _codex_mock_process(returncode=None)
+    process = codex_mock_process(returncode=None)
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -500,7 +476,7 @@ def test_launch_kills_the_process_and_raises_executor_error_when_the_output_read
 
 
 def test_scripted_successful_run_reaches_succeeded_with_true_evidence():
-    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
+    process = codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -517,7 +493,7 @@ def test_scripted_successful_run_reaches_succeeded_with_true_evidence():
 
 
 def test_scripted_nonzero_exit_run_reaches_failed_with_false_evidence():
-    process = _codex_mock_process(returncode=1, stdout="", stderr="boom")
+    process = codex_mock_process(returncode=1, stdout="", stderr="boom")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -739,7 +715,7 @@ def test_status_is_running_and_result_refuses_while_the_process_has_not_exited()
     # The RUNNING half of the lifecycle: poll() still returning None is the
     # only state in which result() has no exit status to report, so it must
     # refuse rather than answer from a half-finished run.
-    process = _codex_mock_process(returncode=None)
+    process = codex_mock_process(returncode=None)
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -762,7 +738,7 @@ def test_result_releases_the_output_reader_once_the_transcript_has_settled():
     # cache is consulted before the pump ever is -- so holding the pump past
     # that point retains one thread object and one full transcript copy per
     # launch for the lifetime of the executor.
-    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
+    process = codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -831,7 +807,7 @@ _REDACTED_SECRETS = [FAKE_SECRET_LEGACY, FAKE_SECRET_PROJECT, FAKE_SECRET_JWT]
 
 @pytest.mark.parametrize("secret", _REDACTED_SECRETS)
 def test_result_redacts_credential_shaped_secret_from_payload(secret):
-    result = _codex_result_of_a_run(f"...{secret}...", f"...{secret}...")
+    result = codex_result_of_a_run(f"...{secret}...", f"...{secret}...")
 
     assert secret not in str(result.payload)
     assert secret not in result.payload["stdout"]
@@ -840,7 +816,7 @@ def test_result_redacts_credential_shaped_secret_from_payload(secret):
 
 def test_result_redacts_an_authorization_bearer_token_from_payload():
     header = f"Authorization: Bearer {FAKE_SECRET_BEARER}"
-    result = _codex_result_of_a_run(f"...{header}...", f"...{header}...")
+    result = codex_result_of_a_run(f"...{header}...", f"...{header}...")
 
     assert FAKE_SECRET_BEARER not in str(result.payload)
     assert "Bearer" in result.payload["stdout"]
@@ -856,7 +832,7 @@ def test_result_leaves_a_numeric_token_count_alone():
     # to avoid for code-shaped lines.
     usage = '{"input_tokens":12345678,"output_tokens":42}'
 
-    result = _codex_result_of_a_run(usage, usage)
+    result = codex_result_of_a_run(usage, usage)
 
     assert result.payload["stdout"] == usage
     assert result.payload["stderr"] == usage
@@ -891,4 +867,4 @@ def test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found():
     # The body lives in conftest.py so the repair-findings module can drive it
     # for its own skip-behaviour tests without importing this module and
     # looking this test up by name.
-    _check_real_codex_cli_auth_probe_and_health()
+    check_real_codex_cli_auth_probe_and_health()

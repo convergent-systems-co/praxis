@@ -125,6 +125,7 @@ import pytest
 from conftest import _PassthroughGrader
 
 import praxis_evidence.types as types_module
+from praxis_contracts.schema_paths import SCHEMA_DIR, schema_path
 from praxis_contracts.validator import validate_document
 from praxis_executors import registry as registry_module
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
@@ -420,15 +421,17 @@ def test_no_schema_file_is_left_unreferenced_in_src_or_tests():
     # caller ever noticing. A correctly-worded removal of a different unused
     # schema in the future should pass this test without editing it.
     repo_root = Path(__file__).resolve().parent.parent
-    schema_dir = repo_root / "schemas" / "v1"
+    schema_dir = SCHEMA_DIR
     corpus = "\n".join(
         path.read_text()
         for directory in (repo_root / "src", repo_root / "tests")
         for path in directory.rglob("*.py")
     )
+    schema_files = sorted(schema_dir.glob("*.schema.json"))
+    assert schema_files, f"expected schema files under {schema_dir}, found none"
     unreferenced = [
         schema.name
-        for schema in sorted(schema_dir.glob("*.schema.json"))
+        for schema in schema_files
         if schema.name not in corpus
     ]
     assert not unreferenced, (
@@ -446,7 +449,7 @@ def test_evidence_doc_schema_files_table_matches_schemas_that_exist():
     # names actually exists on disk, which is the real invariant a stale
     # doc reference violates.
     doc = _read_evidence_doc()
-    schema_dir = Path(__file__).resolve().parent.parent / "schemas" / "v1"
+    schema_dir = SCHEMA_DIR
     referenced = set(re.findall(r"schemas/v1/([\w.-]+\.schema\.json)", doc))
     missing = {name for name in referenced if not (schema_dir / name).exists()}
     assert not missing, (
@@ -735,7 +738,7 @@ def test_executor_registry_composes_evidence_conversion_with_the_selected_execut
     assert len(records) == 1
     validate_document(
         records[0],
-        Path(__file__).resolve().parent.parent / "schemas" / "v1" / "proof-record.schema.json",
+        schema_path("proof-record.schema.json"),
     )
     assert records[0]["executor_id"] == "executor-code"
     assert records[0]["node_id"] == "n1"

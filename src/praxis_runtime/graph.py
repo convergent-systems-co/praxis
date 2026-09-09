@@ -14,9 +14,10 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "graph.schema.json"
+SCHEMA_PATH = schema_path("graph.schema.json")
 
 
 class GraphValidationError(Exception):

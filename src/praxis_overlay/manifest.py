@@ -14,13 +14,11 @@ by load_manifest itself and reported as OverlayManifestError.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import validate_document
 
-SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "overlay-manifest.schema.json"
-)
+SCHEMA_PATH = schema_path("overlay-manifest.schema.json")
 
 _DECLARES_FIELDS = ("capability_kinds", "proof_types", "resource_types", "authority_scopes")
 

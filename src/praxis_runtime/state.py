@@ -15,10 +15,11 @@ import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_runtime.migrations import migrate_document
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "run-state.schema.json"
+SCHEMA_PATH = schema_path("run-state.schema.json")
 _KIND = "run-state"
 
 

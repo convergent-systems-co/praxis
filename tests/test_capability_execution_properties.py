@@ -8,15 +8,13 @@ docs/develop/plans/b1-issue38.md task T1.
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 
 import pytest
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"
-CAPABILITY_SCHEMA = SCHEMAS_DIR / "capability.schema.json"
+CAPABILITY_SCHEMA = schema_path("capability.schema.json")
 
 BASE_CAPABILITY = {
     "spec_version": "1.0.0",

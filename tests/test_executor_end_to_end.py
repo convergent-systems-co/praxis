@@ -12,11 +12,10 @@ which `_linear_graph()`'s two plain task nodes don't have.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from conftest import _PassthroughGrader
+from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
 from praxis_evidence.graders import GraderRegistry
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
@@ -28,9 +27,6 @@ from praxis_runtime.state import RunStateStore
 from praxis_runtime.transitions import NodeStatus, TransitionEngine
 
 _SPEC_VERSION = "1.0.0"
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"
 
 
 def _single_node_graph() -> Graph:

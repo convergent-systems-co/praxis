@@ -24,10 +24,10 @@ from __future__ import annotations
 
 import copy
 import inspect
-from pathlib import Path
 
 import pytest
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_overlay.manifest import validate_manifest_document
 
@@ -35,9 +35,7 @@ import overlays.development.graph as development_graph_module
 import test_overlay_resource_extension as resource_extension_test_module
 from overlays.development.graph import build_development_graph
 
-_REQUIREMENT_SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent / "schemas" / "v1" / "requirement.schema.json"
-)
+_REQUIREMENT_SCHEMA_PATH = schema_path("requirement.schema.json")
 
 _VALID_MANIFEST_DOCUMENT = {
     "spec_version": "1.0.0",

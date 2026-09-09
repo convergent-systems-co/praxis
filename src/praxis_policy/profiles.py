@@ -11,13 +11,13 @@ rather than silently falling back to a default.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import ContractValidationError, validate_document
 
 _STRICTNESS_ORDER = ("fast", "standard", "strict", "regulated")  # index == strictness rank
 
-_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "policy-profile.schema.json"
+_SCHEMA_PATH = schema_path("policy-profile.schema.json")
 
 
 class PolicyProfileError(Exception):

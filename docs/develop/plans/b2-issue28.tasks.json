@@ -1,0 +1,145 @@
+{
+  "bundle": "b2-issue28",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Bundle-lane nodes/edges in graph.py (issue #28)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/graph.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Recovery-lane nodes in graph.py (issue #29)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/graph.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Wire repair_bundle -> awaiting_human edge",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": ["src/overlays/development/graph.py"]
+    },
+    {
+      "id": "T4",
+      "title": "New bundle-lane proof types in manifest.py",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/manifest.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Pass-through graders for new proof types",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": ["src/overlays/development/graders.py"]
+    },
+    {
+      "id": "T6",
+      "title": "compat.py: extend _EVENT_PROOF_TYPE_MAP for bundle-lane events",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/compat.py"]
+    },
+    {
+      "id": "T7",
+      "title": "compat.py: add _EVENT_NODE_MAP / legacy_event_to_recovery_node",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/compat.py"]
+    },
+    {
+      "id": "T8",
+      "title": "test_overlay_development.py: fix node-iteration shape, add BLOCKED/HANDOFF traversal test",
+      "depends_on": ["T3"],
+      "kind": "code",
+      "files": ["tests/test_overlay_development.py"]
+    },
+    {
+      "id": "T9",
+      "title": "test_parity_fixtures.py: fix node-iteration shape, widen honesty check",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "code",
+      "files": ["tests/test_parity_fixtures.py"]
+    },
+    {
+      "id": "T10",
+      "title": "docs/overlays/development.md: describe widened graph shape",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["docs/overlays/development.md"]
+    },
+    {
+      "id": "T11",
+      "title": "Refresh fixture 01-simple-bug-fix.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/01-simple-bug-fix.json"]
+    },
+    {
+      "id": "T12",
+      "title": "Refresh fixture 02-feature-implementation.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/02-feature-implementation.json"]
+    },
+    {
+      "id": "T13",
+      "title": "Refresh fixture 03-multi-file-change.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/03-multi-file-change.json"]
+    },
+    {
+      "id": "T14",
+      "title": "Refresh fixture 04-security-remediation.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/04-security-remediation.json"]
+    },
+    {
+      "id": "T15",
+      "title": "Refresh fixture 05-iac-change.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/05-iac-change.json"]
+    },
+    {
+      "id": "T16",
+      "title": "Refresh fixture 06-dependency-upgrade.json expressibility",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/06-dependency-upgrade.json"]
+    },
+    {
+      "id": "T17",
+      "title": "Refresh fixture 07-ambiguous-recovery.json expressibility + notes",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/07-ambiguous-recovery.json"]
+    },
+    {
+      "id": "T18",
+      "title": "Refresh fixture 08-repair-heavy.json expressibility + notes",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["benchmark/fixtures/08-repair-heavy.json"]
+    },
+    {
+      "id": "T19",
+      "title": "Rewrite docs/parity/state-event-migration.md for widened overlay",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["docs/parity/state-event-migration.md"]
+    },
+    {
+      "id": "T20",
+      "title": "Append gap-closure addendum to docs/parity/decision.md",
+      "depends_on": ["T3", "T4", "T6", "T7"],
+      "kind": "docs",
+      "files": ["docs/parity/decision.md"]
+    }
+  ]
+}

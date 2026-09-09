@@ -48,9 +48,11 @@ are expressed the same way.
 A **Capability** (`schemas/v1/capability.schema.json`) is an abstract, vendor/model-neutral
 statement of what an executor can concretely do. It lists one or more `satisfies` entries, each
 naming a `kind` — using the same free-form vocabulary as `Promise.kind` — plus an open
-`parameters` object describing that capability's concrete configuration (e.g. a context-window
-size). Unlike Promise, Capability allows additional top-level properties, since an executor may
-attach executor-specific metadata that is not part of the core ontology.
+`parameters` object describing that entry's concrete configuration. Unlike Promise, Capability
+allows additional top-level properties, since an executor may attach executor-specific metadata
+that is not part of the core ontology; a fixed set of these — `auth_transport`, `interactive`,
+`context_window`, `platform`, `availability` — are schema-typed execution-property fields (see
+[`docs/executors.md`](executors.md#capability-execution-property-fields)).
 
 A **Capability Advertisement** (`schemas/v1/capability-advertisement.schema.json`) is the
 document an executor publishes to advertise what it can do: an opaque `executor_id` plus one or
@@ -100,7 +102,7 @@ major version. Each file is a plain JSON Schema (draft 2020-12) document:
 | --- | --- |
 | `schemas/v1/promise.schema.json` | A single abstract capability-class request (`kind` + `parameters`). |
 | `schemas/v1/requirement.schema.json` | A graph node's list of Promises, each with a `required`/`preferred`/`prohibited` constraint. References `promise.schema.json`. |
-| `schemas/v1/capability.schema.json` | A single abstract statement of what an executor can do (`satisfies[].kind` + `parameters`). |
+| `schemas/v1/capability.schema.json` | A single abstract statement of what an executor can do (`satisfies[].kind` + `parameters`), plus optional execution-property fields (`auth_transport`, `interactive`, `context_window`, `platform`, `availability`). |
 | `schemas/v1/capability-advertisement.schema.json` | The document an executor publishes: an `executor_id` plus a list of Capabilities. References `capability.schema.json`. |
 | `schemas/v1/evidence-requirement.schema.json` | A graph node's list of proof requirements (`proof_type`, constraint, optional `min_confidence`). |
 | `schemas/v1/resource-claim.schema.json` | A graph node's list of abstract resource claims (`resource_type`, `quantity`, optional `unit`). |

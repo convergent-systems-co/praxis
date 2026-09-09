@@ -22,6 +22,7 @@ class UnsatisfiedPromise:
     kind: str
     constraint: str  # "required" or "prohibited"
     reason: str
+    policy_excluded: bool = False
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,13 @@ def match(
     for kinds in satisfied_by_executor.values():
         union_satisfied |= kinds
 
+    # Computed over the full, unfiltered advertisement list (not `eligible`),
+    # so a required kind that is only ever offered by a policy-excluded
+    # advertisement can be distinguished from a kind nobody advertises at all.
+    union_satisfied_any: set[str] = set()
+    for advertisement in advertisements:
+        union_satisfied_any |= _satisfied_kinds(advertisement)
+
     # Satisfied-kind sets for advertisements that don't trip a prohibited
     # kind. Used to tell "this required kind is only ever offered by an
     # advertisement that's disqualified for prohibited reasons" (already
@@ -139,13 +147,26 @@ def match(
     unsatisfied: list[UnsatisfiedPromise] = []
     for kind in required_kinds:
         if kind not in union_satisfied:
-            unsatisfied.append(
-                UnsatisfiedPromise(
-                    kind=kind,
-                    constraint="required",
-                    reason=f"no eligible advertisement satisfies '{kind}'",
+            if kind in union_satisfied_any:
+                unsatisfied.append(
+                    UnsatisfiedPromise(
+                        kind=kind,
+                        constraint="required",
+                        reason=(
+                            f"'{kind}' is satisfied by at least one advertisement, but "
+                            "policy excludes every eligible candidate for it"
+                        ),
+                        policy_excluded=True,
+                    )
                 )
-            )
+            else:
+                unsatisfied.append(
+                    UnsatisfiedPromise(
+                        kind=kind,
+                        constraint="required",
+                        reason=f"no eligible advertisement satisfies '{kind}'",
+                    )
+                )
         elif any(kind in kinds for kinds in prohibited_clean_satisfied):
             unsatisfied.append(
                 UnsatisfiedPromise(

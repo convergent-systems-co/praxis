@@ -93,6 +93,54 @@ OVERLAPPING_FILE_WRITE_CLAIM = {
     ],
 }
 
+DEVELOPMENT_FOOTPRINT_GLOB_WRITE_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": "development.filesystem",
+            "quantity": 1,
+            "identifier": "src/a/**",
+            "access_mode": "write",
+        }
+    ],
+}
+
+DEVELOPMENT_OVERLAPPING_FILE_WRITE_CLAIM = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": "development.filesystem",
+            "quantity": 1,
+            "identifier": "src/a/file.py",
+            "access_mode": "write",
+        }
+    ],
+}
+
+TRIVIAL_DATASET_WRITE_CLAIM_A = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": "trivial.dataset",
+            "quantity": 1,
+            "identifier": "a/dataset",
+            "access_mode": "write",
+        }
+    ],
+}
+
+TRIVIAL_DATASET_WRITE_CLAIM_B = {
+    "spec_version": "1.0.0",
+    "claims": [
+        {
+            "resource_type": "trivial.dataset",
+            "quantity": 1,
+            "identifier": "a/dataset/copy",
+            "access_mode": "write",
+        }
+    ],
+}
+
 
 def _single_node_graph(node_id: str, resource_claims: dict | None) -> Graph:
     metadata = {"resource_claims": resource_claims} if resource_claims is not None else {}
@@ -449,6 +497,77 @@ def test_overlapping_filesystem_globs_conflict_through_transition_engine(tmp_pat
 
     with pytest.raises(TransitionError):
         engine_two.apply("n2", "start")
+
+
+def test_overlapping_development_filesystem_globs_conflict_through_transition_engine(
+    tmp_path: Path,
+):
+    # Bundle b1-issue27, issue #27: _lease_conflict_fn must select the
+    # glob-aware paths_overlap conflict function for any resource type whose
+    # final "."-separated segment is "filesystem", not just the bare literal
+    # -- so the development overlay's namespaced "development.filesystem"
+    # claims get real glob-aware footprint-conflict detection too, mirroring
+    # test_overlapping_filesystem_globs_conflict_through_transition_engine
+    # above but for the namespaced resource type.
+    lease_dir = tmp_path / "leases"
+
+    graph_one = _single_node_graph("n1", DEVELOPMENT_FOOTPRINT_GLOB_WRITE_CLAIM)
+    engine_one = TransitionEngine(
+        graph_one,
+        RunStateStore(tmp_path / "run-one.json"),
+        EventLog(tmp_path / "events-one"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+    engine_one.apply("n1", "start")
+
+    graph_two = _single_node_graph("n2", DEVELOPMENT_OVERLAPPING_FILE_WRITE_CLAIM)
+    engine_two = TransitionEngine(
+        graph_two,
+        RunStateStore(tmp_path / "run-two.json"),
+        EventLog(tmp_path / "events-two"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    with pytest.raises(TransitionError):
+        engine_two.apply("n2", "start")
+
+
+def test_differently_identified_trivial_dataset_claims_do_not_conflict(tmp_path: Path):
+    # Non-regression companion to the development.filesystem test above:
+    # "trivial.dataset" does not end in "filesystem", so it must keep
+    # leases.acquire's default exact-identifier matching regardless of
+    # spelling. The two identifiers below ("a/dataset" and "a/dataset/copy")
+    # share a "/"-delimited path-segment prefix, so they would be reported as
+    # overlapping if _lease_conflict_fn's "filesystem" suffix check ever
+    # mistakenly selected the glob-aware paths_overlap for this
+    # non-filesystem-shaped resource type -- unlike single-segment
+    # identifiers, which paths_overlap would never treat as overlapping
+    # either, making this test discriminate the exact regression it guards
+    # against. They must never be reported as conflicting here, confirming
+    # the suffix match does not over-match a type that merely differs from
+    # "filesystem".
+    lease_dir = tmp_path / "leases"
+
+    graph_one = _single_node_graph("n1", TRIVIAL_DATASET_WRITE_CLAIM_A)
+    engine_one = TransitionEngine(
+        graph_one,
+        RunStateStore(tmp_path / "run-one.json"),
+        EventLog(tmp_path / "events-one"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+    engine_one.apply("n1", "start")
+
+    graph_two = _single_node_graph("n2", TRIVIAL_DATASET_WRITE_CLAIM_B)
+    engine_two = TransitionEngine(
+        graph_two,
+        RunStateStore(tmp_path / "run-two.json"),
+        EventLog(tmp_path / "events-two"),
+        resource_lease_store=LeaseStore(lease_dir),
+    )
+
+    # Must not raise: different identifiers of a non-filesystem-shaped
+    # resource type are never treated as overlapping.
+    engine_two.apply("n2", "start")
 
 
 def test_failed_declared_claim_settlement_leaves_no_phantom_observed_resource_lease(

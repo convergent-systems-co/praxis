@@ -19,6 +19,12 @@ class ExecutorPolicy(abc.ABC):
     def is_eligible(self, executor_id: str, advertisement: dict) -> bool: ...
 
 
+_RECOGNIZED_AUTH_TRANSPORTS = frozenset(
+    {"subscription_cli", "oauth_cli", "local", "metered_api", "api_key"}
+)
+_UNSAFE_BY_DEFAULT_AUTH_TRANSPORTS = frozenset({"metered_api", "api_key"})
+
+
 @dataclass(frozen=True)
 class AllowListPolicy(ExecutorPolicy):
     allowed_executor_ids: frozenset[str]
@@ -33,6 +39,34 @@ class DenyListPolicy(ExecutorPolicy):
 
     def is_eligible(self, executor_id: str, advertisement: dict) -> bool:
         return executor_id not in self.denied_executor_ids
+
+
+@dataclass(frozen=True)
+class AuthTransportPolicy(ExecutorPolicy):
+    denied_auth_transports: frozenset[str] = frozenset()
+    allowed_auth_transports: frozenset[str] | None = None
+
+    def is_eligible(self, executor_id: str, advertisement: dict) -> bool:
+        for capability in advertisement.get("capabilities", []):
+            if not self._capability_is_eligible(capability):
+                return False
+        return True
+
+    def _capability_is_eligible(self, capability: dict) -> bool:
+        auth_transport = capability.get("auth_transport")
+        if auth_transport not in _RECOGNIZED_AUTH_TRANSPORTS:
+            return False
+        if auth_transport in self.denied_auth_transports:
+            return False
+        explicitly_allowed = (
+            self.allowed_auth_transports is not None
+            and auth_transport in self.allowed_auth_transports
+        )
+        if auth_transport in _UNSAFE_BY_DEFAULT_AUTH_TRANSPORTS and not explicitly_allowed:
+            return False
+        if self.allowed_auth_transports is not None and not explicitly_allowed:
+            return False
+        return True
 
 
 def as_eligibility_callable(

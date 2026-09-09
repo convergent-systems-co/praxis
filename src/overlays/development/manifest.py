@@ -23,7 +23,14 @@ _DOCUMENT = {
     ),
     "declares": {
         "capability_kinds": ["development.code-generation", "development.code-review"],
-        "proof_types": ["development.test-pass", "development.review-approved"],
+        "proof_types": [
+            "development.test-pass",
+            "development.review-approved",
+            "development.plan-done",
+            "development.bundle-verify-pass",
+            "development.doc-review-done",
+            "development.pr-created",
+        ],
         "resource_types": ["development.filesystem"],
         "authority_scopes": [],
     },

@@ -53,6 +53,45 @@ execution's outcome — see [Health and availability](#health-and-availability) 
 - `class ExecutorError(Exception)`: raised by an `Executor` implementation when an operation
   cannot proceed.
 
+## Standard capability-kind vocabulary
+
+This is a documentation-only vocabulary list; nothing in `schemas/v1/capability.schema.json`
+enumerates `kind` values (`satisfies[].kind` is validated only against the pattern
+`^[a-z0-9]+(-[a-z0-9]+)*$`, described in the next section). The eleven generic,
+un-namespaced kinds below are the standard vocabulary for capabilities that aren't specific to any
+overlay:
+
+`coding`, `reasoning`, `planning`, `filesystem`, `shell`, `tools`, `vision`, `long-context`,
+`structured-output`, `repository-access`, `web`.
+
+These are hyphenated, not dotted, per the schema's pattern above. This is deliberately distinct
+from overlay-specific kinds such as the `development.*`-namespaced kinds declared in
+`src/overlays/development/manifest.py` (e.g. `development.code-generation`), which are validated
+against a different, dot-permitting pattern (`namespacedString` in
+`schemas/v1/overlay-manifest.schema.json`).
+
+## Capability execution-property fields
+
+`schemas/v1/capability.schema.json` has five optional top-level properties, all additive (none are
+in `required`), describing how a capability is executed rather than what kind of work it does:
+
+- `auth_transport` (string enum: `subscription_cli`, `oauth_cli`, `local`, `metered_api`,
+  `api_key`) — how an executor authenticates to perform this capability. This is the field the
+  `AuthTransportPolicy` fail-closed policy below gates on.
+- `interactive` (bool) — whether performing this capability requires a human present during
+  execution, as opposed to running unattended.
+- `context_window` (int, `minimum: 0`) — the maximum context size, in tokens, the executor
+  supports for this capability.
+- `platform` (string) — the platform this capability runs on (e.g. `macos`, `linux`). An open,
+  illustrative string, not a fixed enum, per `docs/ontology.md`'s convention for peripheral
+  vocabulary like `proof_type`/`resource_type`.
+- `availability` (string) — capability-advertised static/informational availability metadata
+  (e.g. `generally-available`, `beta`). Also an open, illustrative string. This is distinct from,
+  and not synchronized with, `Executor.health()`'s live `ExecutorAvailability` signal (see
+  [Health and availability](#health-and-availability) below) -- one is metadata a capability
+  advertises about itself, the other is a live signal an executor reports about its own current
+  health.
+
 ## `praxis_executors.matching`
 
 The capability matching algorithm (`src/praxis_executors/matching.py`) ranks a list of
@@ -94,7 +133,12 @@ satisfies a prohibited kind outright. This makes an unsatisfied match a diagnosa
 than a bare `None`.
 
 - `class UnsatisfiedPromise`: `kind: str`, `constraint: str` (`"required"` or `"prohibited"`),
-  `reason: str`.
+  `reason: str`, `policy_excluded: bool` (default `False`). `policy_excluded` is `True` only when
+  the unsatisfied `kind` *is* satisfied by at least one advertisement in the full input list, but
+  every advertisement satisfying it was filtered out by `is_eligible` -- this distinguishes "some
+  advertisement satisfies this kind but policy excluded all of them" from "nothing advertises this
+  kind at all" (the latter, and every other `UnsatisfiedPromise` case, leaves it at its `False`
+  default).
 
 ## Health and availability
 
@@ -136,6 +180,19 @@ concern, not something a Promise or Requirement encodes.
   if the executor's id is in the set.
 - `class DenyListPolicy(ExecutorPolicy)`: `denied_executor_ids: frozenset[str]` — eligible unless
   the executor's id is in the set.
+- `class AuthTransportPolicy(ExecutorPolicy)`: `denied_auth_transports: frozenset[str]` (default
+  empty), `allowed_auth_transports: frozenset[str] | None` (default `None`) — gates eligibility on
+  each capability's `auth_transport` field (see [Capability execution-property
+  fields](#capability-execution-property-fields) above). Fail-closed by default: a capability whose
+  `auth_transport` is missing, unrecognized, `metered_api`, or `api_key` is ineligible unless
+  `allowed_auth_transports` is set and explicitly contains that value. Once
+  `allowed_auth_transports` is set, it is the final word: any `auth_transport` value not
+  explicitly listed there is ineligible, even an otherwise-safe one like `oauth_cli` or `local`.
+  `denied_auth_transports` additionally denies any otherwise-safe recognized value. It inspects
+  **every** entry in the advertisement's `capabilities[]` list and requires all of them to pass — one non-conforming
+  capability makes the whole executor ineligible. Like `AllowListPolicy`/`DenyListPolicy`, it is
+  opt-in: a caller constructs it and wires it via `as_eligibility_callable`, the same as today —
+  it is not auto-applied by `matching.match`, `ExecutorRegistry`, or any default path.
 - `def as_eligibility_callable(policy: ExecutorPolicy, advertisements: list[dict]) -> Callable[[str], bool]`:
   adapts a policy plus a snapshot of advertisements into the plain `Callable[[str], bool]` shape
   `matching.match`'s `is_eligible` parameter expects (an id absent from the snapshot is treated as

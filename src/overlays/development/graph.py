@@ -1,12 +1,15 @@
 """Development overlay graph.
 
-`build_development_graph` expresses the `~/.ai/skills/develop` task lane's
-shape as a 4-node linear chain: write_tdd -> implement -> verify ->
-commit_task. This is not a full 1:1 port of every node in that skill's
-GRAPH.yaml (~30 nodes across five lanes) -- acceptance criterion 2 only
-requires demonstrating the existing graph *can be expressed* through the
-overlay contract, not a full port of every recovery/scheduler node; see
-docs/overlays/development.md for the scoping rationale.
+`build_development_graph` expresses the `~/.ai/skills/develop` skill's shape
+as two lanes: a 4-node task lane (write_tdd -> implement -> verify ->
+commit_task) and a bundle lane (plan_bundle -> task_scheduler ->
+bundle_verify -> final_review -> documentation_review -> create_pr, with a
+repair_bundle retry node) laid alongside it. This is not a full 1:1 port of
+every node in that skill's GRAPH.yaml (~30 nodes across five lanes) --
+acceptance criterion 2 only requires demonstrating the existing graph *can be
+expressed* through the overlay contract, not a full port of every
+recovery/scheduler node; see docs/overlays/development.md for the scoping
+rationale.
 
 Each node's `requirement` metadata entry (node.metadata["requirement"])
 requests a `development.*` capability kind. `Promise.kind`
@@ -24,6 +27,12 @@ is declarative metadata only: no core module (`TransitionEngine`,
 The terminal node's `evidence_requirement` requires both
 "development.test-pass" and "development.review-approved" and is enforced by
 `TransitionEngine`'s evidence gate.
+
+A third, recovery lane (`context_recovery`, `blocker_recovery`,
+`awaiting_human`) is present as topology-only placeholders: each has
+`metadata={}` and, in this task, no edges. They are not dispatched work and
+are not wired into the task or bundle lanes yet -- see #32 and
+docs/overlays/development.md for the scoping rationale.
 """
 
 from __future__ import annotations
@@ -37,6 +46,19 @@ _EVIDENCE_REQUIREMENT = {
     "evidence": [
         {"proof_type": "development.test-pass", "constraint": "required"},
         {"proof_type": "development.review-approved", "constraint": "required"},
+    ],
+}
+
+# Proof types are declared in overlays/development/manifest.py; referenced
+# here as literal strings only, no import, since manifest.py's declaration
+# and this requirement are independent of each other.
+_BUNDLE_EVIDENCE_REQUIREMENT = {
+    "spec_version": _SPEC_VERSION,
+    "evidence": [
+        {"proof_type": "development.plan-done", "constraint": "required"},
+        {"proof_type": "development.bundle-verify-pass", "constraint": "required"},
+        {"proof_type": "development.doc-review-done", "constraint": "required"},
+        {"proof_type": "development.pr-created", "constraint": "required"},
     ],
 }
 
@@ -84,11 +106,83 @@ def build_development_graph() -> Graph:
                 "evidence_requirement": _EVIDENCE_REQUIREMENT,
             },
         ),
+        "plan_bundle": Node(
+            id="plan_bundle",
+            kind="plan-bundle",
+            metadata={"requirement": _requirement("development.code-generation")},
+        ),
+        "task_scheduler": Node(
+            id="task_scheduler",
+            kind="task-scheduler",
+            metadata={"requirement": _requirement("development.code-generation")},
+        ),
+        "bundle_verify": Node(
+            id="bundle_verify",
+            kind="bundle-verify",
+            metadata={"requirement": _requirement("development.code-review")},
+        ),
+        "final_review": Node(
+            id="final_review",
+            kind="final-review",
+            metadata={"requirement": _requirement("development.code-review")},
+        ),
+        "documentation_review": Node(
+            id="documentation_review",
+            kind="documentation-review",
+            metadata={"requirement": _requirement("development.code-review")},
+        ),
+        "create_pr": Node(
+            id="create_pr",
+            kind="create-pr",
+            metadata={
+                "requirement": _requirement("development.code-review"),
+                "evidence_requirement": _BUNDLE_EVIDENCE_REQUIREMENT,
+            },
+        ),
+        "repair_bundle": Node(
+            id="repair_bundle",
+            kind="repair-bundle",
+            metadata={"requirement": _requirement("development.code-generation")},
+        ),
+        "context_recovery": Node(
+            id="context_recovery",
+            kind="context-recovery",
+            metadata={},
+        ),
+        "blocker_recovery": Node(
+            id="blocker_recovery",
+            kind="blocker-recovery",
+            metadata={},
+        ),
+        "awaiting_human": Node(
+            id="awaiting_human",
+            kind="awaiting-human",
+            metadata={},
+        ),
     }
     edges = [
         Edge(source="write_tdd", target="implement", kind="sequential"),
         Edge(source="implement", target="verify", kind="sequential"),
         Edge(source="verify", target="commit_task", kind="sequential"),
+        Edge(source="plan_bundle", target="task_scheduler", kind="sequential"),
+        Edge(source="task_scheduler", target="bundle_verify", kind="sequential"),
+        Edge(source="bundle_verify", target="final_review", kind="sequential"),
+        Edge(source="final_review", target="documentation_review", kind="sequential"),
+        Edge(source="documentation_review", target="create_pr", kind="sequential"),
+        # These two edges fire unconditionally on the source's
+        # TERMINAL_SUCCESS (TransitionEngine._advance_successors), not
+        # conditionally on a failure outcome, so they do not yet express the
+        # "retry branch off a failed bundle_verify/final_review" the spec
+        # names. Same acknowledged gap docs/parity/decision.md and
+        # docs/overlays/development.md disclose elsewhere (filed as #32).
+        Edge(source="bundle_verify", target="repair_bundle", kind="sequential"),
+        Edge(source="final_review", target="repair_bundle", kind="sequential"),
+        # Same acknowledged gap as above (#32): this edge fires
+        # unconditionally on repair_bundle reaching TERMINAL_SUCCESS, standing
+        # in for GRAPH.yaml's repair_bundle `exhausted` route -- there is no
+        # way to express "only on the exhausted outcome" without the
+        # conditional-edge semantics filed separately as #32.
+        Edge(source="repair_bundle", target="awaiting_human", kind="sequential"),
     ]
     return Graph(
         spec_version=_SPEC_VERSION,

@@ -1,0 +1,26 @@
+{
+  "bundle": "b1-issue27",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Suffix-match fix in _lease_conflict_fn",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_runtime/transitions.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Tests: development.filesystem glob-conflict + trivial.dataset non-regression",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["tests/test_transitions_resource_claims.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Docs: development.md wiring-gap paragraph; check resources.md",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/overlays/development.md", "docs/resources.md"]
+    }
+  ]
+}

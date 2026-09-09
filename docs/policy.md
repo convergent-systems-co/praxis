@@ -167,9 +167,10 @@ applying `event_type` to a `TransitionEngine` is the caller's responsibility.
 `praxis_executors.policy.ExecutorPolicy` (see `docs/executors.md`) and `praxis_policy` answer
 different questions at different levels:
 
-- `ExecutorPolicy` (`AllowListPolicy`/`DenyListPolicy`) is an **executor-eligibility** policy: it
-  restricts which registered executors `praxis_executors.matching.match` will even consider for a
-  single match attempt, with no notion of a node's authority scopes, retry history, or budget.
+- `ExecutorPolicy` (`AllowListPolicy`/`DenyListPolicy`/`AuthTransportPolicy`) is an
+  **executor-eligibility** policy: it restricts which registered executors
+  `praxis_executors.matching.match` will even consider for a single match attempt, with no notion
+  of a node's authority scopes, retry history, or budget.
 - `praxis_policy` is a **node/run-level** policy: it decides whether a node may proceed at all
   (`authorize_start`), and how to respond to that node's failed execution
   (`decide_on_failure`) — including whether to retry, and against which executors.
@@ -205,3 +206,7 @@ above is the caller's job, the same "decide here, wire there" separation
   survive a process restart. Reconciling this against `praxis_runtime`'s durable event log is left
   as a follow-up integration task, parallel to the evidence-gate persistence seam already noted in
   `docs/runtime.md`.
+- **Capacity/handoff tiering stays skill-side, not a `BudgetLedger` extension.** See
+  [ADR 0001](adr/0001-capacity-tiering-boundary.md), which decides that the `develop` skill's
+  persisted, multi-signal capacity tiering remains in `~/ai/skills/develop/runtime/checkpoint.py`
+  rather than being promoted into `praxis_policy.budgets`.

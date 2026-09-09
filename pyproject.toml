@@ -22,3 +22,4 @@ praxis_contracts = ["schemas/v1/*.schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

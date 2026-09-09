@@ -1,0 +1,26 @@
+{
+  "bundle": "b4-issue32",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Core engine: on-failure edge routing in TransitionEngine",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_runtime/transitions.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Failure-path test coverage for on-failure edges",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["tests/test_transitions.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Document on-failure edge semantics in docs/runtime.md",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/runtime.md"]
+    }
+  ]
+}

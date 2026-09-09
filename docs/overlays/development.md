@@ -58,14 +58,16 @@ matching acceptance criterion 2's "can be expressed" bar rather than a full port
 immediately below, in the same register as the `conflict_fn` wiring-gap paragraph under
 "## Resource provider").
 
-**Recovery/retry edges are topology-only, not conditional (#32):** `TransitionEngine._advance_successors`
-(`src/praxis_runtime/transitions.py`) fires a node's outgoing edges unconditionally on that node
-reaching `TERMINAL_SUCCESS` — there is no conditional/failure-triggered edge semantics today. That
-means `bundle_verify` -> `repair_bundle`, `final_review` -> `repair_bundle`, and
-`repair_bundle` -> `awaiting_human` all fire on their source's plain success, not on a failure or
-"exhausted" outcome as the `~/.ai/skills/develop` graph's retry semantics intend. Filed separately
-as #32. These edges therefore only demonstrate that the *node and edge names* are expressible
-through the overlay contract today — not that "retry on failure" itself is expressed.
+**Recovery/retry edges are `kind="on-failure"` (#32).** `bundle_verify` -> `repair_bundle`,
+`final_review` -> `repair_bundle`, and `repair_bundle` -> `awaiting_human` are all
+`kind="on-failure"` edges. `TransitionEngine._advance_successors` (`src/praxis_runtime/transitions.py`)
+fires `on-failure` edges only when their source node reaches genuine `TERMINAL_FAILED`, not
+unconditionally on success — so these three edges now fire on their source's failure, as the
+`~/.ai/skills/develop` graph's retry semantics intend, rather than on plain `TERMINAL_SUCCESS` as an
+earlier revision of this doc claimed. Filed separately as #32. This still doesn't model
+`~/.ai/skills/develop`'s actual retry-count/budget/exhaustion semantics — there is no tracking of
+how many times `repair_bundle` has been retried or when that retry budget is exhausted — so that
+broader gap remains real and undone; only the "fires on the wrong condition" claim was stale.
 
 **`build_development_graph()` bypasses `load_graph()`'s reachability check.** `load_graph()`
 (`src/praxis_runtime/graph.py`) validates edges' source/target IDs and `entry_node` against the

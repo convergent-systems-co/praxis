@@ -75,7 +75,15 @@ _CREDENTIAL_FIELD = r"[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password|credent
 # over-redacting direction intact: a credential is still caught whatever
 # characters it is made of, including base64 `+`/`/`/`=` padding and
 # punctuation no token alphabet has.
-_CREDENTIAL_VALUE = r"[^\s\"',;}\]()\[]{8,}(?=[\s\"',;}\])]|$)"
+#
+# The one alphabet that is excluded is an all-digit value. `codex exec --json`
+# emits token-usage events under field names this pattern matches by design
+# (`input_tokens`, `output_tokens`, ...), and a count past eight digits would
+# otherwise be replaced by the redaction marker -- the same transcript
+# corruption, indistinguishable from a genuine redaction, that the terminator
+# rule above exists to keep off code-shaped lines. No credential shape this
+# adapter targets is purely numeric, so nothing is let through by it.
+_CREDENTIAL_VALUE = r"(?!\d+(?=[\s\"',;}\])]|$))[^\s\"',;}\]()\[]{8,}(?=[\s\"',;}\])]|$)"
 _CREDENTIAL_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
@@ -418,6 +426,14 @@ class CodexCliExecutor(Executor):
         try:
             process = subprocess.Popen(
                 argv,
+                # The symmetric case to the pipe-buffer deadlock _OutputPump
+                # prevents: an inherited stdin lets a `codex exec` that ever
+                # reads input block on the parent's terminal or on an
+                # already-consumed pipe, and status() would then report
+                # RUNNING for as long as it did. Nothing here ever writes to
+                # the child, so the launch is non-interactive by construction
+                # and its stdin reads as immediately empty.
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

@@ -7,6 +7,8 @@ optional skipif-guarded smoke test at the bottom of this file.
 
 from __future__ import annotations
 
+import ast
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -52,6 +54,28 @@ def _mock_process(returncode: int, stdout: str = "", stderr: str = "") -> MagicM
     process.communicate.return_value = (stdout, stderr)
     process.returncode = returncode
     return process
+
+
+# Test-module hygiene
+
+
+def test_no_top_level_definition_in_this_module_is_shadowed_by_a_later_one():
+    """A helper defined twice here silently loses its first definition.
+
+    Both definitions run at import time and the later one wins at every call
+    site, so the earlier one -- and whatever its docstring explains about why
+    the helper is shaped the way it is -- becomes dead code no test
+    exercises. Nothing catches that on its own: pytest imports the module
+    without complaint, and pyproject.toml configures no linter that would
+    report the redefinition.
+    """
+    module = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+    definitions: dict[str, list[int]] = {}
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            definitions.setdefault(node.name, []).append(node.lineno)
+
+    assert {name: lines for name, lines in definitions.items() if len(lines) > 1} == {}
 
 
 # capabilities()
@@ -198,12 +222,6 @@ def test_health_invokes_codex_version_via_subprocess_run():
     # `_detect_authenticated` auth-status probe, so check every call rather
     # than assuming `--version` was the last one.
     assert any(call.args[0][-1] == "--version" for call in mock_run.call_args_list)
-
-
-def _version_probe(stdout: str = "codex-cli 0.153.4\n") -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(
-        args=["codex", "--version"], returncode=0, stdout=stdout, stderr=""
-    )
 
 
 def test_health_survives_a_version_probe_that_never_answers():
@@ -388,6 +406,30 @@ def test_launch_passes_a_prompt_equal_to_an_exec_subcommand_as_a_prompt():
     # `exec`, so an un-terminated prompt equal to one of them would silently
     # run that subcommand instead of being sent as the prompt.
     assert _launched_argv("review") == ["/usr/bin/codex", "exec", "--", "review"]
+
+
+def test_launch_gives_the_launched_process_no_stdin_to_block_on():
+    # stdout and stderr are pipes the pump drains, but an inherited stdin is
+    # the symmetric hazard: a `codex exec` that ever reads input would block
+    # on the parent's terminal or on an already-consumed pipe, and status()
+    # would report RUNNING for as long as it did. Nothing in this adapter
+    # ever writes to the child, so the launch is non-interactive by
+    # construction and stdin should read as immediately empty.
+    process = _mock_process(returncode=0, stdout="", stderr="")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process
+        ) as mock_popen,
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        executor.launch(request)
+
+    assert mock_popen.call_args.kwargs["stdin"] is subprocess.DEVNULL
 
 
 @pytest.mark.parametrize(
@@ -818,6 +860,22 @@ def test_result_redacts_an_authorization_bearer_token_from_payload():
 
     assert FAKE_SECRET_BEARER not in str(result.payload)
     assert "Bearer" in result.payload["stdout"]
+
+
+def test_result_leaves_a_numeric_token_count_alone():
+    # `codex exec --json` emits token-usage events under field names that
+    # contain "token", so the credential-field pattern sees them. A purely
+    # numeric value is no credential shape this adapter targets, and a count
+    # long enough to clear the 8-character floor would otherwise be replaced
+    # by the redaction marker -- leaving the transcript indistinguishable
+    # from a genuine redaction, the same corruption the pattern was narrowed
+    # to avoid for code-shaped lines.
+    usage = '{"input_tokens":12345678,"output_tokens":42}'
+
+    result = _run_and_capture_result(usage, usage)
+
+    assert result.payload["stdout"] == usage
+    assert result.payload["stderr"] == usage
 
 
 @pytest.mark.parametrize("secret", _REDACTED_SECRETS)

@@ -1,0 +1,44 @@
+{
+  "bundle": "b1-issue38",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Capability schema: execution-property fields (issue #39)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "schemas/v1/capability.schema.json",
+        "tests/test_capability_execution_properties.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Documentation: vocabulary, schema fields, policy, and match-result fields (issue #39 + #38)",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "docs/executors.md"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Policy: AuthTransportPolicy (issue #38)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/policy.py",
+        "tests/test_executor_policy.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Matching: policy-exclusion vs. no-capability distinguishability (issue #38)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/matching.py",
+        "tests/test_executor_matching.py"
+      ]
+    }
+  ]
+}

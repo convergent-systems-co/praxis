@@ -102,10 +102,25 @@ def test_health_unavailable_when_cli_absent():
         assert executor.health() == ExecutorAvailability.UNAVAILABLE
 
 
+def _version_probe(stdout: str = "codex-cli 0.153.4\n") -> subprocess.CompletedProcess:
+    """A real `--version` answer, so `_probe_version` returns a version string.
+
+    A bare `MagicMock` would satisfy health()'s "the executable named itself"
+    condition incidentally -- every attribute of a MagicMock is truthy, so the
+    probe returns a mock rather than a version and the condition is never
+    really exercised.
+    """
+    return subprocess.CompletedProcess(
+        args=["/usr/bin/codex", "--version"], returncode=0, stdout=stdout, stderr=""
+    )
+
+
 def test_health_available_when_cli_present_and_authenticated():
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch("praxis_executors.adapters.codex_cli.subprocess.run"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
+        ),
         patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
     ):
         executor = _executor()
@@ -854,6 +869,16 @@ def test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found():
             "the real `codex login status` probe did not answer (unrecognized "
             "output on this codex version), so there is nothing version-neutral "
             "left to pin"
+        )
+    if authenticated and executor._probe_version(shutil.which("codex")) is None:
+        # health() caps a silent executable at DEGRADED however well the login
+        # went, so on such a machine the AVAILABLE assertion below would fail
+        # on a machine condition rather than on a defect. Both probes spawn the
+        # same binary, so this is close to unreachable -- but the spec asked
+        # this test to skip, not fail, whenever conditions are not met.
+        pytest.skip(
+            "the real `codex --version` probe did not answer, so health() caps "
+            "at DEGRADED and there is no AVAILABLE outcome to pin"
         )
     assert executor.health() == (
         ExecutorAvailability.AVAILABLE if authenticated else ExecutorAvailability.UNAVAILABLE

@@ -57,6 +57,25 @@ _REDACTED = "***REDACTED***"
 #      characters, so the floor already spares them and an explicit
 #      exclusion for them would never fire.
 _CREDENTIAL_FIELD = r"[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_-]*"
+# What a credential-shaped field's *value* may look like. The floor of 8
+# characters is not on its own enough to tell a token from code: `codex exec`
+# is a coding agent, so its transcript routinely carries lines like
+# `api_key = os.environ["OPENAI_API_KEY"]` or
+# `token = response.json()["access_token"]`, where the text after the `=` is
+# the code that reads the credential, not the credential. Redacting it
+# corrupts the transcript in a way that is indistinguishable from a genuine
+# redaction.
+#
+# So the value is required to *end* like a value rather than to be spelled
+# like one: brackets and parentheses end the run, and the run counts only if
+# what follows it is a delimiter a value can legitimately end at -- quote,
+# whitespace, comma, semicolon, `}`, `]`, `)` or the end of the text. A
+# subscript or a call therefore never matches, because its run ends at `[` or
+# `(`. Keying off the terminator rather than the alphabet is what keeps the
+# over-redacting direction intact: a credential is still caught whatever
+# characters it is made of, including base64 `+`/`/`/`=` padding and
+# punctuation no token alphabet has.
+_CREDENTIAL_VALUE = r"[^\s\"',;}\]()\[]{8,}(?=[\s\"',;}\])]|$)"
 _CREDENTIAL_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
@@ -69,7 +88,7 @@ _CREDENTIAL_PATTERNS = (
     # and its `=`/`:` is prose, and the first word of the following line is
     # that line's content, no part of this field's value.
     (
-        re.compile(rf"(?i)\b({_CREDENTIAL_FIELD}\"?[ \t]*[=:][ \t]*\"?)" r"[^\s\"',;}\]]{8,}"),
+        re.compile(rf"(?i)\b({_CREDENTIAL_FIELD}\"?[ \t]*[=:][ \t]*\"?){_CREDENTIAL_VALUE}"),
         rf"\1{_REDACTED}",
     ),
 )
@@ -195,6 +214,24 @@ class CodexCliExecutor(Executor):
     """Runs prompts through the locally-installed `codex` subscription CLI as a subprocess."""
 
     def __init__(self, executor_id: str) -> None:
+        # `_processes`, `_results` and `_cancelled` deliberately keep an entry
+        # per handle for this executor's lifetime; only `_output_pumps` is
+        # released, once its transcript has settled into `_results`. The
+        # retention is what the Executor ABC asks for: `status()`, `result()`
+        # and `cancel()` take a handle and no call ever declares itself the
+        # last, so a handle must stay answerable for as long as its holder
+        # could ask. `result()`'s cache also relies on it directly -- nothing
+        # removing an entry from `_results` is what makes "no cached result
+        # implies a live pump" true, and dropping a settled process would turn
+        # a repeat `status()` into an unknown-handle error.
+        #
+        # The cost is one Popen object and one transcript per launch, so a
+        # long-lived executor grows with the number of launches. Bounding that
+        # needs somewhere to put the bound: a release/forget call the ABC does
+        # not have, and that this adapter cannot add on its own -- its public
+        # surface is held to the ABC's precisely so it grows no method the
+        # registry, the policy layer and the sibling adapters know nothing
+        # about. The bound belongs on the ABC, for every adapter at once.
         self._executor_id = executor_id
         self._processes: dict[str, subprocess.Popen] = {}
         self._output_pumps: dict[str, _OutputPump] = {}
@@ -340,10 +377,26 @@ class CodexCliExecutor(Executor):
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
         if "prompt" not in request.parameters:
             raise ExecutorError("request.parameters is missing required key 'prompt'")
+        extra_args = request.parameters.get("extra_args", [])
+        # Splatted into argv below, so anything iterable is accepted by Python
+        # and silently produces a wrong command line: a string becomes one argv
+        # entry per character, a dict becomes its keys. Checked here, in the
+        # same currency and at the same point as the missing-`prompt` guard,
+        # rather than left for the CLI to reject as an unparseable argv.
+        #
+        # The message names the type it got and never the value: an
+        # `extra_args` entry can carry a credential, and an error message is a
+        # text boundary like every other one in this adapter.
+        if not isinstance(extra_args, list) or not all(
+            isinstance(arg, str) for arg in extra_args
+        ):
+            raise ExecutorError(
+                "request.parameters['extra_args'] must be a list of strings; got "
+                f"{type(extra_args).__name__}"
+            )
         cli_path = shutil.which(_CLI_NAME)
         if cli_path is None:
             raise ExecutorError("codex CLI is not available on PATH")
-        extra_args = request.parameters.get("extra_args", [])
         # `codex exec` is Codex's documented non-interactive one-shot
         # subcommand (confirmed via `codex exec --help` on the real
         # binary), mirroring `claude_cli.py`'s `-p` invocation.

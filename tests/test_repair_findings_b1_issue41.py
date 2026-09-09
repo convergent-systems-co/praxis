@@ -465,6 +465,179 @@ def test_an_unexpected_reader_failure_does_not_leak_a_credential() -> None:
     assert SHORT_BEARER_TOKEN not in str(payload)
 
 
+# Redaction fidelity: the field-name matcher must not mangle code-shaped text
+
+
+CODE_SHAPED_LINES = (
+    'api_key = os.environ["OPENAI_API_KEY"]',
+    'token = response.json()["access_token"]',
+    "secret = config.get('secret')",
+)
+
+
+@pytest.mark.parametrize("line", CODE_SHAPED_LINES)
+def test_redaction_leaves_a_code_shaped_transcript_line_intact(line: str) -> None:
+    # `codex exec` is a coding agent, so its transcripts routinely carry lines
+    # of exactly this shape. The field-name matcher used to consume the code
+    # that *reads* the credential -- `os.environ[`, `response.json` -- and
+    # replace it with the redaction marker, which is indistinguishable from a
+    # genuine redaction and silently corrupts the transcript.
+    assert codex_cli._redact(line) == line
+
+
+PADDED_BASE64_TOKEN = "FAKEb64+tok/en0123456789=="
+
+
+def test_redaction_still_covers_a_padded_base64_token_named_by_its_field() -> None:
+    # The counterpart the narrowing must not break: a real opaque credential
+    # whose alphabet includes `+`, `/` and `=` padding is still a credential.
+    assert PADDED_BASE64_TOKEN not in codex_cli._redact(f'api_key = "{PADDED_BASE64_TOKEN}"')
+
+
+def test_redaction_still_covers_an_unquoted_token_at_the_end_of_a_line() -> None:
+    # A credential that runs to the end of the text has no closing delimiter
+    # at all, and must still be redacted.
+    assert OPAQUE_TOKEN not in codex_cli._redact(f"api_key={OPAQUE_TOKEN}")
+
+
+def test_redaction_still_covers_a_token_with_punctuation_a_code_idiom_lacks() -> None:
+    # The narrowing keys off how the value *ends*, not off its alphabet, so a
+    # credential containing characters no base64 alphabet has is still caught.
+    weird = "p@ssw0rd!FAKE!value"
+
+    assert weird not in codex_cli._redact(f"password={weird}")
+
+
+# launch(): extra_args must be a list of strings, not any iterable
+
+
+def _launch_with(parameters: dict) -> None:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.Popen",
+            return_value=_settled_process(),
+        ),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters=parameters,
+        )
+        executor.launch(request)
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    ["--model gpt-5", ("--model", "gpt-5"), {"--model": "gpt-5"}, ["--model", 5]],
+)
+def test_launch_rejects_extra_args_that_are_not_a_list_of_strings(extra_args) -> None:
+    # A string splats into argv one character at a time, so `"--model gpt-5"`
+    # becomes fourteen separate arguments; a tuple or dict is silently accepted
+    # today too. The missing-`prompt` key is already guarded this way, and a
+    # malformed `extra_args` deserves the same currency rather than a garbled
+    # command line.
+    with pytest.raises(ExecutorError):
+        _launch_with({"prompt": "hello", "extra_args": extra_args})
+
+
+def test_launch_rejects_malformed_extra_args_before_spawning_a_process() -> None:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen") as mock_popen,
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello", "extra_args": "--model gpt-5"},
+        )
+
+        with pytest.raises(ExecutorError):
+            executor.launch(request)
+
+    mock_popen.assert_not_called()
+
+
+def test_launch_extra_args_rejection_does_not_echo_the_value() -> None:
+    # The rejection message is a text boundary like every other one here: an
+    # `extra_args` entry can carry a credential, so the error names the type it
+    # got, never the value.
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen"),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello", "extra_args": f"--key {OPAQUE_TOKEN}"},
+        )
+
+        with pytest.raises(ExecutorError) as exc_info:
+            executor.launch(request)
+
+    assert OPAQUE_TOKEN not in str(exc_info.value)
+
+
+def test_launch_still_accepts_a_list_of_string_extra_args() -> None:
+    # The guard must not close the door on the supported shape.
+    process = _settled_process()
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process
+        ) as mock_popen,
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello", "extra_args": ["--model", "gpt-5"]},
+        )
+        executor.launch(request)
+
+    assert mock_popen.call_args.args[0] == [
+        "/usr/bin/codex",
+        "exec",
+        "--model",
+        "gpt-5",
+        "--",
+        "hello",
+    ]
+
+
+# The real-CLI smoke test must skip, never fail, when conditions are not met
+
+
+def test_smoke_test_skips_when_the_real_version_probe_cannot_answer() -> None:
+    # A machine whose `codex login status` reports a ChatGPT login while
+    # `codex --version` says nothing yields DEGRADED, and the smoke test's
+    # authenticated branch asserted AVAILABLE -- a failure on a machine
+    # condition the spec asked this test to skip on.
+    import test_codex_cli as codex_cli_tests
+
+    smoke = codex_cli_tests.test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found
+    with (
+        patch("shutil.which", return_value="/usr/bin/codex"),
+        patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
+        patch.object(CodexCliExecutor, "_probe_version", return_value=None),
+    ):
+        with pytest.raises(pytest.skip.Exception):
+            smoke()
+
+
+def test_smoke_test_still_pins_the_available_outcome_when_both_probes_answer() -> None:
+    # The counterpart: adding a skip must not turn the healthy case into
+    # another skip, or the smoke test stops pinning anything at all.
+    import test_codex_cli as codex_cli_tests
+
+    smoke = codex_cli_tests.test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found
+    with (
+        patch("shutil.which", return_value="/usr/bin/codex"),
+        patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
+        patch.object(CodexCliExecutor, "_probe_version", return_value="codex-cli 0.153.4"),
+    ):
+        smoke()
+
+
 def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:
     text = _doc_text()
     marker = "Adding a new backend"

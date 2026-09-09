@@ -7,18 +7,28 @@ even though `CodexCliExecutor` (`src/praxis_executors/adapters/codex_cli.py`)
 shipped in this same branch. This test pins the doc to the current, correct
 claim: Codex is a shipped concrete adapter, not a hypothetical one.
 
-This module is also where the prose `codex_cli.py`'s own comments are pinned
-to lives: those assertions exercise no code path, so they belong with the
-doc pinning rather than among `tests/test_codex_cli.py`'s behavioural tests.
+Later findings against the same bundle are pinned here too, each by a test
+that exercises the behaviour it is about. Assertions over the prose of
+`codex_cli.py`'s own `#` comments used to live here as well; they were
+removed as part of this file's own repair round, because they exercised no
+code path and failed on a harmless reword. This convention pins published
+prose in `docs/`, not implementation comments.
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from praxis_executors.adapters import codex_cli
-from praxis_executors.interface import Executor
+from praxis_executors.adapters.codex_cli import CodexCliExecutor
+from praxis_executors.interface import (
+    ExecutionRequest,
+    Executor,
+    ExecutorAvailability,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXECUTORS_DOC = REPO_ROOT / "docs" / "executors.md"
@@ -66,103 +76,6 @@ def test_doc_lists_codex_cli_executor_among_concrete_adapters() -> None:
     )
 
 
-# codex_cli.py's own comments
-
-
-def _adapter_comments() -> str:
-    """Every `#` comment line in codex_cli.py, unwrapped into one string.
-
-    Comments only, so a phrase that also appears in the module docstring or
-    in code does not satisfy an assertion about what a comment records.
-    """
-    lines = [
-        line.strip().lstrip("#").strip()
-        for line in Path(codex_cli.__file__).read_text().splitlines()
-        if line.strip().startswith("#")
-    ]
-    return re.sub(r"\s+", " ", " ".join(lines))
-
-
-def test_env_strip_comment_states_what_codex_doctor_actually_reports() -> None:
-    # Verified live against the installed binary: running `codex doctor`
-    # with and without CODEX_API_KEY leaves "stored auth mode" reported as
-    # `chatgpt` in both runs. The only delta is an added "auth env vars
-    # present" line, which is what the adapter's comment must record.
-    comments = _adapter_comments()
-
-    assert "auth env vars present" in comments, (
-        "codex_cli.py's comment must state what `codex doctor` actually "
-        "reports when CODEX_API_KEY is set"
-    )
-
-
-# The decision, not two common words: models and modes are not probed, and
-# the reason is that the Capability contract is vendor/model-neutral and
-# offers no field a discovered model list could travel in. Both matchers stay
-# tolerant of rewording -- neither pins a full sentence.
-_MODELS_AND_MODES_NOT_PROBED = re.compile(r"models?\s+and\s+modes?[^.]*\bnot\b", re.IGNORECASE)
-_NO_CONTRACT_FIELD_FOR_MODELS = re.compile(r"no field[^.;]*\bmodel", re.IGNORECASE)
-
-
-def test_adapter_records_its_models_and_modes_discovery_decision() -> None:
-    # The spec's discovery bullet asks for "supported models/modes where
-    # exposed". The auth-probe and env-var investigations each left their
-    # outcome in a comment; the third discovery item left none, so there was
-    # no record of whether models/modes had been considered at all.
-    comments = _adapter_comments()
-
-    assert _MODELS_AND_MODES_NOT_PROBED.search(comments), (
-        "codex_cli.py must record that it deliberately does not probe "
-        "supported models and modes, as it does for the auth probe and "
-        "the stripped env vars"
-    )
-    assert _NO_CONTRACT_FIELD_FOR_MODELS.search(comments), (
-        "codex_cli.py's models/modes note must state the reason the "
-        "decision rests on: the contract has no field a discovered model "
-        "list could travel in"
-    )
-    # Deliberately not also pinned to the phrase "vendor/model-neutral": that
-    # quotes capability.schema.json's own wording, so the assertion would
-    # break on a reword in either file while the decision it guards stayed
-    # true. The reason matcher above carries that claim.
-    assert "capability.schema.json" in comments, (
-        "codex_cli.py's models/modes note must cite the contract that "
-        "settles it -- capability.schema.json"
-    )
-
-
-# The decision, not a sentence: the subprocess-lifecycle block shared with
-# ClaudeCliExecutor is duplicated on purpose, and the comment has to say so
-# and name the sibling it duplicates. Both matchers stay tolerant of
-# rewording.
-_DUPLICATION_IS_DELIBERATE = re.compile(r"duplicat\w*", re.IGNORECASE)
-_SHARING_ALTERNATIVE_WEIGHED = re.compile(r"shared base|factor\w*", re.IGNORECASE)
-
-
-def test_adapter_records_why_its_subprocess_lifecycle_duplicates_the_sibling() -> None:
-    # `_process_for`, `status`, `_terminal_status` and `cancel` are
-    # byte-identical to claude_cli.py's. Duplication between two adapters is
-    # a defensible call, but an unexplained one reads as an oversight, so
-    # the reason belongs in the file next to the duplicated block. The two
-    # matchers ask only that the comment names the duplication and the
-    # sharing alternative it was weighed against, in any wording or order.
-    comments = _adapter_comments()
-
-    assert _DUPLICATION_IS_DELIBERATE.search(comments), (
-        "codex_cli.py must record that its subprocess-lifecycle block "
-        "duplicates the sibling adapter's, rather than leaving the "
-        "duplication unremarked"
-    )
-    assert _SHARING_ALTERNATIVE_WEIGHED.search(comments), (
-        "codex_cli.py's duplication note must say why the block was not "
-        "factored into a shared base instead"
-    )
-    assert "claude_cli.py" in comments, (
-        "codex_cli.py's duplication note must name the sibling module it "
-        "duplicates"
-    )
-
-
 def test_adapter_exposes_no_public_method_outside_the_executor_abc() -> None:
     # A public method no production code calls is dead wiring: nothing on the
     # Executor ABC, in the registry, in policy or in the docs reads it, and
@@ -179,6 +92,117 @@ def test_adapter_exposes_no_public_method_outside_the_executor_abc() -> None:
         "Executor ABC and that no production code calls: "
         f"{sorted(adapter_surface - abc_surface)}"
     )
+
+
+# Auth probe: an unrecognized login wording is ambiguous, not a denial
+
+
+def _login_status(text: str) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(
+        args=["codex", "login", "status"], returncode=0, stdout="", stderr=text
+    )
+
+
+# A login line the probe cannot classify: it names neither the "using
+# ChatGPT" wording the adapter recognizes nor an API key. A codex build that
+# rewords its ChatGPT login line reads exactly like this.
+_UNRECOGNIZED_LOGIN = "Logged in as a@b.c via ChatGPT subscription\n"
+
+
+def test_detect_authenticated_is_unknown_for_an_unrecognized_login_wording() -> None:
+    # Resolving this to False claims the CLI is unauthenticated, which is a
+    # stronger claim than the probe supports. The spec's mapping sends an
+    # ambiguous probe result to DEGRADED, i.e. None here.
+    with patch(
+        "praxis_executors.adapters.codex_cli.subprocess.run",
+        return_value=_login_status(_UNRECOGNIZED_LOGIN),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+
+        assert executor._detect_authenticated("/usr/bin/codex") is None
+
+
+def test_health_is_degraded_for_an_unrecognized_login_wording() -> None:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run",
+            return_value=_login_status(_UNRECOGNIZED_LOGIN),
+        ),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+
+        assert executor.health() == ExecutorAvailability.DEGRADED
+
+
+def test_detect_authenticated_still_denies_an_api_key_login() -> None:
+    # The counterpart the ambiguity branch must not swallow: a login the CLI
+    # names as an API key is a metered credential, so it stays a denial.
+    with patch(
+        "praxis_executors.adapters.codex_cli.subprocess.run",
+        return_value=_login_status("Logged in using an API key\n"),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+
+        assert executor._detect_authenticated("/usr/bin/codex") is False
+
+
+# Redaction coverage: token shapes the sk-/JWT/long-Bearer patterns miss
+
+
+def _result_payload(stdout: str, stderr: str) -> dict:
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.communicate.return_value = (stdout, stderr)
+    process.returncode = 0
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        return executor.result(executor.launch(request)).payload
+
+
+SHORT_BEARER_TOKEN = "FAKEtok3n99"
+
+
+def test_result_redacts_a_bearer_token_shorter_than_twenty_characters() -> None:
+    # Nothing about a credential stops being a credential below twenty
+    # characters; the length floor was only ever there to avoid matching
+    # prose.
+    header = f"Authorization: Bearer {SHORT_BEARER_TOKEN}"
+
+    payload = _result_payload(f"...{header}...", f"...{header}...")
+
+    assert SHORT_BEARER_TOKEN not in str(payload)
+    assert "Bearer" in payload["stdout"]
+
+
+OPAQUE_TOKEN = "FAKEOPAQUECHATGPTTOKEN0123456789"
+
+
+def test_result_redacts_an_opaque_token_named_by_its_field() -> None:
+    # An opaque ChatGPT token that is neither JWT-shaped nor behind a
+    # `Bearer` prefix -- the shape `~/.codex/auth.json` holds it in, and the
+    # shape it reaches stdout in when the CLI echoes that file back.
+    line = f'{{"access_token": "{OPAQUE_TOKEN}"}}'
+
+    payload = _result_payload(line, line)
+
+    assert OPAQUE_TOKEN not in str(payload)
+    assert OPAQUE_TOKEN not in payload["stdout"]
+    assert OPAQUE_TOKEN not in payload["stderr"]
+
+
+def test_redaction_keeps_a_non_secret_value_of_a_credential_named_field() -> None:
+    # The field-name matcher must not swallow the diagnostics around it:
+    # `codex doctor` reports credential *presence* with the same field
+    # names, and a redacted `false` would make that output unreadable.
+    assert codex_cli._redact('{"stored API key": false}') == '{"stored API key": false}'
 
 
 def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:

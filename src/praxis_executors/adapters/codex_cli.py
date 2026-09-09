@@ -40,11 +40,32 @@ _REDACTED = "***REDACTED***"
 #      refresh token appears verbatim;
 #   3. `Authorization: Bearer <token>` values, for opaque token shapes the
 #      JWT pattern does not cover. The `Bearer` prefix itself is kept so
-#      the surrounding message stays readable.
+#      the surrounding message stays readable, and the value after it is
+#      redacted at any length: nothing stops being a credential below some
+#      character count, and the alternative -- a length floor -- lets a
+#      short token through. Over-redacting the word after a stray "Bearer"
+#      in prose is the harmless direction to be wrong in.
+#   4. a value named by a credential-shaped field name (`access_token`,
+#      `api_key`, `client_secret`, ...), for an opaque token that is
+#      neither JWT-shaped nor behind a `Bearer` prefix -- the shape
+#      `~/.codex/auth.json` holds a ChatGPT token in. Literal `true`/
+#      `false`/`null` values are left alone so that credential-*presence*
+#      diagnostics (`codex doctor` reports several) stay readable, and so
+#      is any value under 8 characters, which is short enough that a false
+#      positive costs more readability than the match buys.
+_CREDENTIAL_FIELD = r"[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_-]*"
+_NOT_A_SECRET_VALUE = r"(?!(?:true|false|null|none|nil)[\s\"',;}\]]|(?:true|false|null|none|nil)$)"
 _CREDENTIAL_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
-    (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{20,}"), rf"\1{_REDACTED}"),
+    (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]+"), rf"\1{_REDACTED}"),
+    (
+        re.compile(
+            rf"(?i)\b({_CREDENTIAL_FIELD}\"?\s*[=:]\s*\"?){_NOT_A_SECRET_VALUE}"
+            r"[^\s\"',;}\]]{8,}"
+        ),
+        rf"\1{_REDACTED}",
+    ),
 )
 
 # Bounds how long result() waits for a launched process's output. `codex exec`
@@ -246,6 +267,14 @@ class CodexCliExecutor(Executor):
         # "Logged in" wording, and reporting it AVAILABLE would be exactly
         # the silent metered fallback this adapter must never make -- so it
         # reads as unauthenticated.
+        #
+        # A login line naming neither mode -- a codex build that rewords
+        # "Logged in using ChatGPT" -- is not evidence of either one, so it
+        # resolves to None (DEGRADED) rather than to a denial. False here
+        # would be this adapter asserting the CLI is unauthenticated on the
+        # strength of wording it does not recognize; DEGRADED says what is
+        # actually true, that the transport could not be determined, and
+        # still refuses to claim AVAILABLE.
         try:
             probe = subprocess.run(
                 [cli_path, "login", "status"],
@@ -261,7 +290,7 @@ class CodexCliExecutor(Executor):
             return False
         if "logged in using chatgpt" in output:
             return True
-        if "logged in" in output:
+        if "logged in" in output and "api key" in output:
             return False
         return None
 

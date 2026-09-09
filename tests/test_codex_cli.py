@@ -280,9 +280,10 @@ def test_health_is_unavailable_when_the_cli_is_logged_in_with_an_api_key():
         assert executor.health() == ExecutorAvailability.UNAVAILABLE
 
 
-# The adapter's own comments are pinned in
-# tests/test_repair_findings_b1_issue41.py, where doc/prose pinning is the
-# established convention -- those assertions exercise no code path here.
+# The adapter's own comments are deliberately not pinned by any test: an
+# assertion over comment prose exercises no code path and fails on a
+# harmless reword. tests/test_repair_findings_b1_issue41.py pins the
+# published prose in docs/ instead.
 
 
 # launch()

@@ -4,13 +4,13 @@ resource_type, backed by a real `praxis_runtime.resources.leases.LeaseStore`
 
 `TransitionEngine`'s own lease-acquire call site
 (`TransitionEngine._lease_conflict_fn`, src/praxis_runtime/transitions.py)
-only recognizes the literal resource_type "filesystem" when choosing the
-glob-aware `paths_overlap` conflict_fn, and exposes no hook through which a
-caller can override that choice for a differently-named resource_type such
-as "development.filesystem". Reaching into `TransitionEngine` internals to
-add such a hook is outside this overlay's footprint, so this provider
-constructs a plain `LeaseStore`; the gap is documented in
-docs/overlays/development.md instead of worked around here.
+selects the glob-aware `paths_overlap` conflict_fn for any resource_type
+whose final "."-separated segment is "filesystem", not just the bare
+literal string -- so "development.filesystem" already gets real
+glob-aware footprint-conflict detection through `TransitionEngine`. This
+provider therefore just constructs a plain `LeaseStore`; the glob-aware
+matching itself lives in core's `_lease_conflict_fn`, not here (see
+docs/overlays/development.md).
 """
 
 from __future__ import annotations

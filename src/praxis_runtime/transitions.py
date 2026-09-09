@@ -363,8 +363,13 @@ class TransitionEngine:
         # detects exact-identifier conflicts, so filesystem claims must be
         # checked with the adapter's own glob-aware paths_overlap instead of
         # plain equality -- other resource types keep leases.acquire's
-        # exact-identifier default.
-        if resource_type == "filesystem":
+        # exact-identifier default. Any resource type whose final
+        # "."-separated segment is "filesystem" (e.g. an overlay-namespaced
+        # "overlay.filesystem") gets the same glob-aware matching, not just
+        # the bare literal, since every overlay's declares.resource_types
+        # follows that namespace-dotted convention -- this keeps the check
+        # overlay-agnostic without per-overlay registration.
+        if resource_type == "filesystem" or resource_type.rsplit(".", 1)[-1] == "filesystem":
             return paths_overlap
         return None
 

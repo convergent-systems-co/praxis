@@ -388,6 +388,28 @@ python -m praxis_dashboard --graph examples/sample-graph.json --run-dir /path/to
 
 `--graph` takes a path to a JSON graph document (`examples/sample-graph.json` is a runnable, non-overlay-specific 7-node sample); `--run-dir` takes the directory a `RunStateStore`/`EventLog` pair (as constructed above) writes into. `--lease-dir`, `--host`, and `--port` are optional; omitting `--replay-only` starts a live HTTP server instead of printing one snapshot and exiting.
 
+### Inspecting executors: the `praxis` CLI
+
+The `praxis` console script (installed by `pip install -e .`) reports on the executor adapters this repository ships. Every check is read-only and non-destructive — nothing here can trigger an interactive login prompt.
+
+```bash
+# status table: executor id, auth transport, status, capabilities
+praxis executors
+
+# the same four fields as one line of JSON, for a machine consumer
+praxis executors --json
+
+# per-adapter report: installed, version, authenticated, auth transport, capabilities
+praxis executors discover
+
+# which executor would be selected for a set of required capability kinds
+praxis executors match --capability coding --capability reasoning --explain
+```
+
+An adapter whose backing CLI or service is absent degrades its own row (`capabilities: unavailable (<reason>)`) rather than failing the command, so all four commands work on a machine with no `claude` binary and no Ollama service. `--explain` adds one line per candidate giving its eligibility and either its rank among the ranked candidates or the reason it was excluded, including whether the exclusion came from `AuthTransportPolicy`. `--json` applies to the bare `praxis executors` status table only. Version reporting is a known gap: no adapter exposes a version on the public `Executor` interface yet, so every row reads `version: unknown`.
+
+`praxis` with no arguments, or with anything other than `executors` as its first argument, prints the package version and exits 0.
+
 ### Running the test suite
 
 ```bash

@@ -8,9 +8,9 @@ Two properties the row shape has to hold, both exercised below:
   `{executor_id: instance}` mapping `praxis_cli.adapters.build_adapters()`
   returns, so an id never depends on adapter order or on whether the
   adapter's advertisement could be read.
-* Every column keeps one type across healthy and failed rows -- `capabilities`
-  is always a list, `auth_transport` always a string -- with the failure
-  reason in its own `error` key, so a `--json` consumer never type-switches.
+* Every row carries exactly the four columns spec criterion 6 names, healthy
+  or failed, and a failed probe states its reason in the `capabilities` cell
+  rather than in a fifth column the spec does not describe.
 
 Uses lightweight fake `Executor` subclasses (implementing the ABC directly,
 not the real adapters), matching the pattern used for `match_cmd` tests.
@@ -178,21 +178,19 @@ def test_build_status_rows_succeeding_executor():
             "auth_transport": "local,subscription_cli",
             "status": "available",
             "capabilities": ["coding", "reasoning"],
-            "error": None,
         }
     ]
 
 
-def test_build_status_rows_failing_executor_keeps_its_id_and_carries_the_reason_in_error():
+def test_build_status_rows_failing_executor_keeps_its_id_and_states_the_reason():
     rows = build_status_rows({"executor-bad": _UnavailableExecutor()})
 
     assert rows == [
         {
             "executor_id": "executor-bad",
-            "auth_transport": "",
+            "auth_transport": "unavailable",
             "status": "unavailable",
-            "capabilities": [],
-            "error": "service unreachable",
+            "capabilities": "unavailable (service unreachable)",
         }
     ]
 
@@ -226,10 +224,11 @@ def test_build_status_rows_health_raising_json_decode_error_degrades_its_row_ins
     )
 
     assert rows[1]["executor_id"] == "executor-broken"
-    assert rows[1]["status"] == "degraded"
-    assert rows[1]["auth_transport"] == ""
-    assert rows[1]["capabilities"] == []
-    assert "Expecting value" in rows[1]["error"]
+    # A probe that raised returned no availability, so no availability is
+    # claimed for it -- `degraded` is a verdict, not a stand-in for one.
+    assert rows[1]["status"] == "unknown"
+    assert rows[1]["auth_transport"] == "unavailable"
+    assert "Expecting value" in rows[1]["capabilities"]
     # The other row is unaffected.
     assert rows[0]["status"] == "available"
 
@@ -261,27 +260,24 @@ def test_print_status_table_prints_a_header_then_one_line_per_row(capsys):
         "AUTH_TRANSPORT",
         "STATUS",
         "CAPABILITIES",
-        "ERROR",
     ]
     assert _cells(lines[1], offsets) == [
         "executor-good",
         "local,subscription_cli",
         "available",
         "coding,reasoning",
-        "",
     ]
     # The failing row's column boundaries survive even though its last cell is
     # a free-text sentence containing spaces.
     assert _cells(lines[2], offsets) == [
         "executor-bad",
-        "",
         "unavailable",
-        "",
-        "service unreachable",
+        "unavailable",
+        "unavailable (service unreachable)",
     ]
 
 
-def test_print_status_table_omits_the_error_column_when_every_probe_succeeded(capsys):
+def test_print_status_table_prints_the_same_four_columns_when_every_probe_succeeded(capsys):
     print_status_table(build_status_rows({"executor-good": _AvailableExecutor("executor-good")}))
 
     names, _ = _header_offsets(capsys.readouterr().out.splitlines()[0])
@@ -302,12 +298,12 @@ def test_print_status_json_is_one_line_valid_json_round_trip(capsys):
     assert json.loads(lines[0]) == rows
 
 
-def test_print_status_json_keeps_one_type_per_column_across_rows(capsys):
+def test_print_status_json_carries_only_the_four_spec_named_fields(capsys):
     print_status_json(build_status_rows(_adapters()))
 
     parsed = json.loads(capsys.readouterr().out)
     for row in parsed:
-        assert isinstance(row["capabilities"], list)
+        assert list(row) == ["executor_id", "auth_transport", "status", "capabilities"]
         assert isinstance(row["auth_transport"], str)
         assert isinstance(row["status"], str)
 

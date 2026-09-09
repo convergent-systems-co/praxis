@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Mapping
 
 from praxis_cli.fields import (
+    UNAVAILABLE,
     auth_transports,
     authenticated_field,
     capability_kinds,
@@ -21,22 +22,21 @@ _COLUMNS = (
     "authenticated",
     "auth_transport",
     "capabilities",
-    "error",
 )
 
-# `error` is carried on every row for a machine consumer, but the block report
-# below already states the reason once, inside the `capabilities` line -- a
-# second `error:` line underneath would repeat the same sentence verbatim.
-_PRINTED_COLUMNS = tuple(column for column in _COLUMNS[1:] if column != "error")
+# Every column but the id, which the block's own header line already names.
+_PRINTED_COLUMNS = _COLUMNS[1:]
 
 
 def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
-    """One row per adapter, with the same type per column on every row.
+    """One row per adapter: the four fields criterion 5 names, plus the
+    `auth_transport` that criterion names alongside the capability kinds.
 
     Matches `status_cmd`'s row contract: a failed `.capabilities()` probe
-    leaves `auth_transport` empty and `capabilities` an empty list and puts
-    the reason in `error`, rather than replacing a column's value with a
-    sentence.
+    states its reason in the `capabilities` cell, in criterion 5's own wording
+    (`unavailable (<reason>)`), and marks `auth_transport` unavailable rather
+    than empty -- empty is what a conforming advertisement that names no
+    transport already means.
 
     The advertisement is probed first and then handed to `installed_field`, so
     an adapter whose `.capabilities()` and `.health()` hit the same endpoint
@@ -50,9 +50,11 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
             # One adapter whose backing CLI or service is absent must not take
             # the whole report down -- its row degrades, the rest still print.
             advertisement = None
-            error = str(exc)
+            auth_transport = UNAVAILABLE
+            capabilities = f"{UNAVAILABLE} ({exc})"
         else:
-            error = None
+            auth_transport = ",".join(auth_transports(advertisement))
+            capabilities = capability_kinds(advertisement)
         installed = installed_field(executor, advertisement)
         rows.append(
             {
@@ -60,13 +62,8 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
                 "installed": installed,
                 "version": version_field(executor),
                 "authenticated": authenticated_field(executor, installed),
-                "auth_transport": (
-                    "" if advertisement is None else ",".join(auth_transports(advertisement))
-                ),
-                "capabilities": (
-                    [] if advertisement is None else capability_kinds(advertisement)
-                ),
-                "error": error,
+                "auth_transport": auth_transport,
+                "capabilities": capabilities,
             }
         )
     return rows
@@ -76,12 +73,6 @@ def print_discover_rows(rows: list[dict]) -> None:
     for row in rows:
         print(f"{row['executor_id']}:")
         for column in _PRINTED_COLUMNS:
-            # Spec criterion 5's wording for a row whose probe failed. The row
-            # itself keeps an empty list here so a consumer never type-switches;
-            # only the human-readable block says `unavailable`.
-            if column == "capabilities" and row["error"]:
-                print(f"  capabilities: unavailable ({row['error']})")
-                continue
             print(f"  {column}: {render_cell(row[column])}".rstrip())
 
 

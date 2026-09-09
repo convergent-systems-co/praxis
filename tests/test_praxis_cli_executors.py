@@ -1,14 +1,20 @@
 """End-to-end tests for `main()`'s `executors` dispatch.
 
-`praxis_cli.adapters.build_adapters` is stubbed out in every test here. The
-real mapping holds a `claude` CLI adapter and an Ollama adapter, and building
-a status or discover row calls `.health()`/`.capabilities()` on both -- which
-would start a real `claude --version` subprocess and open a real socket to
-127.0.0.1:11434 on every run of the standard suite. What these tests are
-actually about is routing: which command module `main()` hands the built
-adapters to, and what it does with `--json`. The adapter behaviour behind
-each route is covered per-module in test_cli_discover.py / test_cli_status.py
-/ test_cli_match.py.
+`praxis_cli.adapters.build_adapters` is stubbed out in every routing test
+here. The real mapping holds a `claude` CLI adapter and an Ollama adapter, and
+building a status or discover row calls `.health()`/`.capabilities()` on both
+-- which would start a real `claude --version` subprocess and open a real
+socket to 127.0.0.1:11434 on every run of the standard suite. What those tests
+are actually about is routing: which command module `main()` hands the built
+adapters to, and what it does with `--json`. The adapter behaviour behind each
+route is covered per-module in test_cli_discover.py / test_cli_status.py /
+test_cli_match.py.
+
+The one exception is
+`test_the_four_real_adapters_degrade_rather_than_crash_run_discover`, which
+drives the real four adapter classes through `run_discover` with the
+environment patched empty -- the end-to-end proof that a missing backing CLI
+or service degrades its own row instead of taking the command down.
 """
 
 from __future__ import annotations
@@ -16,17 +22,22 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 import pytest
 
 from praxis_cli import adapters as adapters_module
+from praxis_cli.adapters import build_adapters as real_build_adapters
+from praxis_cli.discover_cmd import run_discover
 from praxis_cli.main import _build_parser, main
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
-_STATUS_KEYS = {"executor_id", "auth_transport", "status", "capabilities", "error"}
+_STATUS_KEYS = {"executor_id", "auth_transport", "status", "capabilities"}
 
 
 class _StubExecutor(Executor):
@@ -115,7 +126,7 @@ def test_executors_json_prints_four_status_objects(capsys):
     assert isinstance(rows, list)
     assert len(rows) == 4
     for row in rows:
-        assert _STATUS_KEYS.issubset(row.keys())
+        assert set(row) == _STATUS_KEYS
 
 
 def test_json_before_a_nested_subcommand_is_rejected_rather_than_ignored(capsys):
@@ -141,6 +152,42 @@ def test_match_with_capability_and_explain_does_not_crash(capsys):
     # "eligible=" only ever comes from match_cmd's --explain output, so this
     # fails if main() mis-routes "executors match" to the status branch.
     assert "eligible=" in captured.out
+
+
+def test_the_four_real_adapters_degrade_rather_than_crash_run_discover(monkeypatch, capsys):
+    """The one test here that drives the real adapter classes, not stubs.
+
+    `real_build_adapters` is bound at import, so the autouse stub above does
+    not reach it. The environment is made deterministically empty rather than
+    left to chance -- no `claude` on PATH, nothing answering on Ollama's port
+    -- which is exactly the condition "degrade gracefully" is about, and keeps
+    the test from starting a subprocess or opening a real socket.
+    """
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    def _refuse(*args, **kwargs):
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _refuse)
+
+    exit_code = run_discover(real_build_adapters())
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    header_lines = [
+        line for line in captured.out.splitlines() if line.endswith(":") and line[:1] != " "
+    ]
+    assert header_lines == [
+        "executor-subprocess-1:",
+        "executor-fake-1:",
+        "executor-claude-cli-1:",
+        "executor-ollama-1:",
+    ]
+    # The absent backing service degrades its own row and nothing else: the
+    # two built-in adapters still report their real capability kinds.
+    assert "  capabilities: unavailable (" in captured.out
+    assert "  capabilities: code-execution" in captured.out
+    assert "  capabilities: text-generation" in captured.out
 
 
 def test_no_subcommand_still_prints_version(capsys):

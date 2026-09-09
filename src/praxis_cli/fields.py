@@ -14,6 +14,10 @@ from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability
 
+# Spec criterion 5's wording for a cell whose probe failed, spelled once so
+# `discover` and `status` never word the same failure two different ways.
+UNAVAILABLE = "unavailable"
+
 
 def installed_field(executor: Executor, advertisement: dict | None) -> str:
     """`advertisement` is the caller's one `.capabilities()` result, or `None`.

@@ -99,11 +99,16 @@ def run_match(
     # `executor_id`. Every lookup below goes through the latter, every printed
     # name through the former.
     gathered: list[tuple[str, dict]] = []
+    # An adapter that could not be asked is not a candidate `match` can rank,
+    # but dropping it silently leaves a user unable to tell it was considered
+    # at all -- `--explain` reports it below, the way `discover` and `status`
+    # both report the same failure.
+    unreadable: dict[str, str] = {}
     for name, executor in adapters.items():
         try:
             gathered.append((name, executor.capabilities()))
-        except (ExecutorError, ValueError):
-            continue
+        except (ExecutorError, ValueError) as exc:
+            unreadable[name] = str(exc)
 
     advertisements = [advertisement for _, advertisement in gathered]
     # Reversed so the first adapter wins if two advertise the same id.
@@ -127,7 +132,20 @@ def run_match(
             candidate.executor_id: rank
             for rank, candidate in enumerate(full_result.ranked, start=1)
         }
-        for name, advertisement in gathered:
+        advertisement_by_name = dict(gathered)
+        # Walked in the mapping's own order so every adapter the CLI was given
+        # gets a line, in the order `discover` and `status` list them.
+        for name in adapters:
+            if name in unreadable:
+                # Not `eligible=no`: the policy never got an advertisement to
+                # judge, so this candidate's eligibility is undetermined rather
+                # than decided against.
+                print(
+                    f"{name}: eligible=unknown "
+                    f"reason=advertisement unavailable ({unreadable[name]})"
+                )
+                continue
+            advertisement = advertisement_by_name[name]
             executor_id = advertisement["executor_id"]
             if executor_id in rank_by_id:
                 print(f"{name}: eligible=yes score={rank_by_id[executor_id]}")

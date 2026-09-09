@@ -6,10 +6,10 @@ The command takes the `{executor_id: instance}` mapping
 id the CLI knows the adapter as -- including a row whose `.capabilities()`
 call failed and left no advertisement to read an id from.
 
-Rows carry the same per-column types `status_cmd` does: `capabilities` is
-always a list, `auth_transport` always a string, and a failed probe puts its
-reason in `error` rather than replacing another column's value with a
-sentence.
+Rows carry the same failure contract `status_cmd` does: a failed probe states
+its reason in the `capabilities` cell, in spec criterion 5's own wording
+(`unavailable (<reason>)`), and marks `auth_transport` unavailable rather than
+empty -- there is no separate `error` column.
 
 The fakes below implement the `Executor` ABC directly rather than subclassing
 a real adapter: `praxis_cli.fields` degrades to `"n/a"` for a class it does
@@ -121,7 +121,6 @@ def test_build_discover_rows_succeeding_executor():
             "authenticated": "n/a",
             "auth_transport": "local",
             "capabilities": ["coding", "reasoning"],
-            "error": None,
         }
     ]
 
@@ -140,9 +139,8 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "installed": "n/a",
             "version": "unknown",
             "authenticated": "n/a",
-            "auth_transport": "",
-            "capabilities": [],
-            "error": "capability probe failed",
+            "auth_transport": "unavailable",
+            "capabilities": "unavailable (capability probe failed)",
         },
         {
             "executor_id": "executor-fake-good",
@@ -151,7 +149,6 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "authenticated": "n/a",
             "auth_transport": "local",
             "capabilities": ["coding", "reasoning"],
-            "error": None,
         },
     ]
 
@@ -163,21 +160,19 @@ def test_build_discover_rows_json_decode_error_from_capabilities_degrades_its_ro
 
     broken = rows[1]
     assert broken["executor_id"] == "executor-broken"
-    assert broken["auth_transport"] == ""
-    assert broken["capabilities"] == []
-    assert "Expecting value" in broken["error"]
+    assert broken["auth_transport"] == "unavailable"
+    assert "Expecting value" in broken["capabilities"]
 
 
-def test_build_discover_rows_keep_one_type_per_column_across_healthy_and_failed_rows():
-    # The same guarantee `status_cmd` makes: no consumer of a discover row
-    # has to type-switch on whether the probe happened to succeed.
+def test_build_discover_rows_carry_the_same_columns_across_healthy_and_failed_rows():
+    # The same guarantee `status_cmd` makes: a consumer reads one fixed set of
+    # keys whether or not the probe happened to succeed.
     rows = build_discover_rows(
         {"executor-fake-bad": _failing(), "executor-fake-good": _succeeding()}
     )
 
-    for row in rows:
-        assert isinstance(row["capabilities"], list)
-        assert isinstance(row["auth_transport"], str)
+    assert [set(row) for row in rows] == [set(rows[0])] * 2
+    assert "error" not in rows[0]
 
 
 def test_build_discover_rows_joins_auth_transports_the_way_status_does():
@@ -289,7 +284,7 @@ def test_build_discover_rows_still_asks_health_when_the_advertisement_probe_fail
     rows = build_discover_rows({"executor-ollama-1": executor})
 
     assert rows[0]["installed"] == "yes"
-    assert rows[0]["error"] == "ollama service unreachable"
+    assert rows[0]["capabilities"] == "unavailable (ollama service unreachable)"
 
 
 # print_discover_rows()

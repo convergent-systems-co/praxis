@@ -84,27 +84,29 @@ bundle lane), not a structural gap — see each fixture's own table for which of
 node-id absences (still category B, `bundle_scheduler` only) versus simply not exercised by that
 scenario.
 
-### Category R — repair/recovery nodes and events (structurally present but not yet functionally reachable, except `repair_task`)
+### Category R — repair/recovery nodes and events (`repair_bundle`/`awaiting_human` now functionally reachable via failure, per bundle remediation-1's #32 fix; `context_recovery`/`blocker_recovery` remain structurally present but not yet reachable; `repair_task` remains fully unexpressed)
 
 `GRAPH.yaml`'s **task-lane** `repair_task` still has no counterpart anywhere in
 `build_development_graph()` — the overlay's task-lane chain has no branch for a failed `verify`
 to loop back through, and this bundle does not add one. It remains fully unexpressed.
 
-`repair_bundle`, `context_recovery`, `blocker_recovery`, and `awaiting_human`, by contrast, have
-moved from "no counterpart" to **structurally present** (`expressible_in_overlay: true` for the
-node/event names themselves) but **not yet functionally reachable via a real failure-triggered
-transition** — cite #32, the same disclosure register as the existing `conflict_fn`/
-performance-parity caveats elsewhere in this document set. `repair_bundle` exists as a node and is
-wired into the bundle lane, but its inbound edges from `bundle_verify`/`final_review`
-(`graph.py`) fire unconditionally on the source's `TERMINAL_SUCCESS`, not on a failure outcome —
-so the graph cannot yet express "retry only after a real failure." `context_recovery`,
-`blocker_recovery`, and `awaiting_human` are topology-only placeholders (`metadata={}`, no
-inbound/outbound edges at all in this task), present as node ids so `NEEDS_CONTEXT` and other
-legacy signals can name them, but not dispatched work and not wired into either lane yet. The two
-routing events that identify which node would handle a real repair/recovery flow,
-`CONCERN_TRIAGED` (`-> repair_bundle`) and `TASK_REPAIR_DONE` (`-> verify`), share this same
-structurally-present-but-not-functionally-reachable status via
-`compat.legacy_event_to_recovery_node`.
+`repair_bundle`, `context_recovery`, `blocker_recovery`, and `awaiting_human` moved from "no
+counterpart" to **structurally present** (`expressible_in_overlay: true` for the node/event names
+themselves); bundle remediation-1 subsequently closed part of this gap for `repair_bundle` and
+`awaiting_human`. `repair_bundle` exists as a node, wired into the bundle lane: its inbound edges
+from `bundle_verify`/`final_review` (`graph.py`) are `kind="on-failure"` and fire only when the
+source reaches genuine `TERMINAL_FAILED`, not on success — so the graph now expresses "retry only
+after a real failure" for those two edges, and likewise for `repair_bundle` -> `awaiting_human`
+itself. This still does not model `/develop`'s actual retry-count/budget/exhaustion semantics
+(there is no tracking of how many times `repair_bundle` has been retried or when that budget is
+exhausted), so that narrower gap remains real and undone — see
+[`docs/overlays/development.md`](../overlays/development.md) for the same disclosure at the graph
+level. `context_recovery` and `blocker_recovery`, by contrast, are still topology-only placeholders
+(`metadata={}`, no inbound/outbound edges at all), present as node ids so `NEEDS_CONTEXT` and other
+legacy signals can name them, but not dispatched work and not wired into either lane — unaffected
+by this fix. The two routing events that identify which node would handle a real repair/recovery
+flow, `CONCERN_TRIAGED` (`-> repair_bundle`) and `TASK_REPAIR_DONE` (`-> verify`), still resolve via
+`compat.legacy_event_to_recovery_node` unchanged by this fix.
 
 ### Category H — human-interrupt node (event now expressible, node still absent)
 
@@ -412,9 +414,12 @@ Per acceptance criterion 2, the gap documented above is **accepted and scoped, n
 - The recovery lane's nodes (`repair_bundle`, `context_recovery`, `blocker_recovery`,
   `awaiting_human`) and routing events (`CONCERN_TRIAGED`, `TASK_REPAIR_DONE`, `NEEDS_CONTEXT`)
   are a distinct, narrower kind of gap from the categories above: they are **structurally
-  present** (real node ids, real routing-table entries) but **not yet functionally reachable via
-  a real failure-triggered transition** — see #32, cited consistently above and in the fixtures
-  themselves, for the core-runtime conditional-edge gap this depends on.
+  present** (real node ids, real routing-table entries), and — since bundle remediation-1's #32
+  fix — `repair_bundle` and `awaiting_human` are now also **functionally reachable** via a real
+  `TERMINAL_FAILED` transition (`retry-count`/`budget`/`exhaustion` semantics still aren't
+  modeled, a narrower remaining gap). `context_recovery` and `blocker_recovery` remain **not yet
+  functionally reachable** — see #32, cited consistently above and in the fixtures themselves, for
+  that residual core-runtime gap.
 - Nothing in this repository's fixtures, tests, or reports normalizes either gap away — every
   fixture lists the unreachable nodes/events explicitly with `expressible_in_overlay: false`
   rather than omitting them (or, for the recovery lane, states the structurally-present-but-not-

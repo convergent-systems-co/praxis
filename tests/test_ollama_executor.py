@@ -42,7 +42,9 @@ class _OllamaTestHandler(BaseHTTPRequestHandler):
         status, body = self.server.responses.get(  # type: ignore[attr-defined]
             self.path, (404, {"error": f"no canned response for {self.path}"})
         )
-        payload = json.dumps(body).encode("utf-8")
+        # A `bytes` body is sent verbatim (e.g. to simulate a malformed/non-JSON
+        # response); anything else is JSON-encoded as usual.
+        payload = bytes(body) if isinstance(body, (bytes, bytearray)) else json.dumps(body).encode("utf-8")
         # Headers go out before any injected delay so a client's `urlopen()` call
         # returns (and can register its connection for `cancel()`) while the body
         # is still pending -- delaying the whole response instead would make an
@@ -167,6 +169,43 @@ def test_capabilities_advertisement_validates_against_schema(running_ollama_serv
     advertisement = executor.capabilities()
 
     validate_document(advertisement, SCHEMA_DIR / "capability-advertisement.schema.json")
+
+
+def test_capabilities_omits_context_window_when_show_response_is_malformed(running_ollama_server):
+    """Repair finding: a malformed/non-JSON `/api/show` body must not fail the
+    whole capabilities() call -- context_window should just be omitted (spec
+    criterion 5's "on any error ... omit context_window" clause)."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (200, b"not valid json{{{")
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert "context_window" not in advertisement["capabilities"][0]
+
+
+def test_capabilities_raises_executor_error_for_model_entry_missing_name(running_ollama_server):
+    """Repair finding: a `/api/tags` model entry missing 'name' must raise a
+    handled ExecutorError, not an uncaught KeyError."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"size": 123}]})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
+
+
+def test_capabilities_raises_executor_error_when_no_models_installed(running_ollama_server):
+    """Repair finding: an empty `capabilities` array violates
+    capability-advertisement.schema.json's minItems:1 -- reachable-with-zero-models
+    must raise ExecutorError, consistent with the unreachable path."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": []})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
 
 
 def test_capabilities_executor_id_is_taken_verbatim_from_constructor(running_ollama_server):

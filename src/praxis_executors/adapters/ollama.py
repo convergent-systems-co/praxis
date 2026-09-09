@@ -156,6 +156,10 @@ class OllamaExecutor(Executor):
 
         capabilities = []
         for model in response.get("models", []):
+            if "name" not in model:
+                raise ExecutorError(
+                    f"ollama /api/tags returned a model entry without a 'name': {model!r}"
+                )
             model_name = model["name"]
             show_capabilities = None
             context_window = None
@@ -165,7 +169,11 @@ class OllamaExecutor(Executor):
                 )
                 show_capabilities = show.get("capabilities")
                 context_window = _extract_context_window(show)
-            except (_OllamaUnreachable, KeyError, TypeError):
+            except (_OllamaUnreachable, KeyError, TypeError, ValueError):
+                # Best-effort: a malformed/non-JSON/non-UTF8 `/api/show` response
+                # (json.JSONDecodeError and UnicodeDecodeError are both ValueError
+                # subclasses) must not fail the whole capabilities() call -- just
+                # omit context_window for this model.
                 context_window = None
 
             capability = {
@@ -179,6 +187,11 @@ class OllamaExecutor(Executor):
             if context_window is not None:
                 capability["context_window"] = context_window
             capabilities.append(capability)
+
+        if not capabilities:
+            raise ExecutorError(
+                "ollama service reachable but reported zero installed models"
+            )
 
         return {
             "spec_version": _SPEC_VERSION,

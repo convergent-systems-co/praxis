@@ -37,6 +37,10 @@ UNDETERMINED = "unknown"
 # adapter then subscripts or calls `.get()` on. All three are a failure to read
 # one adapter, which is a degraded row -- never a reason to abandon the report.
 #
+# `MalformedAdvertisement` rides in on `ValueError` for the same reason: an
+# advertisement that came back missing a key its schema requires is an adapter
+# that answered without answering, which costs its own row and nothing more.
+#
 # The same net also catches a genuine fault inside an adapter, which no row can
 # tell apart from an outage. `note_probe_failure` below is what keeps the two
 # distinguishable: this module's own health probe reports through it, as do
@@ -44,6 +48,31 @@ UNDETERMINED = "unknown"
 PROBE_FAILED = (ExecutorError, ValueError, AttributeError, TypeError)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class MalformedAdvertisement(ValueError):
+    """A returned advertisement is missing a key its schema requires.
+
+    A probe that returned is not a probe that answered conformingly:
+    `capability-advertisement.schema.json` requires `capabilities`,
+    `capability.schema.json` requires `satisfies` on each entry and
+    `promise.schema.json` a `kind` on each of those, but nothing between an
+    adapter and this module validates any of it. Raised as a `ValueError` so
+    it is already inside `PROBE_FAILED` -- an advertisement that cannot be read
+    degrades exactly the row a probe that raised would, and
+    `note_probe_failure` logs it with its type, because an adapter answering
+    non-conformingly is its own fault and not an outage in the service it
+    speaks to.
+    """
+
+
+def _malformed(exc: KeyError) -> MalformedAdvertisement:
+    """The `MalformedAdvertisement` for a missing-key lookup, worded once.
+
+    `KeyError`'s own message is the bare key, which reads as nothing in a
+    report cell -- the caller prints this reason verbatim.
+    """
+    return MalformedAdvertisement(f"advertisement is missing required key {exc}")
 
 
 def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None:
@@ -167,24 +196,29 @@ def version_field(_executor: Executor) -> str:
 
 
 def authenticated_field(executor: Executor, installed: str) -> str:
-    """Probes unguarded, unlike the `_health_verdict` both other fields go through.
+    """Probes through the same `_health_verdict` the other two fields go through.
 
-    Those need a guard because `OllamaExecutor.health()` decodes a JSON
-    body it does not control. Every path through `ClaudeCliExecutor.health()`
-    either returns an availability or is already handled inside the adapter:
-    `shutil.which` cannot raise, `_probe_version` catches its own subprocess
-    failures, and `_detect_authenticated` returns unconditionally. A guard
-    here would only ever catch a stub.
+    `ClaudeCliExecutor.health()` can raise: `_probe_version` catches
+    `(OSError, subprocess.TimeoutExpired)` only, while
+    `subprocess.run(..., text=True)` decodes the CLI's output and raises
+    `UnicodeDecodeError` -- a `ValueError`, inside `PROBE_FAILED` -- for a
+    binary whose `--version` banner is not valid UTF-8. Unguarded, that one
+    adapter's failure took `discover`'s whole report down while `status`
+    degraded a single cell, which is the asymmetry this module exists to
+    prevent: every probe it makes degrades its own cell and no more.
     """
     if not isinstance(executor, ClaudeCliExecutor):
         return "n/a"
     if installed == "no":
         return "n/a (not installed)"
-    health = executor.health()
+    health = _health_verdict(executor)
     if health == ExecutorAvailability.AVAILABLE:
         return "yes"
-    if health == ExecutorAvailability.DEGRADED:
-        return "unknown"
+    if health is None or health == ExecutorAvailability.DEGRADED:
+        # Neither "yes" nor "no" is honest about either one: `DEGRADED` is the
+        # adapter saying it cannot detect auth state, and a probe that raised
+        # produced no verdict to read at all.
+        return UNDETERMINED
     return "no"
 
 
@@ -203,12 +237,21 @@ def render_cell(value) -> str:
 
 
 def capability_kinds(advertisement: dict) -> list[str]:
+    """Every kind the advertisement's capabilities satisfy, first-seen order, deduped.
+
+    Raises `MalformedAdvertisement` for an advertisement missing a key its
+    schema requires, so a caller reading it inside its probe guard degrades one
+    row rather than taking a whole command down for one non-conforming adapter.
+    """
     kinds: list[str] = []
-    for capability in advertisement["capabilities"]:
-        for entry in capability["satisfies"]:
-            kind = entry["kind"]
-            if kind not in kinds:
-                kinds.append(kind)
+    try:
+        for capability in advertisement["capabilities"]:
+            for entry in capability["satisfies"]:
+                kind = entry["kind"]
+                if kind not in kinds:
+                    kinds.append(kind)
+    except KeyError as exc:
+        raise _malformed(exc) from exc
     return kinds
 
 
@@ -220,9 +263,17 @@ def auth_transports(advertisement: dict) -> list[str]:
     contributes nothing here rather than taking the whole command down for one
     row -- the same defence `installed_field` makes for an unknown adapter
     class, and the same `.get()` `AuthTransportPolicy` already reads it with.
+
+    The `capabilities` list itself is required, so its absence is a malformed
+    advertisement rather than an empty one, reported as `capability_kinds`
+    reports it.
     """
     transports: list[str] = []
-    for capability in advertisement["capabilities"]:
+    try:
+        capabilities = advertisement["capabilities"]
+    except KeyError as exc:
+        raise _malformed(exc) from exc
+    for capability in capabilities:
         transport = capability.get("auth_transport")
         if transport is not None and transport not in transports:
             transports.append(transport)

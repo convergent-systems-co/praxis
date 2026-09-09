@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 
+from conftest import _undecodable_output_error
+
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
@@ -276,6 +278,42 @@ def test_authenticated_field_claude_survives_a_version_probe_that_cannot_run(mon
     monkeypatch.setattr("praxis_executors.adapters.claude_cli.subprocess.run", _raise)
 
     assert authenticated_field(executor, installed="yes") == "unknown"
+
+
+def test_authenticated_field_claude_unknown_when_the_version_probe_cannot_be_decoded(monkeypatch):
+    # The one probe failure a real `claude` binary on PATH can raise:
+    # `_probe_version` catches `(OSError, subprocess.TimeoutExpired)` only, so
+    # output that is not valid UTF-8 leaves `subprocess.run(..., text=True)` as
+    # a `UnicodeDecodeError` and `health()` as an exception. That is inside
+    # `PROBE_FAILED`, so it degrades this one cell the way the other two field
+    # functions already degrade theirs -- it does not take the report down.
+    executor = _claude()
+    monkeypatch.setattr(
+        "praxis_executors.adapters.claude_cli.shutil.which", lambda name: "/usr/local/bin/claude"
+    )
+
+    def _raise(*args, **kwargs):
+        raise _undecodable_output_error()
+
+    monkeypatch.setattr("praxis_executors.adapters.claude_cli.subprocess.run", _raise)
+
+    assert authenticated_field(executor, installed="yes") == "unknown"
+
+
+def test_an_authenticated_probe_failure_outside_the_adapter_vocabulary_names_its_type(
+    monkeypatch, caplog
+):
+    # Reported the same way `status_field` reports one: an `unknown` cell cannot
+    # say whether the adapter faulted or the CLI is merely unauthenticated, so
+    # the exception type is logged.
+    executor = _claude()
+    _raising_health(monkeypatch, executor, _undecodable_output_error())
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        assert authenticated_field(executor, installed="yes") == "unknown"
+
+    assert "UnicodeDecodeError" in caplog.text
+    assert "ClaudeCliExecutor" in caplog.text
 
 
 def test_authenticated_field_ollama_is_na():

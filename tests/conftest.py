@@ -17,6 +17,12 @@ used by test_cli_discover.py, test_cli_match.py, test_cli_status.py and
 test_praxis_cli_executors.py -- kept here for the same reason again, since
 the ABC obliges every one of those suites to spell out four abstract methods
 none of them ever calls.
+
+`_undecodable_output_error()` is the third such helper, shared by
+test_cli_fields.py and test_cli_discover.py so the one probe failure a real
+`claude` binary can raise is constructed the same way in both, and
+`_MALFORMED_ADVERTISEMENTS` is the fourth, shared by test_cli_discover.py and
+test_cli_status.py.
 """
 
 from __future__ import annotations
@@ -28,6 +34,26 @@ from praxis_executors.interface import Executor, ExecutorAvailability
 from praxis_runtime.graph import Edge, Graph, Node
 
 _SPEC_VERSION = "1.0.0"
+
+# Advertisements returned by a probe that did not raise, each missing one key
+# capability-advertisement.schema.json or capability.schema.json requires: the
+# `capabilities` list, a capability's `satisfies` list, and a `satisfies`
+# entry's `kind`. No shipped adapter emits one; a fifth adapter, or a stub,
+# can, and `discover` and `status` both have to survive it -- so the three
+# shapes are spelled here once for both suites.
+_MALFORMED_ADVERTISEMENTS = (
+    {"spec_version": _SPEC_VERSION, "executor_id": "executor-malformed"},
+    {
+        "spec_version": _SPEC_VERSION,
+        "executor_id": "executor-malformed",
+        "capabilities": [{"spec_version": _SPEC_VERSION, "auth_transport": "local"}],
+    },
+    {
+        "spec_version": _SPEC_VERSION,
+        "executor_id": "executor-malformed",
+        "capabilities": [{"spec_version": _SPEC_VERSION, "satisfies": [{}]}],
+    },
+)
 
 
 def _linear_graph() -> Graph:
@@ -142,3 +168,19 @@ def _json_decode_error() -> ValueError:
     except ValueError as exc:
         return exc
     raise AssertionError("json.loads accepted a non-JSON body")
+
+
+def _undecodable_output_error() -> UnicodeDecodeError:
+    """A real `UnicodeDecodeError` -- also a `ValueError`, not an `ExecutorError`.
+
+    What `subprocess.run(..., text=True)` raises when the CLI it ran wrote
+    bytes that are not valid UTF-8, which is how a `claude` binary on PATH can
+    fail `ClaudeCliExecutor.health()` mid-probe: `_probe_version` catches only
+    `(OSError, subprocess.TimeoutExpired)`, so the decode failure leaves the
+    adapter. Built by actually decoding, for the same reason as above.
+    """
+    try:
+        b"claude \xff\xfe".decode("utf-8")
+    except UnicodeDecodeError as exc:
+        return exc
+    raise AssertionError("utf-8 accepted a non-utf-8 version banner")

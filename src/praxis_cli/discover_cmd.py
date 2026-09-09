@@ -11,6 +11,7 @@ from praxis_cli.fields import (
     authenticated_field,
     capability_kinds,
     installed_field,
+    note_probe_failure,
     render_cell,
     version_field,
 )
@@ -43,21 +44,27 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
 
     A failed probe is caught on `fields.PROBE_FAILED`, the one set `status` and
     `match` also degrade a row on, so the three commands cannot disagree about
-    which failure is survivable.
+    which failure is survivable. The advertisement is read inside that guard,
+    not after it: an adapter that answers with an advertisement missing a key
+    its schema requires has failed this probe just as much as one that raised,
+    and a report is no place to learn that from a traceback.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
         try:
             advertisement = executor.capabilities()
+            auth_transport = ",".join(auth_transports(advertisement))
+            capabilities = capability_kinds(advertisement)
         except PROBE_FAILED as exc:
             # One adapter whose backing CLI or service is absent must not take
             # the whole report down -- its row degrades, the rest still print.
+            # Recorded as `status` and `match` record the same probe's failure:
+            # the row reads `unavailable (...)` for an outage and for a fault
+            # inside the adapter alike, and only the type tells them apart.
+            note_probe_failure(executor, "capabilities", exc)
             advertisement = None
             auth_transport = UNAVAILABLE
             capabilities = f"{UNAVAILABLE} ({exc})"
-        else:
-            auth_transport = ",".join(auth_transports(advertisement))
-            capabilities = capability_kinds(advertisement)
         installed = installed_field(executor, advertisement)
         rows.append(
             {

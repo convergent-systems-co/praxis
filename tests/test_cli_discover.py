@@ -22,9 +22,17 @@ probes. Nothing here starts a `claude` subprocess or opens an Ollama socket.
 
 from __future__ import annotations
 
-from conftest import _FakeExecutor, _json_decode_error
+import logging
+
+from conftest import (
+    _MALFORMED_ADVERTISEMENTS,
+    _FakeExecutor,
+    _json_decode_error,
+    _undecodable_output_error,
+)
 
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows, run_discover
+from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import ExecutorAvailability, ExecutorError
 
@@ -265,6 +273,67 @@ def test_build_discover_rows_still_asks_health_when_the_advertisement_probe_fail
 
     assert rows[0]["installed"] == "yes"
     assert rows[0]["capabilities"] == "unavailable (ollama service unreachable)"
+
+
+def test_build_discover_rows_survives_a_claude_health_probe_that_raised(monkeypatch):
+    # `authenticated` is the one cell derived from `ClaudeCliExecutor.health()`,
+    # whose `--version` subprocess leaks a `UnicodeDecodeError` for a binary
+    # that writes output which is not valid UTF-8. That is one adapter failing
+    # one probe, so it degrades one cell -- the other rows still print.
+    executor = ClaudeCliExecutor(executor_id="executor-claude-cli-1")
+    monkeypatch.setattr("praxis_cli.fields.shutil.which", lambda name: "/usr/local/bin/claude")
+
+    def _raise():
+        raise _undecodable_output_error()
+
+    monkeypatch.setattr(executor, "health", _raise)
+
+    rows = build_discover_rows(
+        {"executor-claude-cli-1": executor, "executor-fake-good": _succeeding()}
+    )
+
+    assert rows[0]["installed"] == "yes"
+    assert rows[0]["authenticated"] == "unknown"
+    assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_discover_rows_degrades_a_row_whose_returned_advertisement_is_malformed(monkeypatch):
+    # A probe that returns is not a probe that answered conformingly. Reading
+    # the advertisement outside the guard let a missing required key reach the
+    # command as a `KeyError` and take every other row down with it.
+    for advertisement in _MALFORMED_ADVERTISEMENTS:
+        executor = _succeeding("executor-malformed")
+        monkeypatch.setattr(executor, "capabilities", lambda ad=advertisement: ad)
+
+        rows = build_discover_rows(
+            {"executor-malformed": executor, "executor-fake-good": _succeeding()}
+        )
+
+        assert rows[0]["auth_transport"] == "unavailable"
+        assert rows[0]["capabilities"].startswith("unavailable (")
+        assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+# probe-failure logging -- the same record `status` and `match` make
+
+
+def test_a_capabilities_probe_outside_the_adapter_vocabulary_is_logged_with_its_type(caplog):
+    # `AttributeError` from an adapter is far more likely a fault in the adapter
+    # than an outage in the service it speaks to, and the row reads
+    # `unavailable (...)` either way -- so `discover` records the type, as
+    # `status` and `match` do for the same probe.
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        rows = build_discover_rows({"executor-nonobject": _non_object_json()})
+
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert "AttributeError" in caplog.text
+
+
+def test_an_adapters_own_executor_error_is_not_logged_as_a_fault(caplog):
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        build_discover_rows({"executor-fake-bad": _failing()})
+
+    assert caplog.records == []
 
 
 # print_discover_rows()

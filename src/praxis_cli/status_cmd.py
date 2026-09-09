@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Mapping
+
+import jsonschema
 
 from praxis_cli.fields import (
     PROBE_FAILED,
@@ -73,6 +76,12 @@ STATUS_ROW_SCHEMA = {
     },
 }
 
+_LOGGER = logging.getLogger(__name__)
+
+# Built once: `print_status_json` validates every row it emits against the
+# schema it publishes, so the two cannot drift apart unnoticed.
+_ROW_VALIDATOR = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
+
 
 def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     """One row per adapter, carrying exactly the four columns criterion 6 names.
@@ -88,6 +97,11 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     than take the whole command down. Which failures those are is `fields`'
     subject, spelled once for `discover` and `match` too.
 
+    The advertisement is read inside that guard rather than after it: an adapter
+    that answers with an advertisement missing a key its schema requires has
+    failed this probe just as much as one that raised, and one such adapter must
+    cost its own row and not the table.
+
     The advertisement is probed first and then handed to `status_field`, so an
     adapter whose `.capabilities()` and `.health()` hit the same endpoint is
     asked once rather than waited on twice at its own timeout -- the same order
@@ -98,6 +112,11 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     for executor_id, executor in adapters.items():
         try:
             advertisement = executor.capabilities()
+            # Comma without a space: `auth_transport` is not the last column,
+            # and a reader scanning the table down a column should not have to
+            # guess where one cell's value ends.
+            auth_transport = ",".join(auth_transports(advertisement))
+            capabilities = capability_kinds(advertisement)
         except PROBE_FAILED as exc:
             # A failed advertisement probe is not a verdict about availability,
             # so `status_field` still asks `health()` below: a row that names
@@ -106,12 +125,6 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
             advertisement = None
             auth_transport = UNAVAILABLE
             capabilities = f"{UNAVAILABLE} ({exc})"
-        else:
-            # Comma without a space: `auth_transport` is not the last column,
-            # and a reader scanning the table down a column should not have to
-            # guess where one cell's value ends.
-            auth_transport = ",".join(auth_transports(advertisement))
-            capabilities = capability_kinds(advertisement)
         rows.append(
             {
                 "executor_id": executor_id,
@@ -134,6 +147,25 @@ def print_status_table(rows: list[dict]) -> None:
 
 
 def print_status_json(rows: list[dict]) -> None:
+    """Prints the rows as one JSON line, reporting any that `STATUS_ROW_SCHEMA`
+    rejects.
+
+    The schema is the contract a `--json` consumer reads, so the command that
+    emits the rows is what checks itself against it: a row shape that widens
+    without the schema saying so is reported here, once, instead of reaching a
+    consumer that validates against a schema no longer describing what it got.
+
+    Reported rather than raised on, and the row still prints: every failure in
+    this module degrades what it can and emits the rest, and a row that breaks
+    its own contract is no reason to withhold the other adapters' rows.
+    """
+    for row in rows:
+        for error in _ROW_VALIDATOR.iter_errors(row):
+            _LOGGER.warning(
+                "row for %s does not match STATUS_ROW_SCHEMA: %s",
+                row.get("executor_id", "<unnamed>"),
+                error.message,
+            )
     print(json.dumps(rows))
 
 

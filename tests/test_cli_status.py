@@ -26,7 +26,7 @@ import json
 import logging
 
 import jsonschema
-from conftest import _FakeExecutor, _json_decode_error
+from conftest import _MALFORMED_ADVERTISEMENTS, _FakeExecutor, _json_decode_error
 
 from praxis_cli.status_cmd import (
     STATUS_ROW_SCHEMA,
@@ -275,6 +275,35 @@ def test_build_status_rows_asks_health_for_an_adapter_whose_advertisement_proves
     assert rows[0]["capabilities"] == ["coding"]
 
 
+def test_build_status_rows_degrades_a_row_whose_returned_advertisement_is_malformed(monkeypatch):
+    # A probe that returns is not a probe that answered conformingly. Reading the
+    # advertisement outside the guard let a missing required key reach the
+    # command as a `KeyError` and take every other row down with it.
+    for advertisement in _MALFORMED_ADVERTISEMENTS:
+        executor = _FakeExecutor("executor-malformed", health=ExecutorAvailability.AVAILABLE)
+        monkeypatch.setattr(executor, "capabilities", lambda ad=advertisement: ad)
+
+        rows = build_status_rows(
+            {"executor-malformed": executor, "executor-good": _available()}
+        )
+
+        assert rows[0]["auth_transport"] == "unavailable"
+        assert rows[0]["capabilities"].startswith("unavailable (")
+        assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_a_malformed_advertisement_is_logged_as_a_fault_not_an_outage(monkeypatch, caplog):
+    # An advertisement missing a required key is the adapter's own doing, and the
+    # row reads `unavailable (...)` exactly as a real outage does.
+    executor = _FakeExecutor("executor-malformed", health=ExecutorAvailability.AVAILABLE)
+    monkeypatch.setattr(executor, "capabilities", lambda: _MALFORMED_ADVERTISEMENTS[0])
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        build_status_rows({"executor-malformed": executor})
+
+    assert "MalformedAdvertisement" in caplog.text
+
+
 # print_status_table()
 
 
@@ -348,6 +377,41 @@ def test_print_status_json_carries_only_the_four_spec_named_fields(capsys):
         assert list(row) == ["executor_id", "auth_transport", "status", "capabilities"]
         assert isinstance(row["auth_transport"], str)
         assert isinstance(row["status"], str)
+
+
+def test_print_status_json_reports_a_row_that_does_not_match_the_schema(capsys, caplog):
+    # `STATUS_ROW_SCHEMA` is the contract a `--json` consumer reads, so the
+    # command that emits the rows is what checks itself against it -- a row shape
+    # that widens without the schema saying so is reported here rather than
+    # discovered by a consumer downstream.
+    row = build_status_rows({"executor-good": _available()})[0]
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.status_cmd"):
+        print_status_json([{**row, "status": "not-an-availability"}])
+
+    assert "STATUS_ROW_SCHEMA" in caplog.text
+    assert "executor-good" in caplog.text
+    # Reported, not withheld: a report that prints with a warning beats no report
+    # at all, which is the degradation every probe failure here already takes.
+    assert json.loads(capsys.readouterr().out)[0]["status"] == "not-an-availability"
+
+
+def test_print_status_json_says_nothing_about_rows_that_match_the_schema(caplog):
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.status_cmd"):
+        print_status_json(
+            build_status_rows(
+                {
+                    "executor-good": _available(),
+                    "executor-bad": _unavailable(),
+                    "executor-broken": _malformed(),
+                    "executor-transportless": _transportless(),
+                }
+            )
+        )
+
+    # Only this module's records: the malformed adapter's own probe failure is
+    # `fields`' to report, and it is reported whether or not the row conforms.
+    assert [record for record in caplog.records if record.name == "praxis_cli.status_cmd"] == []
 
 
 # STATUS_ROW_SCHEMA

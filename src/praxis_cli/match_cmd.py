@@ -130,10 +130,23 @@ def run_match(
     unreadable: dict[str, str] = {}
     for name, executor in adapters.items():
         try:
-            gathered.append((name, executor.capabilities()))
+            advertisement = executor.capabilities()
+            # Read here the same keys `name_by_advertised_id` below and
+            # `matching.match` internally subscript unguarded, so an
+            # advertisement that answers but is missing one of them fails
+            # inside this probe guard -- the same one `discover`/`status`
+            # degrade a row on -- rather than as a raw `KeyError` surfacing
+            # from the dict comprehension or from deep inside the matcher.
+            try:
+                advertisement["executor_id"]
+            except KeyError as exc:
+                raise fields._malformed(exc) from exc
+            fields.capability_kinds(advertisement)
         except fields.PROBE_FAILED as exc:
             fields.note_probe_failure(executor, "capabilities", exc)
             unreadable[name] = str(exc)
+            continue
+        gathered.append((name, advertisement))
 
     advertisements = [advertisement for _, advertisement in gathered]
     # Last adapter wins if two advertise the same id, because that is how both

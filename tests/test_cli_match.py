@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from conftest import _FakeExecutor, _json_decode_error
+from conftest import _MALFORMED_ADVERTISEMENTS, _FakeExecutor, _json_decode_error
 
 from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
 from praxis_executors.interface import Executor, ExecutorError
@@ -155,6 +155,44 @@ def test_run_match_attribute_error_from_capabilities_is_dropped_not_raised(capsy
     captured = capsys.readouterr()
     assert exit_code == 0
     assert captured.out.splitlines() == ["selected: executor-good"]
+
+
+def test_run_match_survives_a_capabilities_call_that_returns_a_malformed_advertisement(
+    monkeypatch, capsys
+):
+    # A probe that returns is not a probe that answered conformingly. Reading
+    # the advertisement's `executor_id`/`capabilities`/`satisfies`/`kind` keys
+    # outside a guard let a missing one reach `name_by_advertised_id` or
+    # `matching.match` as a raw `KeyError`, crashing the whole command instead
+    # of degrading the one candidate the way `discover`/`status` already do.
+    for advertisement in _MALFORMED_ADVERTISEMENTS:
+        executor = _FakeExecutor("executor-malformed")
+        monkeypatch.setattr(executor, "capabilities", lambda ad=advertisement: ad)
+
+        exit_code = run_match(
+            {**_adapters(), "executor-malformed": executor}, capabilities=["kind-a"], explain=False
+        )
+
+        assert exit_code == 0
+        assert capsys.readouterr().out.splitlines() == ["selected: executor-good"]
+
+
+def test_explain_reports_a_malformed_advertisement_as_unreadable(monkeypatch, capsys):
+    executor = _FakeExecutor("executor-malformed")
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {"spec_version": _SPEC_VERSION, "executor_id": "executor-malformed"},
+    )
+    adapters = {"executor-good": _candidate("executor-good", "kind-a", "local"), "executor-malformed": executor}
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-malformed"] == (
+        "executor-malformed: eligible=unknown reason=advertisement unavailable "
+        "(advertisement is missing required key 'capabilities')"
+    )
 
 
 def test_explain_accounts_for_a_candidate_whose_probe_raised_an_attribute_error(capsys):

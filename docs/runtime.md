@@ -106,7 +106,10 @@ transition legality" true by construction.
 `RunState` and the graph's edges before anything is written; a rejected transition never
 appends an event or persists a checkpoint (no partial write). Fan-out edges each create an
 independent successor cursor as soon as their source completes; join edges only create their
-shared successor cursor once every incoming edge's source has reported `TERMINAL_SUCCESS`.
+shared successor cursor once every incoming edge's source has reported `TERMINAL_SUCCESS`. An
+`"on-failure"` edge fires only when its source reaches `TERMINAL_FAILED`, creating each target's
+cursor unconditionally (fan-out-style, with no join-on-failure equivalent), and it never fires on
+`TERMINAL_SUCCESS`.
 `current_state()` also validates a loaded checkpoint against the event log: if the checkpoint's
 `last_applied_seq` is ahead of the highest `seq` the event log actually contains, that is an
 impossible/corrupt state, so it raises `TransitionError` (fail closed) rather than proceeding

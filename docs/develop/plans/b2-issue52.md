@@ -198,6 +198,7 @@ the spec's prose.
 - `tests/test_version_mismatch.py`
 - `tests/test_overlay_trivial_fixture.py`
 - `tests/test_repair_findings_b5_issue6.py`
+- `tests/test_executor_evidence_conversion.py`
 
 **Depends on:** T1 (needs `praxis_contracts.schema_paths` and the physically-relocated files; does not need T3–T8 since none of these files import schema-path constants from those modules)
 

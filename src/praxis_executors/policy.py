@@ -47,7 +47,10 @@ class AuthTransportPolicy(ExecutorPolicy):
     allowed_auth_transports: frozenset[str] | None = None
 
     def is_eligible(self, executor_id: str, advertisement: dict) -> bool:
-        for capability in advertisement.get("capabilities", []):
+        capabilities = advertisement.get("capabilities")
+        if not capabilities:
+            return False
+        for capability in capabilities:
             if not self._capability_is_eligible(capability):
                 return False
         return True

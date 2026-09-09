@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "repository": "/Users/polliard/.ai/worktrees/convergent-systems-co/praxis/develop-remediation-1",
-  "built_at": "2026-09-09T17:14:10.293503Z",
+  "built_at": "2026-09-09T17:17:23.674386Z",
   "nodes": [
     {
       "id": "directory:00142276f3176e8aef2a0e22",
@@ -7722,7 +7722,7 @@
       "id": "file:032887561f5d7995abe5473b",
       "kind": "file",
       "path": ".pytest_cache/v/cache/nodeids",
-      "content_hash": "321d665a2482d9667f12e895d31f5a8ad63097def9648c98fdbe4945c3b7d567"
+      "content_hash": "bd0c95e62cf0507a812b61d5923016cd5c8f829e071ff9652f43954293b29051"
     },
     {
       "id": "file:035df5711e4a190da2487ebb",
@@ -10848,7 +10848,7 @@
       "id": "file:34b441e1f75b8c3f0759c084",
       "kind": "file",
       "path": "tests/__pycache__/test_overlay_development.cpython-314-pytest-9.1.1.pyc",
-      "content_hash": "f9b3e3079e1a26c6ed746eab11dbb92812b9502d1bf2b5f6d944e947f4b620ab"
+      "content_hash": "4aac2bc68fe944341a80902219cf51a6dfe2c906ef66d1089adc9cb9d155cf0b"
     },
     {
       "id": "file:34c4285580a75fb39f63307b",
@@ -12726,7 +12726,7 @@
       "id": "file:516b2c9b2241e89cec13803f",
       "kind": "file",
       "path": "tests/test_overlay_development.py",
-      "content_hash": "0bc549c1daf78a85e2ae258a5f853d6e2210e117462958a8c829d9dafc2484a9"
+      "content_hash": "0208393e63f9a021215aeb601fed275c8ced7c63621a5f6e0a4cc08266e17dcd"
     },
     {
       "id": "file:5172789283c5757387a37c4e",

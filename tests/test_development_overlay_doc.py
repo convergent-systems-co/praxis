@@ -4,7 +4,8 @@ topology-only nature of the recovery/retry edges (#32), the
 `build_development_graph()` bypass of `load_graph()`'s reachability check --
 and list the four new proof types (T4) and four new graders (T5), all without
 rewriting the existing core-boundary-rule preamble or `conflict_fn`
-wiring-gap section.
+wiring section (the gap it once described was closed by issue #27; see
+tests/test_repair_findings_b1_issue27.py).
 
 This is a doc-content task with no other test file covering
 `docs/overlays/development.md`'s prose (unlike T19's
@@ -23,7 +24,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEV_DOC = REPO_ROOT / "docs" / "overlays" / "development.md"
 
-CONFLICT_FN_HEADING = "**`conflict_fn` wiring gap:**"
+CONFLICT_FN_HEADING = "**`conflict_fn` wiring:**"
 
 EXISTING_HEADINGS = [
     "## Manifest",
@@ -72,7 +73,7 @@ def test_existing_headings_and_gap_sections_untouched() -> None:
             f"T10 must extend around the existing {heading!r} section, not remove/rename it"
         )
     assert CONFLICT_FN_HEADING in doc_text, (
-        "T10 must not rewrite the existing conflict_fn wiring-gap section"
+        "T10 must not rewrite the existing conflict_fn wiring section"
     )
     assert "core-boundary" in doc_text and "rule enforced by" in doc_text, (
         "T10 must not rewrite the existing core-boundary-rule preamble"

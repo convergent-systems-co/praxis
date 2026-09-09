@@ -156,36 +156,24 @@ def test_detect_authenticated_returns_false_when_login_status_reports_not_logged
         assert executor._detect_authenticated("/usr/bin/codex") is False
 
 
-def test_discovered_models_is_none_before_health_has_run():
-    # Repair for the audited gap: the original spec's Discovery bullet
-    # ("supported models/modes where exposed") had no method surfacing
-    # this at all. `discovered_models()` is the surface; before health()
-    # ever probes, it must report "unknown" rather than a stale guess.
+def test_codex_cli_executor_has_no_discovered_models_dead_public_api():
+    # Repair finding: discovered_models() was a public method with no
+    # caller anywhere in the repo outside its own tests, and the
+    # _probe_models() it exposed unconditionally returned None -- dead
+    # exported API for an unimplemented Discovery capability. Removed
+    # rather than kept, since no real consumer exists.
     executor = _executor()
-    assert executor.discovered_models() is None
+    assert not hasattr(executor, "discovered_models")
 
 
-def test_health_invokes_probe_models_and_stores_its_result():
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch("praxis_executors.adapters.codex_cli.subprocess.run"),
-        patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
-        patch.object(CodexCliExecutor, "_probe_models", return_value=["gpt-5-codex", "gpt-5"]),
-    ):
-        executor = _executor()
-        executor.health()
-
-    assert executor.discovered_models() == ["gpt-5-codex", "gpt-5"]
-
-
-def test_probe_models_unmocked_returns_none_by_default():
-    # Mirrors _detect_authenticated's "no verified safe command known"
-    # precedent: this repair session's sandbox blocks every attempt to
-    # invoke the real `codex` binary (see codex_cli.py::_probe_models), so
-    # no real command is exercised here either -- the method conservatively
-    # reports unknown rather than guessing a subcommand name.
+def test_codex_cli_executor_has_no_probe_models_helper_outside_the_plan():
+    # Repair finding: the plan's T1 Interfaces line ("implement exactly
+    # those signatures and helper names; do not improvise different ones")
+    # is violated by a _probe_models()/_discovered_models surface that
+    # is not present anywhere in the plan's pinned design.
     executor = _executor()
-    assert executor._probe_models("/usr/bin/codex") is None
+    assert not hasattr(executor, "_probe_models")
+    assert not hasattr(executor, "_discovered_models")
 
 
 def test_health_invokes_codex_version_via_subprocess_run():

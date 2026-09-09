@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "repository": "/Users/polliard/.ai/worktrees/convergent-systems-co/praxis/develop-b2-issue43",
-  "built_at": "2026-09-09T17:48:28.087088Z",
+  "built_at": "2026-09-09T17:57:04.543115Z",
   "nodes": [
     {
       "id": "directory:00142276f3176e8aef2a0e22",
@@ -7621,7 +7621,7 @@
       "id": "file:032887561f5d7995abe5473b",
       "kind": "file",
       "path": ".pytest_cache/v/cache/nodeids",
-      "content_hash": "1db2890d59a5ba765be8abfd725e5c2b137e9f0b20aba0044820be5289aa9f11"
+      "content_hash": "89a96167cc320b5fa7aa97244aa57c4aadf8c1eaf717d45ab76d0f4d537e0e8d"
     },
     {
       "id": "file:035df5711e4a190da2487ebb",
@@ -9751,7 +9751,7 @@
       "id": "file:26621dba12db58b88dbf039c",
       "kind": "file",
       "path": "src/praxis_executors/adapters/ollama.py",
-      "content_hash": "8257c1afafb9ef0c4f9cf4ff6e506ee9a2de86afbbc6a5f2864cc2f5b3612741"
+      "content_hash": "068ecf1fed6b363973c2de01467acf770dd8eb453eb0e8ecb5a78971d14259fd"
     },
     {
       "id": "file:266970484a1a0a9b62db3a51",
@@ -11605,7 +11605,7 @@
       "id": "file:414855275cbf0e2d7b90b6a9",
       "kind": "file",
       "path": "src/praxis_executors/adapters/__pycache__/ollama.cpython-314.pyc",
-      "content_hash": "a74f64ff7ca19192fe8e84057519ad8f31aad4b34135617571e57729bc95a97f"
+      "content_hash": "7be1eb1a56be32bf461cc08eb508692b7ddcd419387f2991f148602afb4242af"
     },
     {
       "id": "file:419557c6a19b9f929b4f3fd9",
@@ -15517,7 +15517,7 @@
       "id": "file:7e8924a3cf5bf05824d77edf",
       "kind": "file",
       "path": "tests/test_ollama_executor.py",
-      "content_hash": "862f35318759528a821751917cdc77ff70e22f5c269e206b19c4e73ec91b32f3"
+      "content_hash": "36e198e417f6010f6a76146813e82f569467a57b053065117b847f34e9c2f210"
     },
     {
       "id": "file:7e8f6c36c793e6a242ec865d",
@@ -19573,7 +19573,7 @@
       "id": "file:c1a84fcaac939b66bf92c51f",
       "kind": "file",
       "path": "tests/__pycache__/test_ollama_executor.cpython-314-pytest-9.1.1.pyc",
-      "content_hash": "e5836141f283b854be42f816159f9f21a0fac491f23adf3da794c34b24a38ea8"
+      "content_hash": "0fb96b156f728985fccabda8767d9b79a807fed850d24e4fdccedebbfe87d60f"
     },
     {
       "id": "file:c1ddd7d7e89391996f096357",
@@ -22261,7 +22261,7 @@
       "id": "file:ec3551674e5ed19dd7711d34",
       "kind": "file",
       "path": "src/praxis_contracts.egg-info/SOURCES.txt",
-      "content_hash": "0785359c37f041fc8d5851089503e251cf5be430aff2eaa61768febe007519b8"
+      "content_hash": "72a5d6dbcf50555ad59bfb04c65e6582bf74d0ee68859713cf21dd2c06a8989b"
     },
     {
       "id": "file:ec3bf7cd1abd83ca1fc28470",

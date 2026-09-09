@@ -131,6 +131,7 @@ class OllamaExecutor(Executor):
         executor_id: str,
         base_url: str = "http://127.0.0.1:11434",
         timeout: float = 5.0,
+        generate_timeout: float = 120.0,
     ) -> None:
         host = urllib.parse.urlsplit(base_url).hostname
         if not _is_loopback_host(host):
@@ -140,9 +141,12 @@ class OllamaExecutor(Executor):
         self._executor_id = executor_id
         self._base_url = base_url
         self._timeout = timeout
+        self._generate_timeout = generate_timeout
         self._lock = threading.Lock()
+        self._threads: dict[str, threading.Thread] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
+        self._connections: dict[str, list] = {}
 
     def capabilities(self) -> dict:
         try:
@@ -192,13 +196,76 @@ class OllamaExecutor(Executor):
         return ExecutorAvailability.AVAILABLE
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
-        raise NotImplementedError
+        parameters = request.parameters
+        if "model" not in parameters:
+            raise ExecutorError("request.parameters is missing required key 'model'")
+        if "prompt" not in parameters:
+            raise ExecutorError("request.parameters is missing required key 'prompt'")
+
+        handle_id = uuid.uuid4().hex
+        self._connections[handle_id] = []
+        thread = threading.Thread(
+            target=self._run_generate,
+            args=(handle_id, parameters["model"], parameters["prompt"]),
+            daemon=True,
+        )
+        self._threads[handle_id] = thread
+        thread.start()
+        return ExecutionHandle(handle_id=handle_id)
+
+    def _run_generate(self, handle_id: str, model: str, prompt: str) -> None:
+        url = urllib.parse.urljoin(self._base_url, "/api/generate")
+        data = json.dumps({"model": model, "prompt": prompt, "stream": False}).encode("utf-8")
+        request = urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/json"}, method="POST"
+        )
+        try:
+            response = urllib.request.urlopen(request, timeout=self._generate_timeout)
+            with self._lock:
+                self._connections[handle_id].append(response)
+            try:
+                raw = response.read()
+            finally:
+                with self._lock:
+                    self._connections.pop(handle_id, None)
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001 -- worker thread must always resolve the handle
+            status = ExecutorStatus.CANCELLED if handle_id in self._cancelled else ExecutorStatus.FAILED
+            self._results[handle_id] = ExecutionResult(status=status, payload={"error": str(exc)})
+            return
+
+        self._results[handle_id] = ExecutionResult(
+            status=ExecutorStatus.SUCCEEDED,
+            payload={
+                "response": payload.get("response"),
+                "model": payload.get("model"),
+                "done": payload.get("done"),
+            },
+        )
+
+    def _thread_for(self, handle: ExecutionHandle) -> threading.Thread:
+        thread = self._threads.get(handle.handle_id)
+        if thread is None:
+            raise ExecutorError(f"unknown execution handle: {handle.handle_id!r}")
+        return thread
 
     def status(self, handle: ExecutionHandle) -> ExecutorStatus:
-        raise NotImplementedError
+        thread = self._thread_for(handle)
+        if thread.is_alive():
+            return ExecutorStatus.RUNNING
+        return self._results[handle.handle_id].status
 
     def cancel(self, handle: ExecutionHandle) -> None:
-        raise NotImplementedError
+        handle_id = handle.handle_id
+        self._cancelled.add(handle_id)
+        with self._lock:
+            holder = self._connections.get(handle_id)
+            connection = holder.pop() if holder else None
+        if connection is not None:
+            connection.close()
 
     def result(self, handle: ExecutionHandle) -> ExecutionResult:
-        raise NotImplementedError
+        thread = self._thread_for(handle)
+        if thread.is_alive():
+            raise ExecutorError("cannot fetch result while execution is still RUNNING")
+        return self._results[handle.handle_id]

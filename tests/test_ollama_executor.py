@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import socket
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -23,20 +24,36 @@ import pytest
 from praxis_contracts.schema_paths import SCHEMA_DIR
 from praxis_contracts.validator import validate_document
 from praxis_executors.adapters.ollama import OllamaExecutor
-from praxis_executors.interface import ExecutorAvailability, ExecutorError
+from praxis_executors.interface import (
+    ExecutionRequest,
+    ExecutorAvailability,
+    ExecutorError,
+    ExecutorStatus,
+)
 
 
 class _OllamaTestHandler(BaseHTTPRequestHandler):
     """Serves canned JSON responses from `self.server.responses[self.path]`."""
 
     def _respond(self) -> None:
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length:
+            self.rfile.read(content_length)
         status, body = self.server.responses.get(  # type: ignore[attr-defined]
             self.path, (404, {"error": f"no canned response for {self.path}"})
         )
         payload = json.dumps(body).encode("utf-8")
+        # Headers go out before any injected delay so a client's `urlopen()` call
+        # returns (and can register its connection for `cancel()`) while the body
+        # is still pending -- delaying the whole response instead would make an
+        # in-flight cancel() a structural no-op, since there'd be nothing for it
+        # to close until after the delay had already elapsed.
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
+        delay = self.server.delays.get(self.path)  # type: ignore[attr-defined]
+        if delay:
+            time.sleep(delay)
         self.wfile.write(payload)
 
     def do_GET(self) -> None:  # noqa: N802 (stdlib-mandated name)
@@ -63,13 +80,19 @@ def _stop(httpd: ThreadingHTTPServer, thread: threading.Thread) -> None:
 
 @pytest.fixture
 def running_ollama_server():
-    """Yields `(base_url, responses)`; set `responses[path] = (status, body)` per test."""
+    """Yields `(base_url, responses, delays)`.
+
+    Set `responses[path] = (status, body)` to configure a canned reply, and
+    `delays[path] = seconds` to make the handler sleep before replying (for
+    exercising in-flight cancellation).
+    """
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _OllamaTestHandler)
     httpd.responses = {}
+    httpd.delays = {}
     thread = _start(httpd)
     try:
         host, port = httpd.server_address[:2]
-        yield f"http://{host}:{port}", httpd.responses
+        yield f"http://{host}:{port}", httpd.responses, httpd.delays
     finally:
         _stop(httpd, thread)
 
@@ -94,7 +117,7 @@ def test_health_reports_unavailable_when_service_unreachable():
 
 
 def test_health_reports_degraded_when_no_models_installed(running_ollama_server):
-    base_url, responses = running_ollama_server
+    base_url, responses, _delays = running_ollama_server
     responses["/api/tags"] = (200, {"models": []})
     executor = OllamaExecutor(executor_id="e", base_url=base_url)
 
@@ -102,7 +125,7 @@ def test_health_reports_degraded_when_no_models_installed(running_ollama_server)
 
 
 def test_health_reports_available_when_models_installed(running_ollama_server):
-    base_url, responses = running_ollama_server
+    base_url, responses, _delays = running_ollama_server
     responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
     executor = OllamaExecutor(executor_id="e", base_url=base_url)
 
@@ -110,7 +133,7 @@ def test_health_reports_available_when_models_installed(running_ollama_server):
 
 
 def test_capabilities_emits_one_entry_per_installed_model(running_ollama_server):
-    base_url, responses = running_ollama_server
+    base_url, responses, _delays = running_ollama_server
     responses["/api/tags"] = (
         200,
         {"models": [{"name": "llama3"}, {"name": "codellama"}]},
@@ -137,10 +160,108 @@ def test_capabilities_raises_executor_error_when_unreachable():
 
 
 def test_capabilities_advertisement_validates_against_schema(running_ollama_server):
-    base_url, responses = running_ollama_server
+    base_url, responses, _delays = running_ollama_server
     responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
     executor = OllamaExecutor(executor_id="e", base_url=base_url)
 
     advertisement = executor.capabilities()
 
     validate_document(advertisement, SCHEMA_DIR / "capability-advertisement.schema.json")
+
+
+def _wait_for_terminal(executor: OllamaExecutor, handle, timeout: float = 5.0) -> ExecutorStatus:
+    deadline = time.monotonic() + timeout
+    status = executor.status(handle)
+    while status not in (
+        ExecutorStatus.SUCCEEDED,
+        ExecutorStatus.FAILED,
+        ExecutorStatus.CANCELLED,
+    ):
+        if time.monotonic() > deadline:
+            raise AssertionError(f"execution did not reach a terminal state within {timeout}s")
+        time.sleep(0.05)
+        status = executor.status(handle)
+    return status
+
+
+def test_launch_without_model_or_prompt_raises_executor_error(running_ollama_server):
+    base_url, _responses, _delays = running_ollama_server
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.launch(
+            ExecutionRequest(
+                promise={"spec_version": "1.0.0", "kind": "reasoning"},
+                parameters={"prompt": "hello"},
+            )
+        )
+
+    with pytest.raises(ExecutorError):
+        executor.launch(
+            ExecutionRequest(
+                promise={"spec_version": "1.0.0", "kind": "reasoning"},
+                parameters={"model": "llama3"},
+            )
+        )
+
+
+def test_successful_generate_reaches_succeeded(running_ollama_server):
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "hello there", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.SUCCEEDED
+    assert executor.result(handle).payload["response"] == "hello there"
+
+
+def test_cancel_closes_in_flight_request(running_ollama_server):
+    base_url, responses, delays = running_ollama_server
+    delays["/api/generate"] = 2.0
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "too slow", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    # Wait until the response headers have actually been received (so the
+    # executor has a connection object recorded to close) before cancelling.
+    # Without this, cancel() racing ahead of the worker thread's `urlopen()`
+    # would be a no-op through no fault of the implementation, and the request
+    # would complete normally -- masking a genuinely broken cancel() the same
+    # way a working one looks when it loses that race.
+    registration_deadline = time.monotonic() + 1.0
+    while (
+        not executor._connections.get(handle.handle_id)
+        and time.monotonic() < registration_deadline
+    ):
+        time.sleep(0.01)
+    assert executor._connections.get(
+        handle.handle_id
+    ), "response headers were never received before cancel() was called"
+
+    executor.cancel(handle)
+
+    # The poll timeout is well under the fake server's injected delay, so
+    # SUCCEEDED is impossible here unless cancel() failed to close the
+    # connection -- a no-op cancel() would leave status RUNNING past this
+    # deadline instead of resolving to CANCELLED.
+    status = _wait_for_terminal(executor, handle, timeout=1.5)
+    assert status == ExecutorStatus.CANCELLED
+    assert executor.result(handle).status == ExecutorStatus.CANCELLED

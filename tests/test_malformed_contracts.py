@@ -7,13 +7,11 @@ imported from test_valid_contracts.py, per the task brief.
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 
 import pytest
 
+from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import ContractValidationError, validate_document
-
-SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas" / "v1"
 
 VALID_REQUIREMENT = {
     "spec_version": "1.0.0",

@@ -13,10 +13,9 @@ runs to `TERMINAL_SUCCESS` through the same public
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import validate_document
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
@@ -34,7 +33,7 @@ from overlays.trivial.overlay import (
     register_trivial_overlay,
 )
 
-_EVIDENCE_REQUIREMENT_SCHEMA = Path("schemas/v1/evidence-requirement.schema.json")
+_EVIDENCE_REQUIREMENT_SCHEMA = schema_path("evidence-requirement.schema.json")
 
 
 def test_trivial_publish_node_evidence_requirement_matches_schema():

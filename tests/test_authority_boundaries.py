@@ -11,14 +11,12 @@ takes `PolicyProfile` only as a type reference for
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
 
+from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import ContractValidationError, validate_document
 from praxis_policy.authority import AuthorityDecision, AuthorityOutcome, evaluate_authority
-
-SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas" / "v1"
 
 
 @dataclass(frozen=True)

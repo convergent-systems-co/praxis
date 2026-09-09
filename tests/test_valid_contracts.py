@@ -10,10 +10,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"
 EXAMPLES_DIR = REPO_ROOT / "examples"
 
 

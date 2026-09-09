@@ -31,6 +31,8 @@ import json
 import re
 from pathlib import Path
 
+from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 CORE_PACKAGE_DIRS = (
@@ -44,8 +46,6 @@ CORE_PACKAGE_DIRS = (
     REPO_ROOT / "src" / "praxis_dashboard",
     REPO_ROOT / "src" / "praxis_learning",
 )
-
-SCHEMAS_DIR = REPO_ROOT / "schemas" / "v1"
 
 # name -> compiled, case-insensitive regex. Word-boundaried or multi-word
 # where the bare term collides with legitimate core vocabulary (see module
@@ -136,7 +136,9 @@ def _iter_description_strings(document, path: str = "$"):
 
 def test_core_schema_descriptions_contain_no_forbidden_development_vocabulary():
     violations: list[str] = []
-    for schema_path in sorted(SCHEMAS_DIR.glob("*.json")):
+    schema_files = sorted(SCHEMAS_DIR.glob("*.json"))
+    assert schema_files, f"expected schema files under {SCHEMAS_DIR}, found none"
+    for schema_path in schema_files:
         document = json.loads(schema_path.read_text(encoding="utf-8"))
         for json_path, description in _iter_description_strings(document):
             for term_name, pattern in _COMPILED_TERMS.items():

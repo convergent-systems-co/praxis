@@ -254,11 +254,14 @@ document — the extension path is entirely local to `praxis_executors`:
 6. Once registered, the adapter is selectable through the existing `matching`/`policy`/`registry`
    machinery with no further wiring.
 
-None of those hypothetical adapters exist yet. Three concrete adapters ship today:
-`FakeCapabilityExecutor` (`src/praxis_executors/adapters/fake.py`), a deterministic, scripted
-executor for tests; `SubprocessExecutor` (`src/praxis_executors/adapters/subprocess_executor.py`),
-a real OS-subprocess executor; and `ClaudeCliExecutor`
-(`src/praxis_executors/adapters/claude_cli.py`), which drives the locally-installed `claude`
-subscription CLI as a subprocess and advertises `auth_transport: "subscription_cli"`. None of the
-three is registered with an `ExecutorRegistry` by default — steps 4-5 above are left to the
-caller that wires a concrete deployment together.
+None of those hypothetical adapters (Codex, Copilot, OpenCode, MLX) exist yet. Four concrete
+adapters ship today: `FakeCapabilityExecutor` (`src/praxis_executors/adapters/fake.py`), a
+deterministic, scripted executor for tests; `SubprocessExecutor`
+(`src/praxis_executors/adapters/subprocess_executor.py`), a real OS-subprocess executor;
+`ClaudeCliExecutor` (`src/praxis_executors/adapters/claude_cli.py`), which drives the
+locally-installed `claude` subscription CLI as a subprocess and advertises
+`auth_transport: "subscription_cli"`; and `OllamaExecutor`
+(`src/praxis_executors/adapters/ollama.py`), a local-HTTP-backed executor against a
+locally-running Ollama service (`auth_transport: "local"`). None of the four is registered with
+an `ExecutorRegistry` by default — steps 4-5 above are left to the caller that wires a concrete
+deployment together.

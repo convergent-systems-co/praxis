@@ -1,0 +1,13 @@
+{"bundle": "b2-issue43",
+ "tasks": [
+   {"id": "T1", "title": "Bootstrap: module scaffold, constructor, HTTP helper, test fixture", "depends_on": [], "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]},
+   {"id": "T2", "title": "health(): three-state availability", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]},
+   {"id": "T3", "title": "capabilities(): per-model advertisement", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]},
+   {"id": "T4", "title": "launch()/status()/cancel()/result(): execution lifecycle", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]},
+   {"id": "T5", "title": "Full-suite integration pass", "depends_on": ["T2", "T3", "T4"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]}
+ ]}

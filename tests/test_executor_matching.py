@@ -199,7 +199,7 @@ def test_deterministic_rejection_produces_equal_unsatisfied_lists_across_calls()
     assert first.unsatisfied == second.unsatisfied
 
 
-def test_is_eligible_excluding_only_candidate_matches_explanation_of_nonexistence():
+def test_policy_excluded_candidate_is_now_distinguished_from_true_nonexistence():
     requirement = _requirement(required=["kind-a"])
     ad = _advertisement("executor-1", ["kind-a"])
 
@@ -207,7 +207,33 @@ def test_is_eligible_excluding_only_candidate_matches_explanation_of_nonexistenc
     excluded = match(requirement, [ad], is_eligible=lambda executor_id: False)
 
     assert absent.selected is excluded.selected is None
-    assert absent.unsatisfied == excluded.unsatisfied
+    # This test used to assert `absent.unsatisfied == excluded.unsatisfied` in
+    # full, i.e. that "nothing advertises kind-a" and "policy excluded the
+    # only advertisement of kind-a" were indistinguishable. `policy_excluded`
+    # now distinguishes them, so that full-equality assertion no longer holds
+    # -- kind/constraint still match, but policy_excluded diverges.
+    assert absent.unsatisfied[0].kind == excluded.unsatisfied[0].kind == "kind-a"
+    assert (
+        absent.unsatisfied[0].constraint
+        == excluded.unsatisfied[0].constraint
+        == "required"
+    )
+    assert absent.unsatisfied[0].policy_excluded is False
+    assert excluded.unsatisfied[0].policy_excluded is True
+
+
+def test_policy_excluded_kind_is_distinguished_from_kind_nobody_advertises():
+    # kind-a is satisfied only by a policy-excluded advertisement -> True.
+    # kind-b is satisfied by no advertisement at all, eligible or not -> False.
+    requirement = _requirement(required=["kind-a", "kind-b"])
+    ad = _advertisement("executor-1", ["kind-a"])
+
+    result = match(requirement, [ad], is_eligible=lambda executor_id: False)
+
+    assert result.selected is None
+    by_kind = {u.kind: u for u in result.unsatisfied}
+    assert by_kind["kind-a"].policy_excluded is True
+    assert by_kind["kind-b"].policy_excluded is False
 
 
 def test_selected_candidate_carries_the_matched_capability_id():

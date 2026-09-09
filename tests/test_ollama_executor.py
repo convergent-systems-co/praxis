@@ -220,6 +220,49 @@ def test_capabilities_raises_executor_error_for_model_entry_missing_name(running
         executor.capabilities()
 
 
+def test_capabilities_omits_context_window_when_show_response_is_a_json_array(running_ollama_server):
+    """Repair finding (#70 gap 1): an `/api/show` body that decodes to a JSON
+    array instead of an object must not fail the whole capabilities() call
+    via an uncaught AttributeError from `show.get("capabilities")` -- same
+    best-effort-degrade contract already covered above for a non-JSON body."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (200, ["unexpected", "array"])
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert "context_window" not in advertisement["capabilities"][0]
+
+
+def test_capabilities_raises_executor_error_for_non_dict_model_entry(running_ollama_server):
+    """Repair finding (#70 gap 2): a `/api/tags` model entry that isn't a
+    dict at all (e.g. a bare number) must raise a handled ExecutorError, not
+    an uncaught TypeError from `"name" not in model`."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [123]})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
+
+
+def test_capabilities_falls_back_to_reasoning_when_show_capabilities_is_not_a_list(running_ollama_server):
+    """Repair finding (#70 gap 3): an `/api/show` `capabilities` field that
+    isn't a list (e.g. a bare number) must not fail the whole capabilities()
+    call via an uncaught TypeError inside `_classify_kinds` -- it should fall
+    back the same way a fully-absent `/api/show` response already does."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (200, {"capabilities": 5})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    kinds = {entry["kind"] for entry in advertisement["capabilities"][0]["satisfies"]}
+    assert "reasoning" in kinds
+
+
 def test_capabilities_raises_executor_error_when_no_models_installed(running_ollama_server):
     """Repair finding: an empty `capabilities` array violates
     capability-advertisement.schema.json's minItems:1 -- reachable-with-zero-models

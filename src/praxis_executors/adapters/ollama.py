@@ -170,12 +170,15 @@ class OllamaExecutor(Executor):
 
         capabilities = []
         for model in response.get("models", []):
+            if not isinstance(model, dict):
+                raise ExecutorError(
+                    f"ollama /api/tags returned a non-dict model entry: {model!r}"
+                )
             if "name" not in model:
                 raise ExecutorError(
                     f"ollama /api/tags returned a model entry without a 'name': {model!r}"
                 )
             model_name = model["name"]
-            show_capabilities = None
             context_window = None
             try:
                 show = _http_post_json(
@@ -183,18 +186,20 @@ class OllamaExecutor(Executor):
                 )
                 show_capabilities = show.get("capabilities")
                 context_window = _extract_context_window(show)
-            except (_OllamaUnreachable, _OllamaHTTPError, KeyError, TypeError, ValueError):
+                kinds = _classify_kinds(model_name, show_capabilities)
+            except (_OllamaUnreachable, _OllamaHTTPError, KeyError, TypeError, ValueError, AttributeError):
                 # Best-effort: a malformed/non-JSON/non-UTF8 `/api/show` response
                 # (json.JSONDecodeError and UnicodeDecodeError are both ValueError
                 # subclasses) must not fail the whole capabilities() call -- just
                 # omit context_window for this model.
                 context_window = None
+                kinds = _classify_kinds(model_name, None)
 
             capability = {
                 "spec_version": _SPEC_VERSION,
                 "satisfies": [
                     {"kind": kind, "parameters": {"model": model_name}}
-                    for kind in _classify_kinds(model_name, show_capabilities)
+                    for kind in kinds
                 ],
                 "auth_transport": "local",
             }

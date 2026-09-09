@@ -15,9 +15,9 @@ are never validated against or built from an external document.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas" / "v1"
+from praxis_contracts.schema_paths import SCHEMA_DIR
+
 CANDIDATE_CONFIG_SCHEMA_PATH = SCHEMA_DIR / "candidate-config.schema.json"
 EVALUATION_RECORD_SCHEMA_PATH = SCHEMA_DIR / "evaluation-record.schema.json"
 PROMOTION_POLICY_SCHEMA_PATH = SCHEMA_DIR / "promotion-policy.schema.json"

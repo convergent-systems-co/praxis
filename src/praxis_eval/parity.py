@@ -5,17 +5,14 @@ build."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from praxis_contracts.schema_paths import schema_path
 from praxis_eval.types import Measurement
 from praxis_runtime.events import EventLog
 from praxis_runtime.state import RunState
 
 # Mirrors the *_SCHEMA_PATH convention in praxis_eval/types.py: the canonical path other
 # modules (fixture authoring/loading) import instead of re-deriving it themselves.
-PARITY_FIXTURE_SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "schemas" / "v1" / "parity-fixture.schema.json"
-)
+PARITY_FIXTURE_SCHEMA_PATH = schema_path("parity-fixture.schema.json")
 
 COMPLETION_SUCCESS_METRIC = "completion_success"
 

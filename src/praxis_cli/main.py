@@ -30,6 +30,15 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
+    # Criterion 3: anything whose first token is not `executors` never reaches
+    # `argparse` at all, which is what keeps `praxis --version` and the
+    # pre-existing bare `main()` call working unchanged.
+    #
+    # Known limitation, recorded in docs/develop/plans/b2-issue45.md: an
+    # unrecognized subcommand (`praxis bogus`) takes this path too, so it prints
+    # a version and exits 0 with no diagnostic. Narrowing the gate to reject one
+    # is its own change -- it has to distinguish an unknown subcommand from the
+    # legacy flags this branch exists to pass through -- and wants its own issue.
     if not argv or argv[0] != "executors":
         _print_version()
         return 0

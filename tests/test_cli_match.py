@@ -374,6 +374,34 @@ def test_explain_does_not_print_an_empty_kind_list_for_a_superseded_advertisemen
     )
 
 
+def test_explain_does_not_credit_a_superseded_advertisement_with_the_ranked_score(capsys):
+    # Both adapters advertise `executor-dup`, and this time both advertise the
+    # required kind, so both advertisements reach `match`'s ranked list. The
+    # eligibility both `match` and the policy consulted is the last-wins one --
+    # `adapter-second`'s `local` -- and `adapter-first`'s own `metered_api` was
+    # read by neither. Crediting `adapter-first` with that rank reports the
+    # unsafe-by-default transport criterion 7 exists to surface as its opposite.
+    adapters = {
+        "adapter-first": _candidate("executor-dup", "kind-a", "metered_api"),
+        "adapter-second": _candidate("executor-dup", "kind-a", "local"),
+    }
+
+    exit_code = run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert exit_code == 0
+    first = next(line for line in lines if line.startswith("adapter-first:"))
+    assert first == (
+        "adapter-first: eligible=yes reason=another adapter advertises the same "
+        "executor id (executor-dup); that advertisement was the one ranked"
+    )
+    # Rank 2, not 1: both duplicate advertisements passed the eligibility the
+    # id resolved to, so `match` ranked both, and the one the policy actually
+    # judged is the second. The score is that advertisement's rank position.
+    second = next(line for line in lines if line.startswith("adapter-second:"))
+    assert second == "adapter-second: eligible=yes score=2"
+
+
 def test_explain_logs_a_capabilities_probe_failure_outside_the_adapter_vocabulary(caplog):
     # `run_match` degrades an unreadable candidate on the same `PROBE_FAILED`
     # net `status` and `discover` use, so it records the same distinction:

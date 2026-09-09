@@ -61,3 +61,21 @@ def test_build_adapters_returns_independently_constructed_objects_each_call():
     assert first.keys() == second.keys()
     for key in first:
         assert first[key] is not second[key]
+
+
+def test_build_adapters_does_not_share_capability_data_between_calls():
+    # Independently constructed instances are only half the property:
+    # `FakeCapabilityExecutor.__init__` copies the outer capability list and
+    # nothing inside it, so a capability dict held at module scope would be the
+    # same object in every instance the process ever builds. A caller editing a
+    # returned advertisement would then be editing the constant every later
+    # call reads.
+    first = build_adapters()["executor-fake-1"].capabilities()["capabilities"]
+    second = build_adapters()["executor-fake-1"].capabilities()["capabilities"]
+
+    assert first[0] is not second[0]
+    assert first[0]["satisfies"][0] is not second[0]["satisfies"][0]
+
+    first[0]["auth_transport"] = "metered_api"
+    third = build_adapters()["executor-fake-1"].capabilities()["capabilities"]
+    assert third[0]["auth_transport"] == "local"

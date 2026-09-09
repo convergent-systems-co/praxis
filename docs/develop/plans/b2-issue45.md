@@ -27,11 +27,20 @@ parameter, so only `main.py` (T6) needs `adapters.build_adapters()`. This
 keeps the DAG real: T1 (adapters) and T5 (match) have no dependents until
 T6; T2 (fields) is the only thing T3/T4 actually need first.
 
-Every `Interfaces` block below states the signature that shipped;
-`tests/test_repair_findings_b2_issue45.py` compares each one against
-`inspect.signature` so the plan cannot drift from the code again. The
-deviations from the first draft, and why each was made, are recorded under
-[Shipped deviations](#shipped-deviations) at the end.
+Every `Interfaces` block below states the signature that shipped. Nothing
+enforces that: `tests/test_repair_findings_b2_issue45.py` deliberately asserts
+against neither this document's text nor `inspect.signature`, and its own
+docstring says why — pinning shipped signatures to a completed bundle's frozen
+planning artifact made every later parameter rename a failing suite until a
+historical document was edited. The requirement each block states is covered by
+the tests for the code it describes; this document's accuracy is a review
+concern, kept honest by the [Shipped deviations](#shipped-deviations) list at
+the end rather than by a test.
+
+The task **Steps** are the plan as first written and were not rewritten as the
+code moved, so where a step and its `Interfaces` block disagree, the block is
+the one that describes shipped code. Every such disagreement is listed under
+Shipped deviations.
 
 ## Tasks
 
@@ -92,6 +101,9 @@ deviations from the first draft, and why each was made, are recorded under
 - `def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None`
 - `PROBE_FAILED`, `UNAVAILABLE`, `UNDETERMINED` — the caught-failure tuple and
   the two display strings, spelled once for all three commands.
+- `class MalformedAdvertisement(ValueError)` — raised by `capability_kinds`
+  and `auth_transports` for an advertisement missing a key its schema
+  requires. A `ValueError` subclass so it is already inside `PROBE_FAILED`.
 
 **Depends on:** none (dispatches by `isinstance` against the adapter
 classes directly; does not call `adapters.build_adapters()`)
@@ -201,7 +213,9 @@ classes directly; does not call `adapters.build_adapters()`)
 - `def run_status(adapters: Mapping[str, Executor], *, as_json: bool) -> int`
 - `STATUS_ROW_SCHEMA` — the `--json` row shape as a JSON Schema, declaring
   both union-typed fields so a consumer validates against them rather than
-  discovering them at runtime.
+  discovering them at runtime. `print_status_json` validates every row it
+  emits against it and logs a warning for any that does not conform, then
+  prints the rows regardless.
 
 **Depends on:** T2 (`fields.py`)
 
@@ -387,3 +401,33 @@ that exists rather than the code first sketched.
 - **A raised health probe reports `unknown`.** No `ExecutorAvailability` value
   describes a probe that returned nothing, and `degraded` would claim a result
   that never happened.
+- **T2's step text still calls `installed_field(executor)`.** The shipped
+  signature takes two arguments, `(executor, advertisement)`, as T2's own
+  `Interfaces` block says. The step was left as first written; the second
+  argument is the shared advertisement the deviation above introduced.
+- **`discover` prints five columns, not four.** T3's steps name criterion 5's
+  four fields; the shipped row adds `auth_transport`, which criterion 5
+  sanctions alongside the capability kinds and which `status`' own table
+  already carried. Adding it keeps the two commands reporting the same facts
+  about the same adapter.
+- **`fields.MalformedAdvertisement` is new.** An adapter can return without
+  answering conformingly, and an advertisement missing a schema-required key
+  has failed its probe just as much as one that raised. Raised as a
+  `ValueError` so it needs no widening of `PROBE_FAILED`, and so one
+  non-conforming adapter costs its own row and nothing more.
+- **`print_status_json` validates its own rows against `STATUS_ROW_SCHEMA`.**
+  The schema is the contract a `--json` consumer reads, so the command that
+  emits the rows is what checks itself against it. A non-conforming row is
+  logged and still printed: every other failure in that module degrades what
+  it can and emits the rest.
+
+## Known limitations
+
+- **An unrecognized subcommand prints the version and exits 0.** `praxis
+  bogus` takes the criterion 3 fallback path in `main()` — anything whose
+  first token is not `executors` never reaches `argparse` at all, which is
+  exactly what keeps `praxis --version` and the pre-existing bare `main()`
+  call working. The code is correct as specified, but a silently successful
+  unknown subcommand gives no diagnostic and no non-zero exit status. Widening
+  the gate is out of this bundle's scope because it risks the legacy path
+  criterion 3 exists to protect; it wants its own issue.

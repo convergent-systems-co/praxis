@@ -107,6 +107,14 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     asked once rather than waited on twice at its own timeout -- the same order
     `build_discover_rows` takes for the same reason. Which adapters that covers
     is `fields`' subject, not this module's.
+
+    That saving is the success path only. A failed probe leaves no advertisement
+    to stand in, so `status_field` still asks `health()` -- a second round trip
+    to the same endpoint, at the adapter's full timeout, for exactly the adapter
+    that just failed to answer. The cost is accepted deliberately: a failed
+    advertisement probe is not an availability verdict (reachable but erroring
+    and reachable but empty both fail it, and both are `degraded`), and a row
+    that names which beats a row that only says the status is unknown.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():

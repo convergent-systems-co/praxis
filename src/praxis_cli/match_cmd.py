@@ -179,7 +179,15 @@ def run_match(
                 continue
             advertisement = advertisement_by_name[name]
             executor_id = advertisement["executor_id"]
-            if executor_id in rank_by_id:
+            # A rank belongs to the adapter whose advertisement was the one
+            # judged, resolved last-wins exactly as `name_by_advertised_id` is
+            # and for the same reason: `match` and the policy both key a
+            # candidate by advertised id. An earlier adapter sharing that id had
+            # its own advertisement -- and its own auth transport -- read by
+            # neither, so crediting it here reported an unsafe-by-default
+            # transport as an eligible, ranked candidate. It falls through to
+            # `_candidate_verdict`, which names the collision instead.
+            if executor_id in rank_by_id and name_by_advertised_id[executor_id] == name:
                 print(f"{name}: eligible=yes score={rank_by_id[executor_id]}")
                 continue
             eligible, reason = _candidate_verdict(requirement, advertisement, is_eligible)

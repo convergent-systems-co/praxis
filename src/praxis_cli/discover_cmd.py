@@ -42,6 +42,14 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     an adapter whose `.capabilities()` and `.health()` hit the same endpoint
     is asked once rather than waited on twice at its own timeout.
 
+    That saving is the success path only. A failed probe leaves no advertisement
+    to stand in, so `installed_field` still asks `health()` -- a second round
+    trip to the same endpoint, at the adapter's full timeout, for exactly the
+    adapter that just failed to answer. The cost is accepted deliberately: a
+    failed advertisement probe does not say whether the service is down ("no")
+    or up but empty ("yes"), so `health()` is still the only thing that can
+    fill the cell in.
+
     A failed probe is caught on `fields.PROBE_FAILED`, the one set `status` and
     `match` also degrade a row on, so the three commands cannot disagree about
     which failure is survivable. The advertisement is read inside that guard,

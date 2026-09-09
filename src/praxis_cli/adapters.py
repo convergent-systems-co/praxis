@@ -7,6 +7,8 @@ alone must never probe the environment -- only each adapter's `.health()` /
 
 from __future__ import annotations
 
+import copy
+
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
@@ -30,8 +32,14 @@ _ADAPTER_FACTORIES = {
     "executor-subprocess-1": lambda executor_id: SubprocessExecutor(
         executor_id=executor_id, satisfies_kinds=["code-execution"]
     ),
+    # Deep-copied per call: `FakeCapabilityExecutor.__init__` copies the outer
+    # list and nothing inside it, so passing the constant itself would hand
+    # every instance the process ever builds the same capability dicts. A caller
+    # editing a returned advertisement would be editing this module's constant,
+    # against the independently-constructed-objects property `build_adapters()`
+    # otherwise holds.
     "executor-fake-1": lambda executor_id: FakeCapabilityExecutor(
-        executor_id=executor_id, capabilities=_FAKE_CAPABILITIES, script={}
+        executor_id=executor_id, capabilities=copy.deepcopy(_FAKE_CAPABILITIES), script={}
     ),
     "executor-claude-cli-1": lambda executor_id: ClaudeCliExecutor(executor_id=executor_id),
     "executor-ollama-1": lambda executor_id: OllamaExecutor(executor_id=executor_id),

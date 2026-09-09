@@ -122,3 +122,29 @@ per this bundle's own spec. It also does not claim `develop`'s dispatch path has
 Praxis: T6/T9 of `b10-issue12` already established that the development overlay is a parallel,
 Praxis-native expression of the task lane's semantics, not a replacement wired into the legacy
 skill's dispatch.
+
+## Addendum (issue #30): widened-overlay gap closure
+
+Issues #28/#29 widened the development overlay to also express the bundle lane and a
+topology-only recovery/human-interrupt lane; issue #30 refreshed this bundle's parity fixtures
+and [`docs/parity/state-event-migration.md`](state-event-migration.md) against that wider
+surface. This addendum states, at the same category B/R/H granularity as that document's
+taxonomy, which of the gaps T4 above documented are now closed and which remain open. It does
+not restate that document's per-scenario tables or [`docs/overlays/development.md`](../overlays/development.md)'s
+node-by-node scope — see those documents for the full detail.
+
+- **Category B (orchestrator-lane node and residual bundle-lane bookkeeping events):** closed
+  except `bundle_scheduler`, which has no overlay node at all and remains fully out of scope.
+- **Category R (repair/recovery nodes and events):** `repair_bundle`, `context_recovery`,
+  `blocker_recovery`, `awaiting_human`, `CONCERN_TRIAGED`, and `TASK_REPAIR_DONE` are now
+  structurally present, not yet functionally reachable via a real failure transition, see #32 —
+  they are not closed in the functional sense, only structurally present.
+- **Category H (human-interrupt node):** the `awaiting_human` slice is covered by the same
+  caveat as category R above (structurally present, not yet functionally reachable via a real
+  failure transition, see #32). `human_required` and the node itself remain fully open — no
+  overlay node exists for it.
+
+**Performance parity remains open**, regardless of this gap-closure work. Nothing above bears on
+the T6/T7 performance-parity discussion earlier in this document: that dimension is still
+unresolved for the reasons stated there, and this addendum does not narrow or otherwise change
+that open status.

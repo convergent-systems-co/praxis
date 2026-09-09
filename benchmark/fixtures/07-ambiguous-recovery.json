@@ -21,7 +21,7 @@
     },
     {
       "node_or_event": "context_recovery",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "human_required",
@@ -29,15 +29,15 @@
     },
     {
       "node_or_event": "awaiting_human",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     },
     {
       "node_or_event": "NEEDS_CONTEXT",
-      "expressible_in_overlay": false
+      "expressible_in_overlay": true
     }
   ],
   "notes": [
-    "verify/commit_task (praxis_script structural artifact: drives these to terminal_success only because FakeExecutor requires every overlay node to reach a terminal status; this scenario's defining recovery path has no representation in the overlay past implement, per docs/parity/state-event-migration.md -- not a claim that the overlay expresses recovered-and-resumed behavior)"
+    "context_recovery/awaiting_human are now structurally present in the overlay (expressible_in_overlay: true for the node/event names), but the verify/commit_task terminal-success path this fixture's praxis_script actually drives is still a structural artifact of FakeExecutor requiring every scripted node to reach a terminal status -- the recovery path itself is not functionally reachable via a real failure-triggered transition (see #32), because no edge from implement's failure into context_recovery exists or could exist without that core-runtime gap."
   ],
   "praxis_script": {
     "write_tdd": {

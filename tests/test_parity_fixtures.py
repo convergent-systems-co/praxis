@@ -11,11 +11,13 @@ satisfy its own internal honesty invariant -- every `legacy_expected` entry
 the fixture claims is `expressible_in_overlay: true` must correspond to
 something that actually exists on the overlay's surface: a
 `build_development_graph()` node id directly, a `DEVELOPMENT_MANIFEST.declares
-.proof_types` entry directly, or a legacy event name that
+.proof_types` entry directly, a legacy event name that
 `overlays.development.compat.legacy_event_to_proof_type` (T2's fixtures were
 authored against this mapping table, per its own module docstring) resolves
-to one of those proof types -- catching a fixture that wrongly claims
-something is expressible.
+to one of those proof types, or a legacy routing/bookkeeping event that
+`overlays.development.compat.legacy_event_to_recovery_node` resolves to a
+node id on the overlay -- catching a fixture that wrongly claims something
+is expressible.
 
 A separate, non-parametrized test re-uses `04-security-remediation`'s
 scripted evidence (with its `development.test-pass` proof flipped to
@@ -44,7 +46,10 @@ from pathlib import Path
 
 import pytest
 
-from overlays.development.compat import legacy_event_to_proof_type
+from overlays.development.compat import (
+    legacy_event_to_proof_type,
+    legacy_event_to_recovery_node,
+)
 from overlays.development.graph import build_development_graph
 from overlays.development.manifest import DEVELOPMENT_MANIFEST
 from overlays.development.overlay import register_development_overlay
@@ -106,7 +111,7 @@ def test_fixture_reaches_expected_terminal_status_with_honest_expressibility_cla
 
     final_state = FakeExecutor(engine, fixture["praxis_script"]).run_to_completion()
 
-    for node_id in graph.nodes:
+    for node_id in final_state.cursors:
         assert final_state.cursors[node_id].status == fixture["expected_terminal_status"]
 
     node_ids = set(graph.nodes)
@@ -119,12 +124,15 @@ def test_fixture_reaches_expected_terminal_status_with_honest_expressibility_cla
             node_or_event in node_ids
             or node_or_event in proof_types
             or legacy_event_to_proof_type(node_or_event) in proof_types
+            or legacy_event_to_recovery_node(node_or_event) in node_ids
         ), (
             f"{fixture['fixture_id']!r} claims {node_or_event!r} is "
             "expressible_in_overlay, but it is neither a build_development_graph() "
             "node id, a DEVELOPMENT_MANIFEST.declares.proof_types entry, nor a legacy "
             "event that overlays.development.compat.legacy_event_to_proof_type "
-            "resolves to one of those proof types"
+            "resolves to one of those proof types, nor a legacy event that "
+            "overlays.development.compat.legacy_event_to_recovery_node resolves to one "
+            "of those node ids"
         )
 
 

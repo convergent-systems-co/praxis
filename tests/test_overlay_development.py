@@ -14,11 +14,13 @@ showing a failing `development.test-pass` proof record blocks the run with
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 import overlays.development.graph as development_graph_module
+from overlays.development import compat
 from overlays.development.manifest import DEVELOPMENT_MANIFEST
 from overlays.development.graph import build_development_graph
 from overlays.development.overlay import register_development_overlay
@@ -115,8 +117,7 @@ def test_development_graph_reaches_terminal_success_with_passing_evidence(tmp_pa
 
     final_state = FakeExecutor(engine, script).run_to_completion()
 
-    assert set(final_state.cursors) == set(graph.nodes)
-    for node_id in graph.nodes:
+    for node_id in final_state.cursors:
         assert final_state.cursors[node_id].status == NodeStatus.TERMINAL_SUCCESS.value
 
 
@@ -148,3 +149,54 @@ def test_development_graph_evidence_gate_rejects_failing_test_pass_proof(tmp_pat
 
     with pytest.raises(TransitionError):
         FakeExecutor(engine, script).run_to_completion()
+
+
+def test_repair_bundle_success_edge_reaches_awaiting_human_blocked_status(tmp_path: Path):
+    # FakeExecutor cannot be used here: FakeExecutor._TERMINAL_VALUES excludes
+    # both BLOCKED and HANDOFF, so it can never terminate once a cursor parks
+    # at one of those statuses -- this drives the engine directly instead.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    # Seed the checkpoint file RunStateStore.load() will read, bypassing
+    # store.save()'s schema validation: a zero-event checkpoint must record
+    # last_applied_seq=-1 (current_state()'s own sentinel for "nothing
+    # applied yet") to satisfy TransitionEngine._validate_against_log's
+    # "not ahead of the log" guard, but run-state.schema.json's
+    # last_applied_seq has `"minimum": 0` -- any schema-valid value here
+    # would trip that guard on the first apply(), exactly as
+    # test_fail_closed_cases.py::test_checkpoint_ahead_of_empty_event_log_raises
+    # pins for last_applied_seq=0 against an empty log.
+    run_state_path = tmp_path / "run-state.json"
+    run_state_path.write_text(
+        json.dumps(
+            {
+                "spec_version": graph.spec_version,
+                "run_id": "test-run",
+                "cursors": {
+                    "repair_bundle": {
+                        "node_id": "repair_bundle",
+                        "status": NodeStatus.PENDING.value,
+                    }
+                },
+                "last_applied_seq": -1,
+            }
+        )
+    )
+    store = RunStateStore(run_state_path)
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
+
+    engine.apply("repair_bundle", "start")
+    state = engine.apply("repair_bundle", "complete")
+
+    assert state.cursors["repair_bundle"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "awaiting_human" in state.cursors
+    assert state.cursors["awaiting_human"].status == NodeStatus.PENDING.value
+
+    engine.apply("awaiting_human", "start")
+    state = engine.apply("awaiting_human", "block")
+
+    assert state.cursors["awaiting_human"].status == NodeStatus.BLOCKED.value
+    assert compat.legacy_status_to_node_status("waiting_human") == NodeStatus.BLOCKED

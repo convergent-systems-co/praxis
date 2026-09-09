@@ -20,7 +20,9 @@ so it exercises the same schema-shape and namespace-prefix validation every over
 pass. It declares the `development` namespace's vocabulary:
 
 - `declares.capability_kinds`: `development.code-generation`, `development.code-review`.
-- `declares.proof_types`: `development.test-pass`, `development.review-approved`.
+- `declares.proof_types`: `development.test-pass`, `development.review-approved`, plus four proof
+  types for the bundle lane below: `development.plan-done`, `development.bundle-verify-pass`,
+  `development.doc-review-done`, `development.pr-created`.
 - `declares.resource_types`: `development.filesystem`.
 - `declares.authority_scopes`: none.
 - `requested_capability_kinds` mirrors `declares.capability_kinds`.
@@ -39,18 +41,61 @@ demonstrate that the existing graph *can be expressed* through the overlay contr
 every node in it. Acceptance criterion 2 for issue #12 asks for that demonstration, not a 1:1 port —
 a full port, if ever needed, is future work, not something this overlay's scope includes.
 
+**Bundle lane.** Alongside the 4-node task lane above, `build_development_graph()` also expresses
+the `~/.ai/skills/develop` bundle lane as a second sequential chain:
+`plan_bundle` -> `task_scheduler` -> `bundle_verify` -> `final_review` -> `documentation_review` -> `create_pr`.
+The terminal `create_pr` node's `metadata["evidence_requirement"]` requires all four of the new
+proof types listed under "## Manifest" above. `repair_bundle` is the bundle lane's retry node: it
+has edges in from both `bundle_verify` and `final_review`, standing in for the
+`~/.ai/skills/develop` graph's retry branch off either of those two nodes.
+
+**Recovery lane is topology-only.** A third lane — `context_recovery`, `blocker_recovery`,
+`awaiting_human` — is present purely as topology: each node has `metadata={}`, and the lane's only
+edge is `repair_bundle` -> `awaiting_human`. `context_recovery` and `blocker_recovery` have no edges
+at all in this graph. These nodes are not dispatched work; they exist so that the node *names* from
+the `~/.ai/skills/develop` recovery/scheduler lanes are expressible through the overlay contract,
+matching acceptance criterion 2's "can be expressed" bar rather than a full port (see #32 disclosure
+immediately below, in the same register as the `conflict_fn` wiring-gap paragraph under
+"## Resource provider").
+
+**Recovery/retry edges are topology-only, not conditional (#32):** `TransitionEngine._advance_successors`
+(`src/praxis_runtime/transitions.py`) fires a node's outgoing edges unconditionally on that node
+reaching `TERMINAL_SUCCESS` — there is no conditional/failure-triggered edge semantics today. That
+means `bundle_verify` -> `repair_bundle`, `final_review` -> `repair_bundle`, and
+`repair_bundle` -> `awaiting_human` all fire on their source's plain success, not on a failure or
+"exhausted" outcome as the `~/.ai/skills/develop` graph's retry semantics intend. Filed separately
+as #32. These edges therefore only demonstrate that the *node and edge names* are expressible
+through the overlay contract today — not that "retry on failure" itself is expressed.
+
+**`build_development_graph()` bypasses `load_graph()`'s reachability check.** `load_graph()`
+(`src/praxis_runtime/graph.py`) validates edges' source/target IDs and `entry_node` against the
+node set, and *does* perform a reachability check from `entry_node` over the edge set (via
+`_reachable_from()`), raising `GraphValidationError` if any node is unreachable.
+`build_development_graph()` bypasses that check entirely — it hand-constructs a `Graph(...)`
+directly rather than calling `load_graph()` on a JSON document, so no schema or reachability
+validation runs at all for this graph. The bundle lane, `repair_bundle`, and the recovery lane are all unreachable
+from `entry_node="write_tdd"` (the task lane and bundle lane are two separate chains with no edge
+connecting them). That is legal today only because construction bypasses `load_graph()` entirely;
+if this function were ever refactored to build its document and call `load_graph()` instead, the
+same graph would need an explicit reachability check to fail closed on these unreachable nodes.
+Out of scope for this bundle — noted here for a future reader.
+
 ## Graders (`src/overlays/development/graders.py`)
 
 `build_development_grader_registry()` builds a namespaced `GraderRegistry` via
 `praxis_overlay.evidence.build_namespaced_grader_registry`, registering one grader for each of the
-two proof types the manifest declares:
+six proof types the manifest declares:
 
 - `development.test-pass`
 - `development.review-approved`
+- `development.plan-done`
+- `development.bundle-verify-pass`
+- `development.doc-review-done`
+- `development.pr-created`
 
-Both use the same `_StatusPassthroughGrader`: a deterministic grader (`docs/evidence.md`) that reads
-`ProofRecord.status` directly and returns it unchanged as the `GradeResult.status` — no inference
-beyond what the record itself states.
+All six use the same `_StatusPassthroughGrader`: a deterministic grader (`docs/evidence.md`) that
+reads `ProofRecord.status` directly and returns it unchanged as the `GradeResult.status` — no
+inference beyond what the record itself states.
 
 ## Resource provider (`src/overlays/development/resources.py`)
 

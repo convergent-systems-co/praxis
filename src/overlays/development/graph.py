@@ -30,9 +30,11 @@ The terminal node's `evidence_requirement` requires both
 
 A third, recovery lane (`context_recovery`, `blocker_recovery`,
 `awaiting_human`) is present as topology-only placeholders: each has
-`metadata={}` and, in this task, no edges. They are not dispatched work and
-are not wired into the task or bundle lanes yet -- see #32 and
-docs/overlays/development.md for the scoping rationale.
+`metadata={}`. `context_recovery` and `blocker_recovery` have no edges;
+`awaiting_human` has one incoming `on-failure` edge from `repair_bundle`.
+None of the three are dispatched work and none are wired into the task or
+bundle lanes yet -- see #32 and docs/overlays/development.md for the scoping
+rationale.
 """
 
 from __future__ import annotations
@@ -169,20 +171,20 @@ def build_development_graph() -> Graph:
         Edge(source="bundle_verify", target="final_review", kind="sequential"),
         Edge(source="final_review", target="documentation_review", kind="sequential"),
         Edge(source="documentation_review", target="create_pr", kind="sequential"),
-        # These two edges fire unconditionally on the source's
-        # TERMINAL_SUCCESS (TransitionEngine._advance_successors), not
-        # conditionally on a failure outcome, so they do not yet express the
-        # "retry branch off a failed bundle_verify/final_review" the spec
-        # names. Same acknowledged gap docs/parity/decision.md and
-        # docs/overlays/development.md disclose elsewhere (filed as #32).
-        Edge(source="bundle_verify", target="repair_bundle", kind="sequential"),
-        Edge(source="final_review", target="repair_bundle", kind="sequential"),
-        # Same acknowledged gap as above (#32): this edge fires
-        # unconditionally on repair_bundle reaching TERMINAL_SUCCESS, standing
-        # in for GRAPH.yaml's repair_bundle `exhausted` route -- there is no
-        # way to express "only on the exhausted outcome" without the
-        # conditional-edge semantics filed separately as #32.
-        Edge(source="repair_bundle", target="awaiting_human", kind="sequential"),
+        # These two are `on-failure` edges: per TransitionEngine's
+        # _advance_successors, they fire only when their source
+        # (bundle_verify/final_review) reaches TERMINAL_FAILED, expressing
+        # the "retry branch off a failed bundle_verify/final_review" the spec
+        # names. This still does not model /develop's actual retry-count/
+        # budget/exhaustion semantics -- that remains a separate, undone gap.
+        Edge(source="bundle_verify", target="repair_bundle", kind="on-failure"),
+        Edge(source="final_review", target="repair_bundle", kind="on-failure"),
+        # Also an `on-failure` edge: fires only when repair_bundle itself
+        # reaches TERMINAL_FAILED, standing in for GRAPH.yaml's repair_bundle
+        # `exhausted` route. As above, this does not model the real
+        # retry-count/budget/exhaustion semantics that route is meant to
+        # express -- that remains a separate, undone gap.
+        Edge(source="repair_bundle", target="awaiting_human", kind="on-failure"),
     ]
     return Graph(
         spec_version=_SPEC_VERSION,

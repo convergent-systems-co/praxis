@@ -1,11 +1,13 @@
-"""Subprocess executor adapter: the first real (non-fake) Executor backend.
+"""Claude subscription-CLI executor adapter.
 
-Dict shapes follow schemas/v1/capability-advertisement.schema.json and
-schemas/v1/capability.schema.json.
+Dict shapes follow src/praxis_contracts/schemas/v1/capability-advertisement.schema.json and
+src/praxis_contracts/schemas/v1/capability.schema.json.
 """
 
 from __future__ import annotations
 
+import re
+import shutil
 import subprocess
 import uuid
 
@@ -20,15 +22,21 @@ from praxis_executors.interface import (
 )
 
 _SPEC_VERSION = "1.0.0"
+_CLI_NAME = "claude"
+
+_CREDENTIAL_PATTERN = re.compile(r"sk-ant-[A-Za-z0-9_-]{10,}")
+_REDACTED = "***REDACTED***"
 
 
-class SubprocessExecutor(Executor):
-    """Runs request.parameters["command"] (list[str]) as a real OS subprocess. Advertises the
-    capability kind(s) given at construction time -- generic, no vendor/model coupling."""
+def _redact(text: str) -> str:
+    return _CREDENTIAL_PATTERN.sub(_REDACTED, text)
 
-    def __init__(self, executor_id: str, satisfies_kinds: list[str]) -> None:
+
+class ClaudeCliExecutor(Executor):
+    """Runs prompts through the locally-installed `claude` subscription CLI as a subprocess."""
+
+    def __init__(self, executor_id: str) -> None:
         self._executor_id = executor_id
-        self._satisfies_kinds = list(satisfies_kinds)
         self._processes: dict[str, subprocess.Popen] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
@@ -40,30 +48,59 @@ class SubprocessExecutor(Executor):
             "capabilities": [
                 {
                     "spec_version": _SPEC_VERSION,
-                    "satisfies": [{"kind": kind} for kind in self._satisfies_kinds],
-                    "auth_transport": "local",
+                    "satisfies": [
+                        {"kind": "coding"},
+                        {"kind": "reasoning"},
+                        {"kind": "tools"},
+                        {"kind": "filesystem"},
+                    ],
+                    "auth_transport": "subscription_cli",
                 }
             ],
         }
 
     def health(self) -> ExecutorAvailability:
-        # A subprocess launcher has no external dependency (network, API, ...)
-        # to be degraded against, so it is always reported as available.
-        return ExecutorAvailability.AVAILABLE
+        cli_path = shutil.which(_CLI_NAME)
+        if cli_path is None:
+            return ExecutorAvailability.UNAVAILABLE
+        self._probe_version(cli_path)
+        authenticated = self._detect_authenticated(cli_path)
+        if authenticated is False:
+            # Deliberately no fallback branch here: an unauthenticated CLI
+            # must resolve straight to UNAVAILABLE, never a metered API key.
+            return ExecutorAvailability.UNAVAILABLE
+        if authenticated is True:
+            return ExecutorAvailability.AVAILABLE
+        return ExecutorAvailability.DEGRADED
+
+    def _probe_version(self, cli_path: str) -> None:
+        try:
+            subprocess.run([cli_path, "--version"], capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+    def _detect_authenticated(self, cli_path: str) -> bool | None:
+        # No verified safe, side-effect-free `claude` subcommand for auth
+        # state is known in this repo; report unknown rather than guess.
+        return None
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
-        if "command" not in request.parameters:
-            raise ExecutorError("request.parameters is missing required key 'command'")
-        command = request.parameters["command"]
+        if "prompt" not in request.parameters:
+            raise ExecutorError("request.parameters is missing required key 'prompt'")
+        cli_path = shutil.which(_CLI_NAME)
+        if cli_path is None:
+            raise ExecutorError("claude CLI is not available on PATH")
+        extra_args = request.parameters.get("extra_args", [])
+        argv = [cli_path, "-p", request.parameters["prompt"], *extra_args]
         try:
             process = subprocess.Popen(
-                command,
+                argv,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             )
         except OSError as exc:
-            raise ExecutorError(f"failed to launch command {command!r}: {exc}") from exc
+            raise ExecutorError(f"failed to launch claude CLI: {_redact(str(exc))}") from exc
         handle_id = uuid.uuid4().hex
         self._processes[handle_id] = process
         return ExecutionHandle(handle_id=handle_id)
@@ -103,7 +140,11 @@ class SubprocessExecutor(Executor):
         result = ExecutionResult(
             status=self._terminal_status(handle.handle_id, returncode),
             evidence={"process-exit-status": returncode == 0},
-            payload={"stdout": stdout, "stderr": stderr, "returncode": returncode},
+            payload={
+                "stdout": _redact(stdout),
+                "stderr": _redact(stderr),
+                "returncode": returncode,
+            },
         )
         self._results[handle.handle_id] = result
         return result

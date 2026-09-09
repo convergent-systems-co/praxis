@@ -1,6 +1,6 @@
 """RED-phase proof for T10 (issue #28): `docs/overlays/development.md` must
 describe the widened graph shape -- the bundle lane, the recovery lane, the
-topology-only nature of the recovery/retry edges (#32), the
+recovery/retry edges (#32), the
 `build_development_graph()` bypass of `load_graph()`'s reachability check --
 and list the four new proof types (T4) and four new graders (T5), all without
 rewriting the existing core-boundary-rule preamble or `conflict_fn`
@@ -15,6 +15,12 @@ class of question by adding a dedicated doc-content test file
 (`tests/test_parity_decision_addendum.py`); this file applies the identical
 resolution to T10, per `agents/tdd-writer.md`'s priority that a real test in
 a built-in facility beats no test.
+
+Bundle remediation-1's T10/T11 (issue #32) later fixed the recovery/retry
+edges' `kind` from `sequential` to `on-failure` and corrected this doc's
+"fires unconditionally on TERMINAL_SUCCESS" claim to describe the fixed
+`on-failure`/`TERMINAL_FAILED` semantics; the retry-count/budget/exhaustion
+gap the paragraph also discloses remains real and undone.
 """
 
 from __future__ import annotations
@@ -110,18 +116,35 @@ def test_graph_section_describes_recovery_lane_as_topology_only() -> None:
     )
 
 
-def test_graph_section_discloses_recovery_retry_edges_are_not_conditional() -> None:
+def test_graph_section_describes_recovery_retry_edges_as_on_failure() -> None:
     section = _section("## Graph")
     assert "_advance_successors" in section, (
         "## Graph section must name TransitionEngine._advance_successors as the "
         "mechanism these edges rely on"
     )
-    assert "TERMINAL_SUCCESS" in section, (
-        "## Graph section must state these edges only fire on TERMINAL_SUCCESS"
+    assert "on-failure" in section, (
+        "## Graph section must describe the three repair/recovery edges as "
+        "kind=\"on-failure\", not the stale topology-only/unconditional claim"
+    )
+    assert "TERMINAL_FAILED" in section, (
+        "## Graph section must state these edges fire only on the source node's "
+        "genuine TERMINAL_FAILED, not unconditionally on success"
     )
     assert "#32" in section, (
         "## Graph section must cross-reference #32, matching the conflict_fn "
         "wiring-gap paragraph's disclosure register"
+    )
+
+
+def test_graph_section_retains_retry_budget_gap_disclosure() -> None:
+    section = _section("## Graph")
+    section_lower = section.lower()
+    assert "retry" in section_lower and (
+        "budget" in section_lower or "exhaustion" in section_lower
+    ), (
+        "## Graph section must retain the disclosure that these edges still don't "
+        "model /develop's actual retry-count/budget/exhaustion semantics -- only the "
+        "'fires on the wrong condition' claim is stale, this broader gap remains real"
     )
 
 

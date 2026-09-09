@@ -190,9 +190,12 @@ concern, not something a Promise or Requirement encodes.
   explicitly listed there is ineligible, even an otherwise-safe one like `oauth_cli` or `local`.
   `denied_auth_transports` additionally denies any otherwise-safe recognized value. It inspects
   **every** entry in the advertisement's `capabilities[]` list and requires all of them to pass — one non-conforming
-  capability makes the whole executor ineligible. Like `AllowListPolicy`/`DenyListPolicy`, it is
-  opt-in: a caller constructs it and wires it via `as_eligibility_callable`, the same as today —
-  it is not auto-applied by `matching.match`, `ExecutorRegistry`, or any default path.
+  capability makes the whole executor ineligible. Like `AllowListPolicy`/`DenyListPolicy`, a caller
+  can construct it and wire it via `as_eligibility_callable` explicitly — but unlike them, it is
+  also the default: `ExecutorRegistry.select`/`execute`/`execute_with_proof_records` apply a
+  default-constructed `AuthTransportPolicy()` whenever no `is_eligible` is supplied. A caller can
+  still loosen or replace this default by passing `is_eligible` explicitly. `matching.match` itself
+  remains policy-agnostic — it only ever sees whatever `is_eligible` callable its caller passes in.
 - `def as_eligibility_callable(policy: ExecutorPolicy, advertisements: list[dict]) -> Callable[[str], bool]`:
   adapts a policy plus a snapshot of advertisements into the plain `Callable[[str], bool]` shape
   `matching.match`'s `is_eligible` parameter expects (an id absent from the snapshot is treated as
@@ -236,7 +239,7 @@ no executor-to-runtime orchestrator module exists in this codebase today.
 
 ## Adding a new executor adapter
 
-Adding a new backend (e.g. a future Claude, Codex, Copilot, OpenCode, or MLX/local adapter, or any
+Adding a new backend (e.g. a future Codex, Copilot, OpenCode, or MLX/local adapter, or any
 other future executor) requires no change to `praxis_runtime`, `praxis_contracts`, or any graph
 document — the extension path is entirely local to `praxis_executors`:
 
@@ -251,9 +254,14 @@ document — the extension path is entirely local to `praxis_executors`:
 6. Once registered, the adapter is selectable through the existing `matching`/`policy`/`registry`
    machinery with no further wiring.
 
-None of those adapters exist yet. `FakeCapabilityExecutor`
-(`src/praxis_executors/adapters/fake.py`), `SubprocessExecutor`
-(`src/praxis_executors/adapters/subprocess_executor.py`), and `OllamaExecutor`
-(`src/praxis_executors/adapters/ollama.py`) are the adapters shipped so far — a deterministic,
-scripted executor for tests, a real OS-subprocess executor, and a local-HTTP-backed executor
-against a locally-running Ollama service (`auth_transport: "local"`), respectively.
+None of those hypothetical adapters (Codex, Copilot, OpenCode, MLX) exist yet. Four concrete
+adapters ship today: `FakeCapabilityExecutor` (`src/praxis_executors/adapters/fake.py`), a
+deterministic, scripted executor for tests; `SubprocessExecutor`
+(`src/praxis_executors/adapters/subprocess_executor.py`), a real OS-subprocess executor;
+`ClaudeCliExecutor` (`src/praxis_executors/adapters/claude_cli.py`), which drives the
+locally-installed `claude` subscription CLI as a subprocess and advertises
+`auth_transport: "subscription_cli"`; and `OllamaExecutor`
+(`src/praxis_executors/adapters/ollama.py`), a local-HTTP-backed executor against a
+locally-running Ollama service (`auth_transport: "local"`). None of the four is registered with
+an `ExecutorRegistry` by default — steps 4-5 above are left to the caller that wires a concrete
+deployment together.

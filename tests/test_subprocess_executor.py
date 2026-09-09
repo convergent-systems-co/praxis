@@ -98,3 +98,11 @@ def test_capabilities_advertisement_validates_against_schema():
     advertisement = executor.capabilities()
 
     validate_document(advertisement, SCHEMAS_DIR / "capability-advertisement.schema.json")
+
+
+def test_capabilities_advertises_local_auth_transport():
+    executor = _executor()
+
+    advertisement = executor.capabilities()
+
+    assert advertisement["capabilities"][0]["auth_transport"] == "local"

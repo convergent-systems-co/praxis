@@ -24,7 +24,7 @@ from typing import Callable
 from praxis_evidence.proof import build_proof_record
 from praxis_evidence.types import proof_record_to_document
 
-from . import matching
+from . import matching, policy
 from .interface import Executor, ExecutionRequest, ExecutionResult, ExecutorAvailability, ExecutorStatus
 
 _TERMINAL_STATUSES = frozenset(
@@ -68,7 +68,12 @@ class ExecutorRegistry:
         *,
         is_eligible: Callable[[str], bool] | None = None,
     ) -> matching.MatchResult:
-        return matching.match(requirement, self.advertisements(), is_eligible=is_eligible)
+        advertisements = self.advertisements()
+        if is_eligible is None:
+            is_eligible = policy.as_eligibility_callable(
+                policy.AuthTransportPolicy(), advertisements
+            )
+        return matching.match(requirement, advertisements, is_eligible=is_eligible)
 
     def execute(
         self,

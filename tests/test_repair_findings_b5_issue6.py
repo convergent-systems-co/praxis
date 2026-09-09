@@ -699,7 +699,11 @@ def test_executor_registry_composes_evidence_conversion_with_the_selected_execut
         FakeCapabilityExecutor(
             executor_id="executor-text",
             capabilities=[
-                {"spec_version": _GRAPH_VERSION, "satisfies": [{"kind": "text-generation"}]}
+                {
+                    "spec_version": _GRAPH_VERSION,
+                    "satisfies": [{"kind": "text-generation"}],
+                    "auth_transport": "local",
+                }
             ],
             script={},
         ),
@@ -709,7 +713,11 @@ def test_executor_registry_composes_evidence_conversion_with_the_selected_execut
         FakeCapabilityExecutor(
             executor_id="executor-code",
             capabilities=[
-                {"spec_version": _GRAPH_VERSION, "satisfies": [{"kind": "code-execution"}]}
+                {
+                    "spec_version": _GRAPH_VERSION,
+                    "satisfies": [{"kind": "code-execution"}],
+                    "auth_transport": "local",
+                }
             ],
             script={
                 "code-execution": ExecutionResult(

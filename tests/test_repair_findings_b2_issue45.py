@@ -209,8 +209,11 @@ def test_status_table_omits_the_error_column_when_every_probe_succeeded(capsys):
 def test_discover_rows_report_the_auth_transport():
     rows = build_discover_rows(_mapping())
 
-    assert rows[0]["auth_transport"] == "local, subscription_cli"
-    assert rows[1]["auth_transport"] == "unavailable"
+    assert rows[0]["auth_transport"] == "local,subscription_cli"
+    # A failed probe leaves the column its own empty string rather than
+    # borrowing the status vocabulary, and says why in `error` instead.
+    assert rows[1]["auth_transport"] == ""
+    assert rows[1]["error"] == "service unreachable"
 
 
 def test_discover_row_id_comes_from_the_adapter_mapping_not_the_advertisement():
@@ -247,10 +250,10 @@ def _candidate(executor_id: str, kind: str, auth_transport: str) -> _StubExecuto
 
 
 def test_explain_gives_an_eligible_candidate_a_reason_about_itself(capsys):
-    adapters = [
-        _candidate("executor-good", "kind-a", "local"),
-        _candidate("executor-other", "kind-b", "local"),
-    ]
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-other": _candidate("executor-other", "kind-b", "local"),
+    }
 
     run_match(adapters, capabilities=["kind-a"], explain=True)
 
@@ -263,10 +266,10 @@ def test_explain_gives_an_eligible_candidate_a_reason_about_itself(capsys):
 
 
 def test_explain_names_the_policy_as_the_reason_for_an_ineligible_candidate(capsys):
-    adapters = [
-        _candidate("executor-good", "kind-a", "local"),
-        _candidate("executor-excluded", "kind-a", "metered_api"),
-    ]
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-excluded": _candidate("executor-excluded", "kind-a", "metered_api"),
+    }
 
     run_match(adapters, capabilities=["kind-a"], explain=True)
 

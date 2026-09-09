@@ -1,0 +1,162 @@
+"""Tests for praxis_cli.fields: per-adapter field derivation for the CLI.
+
+Constructs real adapter instances and patches `shutil.which` / the
+instances' own `.health()` so no real `claude`/`ollama` process is ever
+invoked.
+"""
+
+from __future__ import annotations
+
+from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
+from praxis_executors.adapters.fake import FakeCapabilityExecutor
+from praxis_executors.adapters.ollama import OllamaExecutor
+from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
+from praxis_executors.interface import ExecutorAvailability
+
+from praxis_cli.fields import (
+    auth_transports,
+    authenticated_field,
+    capability_kinds,
+    installed_field,
+    version_field,
+)
+
+
+def _claude() -> ClaudeCliExecutor:
+    return ClaudeCliExecutor(executor_id="executor-claude-cli-1")
+
+
+def _ollama() -> OllamaExecutor:
+    return OllamaExecutor(executor_id="executor-ollama-1")
+
+
+def _subprocess() -> SubprocessExecutor:
+    return SubprocessExecutor(executor_id="executor-subprocess-1", satisfies_kinds=["tools"])
+
+
+def _fake() -> FakeCapabilityExecutor:
+    return FakeCapabilityExecutor(executor_id="executor-fake-1", capabilities=[], script={})
+
+
+# installed_field()
+
+
+def test_installed_field_claude_yes_when_on_path(monkeypatch):
+    monkeypatch.setattr("praxis_cli.fields.shutil.which", lambda name: "/usr/local/bin/claude")
+
+    assert installed_field(_claude()) == "yes"
+
+
+def test_installed_field_claude_no_when_not_on_path(monkeypatch):
+    monkeypatch.setattr("praxis_cli.fields.shutil.which", lambda name: None)
+
+    assert installed_field(_claude()) == "no"
+
+
+def test_installed_field_ollama_yes_when_reachable(monkeypatch):
+    executor = _ollama()
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.AVAILABLE)
+
+    assert installed_field(executor) == "yes"
+
+
+def test_installed_field_ollama_no_when_unreachable(monkeypatch):
+    executor = _ollama()
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.UNAVAILABLE)
+
+    assert installed_field(executor) == "no"
+
+
+def test_installed_field_subprocess_is_builtin():
+    assert installed_field(_subprocess()) == "n/a (built-in)"
+
+
+def test_installed_field_fake_is_builtin():
+    assert installed_field(_fake()) == "n/a (built-in)"
+
+
+# version_field()
+
+
+def test_version_field_always_unknown():
+    assert version_field(_claude()) == "unknown"
+    assert version_field(_ollama()) == "unknown"
+    assert version_field(_subprocess()) == "unknown"
+    assert version_field(_fake()) == "unknown"
+
+
+# authenticated_field()
+
+
+def test_authenticated_field_claude_not_installed():
+    assert authenticated_field(_claude(), installed="no") == "n/a (not installed)"
+
+
+def test_authenticated_field_claude_installed_available(monkeypatch):
+    executor = _claude()
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.AVAILABLE)
+
+    assert authenticated_field(executor, installed="yes") == "yes"
+
+
+def test_authenticated_field_claude_installed_degraded(monkeypatch):
+    executor = _claude()
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.DEGRADED)
+
+    assert authenticated_field(executor, installed="yes") == "unknown"
+
+
+def test_authenticated_field_claude_installed_unavailable(monkeypatch):
+    executor = _claude()
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.UNAVAILABLE)
+
+    assert authenticated_field(executor, installed="yes") == "no"
+
+
+def test_authenticated_field_ollama_is_na():
+    assert authenticated_field(_ollama(), installed="yes") == "n/a"
+
+
+def test_authenticated_field_subprocess_is_na():
+    assert authenticated_field(_subprocess(), installed="n/a (built-in)") == "n/a"
+
+
+def test_authenticated_field_fake_is_na():
+    assert authenticated_field(_fake(), installed="n/a (built-in)") == "n/a"
+
+
+# capability_kinds()
+
+
+def _advertisement_with_duplicates() -> dict:
+    return {
+        "spec_version": "1.0.0",
+        "executor_id": "executor-x",
+        "capabilities": [
+            {
+                "spec_version": "1.0.0",
+                "satisfies": [{"kind": "coding"}, {"kind": "reasoning"}],
+                "auth_transport": "local",
+            },
+            {
+                "spec_version": "1.0.0",
+                "satisfies": [{"kind": "reasoning"}, {"kind": "tools"}],
+                "auth_transport": "subscription_cli",
+            },
+        ],
+    }
+
+
+def test_capability_kinds_dedups_preserving_first_seen_order():
+    advertisement = _advertisement_with_duplicates()
+
+    assert capability_kinds(advertisement) == ["coding", "reasoning", "tools"]
+
+
+# auth_transports()
+
+
+def test_auth_transports_dedups_preserving_first_seen_order():
+    advertisement = _advertisement_with_duplicates()
+
+    assert auth_transports(advertisement) == ["local", "subscription_cli"]

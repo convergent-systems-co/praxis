@@ -100,7 +100,25 @@ def test_non_explain_path_prints_only_the_selection(capsys):
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert captured.out.splitlines() == ["executor-good"]
+    assert captured.out.splitlines() == ["selected: executor-good"]
+
+
+def test_the_selection_line_is_labelled_the_way_the_no_selection_line_is(capsys):
+    # A bare executor id on stdout says what was selected only to a reader who
+    # already knows what the command prints; the no-selection outcome has said
+    # so in words all along. Both outcomes name themselves.
+    run_match(_adapters(), capabilities=["kind-a"], explain=False)
+    selected = capsys.readouterr().out.splitlines()[0]
+
+    run_match(
+        {"executor-other": _candidate("executor-other", "kind-b", "local")},
+        capabilities=["kind-a"],
+        explain=False,
+    )
+    none_selected = capsys.readouterr().out.splitlines()[0]
+
+    assert selected == "selected: executor-good"
+    assert "selected" in none_selected
 
 
 def test_run_match_json_decode_error_from_capabilities_is_dropped_not_raised(capsys):
@@ -110,7 +128,7 @@ def test_run_match_json_decode_error_from_capabilities_is_dropped_not_raised(cap
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert captured.out.splitlines() == ["executor-good"]
+    assert captured.out.splitlines() == ["selected: executor-good"]
 
 
 def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candidates(capsys):
@@ -119,7 +137,7 @@ def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candi
     captured = capsys.readouterr()
     assert exit_code == 0
     assert captured.out.splitlines() == [
-        "executor-good",
+        "selected: executor-good",
         "executor-good: eligible=yes score=1",
         "executor-excluded: eligible=no reason=policy excludes this candidate for "
         "required kind(s): kind-a (policy_excluded)",
@@ -243,7 +261,7 @@ def test_explain_names_a_ranked_candidate_by_its_mapping_key(capsys):
     run_match(adapters, capabilities=["kind-a"], explain=True)
 
     assert capsys.readouterr().out.splitlines() == [
-        "executor-registered",
+        "selected: executor-registered",
         "executor-registered: eligible=yes score=1",
     ]
 
@@ -280,7 +298,7 @@ def test_empty_capabilities_ranks_every_eligible_candidate(capsys):
     # With no required kind, `match` has nothing to report unsatisfied, so the
     # only thing left to say about an unranked candidate is the policy verdict.
     assert captured.out.splitlines() == [
-        "executor-good",
+        "selected: executor-good",
         "executor-good: eligible=yes score=1",
         "executor-excluded: eligible=no reason=excluded by policy (policy_excluded)",
         "executor-other: eligible=yes score=2",

@@ -134,7 +134,10 @@ def run_match(
 
     if full_result.selected is not None:
         selected_id = full_result.selected.executor_id
-        print(name_by_advertised_id.get(selected_id, selected_id))
+        # Labelled, because the no-selection outcome below says what it is in
+        # words: a bare id on stdout reads as a selection only to someone who
+        # already knows what this command prints.
+        print(f"selected: {name_by_advertised_id.get(selected_id, selected_id)}")
     else:
         print("no executor selected")
         _print_unsatisfied(full_result.unsatisfied)

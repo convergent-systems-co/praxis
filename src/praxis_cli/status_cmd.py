@@ -6,7 +6,8 @@ import json
 from typing import Mapping
 
 from praxis_cli.fields import UNAVAILABLE, auth_transports, capability_kinds, render_cell
-from praxis_executors.interface import Executor, ExecutorError
+from praxis_executors.adapters.ollama import OllamaExecutor
+from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 # Spec criterion 6 names exactly these four, for both the table and `--json`.
 _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities")
@@ -16,6 +17,28 @@ _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities")
 # ones (`degraded`, say) would claim a probe result that never happened, and a
 # `--json` consumer filtering on it could not tell the two apart.
 _UNDETERMINED_STATUS = "unknown"
+
+
+def _status_cell(executor: Executor, advertisement: dict | None) -> str:
+    """This adapter's availability, asking for it only when it is not already known.
+
+    `OllamaExecutor.capabilities()` returns only once `/api/tags` has answered
+    with at least one model, which is exactly what `health()` re-requests -- at
+    the adapter's own timeout -- to decide the same thing. An advertisement
+    that came back therefore already is the availability verdict, and
+    `installed_field` reads it the same way for `discover`'s own cell.
+
+    The substitution is per adapter class, not general: a static advertisement
+    like `ClaudeCliExecutor`'s answers without probing anything, so it is no
+    evidence at all about the backing CLI and `health()` is still the only
+    thing that can speak for it.
+    """
+    if advertisement is not None and isinstance(executor, OllamaExecutor):
+        return ExecutorAvailability.AVAILABLE.value
+    try:
+        return executor.health().value
+    except (ExecutorError, ValueError):
+        return _UNDETERMINED_STATUS
 
 
 def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
@@ -31,19 +54,21 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     itself a `ValueError` subclass) that is not its own `ExecutorError`, and
     one such adapter must degrade its own row rather than take the whole
     command down.
+
+    The advertisement is probed first and then handed to `_status_cell`, so an
+    adapter whose `.capabilities()` and `.health()` hit the same endpoint is
+    asked once rather than waited on twice at its own timeout -- the same order
+    `build_discover_rows` takes for the same reason.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
         try:
-            status = executor.health().value
-        except (ExecutorError, ValueError):
-            status = _UNDETERMINED_STATUS
-        try:
             advertisement = executor.capabilities()
         except (ExecutorError, ValueError) as exc:
-            # The advertisement probe is asked independently of `health()`:
-            # one failing says nothing about the other, and a row that names
+            # A failed advertisement probe is not a verdict about availability,
+            # so `_status_cell` still asks `health()` below: a row that names
             # its reason beats a row that only says the status is unknown.
+            advertisement = None
             auth_transport = UNAVAILABLE
             capabilities = f"{UNAVAILABLE} ({exc})"
         else:
@@ -56,7 +81,7 @@ def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
             {
                 "executor_id": executor_id,
                 "auth_transport": auth_transport,
-                "status": status,
+                "status": _status_cell(executor, advertisement),
                 "capabilities": capabilities,
             }
         )

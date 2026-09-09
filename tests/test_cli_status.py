@@ -14,6 +14,10 @@ Two properties the row shape has to hold, both exercised below:
 
 Uses `conftest._FakeExecutor` (implementing the ABC directly, not the real
 adapters), the same stand-in the `discover_cmd` and `match_cmd` suites take.
+The two probe-count tests are the exception -- whether an advertisement can
+stand in for a health probe depends on the concrete adapter class, so they
+need a real `OllamaExecutor` -- and monkeypatch both of its probes. Nothing
+here opens an Ollama socket.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from praxis_cli.status_cmd import (
     print_status_table,
     run_status,
 )
+from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
@@ -161,6 +166,84 @@ def test_build_status_rows_health_raising_json_decode_error_degrades_its_row_ins
     assert "Expecting value" in rows[1]["capabilities"]
     # The other row is unaffected.
     assert rows[0]["status"] == "available"
+
+
+def test_build_status_rows_does_not_reprobe_a_service_that_already_advertised(monkeypatch):
+    # `OllamaExecutor.health()` and `.capabilities()` both GET `/api/tags`, each
+    # at the adapter's own timeout, and `.capabilities()` only returns at all
+    # once that endpoint has answered with at least one model -- exactly the
+    # condition `health()` would re-request to call the service available. The
+    # row must not pay for that round trip a second time, the same way
+    # `build_discover_rows` already does not.
+    executor = OllamaExecutor(executor_id="executor-ollama-1")
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-ollama-1",
+            "capabilities": [
+                {
+                    "spec_version": _SPEC_VERSION,
+                    "satisfies": [{"kind": "coding"}, {"kind": "reasoning"}],
+                    "auth_transport": "local",
+                }
+            ],
+        },
+    )
+
+    def _unexpected_probe():
+        raise AssertionError("health() re-probed a service that already advertised")
+
+    monkeypatch.setattr(executor, "health", _unexpected_probe)
+
+    rows = build_status_rows({"executor-ollama-1": executor})
+
+    assert rows[0]["status"] == "available"
+    assert rows[0]["auth_transport"] == "local"
+    assert rows[0]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_status_rows_still_asks_health_when_the_advertisement_probe_failed(monkeypatch):
+    # A failed advertisement probe is not a verdict about the service: reachable
+    # but erroring, and reachable but empty, both fail it and both are
+    # `degraded`. `health()` is still the only thing that can say which.
+    executor = OllamaExecutor(executor_id="executor-ollama-1")
+
+    def _raise():
+        raise ExecutorError("ollama service reachable but reported zero installed models")
+
+    monkeypatch.setattr(executor, "capabilities", _raise)
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.DEGRADED)
+
+    rows = build_status_rows({"executor-ollama-1": executor})
+
+    assert rows[0]["status"] == "degraded"
+    assert rows[0]["auth_transport"] == "unavailable"
+    assert rows[0]["capabilities"].startswith("unavailable (")
+
+
+def test_build_status_rows_asks_health_for_an_adapter_whose_advertisement_proves_nothing():
+    # `ClaudeCliExecutor.capabilities()` is a static dict that answers without
+    # probing anything, so a returned advertisement says nothing about whether
+    # the backing CLI is there. Only an adapter whose advertisement is itself a
+    # successful round trip may skip the health probe.
+    executor = _FakeExecutor(
+        "executor-static",
+        capabilities=[
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "subscription_cli",
+                "satisfies": [{"kind": "coding"}],
+            }
+        ],
+        health=ExecutorAvailability.UNAVAILABLE,
+    )
+
+    rows = build_status_rows({"executor-static": executor})
+
+    assert rows[0]["status"] == "unavailable"
+    assert rows[0]["capabilities"] == ["coding"]
 
 
 # print_status_table()

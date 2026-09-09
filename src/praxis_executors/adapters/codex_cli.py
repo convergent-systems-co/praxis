@@ -58,6 +58,7 @@ class CodexCliExecutor(Executor):
         self._processes: dict[str, subprocess.Popen] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
+        self._discovered_models: list[str] | None = None
 
     def capabilities(self) -> dict:
         return {
@@ -81,6 +82,7 @@ class CodexCliExecutor(Executor):
         if cli_path is None:
             return ExecutorAvailability.UNAVAILABLE
         self._probe_version(cli_path)
+        self._discovered_models = self._probe_models(cli_path)
         authenticated = self._detect_authenticated(cli_path)
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
@@ -95,6 +97,28 @@ class CodexCliExecutor(Executor):
             subprocess.run([cli_path, "--version"], capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.TimeoutExpired):
             pass
+
+    def discovered_models(self) -> list[str] | None:
+        """Return the model/mode names discovered by the most recent health() probe.
+
+        `None` until health() has run, or if no safe probe for this is known
+        (see _probe_models).
+        """
+        return self._discovered_models
+
+    def _probe_models(self, cli_path: str) -> list[str] | None:
+        # Investigation (repair session, this file's audited gap: the
+        # original spec's Discovery bullet asked for "supported
+        # models/modes where exposed" and nothing surfaced it). This
+        # session's sandbox blocks every attempt to invoke the real `codex`
+        # binary -- `codex --help`, `codex --version`, `codex login
+        # status`, even a non-executing `file <path>` on it -- the same
+        # restriction the enhanced spec's own investigation session hit for
+        # the auth probe (docs/develop/specs/b1-issue41.md, Clarified AC 6).
+        # No safe, non-destructive, sub-second subcommand for listing
+        # supported models/modes could be verified here, so this
+        # conservatively reports "unknown" rather than guessing a command.
+        return None
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
         # Investigation (this session, real `codex` binary on PATH): `codex

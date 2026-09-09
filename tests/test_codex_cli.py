@@ -156,6 +156,38 @@ def test_detect_authenticated_returns_false_when_login_status_reports_not_logged
         assert executor._detect_authenticated("/usr/bin/codex") is False
 
 
+def test_discovered_models_is_none_before_health_has_run():
+    # Repair for the audited gap: the original spec's Discovery bullet
+    # ("supported models/modes where exposed") had no method surfacing
+    # this at all. `discovered_models()` is the surface; before health()
+    # ever probes, it must report "unknown" rather than a stale guess.
+    executor = _executor()
+    assert executor.discovered_models() is None
+
+
+def test_health_invokes_probe_models_and_stores_its_result():
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.run"),
+        patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
+        patch.object(CodexCliExecutor, "_probe_models", return_value=["gpt-5-codex", "gpt-5"]),
+    ):
+        executor = _executor()
+        executor.health()
+
+    assert executor.discovered_models() == ["gpt-5-codex", "gpt-5"]
+
+
+def test_probe_models_unmocked_returns_none_by_default():
+    # Mirrors _detect_authenticated's "no verified safe command known"
+    # precedent: this repair session's sandbox blocks every attempt to
+    # invoke the real `codex` binary (see codex_cli.py::_probe_models), so
+    # no real command is exercised here either -- the method conservatively
+    # reports unknown rather than guessing a subcommand name.
+    executor = _executor()
+    assert executor._probe_models("/usr/bin/codex") is None
+
+
 def test_health_invokes_codex_version_via_subprocess_run():
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),

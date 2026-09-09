@@ -47,8 +47,13 @@ _CREDENTIAL_PATTERNS = (
     (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{20,}"), rf"\1{_REDACTED}"),
 )
 
-# `codex --version` prints e.g. "codex-cli 0.153.4".
-_VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+\S*")
+# Bounds how long result() waits for a launched process's output. `codex exec`
+# spawns shell child processes, and a grandchild that inherits the
+# stdout/stderr pipe keeps the read blocked after the codex process itself has
+# exited -- so an unbounded wait would hang result() on a process poll()
+# already reported as finished. Past this bound the transcript is reported as
+# partial instead.
+_OUTPUT_READ_TIMEOUT_SECONDS = 30.0
 
 
 def _redact(text: str) -> str:
@@ -107,22 +112,37 @@ class _OutputPump:
     def __init__(self, process: subprocess.Popen) -> None:
         self._process = process
         self._output: tuple[str, str] = ("", "")
+        self._read_error: str | None = None
         self._thread = threading.Thread(target=self._drain, daemon=True)
         self._thread.start()
 
     def _drain(self) -> None:
         try:
             stdout, stderr = self._process.communicate()
-        except (OSError, ValueError):
-            # A stream closed underneath the read leaves the empty default;
-            # the exit status is still reported from the process itself.
+        except (OSError, ValueError) as exc:
+            # A stream closed underneath the read leaves the empty default,
+            # which on its own is indistinguishable from a run that genuinely
+            # printed nothing -- so say the read failed. The exit status is
+            # still reported from the process itself.
+            self._read_error = f"reading the codex output failed: {_redact(str(exc))}"
             return
         self._output = (stdout or "", stderr or "")
 
-    def output(self) -> tuple[str, str]:
-        """The process's full (stdout, stderr), waiting for the read to finish."""
-        self._thread.join()
-        return self._output
+    def output(self) -> tuple[str, str, str | None]:
+        """The process's (stdout, stderr, read_error) once the read settles.
+
+        Waits for the reader thread, but only up to
+        `_OUTPUT_READ_TIMEOUT_SECONDS`; past that the transcript read is
+        reported as incomplete rather than blocking the caller further.
+        """
+        self._thread.join(_OUTPUT_READ_TIMEOUT_SECONDS)
+        if self._thread.is_alive():
+            return (
+                *self._output,
+                "reading the codex output did not finish within "
+                f"{_OUTPUT_READ_TIMEOUT_SECONDS}s; the transcript is incomplete",
+            )
+        return (*self._output, self._read_error)
 
 
 class CodexCliExecutor(Executor):
@@ -134,7 +154,6 @@ class CodexCliExecutor(Executor):
         self._output_pumps: dict[str, _OutputPump] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
-        self._version: str | None = None
 
     def capabilities(self) -> dict:
         return {
@@ -169,13 +188,7 @@ class CodexCliExecutor(Executor):
         cli_path = shutil.which(_CLI_NAME)
         if cli_path is None:
             return ExecutorAvailability.UNAVAILABLE
-        version = self._probe_version(cli_path)
-        if version is not None:
-            # Only overwrite on success: a probe that times out says
-            # nothing about the CLI whose version was already discovered,
-            # and discarding it would respawn that same failing probe on
-            # the next discovered_version() call.
-            self._version = version
+        self._probe_version(cli_path)
         authenticated = self._detect_authenticated(cli_path)
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
@@ -185,22 +198,17 @@ class CodexCliExecutor(Executor):
             return ExecutorAvailability.AVAILABLE
         return ExecutorAvailability.DEGRADED
 
-    def discovered_version(self) -> str | None:
-        """The installed `codex` version, or None if it cannot be determined.
-
-        Served from the probe `health()` already ran when there is one, so
-        asking for the version after a health check costs no extra process
-        spawn; probes on first use otherwise.
-        """
-        if self._version is None:
-            cli_path = shutil.which(_CLI_NAME)
-            if cli_path is not None:
-                self._version = self._probe_version(cli_path)
-        return self._version
-
-    def _probe_version(self, cli_path: str) -> str | None:
+    def _probe_version(self, cli_path: str) -> None:
+        # Best-effort, and the probed version is deliberately not retained:
+        # nothing this adapter answers to has a field it could travel in.
+        # The Executor ABC exposes no version accessor, capability.schema.json
+        # is vendor/model-neutral, and adapter registration is out of this
+        # bundle's scope -- so keeping the string would only be a public
+        # accessor with no caller. What the probe is worth on its own is
+        # confirming the executable on PATH actually answers (mirrors
+        # claude_cli._probe_version).
         try:
-            probe = subprocess.run(
+            subprocess.run(
                 [cli_path, "--version"],
                 capture_output=True,
                 text=True,
@@ -208,9 +216,7 @@ class CodexCliExecutor(Executor):
                 env=_subprocess_env(),
             )
         except (OSError, subprocess.TimeoutExpired):
-            return None
-        match = _VERSION_PATTERN.search(f"{probe.stdout}\n{probe.stderr}")
-        return match.group(0) if match else None
+            pass
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
         # Verified against a real `codex` binary on PATH: `codex --help`
@@ -310,16 +316,21 @@ class CodexCliExecutor(Executor):
             return cached
         if process.poll() is None:
             raise ExecutorError("cannot fetch result while execution is still RUNNING")
-        stdout, stderr = self._output_pumps[handle.handle_id].output()
+        stdout, stderr, read_error = self._output_pumps[handle.handle_id].output()
         returncode = process.returncode
+        payload = {
+            "stdout": _redact(stdout),
+            "stderr": _redact(stderr),
+            "returncode": returncode,
+        }
+        if read_error is not None:
+            # Only present when the transcript above is partial or missing:
+            # without it, a failed read reads as a genuinely silent run.
+            payload["output-read-error"] = read_error
         result = ExecutionResult(
             status=self._terminal_status(handle.handle_id, returncode),
             evidence={"process-exit-status": returncode == 0},
-            payload={
-                "stdout": _redact(stdout),
-                "stderr": _redact(stderr),
-                "returncode": returncode,
-            },
+            payload=payload,
         )
         self._results[handle.handle_id] = result
         return result

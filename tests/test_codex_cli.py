@@ -10,6 +10,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from unittest.mock import MagicMock, patch
 
@@ -190,67 +191,20 @@ def _version_probe(stdout: str = "codex-cli 0.153.4\n") -> subprocess.CompletedP
     )
 
 
-def test_health_retains_the_probed_version_rather_than_discarding_it():
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch(
-            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
-        ),
-    ):
-        executor = _executor()
-        executor.health()
-
-        assert executor.discovered_version() == "0.153.4"
-
-
-def test_discovered_version_probes_the_cli_when_health_has_not_run():
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch(
-            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
-        ) as mock_run,
-    ):
-        executor = _executor()
-
-        assert executor.discovered_version() == "0.153.4"
-        # Second call is served from the cached probe, not a second spawn.
-        assert executor.discovered_version() == "0.153.4"
-        assert mock_run.call_count == 1
-
-
-def test_health_keeps_an_already_discovered_version_when_a_later_probe_fails():
-    # A second health() whose version probe times out must not erase the
-    # version the first one discovered -- the CLI on PATH has not changed,
-    # and discarding it also forces discovered_version() to respawn a probe
-    # that is already known to be failing.
-    executor = _executor()
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch(
-            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
-        ),
-    ):
-        executor.health()
-        assert executor.discovered_version() == "0.153.4"
-
+def test_health_survives_a_version_probe_that_never_answers():
+    # The version probe is best-effort: a `codex --version` that times out
+    # must not propagate out of health(), which still has an auth transport
+    # to report on.
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "praxis_executors.adapters.codex_cli.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd=["codex", "--version"], timeout=5),
-        ) as mock_run,
+        ),
     ):
-        executor.health()
+        executor = _executor()
 
-        assert executor.discovered_version() == "0.153.4"
-        # The retained version is served without a third probe spawn:
-        # health() ran the version and auth probes, and nothing more.
-        assert mock_run.call_count == 2
-
-
-def test_discovered_version_is_none_when_cli_absent():
-    with patch("praxis_executors.adapters.codex_cli.shutil.which", return_value=None):
-        assert _executor().discovered_version() is None
+        assert executor.health() == ExecutorAvailability.DEGRADED
 
 
 def test_health_probes_use_the_same_filtered_environment_as_launch(monkeypatch):
@@ -290,6 +244,25 @@ def test_detect_authenticated_returns_false_for_an_api_key_login():
     ):
         executor = _executor()
         assert executor._detect_authenticated("/usr/bin/codex") is False
+
+
+def test_health_is_available_when_the_cli_is_logged_in_with_chatgpt():
+    # The end-to-end form of the spec's "health() can report AVAILABLE via
+    # the safe auth-detection mechanism" criterion: an unmocked health()
+    # driven only from the subprocess boundary, mirroring the API-key case
+    # below rather than patching _detect_authenticated out.
+    probe_result = subprocess.CompletedProcess(
+        args=["codex", "login", "status"],
+        returncode=0,
+        stdout="",
+        stderr="Logged in using ChatGPT\n",
+    )
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.run", return_value=probe_result),
+    ):
+        executor = _executor()
+        assert executor.health() == ExecutorAvailability.AVAILABLE
 
 
 def test_health_is_unavailable_when_the_cli_is_logged_in_with_an_api_key():
@@ -482,6 +455,75 @@ def test_result_returns_full_output_when_the_run_exceeds_the_os_pipe_buffer():
     assert result.status == ExecutorStatus.SUCCEEDED
     assert len(result.payload["stdout"]) == _PIPE_BUFFER_OVERFLOW_BYTES
     assert len(result.payload["stderr"]) == _PIPE_BUFFER_OVERFLOW_BYTES
+
+
+def test_result_records_that_reading_the_output_failed_rather_than_reporting_it_empty():
+    # A stream closed underneath the read loses the transcript. Reporting the
+    # empty default with no marker makes that indistinguishable from a run
+    # that genuinely printed nothing.
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = ValueError("I/O operation on closed file")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        result = executor.result(executor.launch(request))
+
+    assert result.payload["stdout"] == ""
+    assert result.payload["output-read-error"], (
+        "a failed read must be recorded in the payload, not presented as an "
+        "empty transcript"
+    )
+
+
+def test_result_does_not_block_forever_when_the_output_read_never_finishes():
+    # `codex exec` spawns shell children. A grandchild that inherits the
+    # stdout/stderr pipe keeps the read blocked after codex itself has
+    # exited, so result() must bound its wait and report a partial read
+    # rather than hanging on a process poll() already called finished.
+    release_the_read = threading.Event()
+
+    def read_that_outlives_the_process():
+        release_the_read.wait(_DEADLOCK_TIMEOUT_SECONDS)
+        return ("", "")
+
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = read_that_outlives_the_process
+    try:
+        with (
+            patch(
+                "praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"
+            ),
+            patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+            patch("praxis_executors.adapters.codex_cli._OUTPUT_READ_TIMEOUT_SECONDS", 0.1),
+        ):
+            executor = _executor()
+            request = ExecutionRequest(
+                promise={"spec_version": "1.0.0", "kind": "coding"},
+                parameters={"prompt": "hello"},
+            )
+            handle = executor.launch(request)
+
+            started = time.monotonic()
+            result = executor.result(handle)
+            elapsed = time.monotonic() - started
+    finally:
+        release_the_read.set()
+
+    assert elapsed < 5, "result() waited on the output read without a bound"
+    assert result.payload["output-read-error"], (
+        "a read that timed out must be recorded in the payload as a partial "
+        "transcript"
+    )
 
 
 def test_cancel_on_running_process_terminates_and_reaches_cancelled():

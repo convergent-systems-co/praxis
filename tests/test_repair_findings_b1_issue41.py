@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 from praxis_executors.adapters import codex_cli
+from praxis_executors.interface import Executor
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXECUTORS_DOC = REPO_ROOT / "docs" / "executors.md"
@@ -82,9 +83,7 @@ def _adapter_comments() -> str:
     return re.sub(r"\s+", " ", " ".join(lines))
 
 
-# Assembled from fragments so the pattern cannot match its own source text
-# here; it is searched against codex_cli.py only.
-_FALSE_AUTH_MODE_CLAIM = re.compile("flips" + r"[^.]*" + "reported auth mode", re.IGNORECASE)
+_FALSE_AUTH_MODE_CLAIM = re.compile(r"flips[^.]*reported auth mode", re.IGNORECASE)
 
 
 def test_env_strip_comment_states_what_codex_doctor_actually_reports() -> None:
@@ -105,6 +104,14 @@ def test_env_strip_comment_states_what_codex_doctor_actually_reports() -> None:
     )
 
 
+# The decision, not two common words: models and modes are not probed, and
+# the reason is that the Capability contract is vendor/model-neutral and
+# offers no field a discovered model list could travel in. Both matchers stay
+# tolerant of rewording -- neither pins a full sentence.
+_MODELS_AND_MODES_NOT_PROBED = re.compile(r"models?\s+and\s+modes?[^.]*\bnot\b", re.IGNORECASE)
+_NO_CONTRACT_FIELD_FOR_MODELS = re.compile(r"no field[^.;]*\bmodel", re.IGNORECASE)
+
+
 def test_adapter_records_its_models_and_modes_discovery_decision() -> None:
     # The spec's discovery bullet asks for "supported models/modes where
     # exposed". The auth-probe and env-var investigations each left their
@@ -112,19 +119,41 @@ def test_adapter_records_its_models_and_modes_discovery_decision() -> None:
     # no record of whether models/modes had been considered at all.
     comments = _adapter_comments()
 
-    assert re.search(r"\bmodels?\b", comments, re.IGNORECASE), (
-        "codex_cli.py must record what it does about the spec's "
-        "models/modes discovery item, as it does for the auth probe and "
+    assert _MODELS_AND_MODES_NOT_PROBED.search(comments), (
+        "codex_cli.py must record that it deliberately does not probe "
+        "supported models and modes, as it does for the auth probe and "
         "the stripped env vars"
     )
-    assert re.search(r"\bmodes?\b", comments, re.IGNORECASE), (
-        "codex_cli.py's models/modes note must cover modes too"
+    assert _NO_CONTRACT_FIELD_FOR_MODELS.search(comments), (
+        "codex_cli.py's models/modes note must state the reason the "
+        "decision rests on: the contract has no field a discovered model "
+        "list could travel in"
+    )
+    assert "vendor/model-neutral" in comments, (
+        "codex_cli.py's models/modes note must name the contract property "
+        "that settles it -- a Capability is vendor/model-neutral"
     )
     assert "capability.schema.json" in comments, (
         "codex_cli.py's models/modes note must cite the contract that "
-        "settles it -- capability.schema.json's vendor/model-neutral "
-        "Capability, which has no field a discovered model list could "
-        "travel in"
+        "settles it -- capability.schema.json"
+    )
+
+
+def test_adapter_exposes_no_public_method_outside_the_executor_abc() -> None:
+    # A public method no production code calls is dead wiring: nothing on the
+    # Executor ABC, in the registry, in policy or in the docs reads it, and
+    # the sibling ClaudeCliExecutor has no equivalent, so only its own tests
+    # keep it alive. Holding the adapter's public surface to the ABC's is
+    # what stops that recurring.
+    abc_surface = {name for name in vars(Executor) if not name.startswith("_")}
+    adapter_surface = {
+        name for name in vars(codex_cli.CodexCliExecutor) if not name.startswith("_")
+    }
+
+    assert adapter_surface <= abc_surface, (
+        "CodexCliExecutor exposes public methods that are not on the "
+        "Executor ABC and that no production code calls: "
+        f"{sorted(adapter_surface - abc_surface)}"
     )
 
 

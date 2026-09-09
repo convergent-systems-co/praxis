@@ -1,0 +1,15 @@
+{
+  "bundle": "b1-issue40",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "ClaudeCliExecutor adapter and its tests (issue #40)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/adapters/claude_cli.py",
+        "tests/test_claude_cli.py"
+      ]
+    }
+  ]
+}

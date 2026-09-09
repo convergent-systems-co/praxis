@@ -11,14 +11,12 @@ leaving real callers with no reusable interoperability path between
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from praxis_contracts.schema_paths import schema_path
 from praxis_contracts.validator import validate_document
 from praxis_executors.registry import evidence_to_proof_records
 
 _SPEC_VERSION = "1.0.0"
-REPO_ROOT = Path(__file__).resolve().parent.parent
-PROOF_RECORD_SCHEMA = REPO_ROOT / "schemas" / "v1" / "proof-record.schema.json"
+PROOF_RECORD_SCHEMA = schema_path("proof-record.schema.json")
 
 
 def test_truthy_claim_becomes_a_passing_proof_record():

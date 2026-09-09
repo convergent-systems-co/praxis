@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "repository": "/Users/polliard/.ai/worktrees/convergent-systems-co/praxis/develop-remediation-1",
-  "built_at": "2026-09-09T17:24:37.092789Z",
+  "built_at": "2026-09-09T17:28:09.133669Z",
   "nodes": [
     {
       "id": "directory:00142276f3176e8aef2a0e22",
@@ -15036,7 +15036,7 @@
       "id": "file:75426b49f82124ced012bc32",
       "kind": "file",
       "path": "tests/test_repair_findings_b5_issue6.py",
-      "content_hash": "7e3c72ffba412b84c021f809aa7de84ffbea3955d22178e5758c077b7e501939"
+      "content_hash": "808197d09baa386357af972247178d7f5e76ab7e9d472b9a71f2ae9baf8df918"
     },
     {
       "id": "file:75762f5f07693f86ca3465ed",
@@ -15198,7 +15198,7 @@
       "id": "file:78309a2c2ed41158d5b8f0a9",
       "kind": "file",
       "path": ".pytest_cache/v/cache/lastfailed",
-      "content_hash": "6b1b8285efa98ff0cf4c3383a87e6dc80f389726dc8189087b424e8ed8a70dbf"
+      "content_hash": "2947cfef18e224492ec86a4b2d73a04160db53c0cd544df5e683fae1748478f4"
     },
     {
       "id": "file:783c425c33afe8297018c6e7",
@@ -18582,7 +18582,7 @@
       "id": "file:b01479e201d4a6b7cf686009",
       "kind": "file",
       "path": "tests/__pycache__/test_repair_findings_b5_issue6.cpython-314-pytest-9.1.1.pyc",
-      "content_hash": "afb002a2a0e847ce6c2f410a9cf61256ab9f555fb21411afb95f40b5d69b9324"
+      "content_hash": "5f3336f925f49a4236c69a8772898f286dde73ee7da7784b387b8f05cab35d22"
     },
     {
       "id": "file:b0617793c6642b47814efd38",

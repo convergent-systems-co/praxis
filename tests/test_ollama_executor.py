@@ -263,6 +263,27 @@ def test_capabilities_falls_back_to_reasoning_when_show_capabilities_is_not_a_li
     assert "reasoning" in kinds
 
 
+def test_capabilities_preserves_context_window_when_classify_kinds_fails_after_extraction(
+    running_ollama_server,
+):
+    """Repair finding: the per-model except block used to unconditionally
+    reset context_window=None even when it was already successfully
+    extracted before an unrelated exception in `_classify_kinds` (e.g. a
+    non-list `capabilities` field) -- discarding valid context_window data.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (
+        200,
+        {"model_info": {"llama.context_length": 4096}, "capabilities": 5},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert advertisement["capabilities"][0]["context_window"] == 4096
+
+
 def test_capabilities_raises_executor_error_when_no_models_installed(running_ollama_server):
     """Repair finding: an empty `capabilities` array violates
     capability-advertisement.schema.json's minItems:1 -- reachable-with-zero-models

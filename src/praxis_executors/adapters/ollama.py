@@ -191,8 +191,10 @@ class OllamaExecutor(Executor):
                 # Best-effort: a malformed/non-JSON/non-UTF8 `/api/show` response
                 # (json.JSONDecodeError and UnicodeDecodeError are both ValueError
                 # subclasses) must not fail the whole capabilities() call -- just
-                # omit context_window for this model.
-                context_window = None
+                # omit context_window for this model. Do not reset context_window
+                # here: it may already have been successfully extracted before an
+                # unrelated exception (e.g. a non-list `capabilities` field raising
+                # inside `_classify_kinds`), and that valid data must be kept.
                 kinds = _classify_kinds(model_name, None)
 
             capability = {

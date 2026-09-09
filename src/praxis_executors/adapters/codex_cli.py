@@ -128,12 +128,17 @@ class _OutputPump:
             return
         self._output = (stdout or "", stderr or "")
 
-    def output(self) -> tuple[str, str, str | None]:
-        """The process's (stdout, stderr, read_error) once the read settles.
+    def output(self) -> tuple[str, str, str | None, bool]:
+        """The process's (stdout, stderr, read_error, settled).
 
         Waits for the reader thread, but only up to
         `_OUTPUT_READ_TIMEOUT_SECONDS`; past that the transcript read is
         reported as incomplete rather than blocking the caller further.
+
+        `settled` is False only for that timeout case, where the reader
+        thread is still running and a later call can still return the full
+        transcript. It is True once the read has finished, whether it
+        finished with output or with a failure -- both of those are final.
         """
         self._thread.join(_OUTPUT_READ_TIMEOUT_SECONDS)
         if self._thread.is_alive():
@@ -141,8 +146,9 @@ class _OutputPump:
                 *self._output,
                 "reading the codex output did not finish within "
                 f"{_OUTPUT_READ_TIMEOUT_SECONDS}s; the transcript is incomplete",
+                False,
             )
-        return (*self._output, self._read_error)
+        return (*self._output, self._read_error, True)
 
 
 class CodexCliExecutor(Executor):
@@ -269,7 +275,21 @@ class CodexCliExecutor(Executor):
         # `codex exec` is Codex's documented non-interactive one-shot
         # subcommand (confirmed via `codex exec --help` on the real
         # binary), mirroring `claude_cli.py`'s `-p` invocation.
-        argv = [cli_path, "exec", request.parameters["prompt"], *extra_args]
+        #
+        # The prompt is a bare positional there, not an option value the way
+        # `claude -p <prompt>` is, so it must be fenced off behind `--` or
+        # the CLI parses it as arguments of its own. Verified against the
+        # real binary (codex 0.153.4): `codex exec '--zz-not-a-real-flag
+        # hello'` exits 2 with "error: unexpected argument" and the CLI's own
+        # tip to use `--`, while the same prompt after `--` parses and runs.
+        # Two concrete failures follow from omitting it: a prompt beginning
+        # `-c ...` is honoured as a genuine config override (`-c
+        # sandbox_mode=danger-full-access` would really escalate the
+        # sandbox), and `codex exec --help` lists resume/fork/review/help as
+        # subcommands of `exec`, so a prompt equal to one of those silently
+        # runs that subcommand instead. `extra_args` are real options, so
+        # they go on the option side of the terminator.
+        argv = [cli_path, "exec", *extra_args, "--", request.parameters["prompt"]]
         try:
             process = subprocess.Popen(
                 argv,
@@ -286,6 +306,17 @@ class CodexCliExecutor(Executor):
         self._output_pumps[handle_id] = _OutputPump(process)
         return ExecutionHandle(handle_id=handle_id)
 
+    # `_process_for`, `status`, `_terminal_status` and `cancel` below are
+    # byte-identical to `claude_cli.py`'s, and that duplication is a
+    # deliberate call rather than an oversight. Factoring them into a shared
+    # base would have to edit `claude_cli.py`, which is outside this bundle's
+    # footprint, and the two adapters have already diverged either side of
+    # this block: this one strips metered-API env vars in `launch()` and
+    # drains output on a pump thread in `result()`, the sibling does neither.
+    # A base shaped from two partly-diverged callers is likelier to pick the
+    # wrong seam than to save anything. The extraction is worth doing when a
+    # third subscription-CLI adapter lands and confirms which parts of the
+    # lifecycle really are common.
     def _process_for(self, handle: ExecutionHandle) -> subprocess.Popen:
         process = self._processes.get(handle.handle_id)
         if process is None:
@@ -316,7 +347,7 @@ class CodexCliExecutor(Executor):
             return cached
         if process.poll() is None:
             raise ExecutorError("cannot fetch result while execution is still RUNNING")
-        stdout, stderr, read_error = self._output_pumps[handle.handle_id].output()
+        stdout, stderr, read_error, settled = self._output_pumps[handle.handle_id].output()
         returncode = process.returncode
         payload = {
             "stdout": _redact(stdout),
@@ -332,5 +363,11 @@ class CodexCliExecutor(Executor):
             evidence={"process-exit-status": returncode == 0},
             payload=payload,
         )
-        self._results[handle.handle_id] = result
+        if settled:
+            # A timed-out read is deliberately not cached: the pump thread is
+            # still reading, so caching here would make the partial (usually
+            # empty) transcript permanent -- the cache check above returns
+            # before the pump is ever consulted again. Leaving it uncached
+            # lets a later result() pick up what the read has since finished.
+            self._results[handle.handle_id] = result
         return result

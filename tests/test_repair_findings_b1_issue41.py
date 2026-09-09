@@ -83,21 +83,20 @@ def _adapter_comments() -> str:
     return re.sub(r"\s+", " ", " ".join(lines))
 
 
-_FALSE_AUTH_MODE_CLAIM = re.compile(r"flips[^.]*reported auth mode", re.IGNORECASE)
-
-
 def test_env_strip_comment_states_what_codex_doctor_actually_reports() -> None:
     # Verified live against the installed binary: running `codex doctor`
     # with and without CODEX_API_KEY leaves "stored auth mode" reported as
     # `chatgpt` in both runs. The only delta is an added "auth env vars
-    # present" line, so the adapter's comment must not claim the variable
-    # flips the reported mode.
+    # present" line, which is what the adapter's comment must record.
+    #
+    # A companion assertion here used to check that the comment did *not*
+    # match r"flips[^.]*reported auth mode" -- the phrasing of the earlier,
+    # wrong claim. No text matching it exists anywhere in the tree, so it
+    # guarded a wording rather than a behaviour and could only fail if
+    # someone retyped that exact sentence. The positive assertion below
+    # carries the regression value on its own.
     comments = _adapter_comments()
 
-    assert not _FALSE_AUTH_MODE_CLAIM.search(comments), (
-        "codex_cli.py must not claim CODEX_API_KEY changes the auth mode "
-        "`codex doctor` reports -- it does not"
-    )
     assert "auth env vars present" in comments, (
         "codex_cli.py's comment must state what `codex doctor` actually "
         "reports when CODEX_API_KEY is set"
@@ -136,6 +135,38 @@ def test_adapter_records_its_models_and_modes_discovery_decision() -> None:
     assert "capability.schema.json" in comments, (
         "codex_cli.py's models/modes note must cite the contract that "
         "settles it -- capability.schema.json"
+    )
+
+
+# The decision, not a sentence: the subprocess-lifecycle block shared with
+# ClaudeCliExecutor is duplicated on purpose, and the comment has to say so
+# and name the sibling it duplicates. Both matchers stay tolerant of
+# rewording.
+_DUPLICATION_IS_DELIBERATE = re.compile(r"duplicat\w*", re.IGNORECASE)
+_SHARING_ALTERNATIVE_WEIGHED = re.compile(r"shared base|factor\w*", re.IGNORECASE)
+
+
+def test_adapter_records_why_its_subprocess_lifecycle_duplicates_the_sibling() -> None:
+    # `_process_for`, `status`, `_terminal_status` and `cancel` are
+    # byte-identical to claude_cli.py's. Duplication between two adapters is
+    # a defensible call, but an unexplained one reads as an oversight, so
+    # the reason belongs in the file next to the duplicated block. The two
+    # matchers ask only that the comment names the duplication and the
+    # sharing alternative it was weighed against, in any wording or order.
+    comments = _adapter_comments()
+
+    assert _DUPLICATION_IS_DELIBERATE.search(comments), (
+        "codex_cli.py must record that its subprocess-lifecycle block "
+        "duplicates the sibling adapter's, rather than leaving the "
+        "duplication unremarked"
+    )
+    assert _SHARING_ALTERNATIVE_WEIGHED.search(comments), (
+        "codex_cli.py's duplication note must say why the block was not "
+        "factored into a shared base instead"
+    )
+    assert "claude_cli.py" in comments, (
+        "codex_cli.py's duplication note must name the sibling module it "
+        "duplicates"
     )
 
 

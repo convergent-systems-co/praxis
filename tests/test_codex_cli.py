@@ -316,6 +316,64 @@ def test_launch_raises_and_skips_popen_when_cli_absent():
         mock_popen.assert_not_called()
 
 
+def _launched_argv(prompt: str, extra_args: list[str] | None = None) -> list[str]:
+    """The argv `launch()` hands to Popen for `prompt` (and optional extra args)."""
+    process = _mock_process(returncode=0, stdout="", stderr="")
+    parameters: dict = {"prompt": prompt}
+    if extra_args is not None:
+        parameters["extra_args"] = extra_args
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process
+        ) as mock_popen,
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters=parameters,
+        )
+        executor.launch(request)
+
+    return mock_popen.call_args.args[0]
+
+
+def test_launch_argv_is_the_exec_subcommand_with_the_prompt_after_an_option_terminator():
+    assert _launched_argv("hello") == ["/usr/bin/codex", "exec", "--", "hello"]
+
+
+def test_launch_argv_places_extra_args_before_the_option_terminator():
+    # Extra args are real options, so they belong on the option side of `--`;
+    # only the prompt goes after it.
+    assert _launched_argv("hello", ["--model", "gpt-5"]) == [
+        "/usr/bin/codex",
+        "exec",
+        "--model",
+        "gpt-5",
+        "--",
+        "hello",
+    ]
+
+
+def test_launch_passes_a_prompt_beginning_with_a_dash_as_a_prompt_not_as_options():
+    # Verified against the real binary (codex 0.153.4): `codex exec
+    # '--zz-not-a-real-flag hello'` exits 2 with "error: unexpected argument"
+    # and the CLI's own tip to "use '-- ...'"; the same argv with `--` before
+    # the prompt parses. Without the terminator a prompt beginning with `-c`
+    # would be honoured as a genuine config override -- e.g. a sandbox-mode
+    # escalation -- rather than read as prompt text.
+    prompt = "-c sandbox_mode=danger-full-access"
+
+    assert _launched_argv(prompt) == ["/usr/bin/codex", "exec", "--", prompt]
+
+
+def test_launch_passes_a_prompt_equal_to_an_exec_subcommand_as_a_prompt():
+    # `codex exec --help` lists resume/fork/review/help as subcommands of
+    # `exec`, so an un-terminated prompt equal to one of them would silently
+    # run that subcommand instead of being sent as the prompt.
+    assert _launched_argv("review") == ["/usr/bin/codex", "exec", "--", "review"]
+
+
 @pytest.mark.parametrize(
     "stripped_var",
     [
@@ -526,6 +584,69 @@ def test_result_does_not_block_forever_when_the_output_read_never_finishes():
     )
 
 
+def test_result_returns_the_transcript_a_slow_read_finishes_after_an_earlier_timeout():
+    # A timed-out read is a partial answer, not a final one: the pump thread
+    # is still reading. Caching that partial answer would make the empty
+    # transcript permanent, so a later result() call must be able to return
+    # the output the read has since finished.
+    release_the_read = threading.Event()
+
+    def read_that_outlives_the_process():
+        release_the_read.wait(_DEADLOCK_TIMEOUT_SECONDS)
+        return ("late transcript", "")
+
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = read_that_outlives_the_process
+    try:
+        with (
+            patch(
+                "praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"
+            ),
+            patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+            patch("praxis_executors.adapters.codex_cli._OUTPUT_READ_TIMEOUT_SECONDS", 0.3),
+        ):
+            executor = _executor()
+            request = ExecutionRequest(
+                promise={"spec_version": "1.0.0", "kind": "coding"},
+                parameters={"prompt": "hello"},
+            )
+            handle = executor.launch(request)
+
+            timed_out = executor.result(handle)
+            assert timed_out.payload["output-read-error"]
+
+            release_the_read.set()
+            settled = executor.result(handle)
+    finally:
+        release_the_read.set()
+
+    assert settled.payload["stdout"] == "late transcript"
+    assert "output-read-error" not in settled.payload
+
+
+def test_result_caches_a_genuinely_failed_read_rather_than_re_reading_it():
+    # The counterpart to the test above: a read that failed outright is
+    # final, so its result stays cached and communicate() is not re-run.
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = ValueError("I/O operation on closed file")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        handle = executor.launch(request)
+
+        assert executor.result(handle) is executor.result(handle)
+
+
 def test_cancel_on_running_process_terminates_and_reaches_cancelled():
     process = MagicMock()
     process.poll.return_value = None  # still running
@@ -627,11 +748,22 @@ def test_launch_failure_redacts_credential_shaped_secret_from_error_message(secr
 
 
 @pytest.mark.skipif(shutil.which("codex") is None, reason="codex CLI not installed")
-def test_smoke_real_cli_health_returns_a_valid_availability():
+def test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found():
+    # Asserting membership in the whole ExecutorAvailability enum would pass
+    # even if both real probes raised OSError and the auth detection fell
+    # through to None, so it could only ever fail by raising. These two
+    # assertions instead pin that the real `codex login status` probe
+    # actually answers -- never the None fall-through -- and that health()
+    # maps that answer the way the mocked tests above say it should. Both
+    # hold whether or not this machine's CLI happens to be logged in.
     executor = CodexCliExecutor(executor_id="executor-codex-cli-smoke")
 
-    assert executor.health() in {
-        ExecutorAvailability.AVAILABLE,
-        ExecutorAvailability.DEGRADED,
-        ExecutorAvailability.UNAVAILABLE,
-    }
+    authenticated = executor._detect_authenticated(shutil.which("codex"))
+
+    assert authenticated is not None, (
+        "the real `codex login status` probe did not answer, so health() "
+        "could only report DEGRADED by fall-through"
+    )
+    assert executor.health() == (
+        ExecutorAvailability.AVAILABLE if authenticated else ExecutorAvailability.UNAVAILABLE
+    )

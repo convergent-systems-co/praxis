@@ -1,0 +1,135 @@
+{
+  "bundle": "b2-issue52",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Bootstrap: pyproject scripts/package-data/build dep + relocate schemas/v1 + schema_paths helper",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "pyproject.toml",
+        "schemas/v1/*.schema.json",
+        "src/praxis_contracts/schemas/v1/*.schema.json",
+        "src/praxis_contracts/schema_paths.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Add praxis_cli console-script entry point (main() prints version)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/__init__.py",
+        "src/praxis_cli/main.py",
+        "tests/test_praxis_cli.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Migrate praxis_runtime schema paths to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_runtime/events.py",
+        "src/praxis_runtime/state.py",
+        "src/praxis_runtime/graph.py",
+        "src/praxis_runtime/resources/leases.py",
+        "src/praxis_runtime/resources/claims.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Migrate praxis_eval schema paths to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_eval/types.py",
+        "src/praxis_eval/parity.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Migrate praxis_evidence schema paths to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_evidence/types.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Migrate praxis_learning schema paths to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_learning/types.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Migrate praxis_policy schema path to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_policy/profiles.py"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Migrate praxis_overlay schema path to schema_paths helper",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_overlay/manifest.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Repoint 13 test files' independently-computed schema dir at schema_paths",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "tests/test_malformed_contracts.py",
+        "tests/test_repair_findings_b10_issue12.py",
+        "tests/test_valid_contracts.py",
+        "tests/test_repair_findings.py",
+        "tests/test_executor_end_to_end.py",
+        "tests/test_authority_boundaries.py",
+        "tests/test_core_overlay_boundary.py",
+        "tests/test_subprocess_executor.py",
+        "tests/test_fake_capability_executor.py",
+        "tests/test_retry_budgets.py",
+        "tests/test_version_mismatch.py",
+        "tests/test_overlay_trivial_fixture.py",
+        "tests/test_repair_findings_b5_issue6.py"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Fix test_repair_findings_b3_issue4.py's hardcoded expected SCHEMA_PATH",
+      "depends_on": ["T1", "T3"],
+      "kind": "code",
+      "files": [
+        "tests/test_repair_findings_b3_issue4.py"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Add clean-environment install check script",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": [
+        "scripts/check_clean_install.py"
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Update README Installation/Usage sections for console script + packaged schemas",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "README.md"
+      ]
+    }
+  ]
+}

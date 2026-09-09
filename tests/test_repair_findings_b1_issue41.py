@@ -147,6 +147,85 @@ def test_detect_authenticated_still_denies_an_api_key_login() -> None:
         assert executor._detect_authenticated("/usr/bin/codex") is False
 
 
+# Version probe: an executable that cannot answer must change what health() says
+
+
+_CHATGPT_LOGIN = "Logged in using ChatGPT\n"
+
+
+def _version_answer(stdout: str) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(
+        args=["codex", "--version"], returncode=0, stdout=stdout, stderr=""
+    )
+
+
+def _probe_dispatch(version_answer):
+    """Route health()'s two probes: `--version` to `version_answer`, auth to a ChatGPT login.
+
+    `version_answer` is either a `CompletedProcess` to return or an exception
+    to raise, so each test varies only the version probe while the auth probe
+    keeps reporting the login that would otherwise make health() AVAILABLE.
+    """
+
+    def run(argv, **kwargs):
+        if argv[-1] == "--version":
+            if isinstance(version_answer, BaseException):
+                raise version_answer
+            return version_answer
+        return _login_status(_CHATGPT_LOGIN)
+
+    return run
+
+
+def _health_with_version_probe(version_answer) -> ExecutorAvailability:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run",
+            side_effect=_probe_dispatch(version_answer),
+        ),
+    ):
+        return CodexCliExecutor(executor_id="executor-codex-cli-repair").health()
+
+
+def test_health_is_degraded_when_the_version_probe_never_answers() -> None:
+    # An executable on PATH whose `--version` times out is a half-working
+    # install, and health() must not report it AVAILABLE on the strength of
+    # the auth probe alone. Without this the version probe has no observable
+    # effect at all: it spawns a process and discards every outcome.
+    assert (
+        _health_with_version_probe(
+            subprocess.TimeoutExpired(cmd=["codex", "--version"], timeout=5)
+        )
+        == ExecutorAvailability.DEGRADED
+    )
+
+
+def test_health_is_degraded_when_the_version_probe_cannot_be_spawned() -> None:
+    # The other way the executable fails to answer: it is on PATH but cannot
+    # be executed at all.
+    assert (
+        _health_with_version_probe(OSError("Exec format error"))
+        == ExecutorAvailability.DEGRADED
+    )
+
+
+def test_health_is_degraded_when_the_version_probe_answers_with_nothing() -> None:
+    # An exit-0 probe that prints no version reports nothing about the
+    # executable either, so it is not evidence that it works.
+    assert _health_with_version_probe(_version_answer("")) == ExecutorAvailability.DEGRADED
+
+
+def test_health_is_available_when_the_version_probe_answers() -> None:
+    # The counterpart that stops the degradation above from swallowing the
+    # healthy case: an executable that reports a version and a ChatGPT login
+    # is still AVAILABLE.
+    assert (
+        _health_with_version_probe(_version_answer("codex-cli 0.153.4\n"))
+        == ExecutorAvailability.AVAILABLE
+    )
+
+
 # Redaction coverage: token shapes the sk-/JWT/long-Bearer patterns miss
 
 
@@ -202,7 +281,86 @@ def test_redaction_keeps_a_non_secret_value_of_a_credential_named_field() -> Non
     # The field-name matcher must not swallow the diagnostics around it:
     # `codex doctor` reports credential *presence* with the same field
     # names, and a redacted `false` would make that output unreadable.
-    assert codex_cli._redact('{"stored API key": false}') == '{"stored API key": false}'
+    #
+    # The field name here has to be one `_CREDENTIAL_FIELD` really matches,
+    # or the test passes for the wrong reason. `stored API key` does not:
+    # the pattern matches `api[_-]?key`, which a space breaks, so the field
+    # matcher never fires and the assertion pins nothing. `stored_api_key`
+    # matches, so the value is only spared because it is too short to be a
+    # credential.
+    assert re.fullmatch(codex_cli._CREDENTIAL_FIELD, "stored_api_key"), (
+        "the fixture field name must be one _CREDENTIAL_FIELD matches, or "
+        "this test exercises no guard at all"
+    )
+    assert codex_cli._redact('{"stored_api_key": false}') == '{"stored_api_key": false}'
+
+
+def test_redaction_after_bearer_does_not_cross_a_line_boundary() -> None:
+    # `Bearer` at the end of a line is prose, not a credential prefix: the
+    # token it would redact lives on the next line and has nothing to do with
+    # it. Over-redacting the word after a stray `Bearer` on the *same* line is
+    # the accepted cost of dropping the length floor; swallowing the first
+    # word of the following line is not.
+    transcript = "the flag is a bearer\nnextline word"
+
+    assert codex_cli._redact(transcript) == transcript
+
+
+def test_redaction_still_covers_a_bearer_token_separated_by_tabs() -> None:
+    # The counterpart: narrowing the separator to horizontal whitespace must
+    # not narrow it to a single space.
+    assert SHORT_BEARER_TOKEN not in codex_cli._redact(f"Authorization:\tBearer\t{SHORT_BEARER_TOKEN}")
+
+
+# Output pump: an unexpected reader failure is still a failed read
+
+
+def test_result_marks_an_unexpected_reader_failure_as_an_output_read_error() -> None:
+    # The reader thread's own failure modes are not limited to OSError and
+    # ValueError. Any other exception leaves the empty transcript with no
+    # marker, and result() then caches that permanently as a genuinely silent
+    # run -- exactly what the output-read-error path exists to prevent.
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = RuntimeError("the reader thread went sideways")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        payload = executor.result(executor.launch(request)).payload
+
+    assert payload["stdout"] == ""
+    assert payload["output-read-error"], (
+        "an unexpected reader failure must be recorded in the payload, not "
+        "presented as an empty transcript"
+    )
+
+
+def test_an_unexpected_reader_failure_does_not_leak_a_credential() -> None:
+    # The new catch-all path is a text boundary like every other one: the
+    # exception's message reaches the payload, so it goes through _redact.
+    process = MagicMock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.side_effect = RuntimeError(f"read failed for Bearer {SHORT_BEARER_TOKEN}")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        payload = executor.result(executor.launch(request)).payload
+
+    assert SHORT_BEARER_TOKEN not in str(payload)
 
 
 def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:

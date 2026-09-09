@@ -48,22 +48,24 @@ _REDACTED = "***REDACTED***"
 #   4. a value named by a credential-shaped field name (`access_token`,
 #      `api_key`, `client_secret`, ...), for an opaque token that is
 #      neither JWT-shaped nor behind a `Bearer` prefix -- the shape
-#      `~/.codex/auth.json` holds a ChatGPT token in. Literal `true`/
-#      `false`/`null` values are left alone so that credential-*presence*
-#      diagnostics (`codex doctor` reports several) stay readable, and so
-#      is any value under 8 characters, which is short enough that a false
-#      positive costs more readability than the match buys.
+#      `~/.codex/auth.json` holds a ChatGPT token in. Any value under 8
+#      characters is left alone, which is short enough that a false
+#      positive costs more readability than the match buys. That floor is
+#      also what keeps credential-*presence* diagnostics readable
+#      (`codex doctor` reports several as `... = false`): every literal a
+#      presence flag uses -- true, false, null, none, nil -- is at most 5
+#      characters, so the floor already spares them and an explicit
+#      exclusion for them would never fire.
 _CREDENTIAL_FIELD = r"[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_-]*"
-_NOT_A_SECRET_VALUE = r"(?!(?:true|false|null|none|nil)[\s\"',;}\]]|(?:true|false|null|none|nil)$)"
 _CREDENTIAL_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
-    (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]+"), rf"\1{_REDACTED}"),
+    # Horizontal whitespace only, not `\s+`: `\s` spans newlines, so a line
+    # ending in the word "bearer" would redact the first token of the next
+    # line, which is a different line's content and no part of any credential.
+    (re.compile(r"(?i)\b(bearer[ \t]+)[A-Za-z0-9._~+/=-]+"), rf"\1{_REDACTED}"),
     (
-        re.compile(
-            rf"(?i)\b({_CREDENTIAL_FIELD}\"?\s*[=:]\s*\"?){_NOT_A_SECRET_VALUE}"
-            r"[^\s\"',;}\]]{8,}"
-        ),
+        re.compile(rf"(?i)\b({_CREDENTIAL_FIELD}\"?\s*[=:]\s*\"?)" r"[^\s\"',;}\]]{8,}"),
         rf"\1{_REDACTED}",
     ),
 )
@@ -140,12 +142,25 @@ class _OutputPump:
     def _drain(self) -> None:
         try:
             stdout, stderr = self._process.communicate()
-        except (OSError, ValueError) as exc:
+        except Exception as exc:
             # A stream closed underneath the read leaves the empty default,
             # which on its own is indistinguishable from a run that genuinely
             # printed nothing -- so say the read failed. The exit status is
             # still reported from the process itself.
-            self._read_error = f"reading the codex output failed: {_redact(str(exc))}"
+            #
+            # Every exception, not just the OSError/ValueError a closed stream
+            # raises: this is a thread's top frame, so anything it does not
+            # catch is swallowed by the default threading excepthook, leaving
+            # the empty transcript with no read-error marker. result() would
+            # then cache that permanently as a genuinely silent run -- the
+            # exact failure this branch exists to prevent, arrived at through
+            # a less expected door. The exception type is named alongside the
+            # message because an unforeseen failure is not self-describing the
+            # way `I/O operation on closed file` is.
+            self._read_error = (
+                "reading the codex output failed: "
+                f"{_redact(f'{type(exc).__name__}: {exc}')}"
+            )
             return
         self._output = (stdout or "", stderr or "")
 
@@ -215,27 +230,45 @@ class CodexCliExecutor(Executor):
         cli_path = shutil.which(_CLI_NAME)
         if cli_path is None:
             return ExecutorAvailability.UNAVAILABLE
-        self._probe_version(cli_path)
+        version = self._probe_version(cli_path)
         authenticated = self._detect_authenticated(cli_path)
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
             # must resolve straight to UNAVAILABLE, never a metered API key.
             return ExecutorAvailability.UNAVAILABLE
-        if authenticated is True:
+        if authenticated is True and version is not None:
             return ExecutorAvailability.AVAILABLE
+        # Either the transport could not be determined, or the executable on
+        # PATH never identified itself. An entry on PATH that does not answer
+        # `--version` is a name and nothing more -- a shim, a stale symlink, a
+        # half-finished install -- and the auth probe reading a credential file
+        # it can find on its own says nothing about whether that entry runs. So
+        # a silent executable caps health at DEGRADED however well the login
+        # went: DEGRADED is what is actually known, and AVAILABLE would promise
+        # a working CLI on evidence nothing here has.
         return ExecutorAvailability.DEGRADED
 
-    def _probe_version(self, cli_path: str) -> None:
-        # Best-effort, and the probed version is deliberately not retained:
-        # nothing this adapter answers to has a field it could travel in.
-        # The Executor ABC exposes no version accessor, capability.schema.json
-        # is vendor/model-neutral, and adapter registration is out of this
-        # bundle's scope -- so keeping the string would only be a public
-        # accessor with no caller. What the probe is worth on its own is
-        # confirming the executable on PATH actually answers (mirrors
-        # claude_cli._probe_version).
+    def _probe_version(self, cli_path: str) -> str | None:
+        """The version the executable on PATH reports, or None if it did not answer.
+
+        Discovery's version bullet ends here: the string is returned so
+        `health()` can tell an executable that identifies itself from one that
+        does not, and is deliberately not retained or published beyond that.
+        Nothing this adapter answers to has a field it could travel in -- the
+        `Executor` ABC exposes no version accessor, `capability.schema.json`
+        describes a Capability as vendor/model-neutral, and
+        `capability-advertisement.schema.json` closes its top level with
+        `additionalProperties: false` -- so a stored copy would be a public
+        accessor with no caller, and `capabilities()` is contractually static
+        besides.
+
+        The exit status is not read. `--version` has no documented exit-code
+        contract, and a build that prints its version and exits non-zero has
+        still answered; what is being asked is only whether the entry on PATH
+        runs and names itself.
+        """
         try:
-            subprocess.run(
+            probe = subprocess.run(
                 [cli_path, "--version"],
                 capture_output=True,
                 text=True,
@@ -243,7 +276,13 @@ class CodexCliExecutor(Executor):
                 env=_subprocess_env(),
             )
         except (OSError, subprocess.TimeoutExpired):
-            pass
+            # Failing to spawn, or never returning, is the executable not
+            # answering. It is reported, not raised: health() still has an auth
+            # transport to describe, and DEGRADED is a report, not a crash.
+            return None
+        # stderr as a fallback because a CLI printing its version there instead
+        # of stdout has still answered.
+        return (probe.stdout.strip() or probe.stderr.strip()) or None
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
         # Verified against a real `codex` binary on PATH: `codex --help`

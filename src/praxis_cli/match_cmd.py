@@ -123,9 +123,13 @@ def run_match(
             unreadable[name] = str(exc)
 
     advertisements = [advertisement for _, advertisement in gathered]
-    # Reversed so the first adapter wins if two advertise the same id.
+    # Last adapter wins if two advertise the same id, because that is how both
+    # `as_eligibility_callable` and `match` resolve the duplicate: each builds
+    # a dict keyed by advertised id over the same list, so the advertisement
+    # actually judged and ranked is the last one. Naming the first adapter here
+    # would print a name whose advertisement was never the one considered.
     name_by_advertised_id = {
-        advertisement["executor_id"]: name for name, advertisement in reversed(gathered)
+        advertisement["executor_id"]: name for name, advertisement in gathered
     }
 
     requirement = build_requirement(capabilities)

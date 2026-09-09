@@ -12,28 +12,51 @@ from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
-from praxis_executors.interface import Executor, ExecutorAvailability
+from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 # Spec criterion 5's wording for a cell whose probe failed, spelled once so
 # `discover` and `status` never word the same failure two different ways.
 UNAVAILABLE = "unavailable"
 
+# A probe that raised returned no verdict at all, so no `ExecutorAvailability`
+# value describes it. Reporting one of the three real ones (`degraded`, say)
+# would claim a probe result that never happened, and a `--json` consumer
+# filtering on it could not tell the two apart.
+UNDETERMINED = "unknown"
+
+
+def _advertisement_answers_for_health(executor: Executor) -> bool:
+    """Does this adapter's advertisement already carry its availability verdict?
+
+    True only where `.capabilities()` and `.health()` ask the same backing
+    service the same question. `OllamaExecutor.capabilities()` returns only
+    once `/api/tags` has answered with at least one model, which is exactly
+    what `health()` re-requests -- at the adapter's own timeout -- to decide
+    the same thing, so an advertisement that came back already is the verdict.
+
+    The substitution is per adapter class, not general: a static advertisement
+    like `ClaudeCliExecutor`'s answers without probing anything, so it is no
+    evidence at all about the backing CLI and `health()` is still the only
+    thing that can speak for it. Both the `installed` cell and the `status`
+    cell read this one predicate, so a fifth adapter with the same property is
+    one edit rather than two.
+    """
+    return isinstance(executor, OllamaExecutor)
+
 
 def installed_field(executor: Executor, advertisement: dict | None) -> str:
     """`advertisement` is the caller's one `.capabilities()` result, or `None`.
 
-    A returned advertisement is itself evidence the backing service answered,
-    so it stands in for a `.health()` probe rather than prompting a second
-    round trip to the same endpoint at the adapter's full timeout.
+    For the adapters `_advertisement_answers_for_health` names, a returned
+    advertisement is itself evidence the backing service answered, so it stands
+    in for a `.health()` probe rather than prompting a second round trip to the
+    same endpoint at the adapter's full timeout.
     """
+    if advertisement is not None and _advertisement_answers_for_health(executor):
+        return "yes"
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"
     if isinstance(executor, OllamaExecutor):
-        if advertisement is not None:
-            # `capabilities()` only returns once `/api/tags` has answered with
-            # at least one model -- exactly what `health()` would re-request to
-            # decide the same thing.
-            return "yes"
         try:
             health = executor.health()
         except ValueError:
@@ -41,7 +64,7 @@ def installed_field(executor: Executor, advertisement: dict | None) -> str:
             # subclass) is a mid-probe failure, not a verdict -- neither "yes"
             # nor "no" would be honest, so this degrades the same way an
             # unrecognised adapter class does below.
-            return "unknown"
+            return UNDETERMINED
         return "yes" if health != ExecutorAvailability.UNAVAILABLE else "no"
     if isinstance(executor, (SubprocessExecutor, FakeCapabilityExecutor)):
         return "n/a (built-in)"
@@ -49,6 +72,23 @@ def installed_field(executor: Executor, advertisement: dict | None) -> str:
     # "Installed" is not derivable for a class we know nothing about, and a
     # raise would take down the whole command for one unknown row.
     return "n/a"
+
+
+def status_field(executor: Executor, advertisement: dict | None) -> str:
+    """This adapter's availability, asking for it only when it is not already known.
+
+    `advertisement` is the caller's one `.capabilities()` result, or `None`.
+    Where the adapter's advertisement is itself a successful round trip to the
+    service `health()` would probe, it stands in for that probe -- the same
+    substitution, from the same predicate, that `installed_field` makes for
+    `discover`'s own cell.
+    """
+    if advertisement is not None and _advertisement_answers_for_health(executor):
+        return ExecutorAvailability.AVAILABLE.value
+    try:
+        return executor.health().value
+    except (ExecutorError, ValueError):
+        return UNDETERMINED
 
 
 def version_field(_executor: Executor) -> str:

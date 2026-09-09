@@ -15,17 +15,15 @@ from praxis_cli.fields import (
 )
 from praxis_executors.interface import Executor, ExecutorError
 
-_COLUMNS = (
-    "executor_id",
+# Every column but the executor id, which the block's own header line already
+# names rather than repeating as a column.
+_PRINTED_COLUMNS = (
     "installed",
     "version",
     "authenticated",
     "auth_transport",
     "capabilities",
 )
-
-# Every column but the id, which the block's own header line already names.
-_PRINTED_COLUMNS = _COLUMNS[1:]
 
 
 def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:

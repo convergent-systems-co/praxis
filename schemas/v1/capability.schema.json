@@ -32,6 +32,28 @@
         },
         "additionalProperties": false
       }
+    },
+    "auth_transport": {
+      "type": "string",
+      "enum": ["subscription_cli", "oauth_cli", "local", "metered_api", "api_key"],
+      "description": "How an executor authenticates to perform this capability: 'subscription_cli', 'oauth_cli', 'local', 'metered_api', or 'api_key'. See docs/executors.md for the vocabulary and how policies gate on it."
+    },
+    "interactive": {
+      "type": "boolean",
+      "description": "Whether performing this capability requires a human present during execution (e.g. an interactive CLI prompt), as opposed to running unattended."
+    },
+    "context_window": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The maximum context size, in tokens, the executor supports for this capability."
+    },
+    "platform": {
+      "type": "string",
+      "description": "The platform this capability runs on (e.g. 'macos', 'linux'). An open, illustrative string, not a fixed enum -- per docs/ontology.md's convention for peripheral vocabulary like proof_type/resource_type."
+    },
+    "availability": {
+      "type": "string",
+      "description": "Capability-advertised static/informational availability metadata (e.g. 'generally-available', 'beta'). An open, illustrative string, not a fixed enum -- per docs/ontology.md's convention for peripheral vocabulary like proof_type/resource_type. Distinct from and not synchronized with Executor.health()'s live ExecutorAvailability signal in src/praxis_executors/interface.py."
     }
   },
   "additionalProperties": true

@@ -167,9 +167,10 @@ applying `event_type` to a `TransitionEngine` is the caller's responsibility.
 `praxis_executors.policy.ExecutorPolicy` (see `docs/executors.md`) and `praxis_policy` answer
 different questions at different levels:
 
-- `ExecutorPolicy` (`AllowListPolicy`/`DenyListPolicy`) is an **executor-eligibility** policy: it
-  restricts which registered executors `praxis_executors.matching.match` will even consider for a
-  single match attempt, with no notion of a node's authority scopes, retry history, or budget.
+- `ExecutorPolicy` (`AllowListPolicy`/`DenyListPolicy`/`AuthTransportPolicy`) is an
+  **executor-eligibility** policy: it restricts which registered executors
+  `praxis_executors.matching.match` will even consider for a single match attempt, with no notion
+  of a node's authority scopes, retry history, or budget.
 - `praxis_policy` is a **node/run-level** policy: it decides whether a node may proceed at all
   (`authorize_start`), and how to respond to that node's failed execution
   (`decide_on_failure`) — including whether to retry, and against which executors.

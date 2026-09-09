@@ -25,12 +25,35 @@ from praxis_executors.interface import (
 _SPEC_VERSION = "1.0.0"
 _CLI_NAME = "codex"
 
-_CREDENTIAL_PATTERN = re.compile(r"sk-[A-Za-z0-9_-]{20,}")
 _REDACTED = "***REDACTED***"
+
+# This adapter authenticates over a ChatGPT subscription login, so an
+# OpenAI API key is not the only -- or even the likeliest -- credential
+# shape that can reach stdout/stderr. `codex doctor` reports "stored API
+# key false" / "stored ChatGPT tokens true" for a subscription login, and
+# the token behind it is an OAuth bearer/JWT. All three shapes are
+# redacted:
+#   1. legacy `sk-...` and project-scoped `sk-proj-...` OpenAI API keys;
+#   2. JWTs -- three base64url runs separated by dots, the first carrying
+#      the `eyJ` header prefix, which is how a ChatGPT OAuth access or
+#      refresh token appears verbatim;
+#   3. `Authorization: Bearer <token>` values, for opaque token shapes the
+#      JWT pattern does not cover. The `Bearer` prefix itself is kept so
+#      the surrounding message stays readable.
+_CREDENTIAL_PATTERNS = (
+    (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
+    (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
+    (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{20,}"), rf"\1{_REDACTED}"),
+)
+
+# `codex --version` prints e.g. "codex-cli 0.153.4".
+_VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+\S*")
 
 
 def _redact(text: str) -> str:
-    return _CREDENTIAL_PATTERN.sub(_REDACTED, text)
+    for pattern, replacement in _CREDENTIAL_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 # Verified against the real `/opt/homebrew/bin/codex` binary (version
@@ -41,12 +64,16 @@ def _redact(text: str) -> str:
 # metered API the same way `OPENAI_API_KEY` does, so they are stripped
 # alongside it.
 #
-# `CODEX_API_KEY` is an alternate/overriding credential source: setting it
-# in the parent process env flips `codex doctor`'s reported auth mode from
-# `chatgpt` (subscription) to `api_key` (metered), verified live against
-# the same installed binary. `CODEX_ACCESS_TOKEN` is the equivalent
-# alternate-credential var and is stripped alongside it for the same
-# reason.
+# `CODEX_API_KEY` is an alternate credential source the CLI reads from the
+# environment. Verified live against the same installed binary: running
+# `codex doctor` with and without `CODEX_API_KEY` reports `stored auth
+# mode chatgpt` either way -- the variable does not change the stored auth
+# mode. What it does change is that `codex doctor` then lists an `auth env
+# vars present  CODEX_API_KEY` line, i.e. the CLI sees the credential and
+# can prefer it. Stripping it is therefore still the right call: this
+# adapter must never hand the subprocess a metered credential it did not
+# choose. `CODEX_ACCESS_TOKEN` is the equivalent alternate-credential var
+# and is stripped alongside it for the same reason.
 _ENV_VARS_TO_STRIP = (
     "OPENAI_API_KEY",
     "OPENAI_ORGANIZATION",
@@ -72,6 +99,7 @@ class CodexCliExecutor(Executor):
         self._processes: dict[str, subprocess.Popen] = {}
         self._results: dict[str, ExecutionResult] = {}
         self._cancelled: set[str] = set()
+        self._version: str | None = None
 
     def capabilities(self) -> dict:
         return {
@@ -94,7 +122,7 @@ class CodexCliExecutor(Executor):
         cli_path = shutil.which(_CLI_NAME)
         if cli_path is None:
             return ExecutorAvailability.UNAVAILABLE
-        self._probe_version(cli_path)
+        self._version = self._probe_version(cli_path)
         authenticated = self._detect_authenticated(cli_path)
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
@@ -104,11 +132,32 @@ class CodexCliExecutor(Executor):
             return ExecutorAvailability.AVAILABLE
         return ExecutorAvailability.DEGRADED
 
-    def _probe_version(self, cli_path: str) -> None:
+    def discovered_version(self) -> str | None:
+        """The installed `codex` version, or None if it cannot be determined.
+
+        Served from the probe `health()` already ran when there is one, so
+        asking for the version after a health check costs no extra process
+        spawn; probes on first use otherwise.
+        """
+        if self._version is None:
+            cli_path = shutil.which(_CLI_NAME)
+            if cli_path is not None:
+                self._version = self._probe_version(cli_path)
+        return self._version
+
+    def _probe_version(self, cli_path: str) -> str | None:
         try:
-            subprocess.run([cli_path, "--version"], capture_output=True, text=True, timeout=5)
+            probe = subprocess.run(
+                [cli_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=_subprocess_env(),
+            )
         except (OSError, subprocess.TimeoutExpired):
-            pass
+            return None
+        match = _VERSION_PATTERN.search(f"{probe.stdout}\n{probe.stderr}")
+        return match.group(0) if match else None
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
         # Verified against a real `codex` binary on PATH: `codex --help`
@@ -123,17 +172,32 @@ class CodexCliExecutor(Executor):
         # string embedded in the same binary rather than a live logout
         # (logging out would revoke this environment's real credentials).
         # Both states are therefore distinguished by matching that text.
+        #
+        # The probe names the login *mode*, not just the fact of a login,
+        # and that distinction matters here: this adapter advertises
+        # `auth_transport: "subscription_cli"`, so only a ChatGPT
+        # subscription login is the transport it claims. A CLI logged in
+        # with a stored API key is a metered credential wearing the same
+        # "Logged in" wording, and reporting it AVAILABLE would be exactly
+        # the silent metered fallback this adapter must never make -- so it
+        # reads as unauthenticated.
         try:
             probe = subprocess.run(
-                [cli_path, "login", "status"], capture_output=True, text=True, timeout=5
+                [cli_path, "login", "status"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=_subprocess_env(),
             )
         except (OSError, subprocess.TimeoutExpired):
             return None
         output = f"{probe.stdout}\n{probe.stderr}".lower()
         if "not logged in" in output:
             return False
-        if "logged in" in output:
+        if "logged in using chatgpt" in output:
             return True
+        if "logged in" in output:
+            return False
         return None
 
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:

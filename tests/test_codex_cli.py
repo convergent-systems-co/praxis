@@ -7,14 +7,17 @@ optional skipif-guarded smoke test at the bottom of this file.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
+from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
     ExecutionHandle,
@@ -26,6 +29,17 @@ from praxis_executors.interface import (
 
 FAKE_SECRET_LEGACY = "sk-FAKESECRETFAKESECRETFAKESECRETFAKE12"
 FAKE_SECRET_PROJECT = "sk-proj-FAKESECRETFAKESECRETFAKESECRETFAKE"
+# The credential this subscription CLI actually authenticates with is a
+# ChatGPT OAuth token, not an OpenAI API key: `codex doctor` reports
+# "stored API key false" / "stored ChatGPT tokens true" for a
+# subscription login. A JWT and an opaque `Authorization: Bearer` value
+# are the two shapes such a token reaches stdout/stderr in.
+FAKE_SECRET_JWT = (
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJzdWIiOiJmYWtlLXVzZXIiLCJwbGFuIjoiY2hhdGdwdCJ9"
+    ".FAKESIGNATUREFAKESIGNATUREFAKESIGNATURE"
+)
+FAKE_SECRET_BEARER = "FAKEOPAQUECHATGPTTOKENFAKEOPAQUECHATGPTTOKEN"
 
 
 def _executor() -> CodexCliExecutor:
@@ -171,6 +185,128 @@ def test_health_invokes_codex_version_via_subprocess_run():
     assert any(call.args[0][-1] == "--version" for call in mock_run.call_args_list)
 
 
+def _version_probe(stdout: str = "codex-cli 0.153.4\n") -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(
+        args=["codex", "--version"], returncode=0, stdout=stdout, stderr=""
+    )
+
+
+def test_health_retains_the_probed_version_rather_than_discarding_it():
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
+        ),
+    ):
+        executor = _executor()
+        executor.health()
+
+        assert executor.discovered_version() == "0.153.4"
+
+
+def test_discovered_version_probes_the_cli_when_health_has_not_run():
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
+        ) as mock_run,
+    ):
+        executor = _executor()
+
+        assert executor.discovered_version() == "0.153.4"
+        # Second call is served from the cached probe, not a second spawn.
+        assert executor.discovered_version() == "0.153.4"
+        assert mock_run.call_count == 1
+
+
+def test_discovered_version_is_none_when_cli_absent():
+    with patch("praxis_executors.adapters.codex_cli.shutil.which", return_value=None):
+        assert _executor().discovered_version() is None
+
+
+def test_health_probes_use_the_same_filtered_environment_as_launch(monkeypatch):
+    # The version and auth probes must not see credential env vars that
+    # launch() deliberately strips from the subprocess environment.
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-value")
+    monkeypatch.setenv("CODEX_API_KEY", "fake-value")
+    monkeypatch.setenv("SOME_UNRELATED_VAR", "keep-me")
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "praxis_executors.adapters.codex_cli.subprocess.run", return_value=_version_probe()
+        ) as mock_run,
+    ):
+        _executor().health()
+
+    assert len(mock_run.call_args_list) == 2
+    for call in mock_run.call_args_list:
+        env = call.kwargs["env"]
+        assert "OPENAI_API_KEY" not in env
+        assert "CODEX_API_KEY" not in env
+        assert env.get("SOME_UNRELATED_VAR") == "keep-me"
+
+
+def test_detect_authenticated_returns_false_for_an_api_key_login():
+    # An API-key login is a metered credential, not the subscription
+    # transport capabilities() advertises, so it must not read as
+    # authenticated even though the CLI still says "Logged in".
+    probe_result = subprocess.CompletedProcess(
+        args=["codex", "login", "status"],
+        returncode=0,
+        stdout="",
+        stderr="Logged in using an API key\n",
+    )
+    with patch(
+        "praxis_executors.adapters.codex_cli.subprocess.run", return_value=probe_result
+    ):
+        executor = _executor()
+        assert executor._detect_authenticated("/usr/bin/codex") is False
+
+
+def test_health_is_unavailable_when_the_cli_is_logged_in_with_an_api_key():
+    probe_result = subprocess.CompletedProcess(
+        args=["codex", "login", "status"],
+        returncode=0,
+        stdout="",
+        stderr="Logged in using an API key\n",
+    )
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.run", return_value=probe_result),
+    ):
+        executor = _executor()
+        assert executor.health() == ExecutorAvailability.UNAVAILABLE
+
+
+# `codex doctor` behaviour pinned in the adapter's own comments
+
+
+# Assembled from fragments so the pattern cannot match its own source text
+# here; it is searched against codex_cli.py only.
+_FALSE_AUTH_MODE_CLAIM = re.compile("flips" + r"[^.]*" + "reported auth mode", re.IGNORECASE)
+
+
+def test_env_strip_comment_states_what_codex_doctor_actually_reports():
+    # Verified live against the installed binary: running `codex doctor`
+    # with and without CODEX_API_KEY leaves "stored auth mode" reported as
+    # `chatgpt` in both runs. The only delta is an added "auth env vars
+    # present" line, so the adapter's comment must not claim the variable
+    # flips the reported mode.
+    # Unwrap hard-wrapped comment lines before matching, so a phrase that
+    # happens to straddle a line break still reads as one string.
+    source = re.sub(r"\n\s*#\s*", " ", Path(codex_cli.__file__).read_text())
+    source = re.sub(r"\s+", " ", source)
+
+    assert not _FALSE_AUTH_MODE_CLAIM.search(source), (
+        "codex_cli.py must not claim CODEX_API_KEY changes the auth mode "
+        "`codex doctor` reports -- it does not"
+    )
+    assert "auth env vars present" in source, (
+        "codex_cli.py's comment must state what `codex doctor` actually "
+        "reports when CODEX_API_KEY is set"
+    )
+
+
 # launch()
 
 
@@ -209,12 +345,9 @@ def test_launch_raises_and_skips_popen_when_cli_absent():
         "OPENAI_ORGANIZATION",
         "OPENAI_PROJECT",
         "OPENAI_BASE_URL",
-        # Verified live (repair session, real installed `codex` 0.153.4):
-        # setting CODEX_API_KEY in the parent env flips `codex doctor`'s
-        # reported auth mode from chatgpt (subscription) to api_key
-        # (metered) -- the same silent-metered-fallback risk this bundle
-        # must not repeat. CODEX_ACCESS_TOKEN is the equivalent
-        # alternate-credential var documented alongside it.
+        # CODEX_API_KEY / CODEX_ACCESS_TOKEN are alternate credential
+        # sources; see codex_cli.py's _ENV_VARS_TO_STRIP comment for what
+        # `codex doctor` reports about them and why they are stripped.
         "CODEX_API_KEY",
         "CODEX_ACCESS_TOKEN",
     ],
@@ -315,17 +448,15 @@ def test_status_result_cancel_each_raise_executor_error_for_unknown_handle():
         executor.cancel(unknown_handle)
 
 
-# Credential safety (Clarified AC 9) -- both the legacy and project-scoped
-# OpenAI key shapes must be redacted.
+# Credential safety (Clarified AC 9) -- the legacy and project-scoped
+# OpenAI key shapes and the ChatGPT OAuth token shapes this subscription
+# CLI actually authenticates with must all be redacted.
+
+_REDACTED_SECRETS = [FAKE_SECRET_LEGACY, FAKE_SECRET_PROJECT, FAKE_SECRET_JWT]
 
 
-@pytest.mark.parametrize("secret", [FAKE_SECRET_LEGACY, FAKE_SECRET_PROJECT])
-def test_result_redacts_credential_shaped_secret_from_evidence_and_payload(secret):
-    process = _mock_process(
-        returncode=0,
-        stdout=f"...{secret}...",
-        stderr=f"...{secret}...",
-    )
+def _run_and_capture_result(stdout: str, stderr: str):
+    process = _mock_process(returncode=0, stdout=stdout, stderr=stderr)
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -335,15 +466,27 @@ def test_result_redacts_credential_shaped_secret_from_evidence_and_payload(secre
             promise={"spec_version": "1.0.0", "kind": "coding"},
             parameters={"prompt": "hello"},
         )
-        handle = executor.launch(request)
-        result = executor.result(handle)
+        return executor.result(executor.launch(request))
 
-    assert secret not in str(result.evidence)
+
+@pytest.mark.parametrize("secret", _REDACTED_SECRETS)
+def test_result_redacts_credential_shaped_secret_from_payload(secret):
+    result = _run_and_capture_result(f"...{secret}...", f"...{secret}...")
+
+    assert secret not in str(result.payload)
     assert secret not in result.payload["stdout"]
     assert secret not in result.payload["stderr"]
 
 
-@pytest.mark.parametrize("secret", [FAKE_SECRET_LEGACY, FAKE_SECRET_PROJECT])
+def test_result_redacts_an_authorization_bearer_token_from_payload():
+    header = f"Authorization: Bearer {FAKE_SECRET_BEARER}"
+    result = _run_and_capture_result(f"...{header}...", f"...{header}...")
+
+    assert FAKE_SECRET_BEARER not in str(result.payload)
+    assert "Bearer" in result.payload["stdout"]
+
+
+@pytest.mark.parametrize("secret", _REDACTED_SECRETS)
 def test_launch_failure_redacts_credential_shaped_secret_from_error_message(secret):
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),

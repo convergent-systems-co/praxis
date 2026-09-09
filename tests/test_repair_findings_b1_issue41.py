@@ -42,7 +42,10 @@ def test_doc_no_longer_lists_codex_among_hypothetical_adapters() -> None:
 
 
 def test_doc_lists_codex_cli_executor_among_concrete_adapters() -> None:
-    section = _adding_adapter_section()
+    # Deliberately not pinned to the running adapter count or to which
+    # adapter the prose happens to describe next: a sixth adapter or a
+    # reordering of the list is unrelated to the finding this guards.
+    section = _unwrapped(_adding_adapter_section())
     assert "`CodexCliExecutor`" in section, (
         "docs/executors.md must list CodexCliExecutor among the concrete "
         "adapters that ship today"
@@ -50,22 +53,9 @@ def test_doc_lists_codex_cli_executor_among_concrete_adapters() -> None:
     assert "src/praxis_executors/adapters/codex_cli.py" in section, (
         "docs/executors.md must cite CodexCliExecutor's module path"
     )
-    assert 'auth_transport: "subscription_cli"' in section.split(
-        "`CodexCliExecutor`", 1
-    )[1].split("`OllamaExecutor`", 1)[0], (
+    codex_description = section.split("`CodexCliExecutor`", 1)[1].split(";", 1)[0]
+    assert 'auth_transport: "subscription_cli"' in codex_description, (
         "docs/executors.md must state CodexCliExecutor's auth_transport"
-    )
-
-
-def test_doc_updates_shipped_adapter_count_and_registry_summary() -> None:
-    section = _unwrapped(_adding_adapter_section())
-    assert "Five concrete adapters ship today" in section, (
-        "docs/executors.md must update the adapter count from four to five "
-        "now that CodexCliExecutor ships alongside it"
-    )
-    assert "None of the five is registered" in section, (
-        "docs/executors.md's closing registry-default sentence must match "
-        "the updated adapter count"
     )
 
 

@@ -18,6 +18,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from conftest import (
+    _check_real_codex_cli_auth_probe_and_health,
+    _codex_mock_process,
+    _codex_result_of_a_run,
+)
 from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
@@ -46,14 +51,6 @@ FAKE_SECRET_BEARER = "FAKEOPAQUECHATGPTTOKENFAKEOPAQUECHATGPTTOKEN"
 
 def _executor() -> CodexCliExecutor:
     return CodexCliExecutor(executor_id="executor-codex-cli-1")
-
-
-def _mock_process(returncode: int, stdout: str = "", stderr: str = "") -> MagicMock:
-    process = MagicMock()
-    process.poll.return_value = returncode
-    process.communicate.return_value = (stdout, stderr)
-    process.returncode = returncode
-    return process
 
 
 # Test-module hygiene
@@ -352,7 +349,7 @@ def test_launch_raises_and_skips_popen_when_cli_absent():
 
 def _launched_argv(prompt: str, extra_args: list[str] | None = None) -> list[str]:
     """The argv `launch()` hands to Popen for `prompt` (and optional extra args)."""
-    process = _mock_process(returncode=0, stdout="", stderr="")
+    process = _codex_mock_process(returncode=0, stdout="", stderr="")
     parameters: dict = {"prompt": prompt}
     if extra_args is not None:
         parameters["extra_args"] = extra_args
@@ -415,7 +412,7 @@ def test_launch_gives_the_launched_process_no_stdin_to_block_on():
     # would report RUNNING for as long as it did. Nothing in this adapter
     # ever writes to the child, so the launch is non-interactive by
     # construction and stdin should read as immediately empty.
-    process = _mock_process(returncode=0, stdout="", stderr="")
+    process = _codex_mock_process(returncode=0, stdout="", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -451,7 +448,7 @@ def test_launch_strips_each_env_var_to_strip_from_subprocess_env_while_preservin
 ):
     monkeypatch.setenv(stripped_var, "fake-value")
     monkeypatch.setenv("SOME_UNRELATED_VAR", "keep-me")
-    process = _mock_process(returncode=0, stdout="ok", stderr="")
+    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -476,7 +473,7 @@ def test_launch_kills_the_process_and_raises_executor_error_when_the_output_read
     # out of launch(), a live child nobody drains or reaps, and a handle
     # registered whose pump is missing -- so result() would then raise
     # KeyError rather than ExecutorError for it.
-    process = _mock_process(returncode=None)
+    process = _codex_mock_process(returncode=None)
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -503,7 +500,7 @@ def test_launch_kills_the_process_and_raises_executor_error_when_the_output_read
 
 
 def test_scripted_successful_run_reaches_succeeded_with_true_evidence():
-    process = _mock_process(returncode=0, stdout="ok", stderr="")
+    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -520,7 +517,7 @@ def test_scripted_successful_run_reaches_succeeded_with_true_evidence():
 
 
 def test_scripted_nonzero_exit_run_reaches_failed_with_false_evidence():
-    process = _mock_process(returncode=1, stdout="", stderr="boom")
+    process = _codex_mock_process(returncode=1, stdout="", stderr="boom")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -553,6 +550,7 @@ def _chatty_child_script(size: int) -> str:
     )
 
 
+@pytest.mark.slow
 def test_result_returns_full_output_when_the_run_exceeds_the_os_pipe_buffer():
     # A `codex exec` transcript readily exceeds the 64KB pipe buffer the OS
     # gives subprocess.PIPE. A child that fills that buffer blocks on write
@@ -741,7 +739,7 @@ def test_status_is_running_and_result_refuses_while_the_process_has_not_exited()
     # The RUNNING half of the lifecycle: poll() still returning None is the
     # only state in which result() has no exit status to report, so it must
     # refuse rather than answer from a half-finished run.
-    process = _mock_process(returncode=None)
+    process = _codex_mock_process(returncode=None)
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -764,7 +762,7 @@ def test_result_releases_the_output_reader_once_the_transcript_has_settled():
     # cache is consulted before the pump ever is -- so holding the pump past
     # that point retains one thread object and one full transcript copy per
     # launch for the lifetime of the executor.
-    process = _mock_process(returncode=0, stdout="ok", stderr="")
+    process = _codex_mock_process(returncode=0, stdout="ok", stderr="")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
@@ -831,23 +829,9 @@ def test_status_result_cancel_each_raise_executor_error_for_unknown_handle():
 _REDACTED_SECRETS = [FAKE_SECRET_LEGACY, FAKE_SECRET_PROJECT, FAKE_SECRET_JWT]
 
 
-def _run_and_capture_result(stdout: str, stderr: str):
-    process = _mock_process(returncode=0, stdout=stdout, stderr=stderr)
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
-    ):
-        executor = _executor()
-        request = ExecutionRequest(
-            promise={"spec_version": "1.0.0", "kind": "coding"},
-            parameters={"prompt": "hello"},
-        )
-        return executor.result(executor.launch(request))
-
-
 @pytest.mark.parametrize("secret", _REDACTED_SECRETS)
 def test_result_redacts_credential_shaped_secret_from_payload(secret):
-    result = _run_and_capture_result(f"...{secret}...", f"...{secret}...")
+    result = _codex_result_of_a_run(f"...{secret}...", f"...{secret}...")
 
     assert secret not in str(result.payload)
     assert secret not in result.payload["stdout"]
@@ -856,7 +840,7 @@ def test_result_redacts_credential_shaped_secret_from_payload(secret):
 
 def test_result_redacts_an_authorization_bearer_token_from_payload():
     header = f"Authorization: Bearer {FAKE_SECRET_BEARER}"
-    result = _run_and_capture_result(f"...{header}...", f"...{header}...")
+    result = _codex_result_of_a_run(f"...{header}...", f"...{header}...")
 
     assert FAKE_SECRET_BEARER not in str(result.payload)
     assert "Bearer" in result.payload["stdout"]
@@ -872,7 +856,7 @@ def test_result_leaves_a_numeric_token_count_alone():
     # to avoid for code-shaped lines.
     usage = '{"input_tokens":12345678,"output_tokens":42}'
 
-    result = _run_and_capture_result(usage, usage)
+    result = _codex_result_of_a_run(usage, usage)
 
     assert result.payload["stdout"] == usage
     assert result.payload["stderr"] == usage
@@ -904,40 +888,7 @@ def test_launch_failure_redacts_credential_shaped_secret_from_error_message(secr
 
 @pytest.mark.skipif(shutil.which("codex") is None, reason="codex CLI not installed")
 def test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found():
-    # Asserting membership in the whole ExecutorAvailability enum would pass
-    # even if both real probes raised OSError and the auth detection fell
-    # through to None, so it could only ever fail by raising. These two
-    # assertions instead pin that the real `codex login status` probe
-    # actually answers -- never the None fall-through -- and that health()
-    # maps that answer the way the mocked tests above say it should. Both
-    # hold whether or not this machine's CLI happens to be logged in.
-    #
-    # A codex build without the `login status` subcommand, or one that
-    # renames "Logged in using ChatGPT", answers with neither recognized
-    # phrase: _detect_authenticated returns None rather than raising, and
-    # that is this installation's real, honest answer -- not a failure this
-    # test can pin without coupling the standard suite to one CLI version's
-    # English wording.
-    executor = CodexCliExecutor(executor_id="executor-codex-cli-smoke")
-
-    authenticated = executor._detect_authenticated(shutil.which("codex"))
-
-    if authenticated is None:
-        pytest.skip(
-            "the real `codex login status` probe did not answer (unrecognized "
-            "output on this codex version), so there is nothing version-neutral "
-            "left to pin"
-        )
-    if authenticated and executor._probe_version(shutil.which("codex")) is None:
-        # health() caps a silent executable at DEGRADED however well the login
-        # went, so on such a machine the AVAILABLE assertion below would fail
-        # on a machine condition rather than on a defect. Both probes spawn the
-        # same binary, so this is close to unreachable -- but the spec asked
-        # this test to skip, not fail, whenever conditions are not met.
-        pytest.skip(
-            "the real `codex --version` probe did not answer, so health() caps "
-            "at DEGRADED and there is no AVAILABLE outcome to pin"
-        )
-    assert executor.health() == (
-        ExecutorAvailability.AVAILABLE if authenticated else ExecutorAvailability.UNAVAILABLE
-    )
+    # The body lives in conftest.py so the repair-findings module can drive it
+    # for its own skip-behaviour tests without importing this module and
+    # looking this test up by name.
+    _check_real_codex_cli_auth_probe_and_health()

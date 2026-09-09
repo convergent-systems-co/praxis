@@ -11,12 +11,15 @@ Later findings against the same bundle are pinned here too, each by a test
 that exercises the behaviour it is about. Assertions over the prose of
 `codex_cli.py`'s own `#` comments used to live here as well; they were
 removed as part of this file's own repair round, because they exercised no
-code path and failed on a harmless reword. This convention pins published
-prose in `docs/`, not implementation comments.
+code path and failed on a harmless reword. What a comment *says* is
+therefore pinned only where it is published, in `docs/`; how much of the
+adapter is comment is a separate, reword-insensitive measure, and one
+finding about it is pinned below.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import threading
@@ -25,6 +28,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from conftest import (
+    _check_real_codex_cli_auth_probe_and_health,
+    _codex_launched,
+    _codex_mock_process,
+    _codex_result_of_a_run,
+)
 from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
@@ -36,6 +45,16 @@ from praxis_executors.interface import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXECUTORS_DOC = REPO_ROOT / "docs" / "executors.md"
+ADAPTERS_DIR = REPO_ROOT / "src" / "praxis_executors" / "adapters"
+CODEX_ADAPTER_SOURCE = ADAPTERS_DIR / "codex_cli.py"
+
+# Half this adapter's non-blank lines were once `#` comment lines, against 3%
+# in the sibling `claude_cli.py`, carrying multi-paragraph design arguments
+# the code around them no longer needed spelled out. The ceiling is set well
+# above what the adapter now sits at, so an added comment does not trip it;
+# what it catches is the essay-length drift, and unlike a prose assertion it
+# is indifferent to how any given comment is worded.
+_COMMENT_LINE_CEILING = 0.25
 
 
 def _doc_text() -> str:
@@ -77,6 +96,130 @@ def test_doc_lists_codex_cli_executor_among_concrete_adapters() -> None:
     codex_description = section.split("`CodexCliExecutor`", 1)[1].split(";", 1)[0]
     assert 'auth_transport: "subscription_cli"' in codex_description, (
         "docs/executors.md must state CodexCliExecutor's auth_transport"
+    )
+
+
+def _comment_line_share(source: Path) -> float:
+    lines = [line.strip() for line in source.read_text(encoding="utf-8").splitlines()]
+    non_blank = [line for line in lines if line]
+    return len([line for line in non_blank if line.startswith("#")]) / len(non_blank)
+
+
+def test_adapter_is_not_mostly_comment_lines() -> None:
+    share = _comment_line_share(CODEX_ADAPTER_SOURCE)
+
+    assert share <= _COMMENT_LINE_CEILING, (
+        f"{share:.0%} of codex_cli.py's non-blank lines are comment lines, over "
+        f"the {_COMMENT_LINE_CEILING:.0%} ceiling: the rationale blocks have "
+        "grown into design essays that drift out of step with the code and "
+        "read nothing like the sibling adapters"
+    )
+
+
+# Test-module hygiene: the two codex test modules share one set of doubles
+
+
+CODEX_TEST_MODULES = (
+    REPO_ROOT / "tests" / "test_codex_cli.py",
+    Path(__file__).resolve(),
+)
+
+
+def _module_level_functions(source: Path) -> list[ast.FunctionDef]:
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    return [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+
+
+def _builds_a_scripted_process_double(function: ast.FunctionDef) -> bool:
+    """Does this function script a `Popen` double's `poll`/`communicate` answers?
+
+    Matches the assignment shape, not a helper name, so it stays true through a
+    rename. A `side_effect` is deliberately not matched: a double that raises or
+    blocks is what one test is about, not a shared fixture.
+    """
+    return any(
+        isinstance(node, ast.Attribute)
+        and node.attr == "return_value"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr in {"poll", "communicate"}
+        for target in ast.walk(function)
+        if isinstance(target, ast.Assign)
+        for node in target.targets
+    )
+
+
+def _imported_module_names(source: Path) -> set[str]:
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module)
+    return names
+
+
+def test_the_shared_codex_process_doubles_are_defined_once_in_conftest() -> None:
+    # Both modules kept a private copy of the same settled-`Popen` double and
+    # the same launch-and-read helper. Two copies drift: a fix to one leaves
+    # the other testing the adapter through a stale stand-in.
+    rebuilt = [
+        f"{module.name}:{function.name}"
+        for module in CODEX_TEST_MODULES
+        for function in _module_level_functions(module)
+        if function.name.startswith("_") and _builds_a_scripted_process_double(function)
+    ]
+
+    assert not rebuilt, (
+        "these module-level helpers rebuild the codex subprocess double that "
+        f"conftest.py already provides: {rebuilt}"
+    )
+    for module in CODEX_TEST_MODULES:
+        assert "conftest" in _imported_module_names(module), (
+            f"{module.name} must take the shared codex doubles from conftest.py"
+        )
+
+
+def test_no_codex_test_module_imports_another_test_module() -> None:
+    # Importing a sibling test module to call one of its test functions by
+    # name couples two modules through a name pytest is free to see renamed:
+    # the rename then fails here as an ImportError or an AttributeError, far
+    # from the test that actually moved. Shared bodies belong in conftest.py.
+    offenders = {
+        module.name: sorted(
+            name for name in _imported_module_names(module) if name.startswith("test_")
+        )
+        for module in CODEX_TEST_MODULES
+    }
+
+    assert not any(offenders.values()), (
+        f"a test module must not import another test module: {offenders}"
+    )
+
+
+def _decorator_sources(function: ast.FunctionDef) -> list[str]:
+    return [ast.unparse(decorator) for decorator in function.decorator_list]
+
+
+def test_a_codex_test_that_spawns_a_real_child_process_is_marked_slow() -> None:
+    # One test in this pair spawns a real `python -c` child and polls it under
+    # a 30-second deadline. That is the suite's only load-sensitive timing
+    # dependency, so a machine that cannot give it the headroom needs a way to
+    # deselect it: `-m 'not slow'`.
+    unmarked = [
+        f"{module.name}:{function.name}"
+        for module in CODEX_TEST_MODULES
+        for function in _module_level_functions(module)
+        if any(
+            isinstance(node, ast.Attribute) and node.attr == "executable"
+            for node in ast.walk(function)
+        )
+        and "pytest.mark.slow" not in _decorator_sources(function)
+    ]
+
+    assert not unmarked, (
+        "a test that spawns a real child process must be marked "
+        f"`@pytest.mark.slow` so it can be deselected: {unmarked}"
     )
 
 
@@ -139,16 +282,10 @@ def test_health_is_degraded_for_an_unrecognized_login_wording() -> None:
         assert executor.health() == ExecutorAvailability.DEGRADED
 
 
-def test_detect_authenticated_still_denies_an_api_key_login() -> None:
-    # The counterpart the ambiguity branch must not swallow: a login the CLI
-    # names as an API key is a metered credential, so it stays a denial.
-    with patch(
-        "praxis_executors.adapters.codex_cli.subprocess.run",
-        return_value=_login_status("Logged in using an API key\n"),
-    ):
-        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
-
-        assert executor._detect_authenticated("/usr/bin/codex") is False
+# The counterpart the ambiguity branch must not swallow -- a login the CLI
+# names as an API key stays a denial -- is already pinned by
+# test_codex_cli.py::test_detect_authenticated_returns_false_for_an_api_key_login,
+# so it is not restated here.
 
 
 # Version probe: an executable that cannot answer must change what health() says
@@ -233,23 +370,6 @@ def test_health_is_available_when_the_version_probe_answers() -> None:
 # Redaction coverage: token shapes the sk-/JWT/long-Bearer patterns miss
 
 
-def _result_payload(stdout: str, stderr: str) -> dict:
-    process = MagicMock()
-    process.poll.return_value = 0
-    process.communicate.return_value = (stdout, stderr)
-    process.returncode = 0
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
-    ):
-        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
-        request = ExecutionRequest(
-            promise={"spec_version": "1.0.0", "kind": "coding"},
-            parameters={"prompt": "hello"},
-        )
-        return executor.result(executor.launch(request)).payload
-
-
 SHORT_BEARER_TOKEN = "FAKEtok3n99"
 
 
@@ -259,7 +379,7 @@ def test_result_redacts_a_bearer_token_shorter_than_twenty_characters() -> None:
     # prose.
     header = f"Authorization: Bearer {SHORT_BEARER_TOKEN}"
 
-    payload = _result_payload(f"...{header}...", f"...{header}...")
+    payload = _codex_result_of_a_run(f"...{header}...", f"...{header}...").payload
 
     assert SHORT_BEARER_TOKEN not in str(payload)
     assert "Bearer" in payload["stdout"]
@@ -274,7 +394,7 @@ def test_result_redacts_an_opaque_token_named_by_its_field() -> None:
     # shape it reaches stdout in when the CLI echoes that file back.
     line = f'{{"access_token": "{OPAQUE_TOKEN}"}}'
 
-    payload = _result_payload(line, line)
+    payload = _codex_result_of_a_run(line, line).payload
 
     assert OPAQUE_TOKEN not in str(payload)
     assert OPAQUE_TOKEN not in payload["stdout"]
@@ -336,33 +456,12 @@ def test_credential_field_redaction_still_spans_spaces_and_tabs() -> None:
 # result(): dropping the output pump is a race, and its failure must be an ExecutorError
 
 
-def _launched(process: MagicMock) -> tuple[CodexCliExecutor, object]:
-    with (
-        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
-        patch("praxis_executors.adapters.codex_cli.subprocess.Popen", return_value=process),
-    ):
-        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
-        request = ExecutionRequest(
-            promise={"spec_version": "1.0.0", "kind": "coding"},
-            parameters={"prompt": "hello"},
-        )
-        return executor, executor.launch(request)
-
-
-def _settled_process() -> MagicMock:
-    process = MagicMock()
-    process.poll.return_value = 0
-    process.communicate.return_value = ("transcript", "")
-    process.returncode = 0
-    return process
-
-
 def test_a_second_result_call_racing_the_first_does_not_raise_keyerror() -> None:
     # Two result() calls for the same handle can both pass the cache check
     # while the pump is still there; whichever finishes second then found the
     # pump already dropped and raised KeyError. The adapter itself starts
     # threads, so concurrent callers are not hypothetical.
-    executor, handle = _launched(_settled_process())
+    executor, handle = _codex_launched(_codex_mock_process(0, "transcript", ""))
     raced_result: list = []
     raced_error: list = []
 
@@ -403,11 +502,47 @@ def test_a_second_result_call_racing_the_first_does_not_raise_keyerror() -> None
     assert raced_result and raced_result[0].payload["stdout"] == "transcript"
 
 
+def test_result_returns_the_cached_result_when_a_concurrent_call_dropped_the_pump() -> None:
+    # The other half of the same race, and the only one that reaches result()'s
+    # missing-pump lookup with a result already recorded: the competing call
+    # caches before it drops the pump, so the cache is the right answer here
+    # rather than the ExecutorError the no-result case raises.
+    #
+    # The competing call is driven from inside `poll()` because that is the one
+    # step between the two cache lookups -- seeding `_results` up front would
+    # be answered by the first lookup and never reach the branch at all. A
+    # nested call rather than a thread, so the interleaving is exact instead of
+    # scheduled.
+    process = _codex_mock_process(0, "transcript", "")
+    executor, handle = _codex_launched(process)
+    competing: list = []
+    raced = False
+
+    def poll_and_let_a_concurrent_call_settle_this_handle():
+        nonlocal raced
+        if not raced:
+            raced = True
+            competing.append(executor.result(handle))
+        return 0
+
+    process.poll.side_effect = poll_and_let_a_concurrent_call_settle_this_handle
+
+    result = executor.result(handle)
+
+    assert competing, "the concurrent result() call never ran"
+    assert result is competing[0], (
+        "a result() call whose pump was dropped by a concurrent caller must "
+        "return that caller's cached result, not re-read or raise"
+    )
+    assert result.payload["stdout"] == "transcript"
+    assert executor._output_pumps == {}
+
+
 def test_result_raises_an_executor_error_when_the_output_pump_is_gone() -> None:
     # The unreachable-by-invariant case still has to fail in the adapter's own
     # currency: every other lookup failure here is an ExecutorError, and a
     # KeyError escaping result() is a contract break for its callers.
-    executor, handle = _launched(_settled_process())
+    executor, handle = _codex_launched(_codex_mock_process(0, "transcript", ""))
     del executor._output_pumps[handle.handle_id]
 
     with pytest.raises(ExecutorError):
@@ -516,7 +651,7 @@ def _launch_with(parameters: dict) -> None:
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "praxis_executors.adapters.codex_cli.subprocess.Popen",
-            return_value=_settled_process(),
+            return_value=_codex_mock_process(0, "transcript", ""),
         ),
     ):
         executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
@@ -558,6 +693,32 @@ def test_launch_rejects_malformed_extra_args_before_spawning_a_process() -> None
     mock_popen.assert_not_called()
 
 
+def test_extra_args_rejection_names_the_entry_that_is_not_a_string() -> None:
+    # A list containing a non-string is a different failure from a non-list,
+    # and reporting `type(extra_args).__name__` for both told the caller of
+    # `["--model", 5]` that it passed a list -- the correct type of the wrong
+    # object, naming a problem it does not have.
+    with pytest.raises(ExecutorError) as exc_info:
+        _launch_with({"prompt": "hello", "extra_args": ["--model", 5]})
+
+    message = str(exc_info.value)
+    assert "entry 1" in message, (
+        "the rejection must say which entry is not a string, not just that "
+        "the container is a list"
+    )
+    assert "int" in message
+    assert "got list" not in message
+
+
+def test_extra_args_rejection_still_names_the_container_type_when_it_is_not_a_list() -> None:
+    # The counterpart: distinguishing the two failures must not lose the
+    # container-type report for the failure it really describes.
+    with pytest.raises(ExecutorError) as exc_info:
+        _launch_with({"prompt": "hello", "extra_args": ("--model", "gpt-5")})
+
+    assert "got tuple" in str(exc_info.value)
+
+
 def test_launch_extra_args_rejection_does_not_echo_the_value() -> None:
     # The rejection message is a text boundary like every other one here: an
     # `extra_args` entry can carry a credential, so the error names the type it
@@ -580,7 +741,7 @@ def test_launch_extra_args_rejection_does_not_echo_the_value() -> None:
 
 def test_launch_still_accepts_a_list_of_string_extra_args() -> None:
     # The guard must not close the door on the supported shape.
-    process = _settled_process()
+    process = _codex_mock_process(0, "transcript", "")
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
         patch(
@@ -612,30 +773,24 @@ def test_smoke_test_skips_when_the_real_version_probe_cannot_answer() -> None:
     # `codex --version` says nothing yields DEGRADED, and the smoke test's
     # authenticated branch asserted AVAILABLE -- a failure on a machine
     # condition the spec asked this test to skip on.
-    import test_codex_cli as codex_cli_tests
-
-    smoke = codex_cli_tests.test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found
     with (
         patch("shutil.which", return_value="/usr/bin/codex"),
         patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
         patch.object(CodexCliExecutor, "_probe_version", return_value=None),
     ):
         with pytest.raises(pytest.skip.Exception):
-            smoke()
+            _check_real_codex_cli_auth_probe_and_health()
 
 
 def test_smoke_test_still_pins_the_available_outcome_when_both_probes_answer() -> None:
     # The counterpart: adding a skip must not turn the healthy case into
     # another skip, or the smoke test stops pinning anything at all.
-    import test_codex_cli as codex_cli_tests
-
-    smoke = codex_cli_tests.test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found
     with (
         patch("shutil.which", return_value="/usr/bin/codex"),
         patch.object(CodexCliExecutor, "_detect_authenticated", return_value=True),
         patch.object(CodexCliExecutor, "_probe_version", return_value="codex-cli 0.153.4"),
     ):
-        smoke()
+        _check_real_codex_cli_auth_probe_and_health()
 
 
 def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:

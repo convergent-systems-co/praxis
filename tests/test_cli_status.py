@@ -12,13 +12,15 @@ Two properties the row shape has to hold, both exercised below:
   or failed, and a failed probe states its reason in the `capabilities` cell
   rather than in a fifth column the spec does not describe.
 
-Uses lightweight fake `Executor` subclasses (implementing the ABC directly,
-not the real adapters), matching the pattern used for `match_cmd` tests.
+Uses `conftest._FakeExecutor` (implementing the ABC directly, not the real
+adapters), the same stand-in the `discover_cmd` and `match_cmd` suites take.
 """
 
 from __future__ import annotations
 
 import json
+
+from conftest import _FakeExecutor, _json_decode_error
 
 from praxis_cli.status_cmd import (
     build_status_rows,
@@ -31,138 +33,66 @@ from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorE
 _SPEC_VERSION = "1.0.0"
 
 
-class _AvailableExecutor(Executor):
-    """A fake Executor whose `.capabilities()` succeeds with two capability
-    entries carrying different `auth_transport` values, to exercise the
-    comma-join in `auth_transports()`."""
-
-    def __init__(self, executor_id: str) -> None:
-        self._executor_id = executor_id
-
-    def capabilities(self) -> dict:
-        return {
-            "spec_version": _SPEC_VERSION,
-            "executor_id": self._executor_id,
-            "capabilities": [
-                {
-                    "spec_version": _SPEC_VERSION,
-                    "auth_transport": "local",
-                    "satisfies": [{"kind": "coding"}],
-                },
-                {
-                    "spec_version": _SPEC_VERSION,
-                    "auth_transport": "subscription_cli",
-                    "satisfies": [{"kind": "reasoning"}],
-                },
-            ],
-        }
-
-    def health(self) -> ExecutorAvailability:
-        return ExecutorAvailability.AVAILABLE
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _available(executor_id: str = "executor-good") -> _FakeExecutor:
+    """Two capability entries carrying different `auth_transport` values, to
+    exercise the comma-join in `auth_transports()`."""
+    return _FakeExecutor(
+        executor_id,
+        capabilities=[
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "local",
+                "satisfies": [{"kind": "coding"}],
+            },
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "subscription_cli",
+                "satisfies": [{"kind": "reasoning"}],
+            },
+        ],
+        health=ExecutorAvailability.AVAILABLE,
+    )
 
 
-class _TransportlessExecutor(Executor):
-    """A fake Executor advertising one capability that names no transport.
+def _transportless() -> _FakeExecutor:
+    """One capability that names no transport.
 
     `capability.schema.json` requires only `spec_version` and `satisfies`, so
     this advertisement is conforming and must not take its row down.
     """
-
-    def capabilities(self) -> dict:
-        return {
-            "spec_version": _SPEC_VERSION,
-            "executor_id": "executor-transportless",
-            "capabilities": [
-                {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
-                {
-                    "spec_version": _SPEC_VERSION,
-                    "auth_transport": "local",
-                    "satisfies": [{"kind": "reasoning"}],
-                },
-            ],
-        }
-
-    def health(self) -> ExecutorAvailability:
-        return ExecutorAvailability.AVAILABLE
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+    return _FakeExecutor(
+        "executor-transportless",
+        capabilities=[
+            {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "local",
+                "satisfies": [{"kind": "reasoning"}],
+            },
+        ],
+        health=ExecutorAvailability.AVAILABLE,
+    )
 
 
-class _UnavailableExecutor(Executor):
-    """A fake Executor whose `.capabilities()` raises `ExecutorError`."""
-
-    def capabilities(self) -> dict:
-        raise ExecutorError("service unreachable")
-
-    def health(self) -> ExecutorAvailability:
-        return ExecutorAvailability.UNAVAILABLE
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _unavailable(executor_id: str = "executor-bad") -> _FakeExecutor:
+    return _FakeExecutor(
+        executor_id,
+        capabilities_error=ExecutorError("service unreachable"),
+        health=ExecutorAvailability.UNAVAILABLE,
+    )
 
 
-class _MalformedResponseExecutor(Executor):
-    """A fake Executor whose transport layer raises `json.JSONDecodeError`
-    (a `ValueError` subclass, not an `ExecutorError`) from both `.health()`
-    and `.capabilities()` -- reproducing a non-Ollama server answering 200
-    with a non-JSON body on the adapter's configured port."""
-
-    def health(self) -> ExecutorAvailability:
-        json.loads("not json")
-        raise AssertionError("unreachable")
-
-    def capabilities(self) -> dict:
-        json.loads("not json")
-        raise AssertionError("unreachable")
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _malformed(executor_id: str = "executor-broken") -> _FakeExecutor:
+    """Both probes raise `json.JSONDecodeError` -- a non-Ollama server
+    answering 200 with a non-JSON body on the adapter's configured port."""
+    error = _json_decode_error()
+    return _FakeExecutor(executor_id, capabilities_error=error, health_error=error)
 
 
 def _adapters() -> dict[str, Executor]:
     return {
-        "executor-good": _AvailableExecutor("executor-good"),
-        "executor-bad": _UnavailableExecutor(),
+        "executor-good": _available(),
+        "executor-bad": _unavailable(),
     }
 
 
@@ -170,7 +100,7 @@ def _adapters() -> dict[str, Executor]:
 
 
 def test_build_status_rows_succeeding_executor():
-    rows = build_status_rows({"executor-good": _AvailableExecutor("executor-good")})
+    rows = build_status_rows({"executor-good": _available()})
 
     assert rows == [
         {
@@ -183,7 +113,7 @@ def test_build_status_rows_succeeding_executor():
 
 
 def test_build_status_rows_failing_executor_keeps_its_id_and_states_the_reason():
-    rows = build_status_rows({"executor-bad": _UnavailableExecutor()})
+    rows = build_status_rows({"executor-bad": _unavailable()})
 
     assert rows == [
         {
@@ -196,7 +126,7 @@ def test_build_status_rows_failing_executor_keeps_its_id_and_states_the_reason()
 
 
 def test_build_status_rows_survives_a_capability_that_names_no_auth_transport():
-    rows = build_status_rows({"executor-transportless": _TransportlessExecutor()})
+    rows = build_status_rows({"executor-transportless": _transportless()})
 
     assert rows[0]["auth_transport"] == "local"
     assert rows[0]["capabilities"] == ["coding", "reasoning"]
@@ -220,7 +150,7 @@ def test_build_status_rows_preserves_adapter_order():
 
 def test_build_status_rows_health_raising_json_decode_error_degrades_its_row_instead_of_crashing():
     rows = build_status_rows(
-        {"executor-good": _AvailableExecutor("executor-good"), "executor-broken": _MalformedResponseExecutor()}
+        {"executor-good": _available(), "executor-broken": _malformed()}
     )
 
     assert rows[1]["executor_id"] == "executor-broken"
@@ -278,7 +208,7 @@ def test_print_status_table_prints_a_header_then_one_line_per_row(capsys):
 
 
 def test_print_status_table_prints_the_same_four_columns_when_every_probe_succeeded(capsys):
-    print_status_table(build_status_rows({"executor-good": _AvailableExecutor("executor-good")}))
+    print_status_table(build_status_rows({"executor-good": _available()}))
 
     names, _ = _header_offsets(capsys.readouterr().out.splitlines()[0])
     assert names == ["EXECUTOR_ID", "AUTH_TRANSPORT", "STATUS", "CAPABILITIES"]

@@ -14,81 +14,31 @@ right candidate, and `"yes" in line` passes on output that no longer does.
 
 from __future__ import annotations
 
-import json
+from conftest import _FakeExecutor, _json_decode_error
 
 from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
-from praxis_executors.interface import Executor, ExecutorAvailability
+from praxis_executors.interface import Executor, ExecutorError
 from praxis_executors.matching import UnsatisfiedPromise
 
 _SPEC_VERSION = "1.0.0"
 
 
-class _FixedAdvertisementExecutor(Executor):
-    """A minimal fake Executor whose `.capabilities()` returns a fixed dict."""
-
-    def __init__(self, advertisement: dict) -> None:
-        self._advertisement = advertisement
-
-    def capabilities(self) -> dict:
-        return self._advertisement
-
-    def health(self) -> ExecutorAvailability:
-        raise NotImplementedError
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
-
-
-class _MalformedResponseExecutor(Executor):
-    """A fake Executor whose `.capabilities()` raises `json.JSONDecodeError`
-    (a `ValueError` subclass, not an `ExecutorError`) -- reproducing a
-    non-Ollama server answering 200 with a non-JSON body."""
-
-    def capabilities(self) -> dict:
-        json.loads("not json")
-        raise AssertionError("unreachable")
-
-    def health(self) -> ExecutorAvailability:
-        raise NotImplementedError
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
-
-
-def _advertisement(executor_id: str, kind: str, auth_transport: str) -> dict:
+def _capability(kind: str, auth_transport: str) -> dict:
     return {
         "spec_version": _SPEC_VERSION,
-        "executor_id": executor_id,
-        "capabilities": [
-            {
-                "spec_version": _SPEC_VERSION,
-                "auth_transport": auth_transport,
-                "satisfies": [{"kind": kind}],
-            }
-        ],
+        "auth_transport": auth_transport,
+        "satisfies": [{"kind": kind}],
     }
 
 
-def _candidate(executor_id: str, kind: str, auth_transport: str) -> _FixedAdvertisementExecutor:
-    return _FixedAdvertisementExecutor(_advertisement(executor_id, kind, auth_transport))
+def _candidate(executor_id: str, kind: str, auth_transport: str) -> _FakeExecutor:
+    return _FakeExecutor(executor_id, capabilities=[_capability(kind, auth_transport)])
+
+
+def _malformed(executor_id: str = "executor-broken") -> _FakeExecutor:
+    """A transport layer answering 200 with a body that is not JSON, so
+    `.capabilities()` raises a `ValueError` rather than an `ExecutorError`."""
+    return _FakeExecutor(executor_id, capabilities_error=_json_decode_error())
 
 
 def _adapters() -> dict[str, Executor]:
@@ -154,7 +104,7 @@ def test_non_explain_path_prints_only_the_selection(capsys):
 
 
 def test_run_match_json_decode_error_from_capabilities_is_dropped_not_raised(capsys):
-    adapters = {**_adapters(), "executor-broken": _MalformedResponseExecutor()}
+    adapters = {**_adapters(), "executor-broken": _malformed()}
 
     exit_code = run_match(adapters, capabilities=["kind-a"], explain=False)
 
@@ -201,19 +151,7 @@ def test_explain_reports_both_an_excluded_kind_and_a_missing_one(capsys):
     # Two required kinds, one of which this candidate advertises over an
     # unsafe transport and one it does not advertise at all: the two reasons
     # are stated side by side, neither swallowing the other.
-    mixed = _FixedAdvertisementExecutor(
-        {
-            "spec_version": _SPEC_VERSION,
-            "executor_id": "executor-mixed",
-            "capabilities": [
-                {
-                    "spec_version": _SPEC_VERSION,
-                    "auth_transport": "metered_api",
-                    "satisfies": [{"kind": "kind-a"}],
-                }
-            ],
-        }
-    )
+    mixed = _candidate("executor-mixed", "kind-a", "metered_api")
 
     run_match({"executor-mixed": mixed}, capabilities=["kind-a", "kind-b"], explain=True)
 
@@ -222,6 +160,30 @@ def test_explain_reports_both_an_excluded_kind_and_a_missing_one(capsys):
         "executor-mixed: eligible=no reason=policy excludes this candidate for "
         "required kind(s): kind-a; does not satisfy required kind(s): kind-b "
         "(policy_excluded)"
+    )
+
+
+def test_explain_names_only_the_required_kinds_an_eligible_candidate_actually_misses(capsys):
+    # When nothing ranks, `matching.match` emits one `UnsatisfiedPromise` per
+    # required kind -- including kinds this candidate does cover, separated
+    # only by reason wording. Repeating the kind list verbatim therefore tells
+    # each candidate it fails a kind it advertises.
+    adapters = {
+        "executor-coder": _FakeExecutor(
+            "executor-coder",
+            capabilities=[_capability("coding", "local"), _capability("reasoning", "local")],
+        ),
+        "executor-runner": _candidate("executor-runner", "code-execution", "local"),
+    }
+
+    run_match(adapters, capabilities=["coding", "code-execution"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-coder"] == (
+        "executor-coder: eligible=yes reason=does not satisfy required kind(s): code-execution"
+    )
+    assert lines["executor-runner"] == (
+        "executor-runner: eligible=yes reason=does not satisfy required kind(s): coding"
     )
 
 
@@ -241,17 +203,35 @@ def test_explain_does_not_blame_the_policy_for_an_advertisement_with_no_capabili
     # the candidate simply advertises nothing. Naming the required kind would
     # blame kind coverage for a verdict the empty advertisement caused, so the
     # reason says what is actually true of this candidate.
-    empty = _FixedAdvertisementExecutor(
-        {"spec_version": _SPEC_VERSION, "executor_id": "executor-empty", "capabilities": []}
-    )
     adapters = {"executor-good": _candidate("executor-good", "kind-a", "local"),
-                "executor-empty": empty}
+                "executor-empty": _FakeExecutor("executor-empty")}
 
     run_match(adapters, capabilities=["kind-a"], explain=True)
 
     lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
     assert lines["executor-empty"] == (
         "executor-empty: eligible=no reason=advertises no capabilities"
+    )
+
+
+def test_explain_accounts_for_an_adapter_whose_advertisement_could_not_be_read(capsys):
+    # An adapter that could not be asked is not a candidate `match` can rank,
+    # but dropping it silently leaves a user unable to tell it was considered.
+    # `eligible=unknown`, not `eligible=no`: the policy never got an
+    # advertisement to judge.
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-bad": _FakeExecutor(
+            "executor-bad", capabilities_error=ExecutorError("service unreachable")
+        ),
+    }
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-bad"] == (
+        "executor-bad: eligible=unknown reason=advertisement unavailable "
+        "(service unreachable)"
     )
 
 

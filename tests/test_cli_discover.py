@@ -11,22 +11,22 @@ its reason in the `capabilities` cell, in spec criterion 5's own wording
 (`unavailable (<reason>)`), and marks `auth_transport` unavailable rather than
 empty -- there is no separate `error` column.
 
-The fakes below implement the `Executor` ABC directly rather than subclassing
-a real adapter: `praxis_cli.fields` degrades to `"n/a"` for a class it does
-not recognise instead of raising, which is what keeps one unknown adapter
-from taking the whole report down. The two probe-count tests are the
-exception -- `installed_field` dispatches on the concrete adapter class, so
-they need a real `OllamaExecutor` -- and monkeypatch both of its probes.
-Nothing here starts a `claude` subprocess or opens an Ollama socket.
+`conftest._FakeExecutor` implements the `Executor` ABC directly rather than
+subclassing a real adapter: `praxis_cli.fields` degrades to `"n/a"` for a
+class it does not recognise instead of raising, which is what keeps one
+unknown adapter from taking the whole report down. The two probe-count tests
+are the exception -- `installed_field` dispatches on the concrete adapter
+class, so they need a real `OllamaExecutor` -- and monkeypatch both of its
+probes. Nothing here starts a `claude` subprocess or opens an Ollama socket.
 """
 
 from __future__ import annotations
 
-import json
+from conftest import _FakeExecutor, _json_decode_error
 
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows, run_discover
 from praxis_executors.adapters.ollama import OllamaExecutor
-from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
+from praxis_executors.interface import ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
 
@@ -40,71 +40,27 @@ _CAPS = [
 ]
 
 
-class _StubExecutor(Executor):
-    """Returns a fixed advertisement, or raises `ExecutorError` when given none."""
-
-    def __init__(self, executor_id: str, capabilities: list[dict] | None) -> None:
-        self._executor_id = executor_id
-        self._capabilities = capabilities
-
-    def capabilities(self) -> dict:
-        if self._capabilities is None:
-            raise ExecutorError("capability probe failed")
-        return {
-            "spec_version": _SPEC_VERSION,
-            "executor_id": self._executor_id,
-            "capabilities": self._capabilities,
-        }
-
-    def health(self) -> ExecutorAvailability:
-        if self._capabilities is None:
-            return ExecutorAvailability.UNAVAILABLE
-        return ExecutorAvailability.AVAILABLE
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _failing(executor_id: str = "executor-fake-bad") -> _FakeExecutor:
+    return _FakeExecutor(
+        executor_id,
+        capabilities_error=ExecutorError("capability probe failed"),
+        health=ExecutorAvailability.UNAVAILABLE,
+    )
 
 
-class _MalformedResponseExecutor(Executor):
-    """A fake Executor whose `.capabilities()` raises `json.JSONDecodeError`
-    (a `ValueError` subclass, not an `ExecutorError`) -- reproducing a
-    non-Ollama server answering 200 with a non-JSON body."""
-
-    def capabilities(self) -> dict:
-        json.loads("not json")
-        raise AssertionError("unreachable")
-
-    def health(self) -> ExecutorAvailability:
-        return ExecutorAvailability.DEGRADED
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _succeeding(executor_id: str = "executor-fake-good") -> _FakeExecutor:
+    return _FakeExecutor(
+        executor_id, capabilities=_CAPS, health=ExecutorAvailability.AVAILABLE
+    )
 
 
-def _failing(executor_id: str = "executor-fake-bad") -> _StubExecutor:
-    return _StubExecutor(executor_id, None)
-
-
-def _succeeding(executor_id: str = "executor-fake-good") -> _StubExecutor:
-    return _StubExecutor(executor_id, _CAPS)
+def _malformed(executor_id: str = "executor-broken") -> _FakeExecutor:
+    """A transport layer answering 200 with a body that is not JSON."""
+    return _FakeExecutor(
+        executor_id,
+        capabilities_error=_json_decode_error(),
+        health=ExecutorAvailability.DEGRADED,
+    )
 
 
 # build_discover_rows()
@@ -155,7 +111,7 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
 
 def test_build_discover_rows_json_decode_error_from_capabilities_degrades_its_row_instead_of_crashing():
     rows = build_discover_rows(
-        {"executor-fake-good": _succeeding(), "executor-broken": _MalformedResponseExecutor()}
+        {"executor-fake-good": _succeeding(), "executor-broken": _malformed()}
     )
 
     broken = rows[1]
@@ -176,9 +132,9 @@ def test_build_discover_rows_carry_the_same_columns_across_healthy_and_failed_ro
 
 
 def test_build_discover_rows_joins_auth_transports_the_way_status_does():
-    multi = _StubExecutor(
+    multi = _FakeExecutor(
         "executor-fake-multi",
-        [
+        capabilities=[
             {
                 "spec_version": _SPEC_VERSION,
                 "satisfies": [{"kind": "coding"}],
@@ -201,9 +157,9 @@ def test_build_discover_rows_survives_a_capability_that_names_no_auth_transport(
     # `capability.schema.json` requires only `spec_version` and `satisfies`, so
     # a conforming adapter may advertise a capability naming no transport. That
     # capability contributes nothing rather than taking the row down.
-    partial = _StubExecutor(
+    partial = _FakeExecutor(
         "executor-transportless",
-        [
+        capabilities=[
             {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
             {
                 "spec_version": _SPEC_VERSION,
@@ -222,7 +178,7 @@ def test_build_discover_rows_survives_a_capability_that_names_no_auth_transport(
 def test_build_discover_rows_names_a_row_by_its_mapping_key_not_the_advertisement():
     # The mapping key is the id the CLI knows an executor by, and it is
     # available whether or not `.capabilities()` returns.
-    mismatched = _StubExecutor("something-else", _CAPS)
+    mismatched = _FakeExecutor("something-else", capabilities=_CAPS)
 
     rows = build_discover_rows({"executor-registered": mismatched})
 

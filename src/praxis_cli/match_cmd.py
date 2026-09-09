@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Callable, Mapping
 
+from praxis_cli import fields
 from praxis_executors import matching, policy
 from praxis_executors.interface import Executor, ExecutorError
 
@@ -64,8 +65,19 @@ def _candidate_verdict(
         return eligible, "advertises no capabilities"
 
     result = matching.match(requirement, [advertisement], is_eligible=is_eligible)
+    # When nothing ranks, `match` reports every required kind, covered ones
+    # included -- it is explaining why the set as a whole produced no
+    # selection, and a kind this candidate covers still went unsatisfied once
+    # the other required kinds went missing. Only the kinds this
+    # advertisement genuinely does not carry belong in a candidate-scoped
+    # line, so the covered ones are dropped here.
+    advertised_kinds = set(fields.capability_kinds(advertisement))
     excluded_kinds = [entry.kind for entry in result.unsatisfied if entry.policy_excluded]
-    unmet_kinds = [entry.kind for entry in result.unsatisfied if not entry.policy_excluded]
+    unmet_kinds = [
+        entry.kind
+        for entry in result.unsatisfied
+        if not entry.policy_excluded and entry.kind not in advertised_kinds
+    ]
 
     if eligible:
         # An eligible candidate is unranked only for kinds it does not cover:

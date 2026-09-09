@@ -29,6 +29,7 @@ import urllib.error
 import urllib.request
 
 import pytest
+from conftest import _FakeExecutor
 
 from praxis_cli import adapters as adapters_module
 from praxis_cli.adapters import build_adapters as real_build_adapters
@@ -40,42 +41,26 @@ _SPEC_VERSION = "1.0.0"
 _STATUS_KEYS = {"executor_id", "auth_transport", "status", "capabilities"}
 
 
-class _StubExecutor(Executor):
-    def __init__(self, executor_id: str, kind: str | None) -> None:
-        self._executor_id = executor_id
-        self._kind = kind
-
-    def capabilities(self) -> dict:
-        if self._kind is None:
-            raise ExecutorError("service unreachable")
-        return {
-            "spec_version": _SPEC_VERSION,
-            "executor_id": self._executor_id,
-            "capabilities": [
-                {
-                    "spec_version": _SPEC_VERSION,
-                    "auth_transport": "local",
-                    "satisfies": [{"kind": self._kind}],
-                }
-            ],
-        }
-
-    def health(self) -> ExecutorAvailability:
-        if self._kind is None:
-            return ExecutorAvailability.UNAVAILABLE
-        return ExecutorAvailability.AVAILABLE
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
+def _stub(executor_id: str, kind: str | None) -> _FakeExecutor:
+    """Advertises one capability over `local`, or is unreachable when `kind`
+    is `None`."""
+    if kind is None:
+        return _FakeExecutor(
+            executor_id,
+            capabilities_error=ExecutorError("service unreachable"),
+            health=ExecutorAvailability.UNAVAILABLE,
+        )
+    return _FakeExecutor(
+        executor_id,
+        capabilities=[
+            {
+                "spec_version": _SPEC_VERSION,
+                "auth_transport": "local",
+                "satisfies": [{"kind": kind}],
+            }
+        ],
+        health=ExecutorAvailability.AVAILABLE,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -85,10 +70,10 @@ def stub_adapters(monkeypatch):
 
     def build_adapters() -> dict[str, Executor]:
         return {
-            "executor-a": _StubExecutor("executor-a", "coding"),
-            "executor-b": _StubExecutor("executor-b", "reasoning"),
-            "executor-c": _StubExecutor("executor-c", "coding"),
-            "executor-d": _StubExecutor("executor-d", None),
+            "executor-a": _stub("executor-a", "coding"),
+            "executor-b": _stub("executor-b", "reasoning"),
+            "executor-c": _stub("executor-c", "coding"),
+            "executor-d": _stub("executor-d", None),
         }
 
     monkeypatch.setattr(adapters_module, "build_adapters", build_adapters)

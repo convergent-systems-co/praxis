@@ -10,8 +10,9 @@ Advertisement fixtures follow schemas/v1/capability-advertisement.schema.json.
 
 from __future__ import annotations
 
-from praxis_cli.match_cmd import build_requirement, run_match
+from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
 from praxis_executors.interface import Executor, ExecutorAvailability
+from praxis_executors.matching import UnsatisfiedPromise
 
 _SPEC_VERSION = "1.0.0"
 
@@ -67,6 +68,26 @@ def _adapters() -> list[Executor]:
     # Policy-eligible, but doesn't satisfy the requested kind at all.
     wrong_kind = _FixedAdvertisementExecutor(_advertisement("executor-other", "kind-b", "local"))
     return [selected, policy_excluded, wrong_kind]
+
+
+# _format_reason() -- shared by the no-selection path (_print_unsatisfied)
+# and the --explain per-candidate loop; a repair for the code-review finding
+# that the two call sites duplicated this "reason + optional
+# (policy_excluded) suffix" logic independently.
+
+
+def test_format_reason_without_policy_exclusion():
+    entry = UnsatisfiedPromise(kind="kind-a", constraint="required", reason="no candidate")
+
+    assert _format_reason(entry) == "no candidate"
+
+
+def test_format_reason_appends_policy_excluded_suffix():
+    entry = UnsatisfiedPromise(
+        kind="kind-a", constraint="required", reason="excluded", policy_excluded=True
+    )
+
+    assert _format_reason(entry) == "excluded (policy_excluded)"
 
 
 def test_build_requirement_maps_each_capability_to_a_required_promise():

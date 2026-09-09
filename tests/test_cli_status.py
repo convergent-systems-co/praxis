@@ -11,12 +11,14 @@ no accessor for identity outside the dict `.capabilities()` returns, so when
 that call itself raises `ExecutorError` there is no other public,
 in-footprint source for `executor_id` -- reaching into the private
 `_executor_id` attribute and touching `praxis_executors/` are both
-unavailable. This suite asserts the fallback is `type(executor).__name__`:
-it needs no adapter changes, no private access, and still lets a reader
-distinguish which row failed (unlike reusing the `"unavailable (...)"`
-string, which would make every failing row's id identical). T3
-(`discover_cmd.py`) has the same gap and should follow the same convention
-for consistency.
+unavailable. This suite asserts the fallback is `f"{type(executor).__name__}#{index}"`
+(the adapter's position in the input list): it needs no adapter changes, no
+private access, still lets a reader distinguish which row failed (unlike
+reusing the `"unavailable (...)"` string, which would make every failing
+row's id identical), and stays unique even when two failing adapters share a
+class (code-review repair for a latent collision in the bare class-name
+fallback). T3 (`discover_cmd.py`) has the same gap and follows the same
+convention for consistency.
 """
 
 from __future__ import annotations
@@ -125,7 +127,7 @@ def test_build_status_rows_failing_executor_reports_unavailable_and_uses_type_na
 
     assert rows == [
         {
-            "executor_id": type(executor).__name__,
+            "executor_id": f"{type(executor).__name__}#0",
             "auth_transport": "unavailable (service unreachable)",
             "status": "unavailable",
             "capabilities": "unavailable (service unreachable)",
@@ -133,10 +135,17 @@ def test_build_status_rows_failing_executor_reports_unavailable_and_uses_type_na
     ]
 
 
+def test_build_status_rows_two_failing_executors_of_same_class_get_distinct_ids():
+    rows = build_status_rows([_UnavailableExecutor(), _UnavailableExecutor()])
+
+    ids = [row["executor_id"] for row in rows]
+    assert len(set(ids)) == len(ids), f"executor_id collided across same-class failures: {ids}"
+
+
 def test_build_status_rows_preserves_adapter_order():
     rows = build_status_rows(_adapters())
 
-    assert [row["executor_id"] for row in rows] == ["executor-good", "_UnavailableExecutor"]
+    assert [row["executor_id"] for row in rows] == ["executor-good", "_UnavailableExecutor#1"]
 
 
 # print_status_table()

@@ -24,9 +24,12 @@ Second design decision, reused rather than re-asked: like T4
 (`status_cmd.py`), the only public source of `executor_id` is the dict
 `.capabilities()` returns, so when that call itself raises `ExecutorError`
 there is no advertisement to read an id from. T4's tests
-(`tests/test_cli_status.py`) settled on `type(executor).__name__` as the
-fallback and named T3 as the sibling that should follow the same
-convention for consistency; this suite does that.
+(`tests/test_cli_status.py`) settled on `f"{type(executor).__name__}#{index}"`
+(the adapter's position in the input list, not just the bare class name) as
+the fallback -- the index keeps two failing adapters of the same class from
+colliding on the same `executor_id` (code-review repair) -- and named T3 as
+the sibling that should follow the same convention for consistency; this
+suite does that.
 """
 
 from __future__ import annotations
@@ -87,7 +90,7 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
 
     assert rows == [
         {
-            "executor_id": type(failing).__name__,
+            "executor_id": f"{type(failing).__name__}#0",
             "installed": "n/a (built-in)",
             "version": "unknown",
             "authenticated": "n/a",
@@ -101,6 +104,16 @@ def test_build_discover_rows_failing_executor_reports_unavailable_and_continues(
             "capabilities": ["coding", "reasoning"],
         },
     ]
+
+
+def test_build_discover_rows_two_failing_executors_of_same_class_get_distinct_ids():
+    first = _RaisingFakeExecutor("executor-fake-bad-1")
+    second = _RaisingFakeExecutor("executor-fake-bad-2")
+
+    rows = build_discover_rows([first, second])
+
+    ids = [row["executor_id"] for row in rows]
+    assert len(set(ids)) == len(ids), f"executor_id collided across same-class failures: {ids}"
 
 
 # print_discover_rows()

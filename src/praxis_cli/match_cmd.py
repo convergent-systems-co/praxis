@@ -25,12 +25,16 @@ def build_requirement(capabilities: list[str]) -> dict:
     }
 
 
+def _format_reason(entry: matching.UnsatisfiedPromise) -> str:
+    reason = entry.reason
+    if entry.policy_excluded:
+        reason += " (policy_excluded)"
+    return reason
+
+
 def _print_unsatisfied(unsatisfied: list[matching.UnsatisfiedPromise]) -> None:
     for entry in unsatisfied:
-        line = entry.reason
-        if entry.policy_excluded:
-            line += " (policy_excluded)"
-        print(line)
+        print(_format_reason(entry))
 
 
 def run_match(adapters: list[Executor], *, capabilities: list[str], explain: bool) -> int:
@@ -63,12 +67,7 @@ def run_match(adapters: list[Executor], *, capabilities: list[str], explain: boo
                 continue
             single_result = matching.match(requirement, [advertisement], is_eligible=is_eligible)
             eligible = "yes" if is_eligible(executor_id) else "no"
-            reasons = []
-            for entry in single_result.unsatisfied:
-                reason = entry.reason
-                if entry.policy_excluded:
-                    reason += " (policy_excluded)"
-                reasons.append(reason)
+            reasons = [_format_reason(entry) for entry in single_result.unsatisfied]
             print(f"{executor_id}: eligible={eligible} reason={'; '.join(reasons)}")
 
     return 0

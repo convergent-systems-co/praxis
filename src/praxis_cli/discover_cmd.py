@@ -10,10 +10,10 @@ _COLUMNS = ("executor_id", "installed", "version", "authenticated", "capabilitie
 
 def build_discover_rows(adapters: list[Executor]) -> list[dict]:
     rows: list[dict] = []
-    for executor in adapters:
+    for index, executor in enumerate(adapters):
         installed = installed_field(executor)
         row = {
-            "executor_id": type(executor).__name__,
+            "executor_id": f"{type(executor).__name__}#{index}",
             "installed": installed,
             "version": version_field(executor),
             "authenticated": authenticated_field(executor, installed),

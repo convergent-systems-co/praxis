@@ -12,14 +12,14 @@ _COLUMNS = ("executor_id", "auth_transport", "status", "capabilities")
 
 def build_status_rows(adapters: list[Executor]) -> list[dict]:
     rows: list[dict] = []
-    for executor in adapters:
+    for index, executor in enumerate(adapters):
         status = executor.health().value
         try:
             advertisement = executor.capabilities()
         except ExecutorError as exc:
             rows.append(
                 {
-                    "executor_id": type(executor).__name__,
+                    "executor_id": f"{type(executor).__name__}#{index}",
                     "auth_transport": f"unavailable ({exc})",
                     "status": status,
                     "capabilities": f"unavailable ({exc})",

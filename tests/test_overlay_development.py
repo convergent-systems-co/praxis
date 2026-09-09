@@ -259,3 +259,81 @@ def test_bundle_verify_success_edge_does_not_create_repair_bundle_cursor(tmp_pat
     assert state.cursors["bundle_verify"].status == NodeStatus.TERMINAL_SUCCESS.value
     assert "final_review" in state.cursors
     assert "repair_bundle" not in state.cursors
+
+
+def test_final_review_success_edge_does_not_create_repair_bundle_cursor(tmp_path: Path):
+    # Mirrors test_bundle_verify_success_edge_does_not_create_repair_bundle_cursor,
+    # but for final_review's own on-failure edge to repair_bundle (graph.py):
+    # that edge must also fire only on TERMINAL_FAILED, never on
+    # TERMINAL_SUCCESS. The pre-repair test suite only ever exercised
+    # bundle_verify's edge, leaving final_review's non-firing case unproven.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    store = _seed_run_state(tmp_path, graph, "final_review")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
+
+    engine.apply("final_review", "start")
+    state = engine.apply("final_review", "complete")
+
+    assert state.cursors["final_review"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "documentation_review" in state.cursors
+    assert "repair_bundle" not in state.cursors
+
+
+def test_full_bundle_lane_happy_path_never_creates_repair_or_awaiting_human_cursors(
+    tmp_path: Path,
+):
+    # T12 asked for a full bundle-lane run (plan_bundle through create_pr, all
+    # nodes succeeding) proving repair_bundle/awaiting_human are never
+    # created -- the narrower single-hop tests above each exercise one
+    # on-failure edge in isolation but never drive the whole lane end to end,
+    # so a defect that only appears once multiple successive edges have been
+    # evaluated (e.g. a stray edge wired to fire unconditionally) would not
+    # be caught by them alone.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    store = _seed_run_state(tmp_path, graph, "plan_bundle")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
+
+    for node_id in ("plan_bundle", "task_scheduler", "bundle_verify", "final_review", "documentation_review"):
+        engine.apply(node_id, "start")
+        engine.apply(node_id, "complete")
+
+    engine.apply("create_pr", "start")
+    final_state = engine.apply(
+        "create_pr",
+        "complete",
+        evidence=[
+            _proof_record(
+                node_id="create_pr",
+                proof_type=proof_type,
+                status="pass",
+                graph_version=graph.spec_version,
+            )
+            for proof_type in (
+                "development.plan-done",
+                "development.bundle-verify-pass",
+                "development.doc-review-done",
+                "development.pr-created",
+            )
+        ],
+    )
+
+    assert final_state.cursors["create_pr"].status == NodeStatus.TERMINAL_SUCCESS.value
+    for node_id in (
+        "plan_bundle",
+        "task_scheduler",
+        "bundle_verify",
+        "final_review",
+        "documentation_review",
+        "create_pr",
+    ):
+        assert final_state.cursors[node_id].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "repair_bundle" not in final_state.cursors
+    assert "awaiting_human" not in final_state.cursors

@@ -1,7 +1,7 @@
 """Claude subscription-CLI executor adapter.
 
-Dict shapes follow schemas/v1/capability-advertisement.schema.json and
-schemas/v1/capability.schema.json.
+Dict shapes follow src/praxis_contracts/schemas/v1/capability-advertisement.schema.json and
+src/praxis_contracts/schemas/v1/capability.schema.json.
 """
 
 from __future__ import annotations

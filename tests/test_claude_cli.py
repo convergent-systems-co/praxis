@@ -7,11 +7,13 @@ optional skipif-guarded smoke test at the bottom of this file.
 
 from __future__ import annotations
 
+import re
 import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import praxis_executors.adapters.claude_cli as claude_cli
 from praxis_contracts.schema_paths import SCHEMA_DIR as SCHEMAS_DIR
 from praxis_contracts.validator import validate_document
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
@@ -36,6 +38,17 @@ def _mock_process(returncode: int, stdout: str = "", stderr: str = "") -> MagicM
     process.communicate.return_value = (stdout, stderr)
     process.returncode = returncode
     return process
+
+
+# module docstring
+
+
+def test_module_docstring_cites_current_schema_location():
+    docstring = claude_cli.__doc__
+
+    assert re.search(r"(?<!praxis_contracts/)schemas/v1/capability", docstring) is None
+    assert "src/praxis_contracts/schemas/v1/capability-advertisement.schema.json" in docstring
+    assert "src/praxis_contracts/schemas/v1/capability.schema.json" in docstring
 
 
 # capabilities()

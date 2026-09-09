@@ -33,20 +33,20 @@ def _redact(text: str) -> str:
     return _CREDENTIAL_PATTERN.sub(_REDACTED, text)
 
 
-# Investigation (this session, `codex --help`/`codex exec --help` on the real
-# `/opt/homebrew/bin/codex` binary, version 0.153.4): beyond `OPENAI_API_KEY`,
-# a search of the binary's embedded strings surfaces `OPENAI_ORGANIZATION`,
-# `OPENAI_PROJECT`, and `OPENAI_BASE_URL` as the org/project-scoping and
-# base-URL-override variables the plan asked to look for. These route
-# requests to OpenAI's metered API the same way `OPENAI_API_KEY` does, so
-# they are stripped alongside it.
+# Verified against the real `/opt/homebrew/bin/codex` binary (version
+# 0.153.4): beyond `OPENAI_API_KEY`, a search of the binary's embedded
+# strings surfaces `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, and
+# `OPENAI_BASE_URL` as the org/project-scoping and base-URL-override
+# variables the plan asked to look for. These route requests to OpenAI's
+# metered API the same way `OPENAI_API_KEY` does, so they are stripped
+# alongside it.
 #
-# Repair session addendum: verified live against the same installed binary
-# that `CODEX_API_KEY` is an alternate/overriding credential source --
-# setting it in the parent process env flips `codex doctor`'s reported auth
-# mode from `chatgpt` (subscription) to `api_key` (metered). `CODEX_ACCESS_TOKEN`
-# is the equivalent alternate-credential var and is stripped alongside it for
-# the same reason.
+# `CODEX_API_KEY` is an alternate/overriding credential source: setting it
+# in the parent process env flips `codex doctor`'s reported auth mode from
+# `chatgpt` (subscription) to `api_key` (metered), verified live against
+# the same installed binary. `CODEX_ACCESS_TOKEN` is the equivalent
+# alternate-credential var and is stripped alongside it for the same
+# reason.
 _ENV_VARS_TO_STRIP = (
     "OPENAI_API_KEY",
     "OPENAI_ORGANIZATION",
@@ -111,10 +111,10 @@ class CodexCliExecutor(Executor):
             pass
 
     def _detect_authenticated(self, cli_path: str) -> bool | None:
-        # Investigation (this session, real `codex` binary on PATH): `codex
-        # --help` documents no `codex auth` subcommand, but `codex login
-        # status` is a real, safe, side-effect-free subcommand that reports
-        # auth state -- it only re-reads the on-disk credential file
+        # Verified against a real `codex` binary on PATH: `codex --help`
+        # documents no `codex auth` subcommand, but `codex login status` is
+        # a real, safe, side-effect-free subcommand that reports auth state
+        # -- it only re-reads the on-disk credential file
         # (~/.codex/auth.json) and returned in ~20ms when run live here,
         # printing "Logged in using ChatGPT" to stderr with exit code 0.
         # `codex login status --help` documents no `--json` flag and no
@@ -144,8 +144,8 @@ class CodexCliExecutor(Executor):
             raise ExecutorError("codex CLI is not available on PATH")
         extra_args = request.parameters.get("extra_args", [])
         # `codex exec` is Codex's documented non-interactive one-shot
-        # subcommand (confirmed via `codex exec --help` on the real binary
-        # in this session), mirroring `claude_cli.py`'s `-p` invocation.
+        # subcommand (confirmed via `codex exec --help` on the real
+        # binary), mirroring `claude_cli.py`'s `-p` invocation.
         argv = [cli_path, "exec", request.parameters["prompt"], *extra_args]
         try:
             process = subprocess.Popen(

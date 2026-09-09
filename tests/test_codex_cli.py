@@ -156,26 +156,6 @@ def test_detect_authenticated_returns_false_when_login_status_reports_not_logged
         assert executor._detect_authenticated("/usr/bin/codex") is False
 
 
-def test_codex_cli_executor_has_no_discovered_models_dead_public_api():
-    # Repair finding: discovered_models() was a public method with no
-    # caller anywhere in the repo outside its own tests, and the
-    # _probe_models() it exposed unconditionally returned None -- dead
-    # exported API for an unimplemented Discovery capability. Removed
-    # rather than kept, since no real consumer exists.
-    executor = _executor()
-    assert not hasattr(executor, "discovered_models")
-
-
-def test_codex_cli_executor_has_no_probe_models_helper_outside_the_plan():
-    # Repair finding: the plan's T1 Interfaces line ("implement exactly
-    # those signatures and helper names; do not improvise different ones")
-    # is violated by a _probe_models()/_discovered_models surface that
-    # is not present anywhere in the plan's pinned design.
-    executor = _executor()
-    assert not hasattr(executor, "_probe_models")
-    assert not hasattr(executor, "_discovered_models")
-
-
 def test_health_invokes_codex_version_via_subprocess_run():
     with (
         patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),

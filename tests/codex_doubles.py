@@ -20,6 +20,7 @@ import pytest
 
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
+    ExecutionHandle,
     ExecutionRequest,
     ExecutionResult,
     ExecutorAvailability,
@@ -44,7 +45,7 @@ def codex_launched(
     process: MagicMock,
     parameters: dict | None = None,
     executor_id: str = "executor-codex-cli-1",
-) -> tuple[CodexCliExecutor, object]:
+) -> tuple[CodexCliExecutor, ExecutionHandle]:
     """(executor, handle) for a launch whose `Popen` is `process`."""
     with (
         patch(f"{CODEX_MODULE}.shutil.which", return_value="/usr/bin/codex"),

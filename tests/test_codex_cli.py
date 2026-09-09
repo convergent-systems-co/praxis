@@ -864,7 +864,7 @@ def test_launch_failure_redacts_credential_shaped_secret_from_error_message(secr
 
 @pytest.mark.skipif(shutil.which("codex") is None, reason="codex CLI not installed")
 def test_smoke_real_cli_auth_probe_answers_and_health_reports_what_it_found():
-    # The body lives in conftest.py so the repair-findings module can drive it
-    # for its own skip-behaviour tests without importing this module and
-    # looking this test up by name.
+    # The body lives in tests/codex_doubles.py so the repair-findings module
+    # can drive it for its own skip-behaviour tests without importing this
+    # module and looking this test up by name.
     check_real_codex_cli_auth_probe_and_health()

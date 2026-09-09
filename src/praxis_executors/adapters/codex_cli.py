@@ -30,18 +30,34 @@ _REDACTED = "***REDACTED***"
 
 # A ChatGPT subscription login puts an OAuth token, not an API key, on
 # stdout/stderr, so `sk-` keys, JWTs, `Authorization: Bearer` values and values
-# under a credential-shaped field name are all redacted. Three narrowings keep
+# under a credential-shaped field name are all redacted. Four narrowings keep
 # `codex exec`'s coding transcripts readable: a field name ending in
 # path/file/dir/url/uri names a location, not a credential; a value must end
-# like a credential and never be all-digit; and a run after `bearer` needs a
-# digit or twenty characters, or "a bearer token" matches.
+# like a credential and be neither a number (`codex exec --json` reports token
+# usage) nor a `./`, `../` or `~/` path, which names where a credential lives;
+# and a run after `bearer` needs a digit or twenty characters and eight
+# characters either way, or "a bearer token" and "bearer 1234" match.
+#
+# The runs either side of the keyword are bounded rather than `*`: `_redact`
+# runs over a whole unbounded transcript, and an unbounded leading run makes
+# the pattern quadratic in transcript length, because at every word boundary
+# inside a long base64-shaped run the engine consumes to the end of that run
+# and backtracks looking for the keyword alternation. 200KB of base64 took 23s
+# before the bound and 0.01s after. No real field name carries a longer
+# prefix or suffix than this.
+_CREDENTIAL_FIELD_AFFIX_LIMIT = 24
 _CREDENTIAL_FIELD = (
-    r"[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password|credential)"
+    rf"[A-Za-z0-9_-]{{0,{_CREDENTIAL_FIELD_AFFIX_LIMIT}}}"
+    r"(?:api[_-]?key|token|secret|password|credential)"
     r"(?![A-Za-z0-9_-]*(?:path|file|dir|url|uri)(?![A-Za-z0-9_-]))"
-    r"[A-Za-z0-9_-]*"
+    rf"[A-Za-z0-9_-]{{0,{_CREDENTIAL_FIELD_AFFIX_LIMIT}}}"
 )
-_CREDENTIAL_VALUE = r"(?!\d+(?=[\s\"',;}\])]|$))[^\s\"',;}\]()\[]{8,}(?=[\s\"',;}\])]|$)"
-_BEARER_VALUE = r"(?=[A-Za-z0-9._~+/=-]{20}|[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]+"
+_VALUE_END = r"(?=[\s\"',;}\])]|$)"
+_NON_CREDENTIAL_VALUE = r"(?:\d+(?:\.\d+)?|(?:\.{1,2}|~)/[^\s\"',;}\]()\[]*)"
+_CREDENTIAL_VALUE = (
+    rf"(?!{_NON_CREDENTIAL_VALUE}{_VALUE_END})[^\s\"',;}}\]()\[]{{8,}}{_VALUE_END}"
+)
+_BEARER_VALUE = r"(?=[A-Za-z0-9._~+/=-]{20}|[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{8,}"
 _CREDENTIAL_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), _REDACTED),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), _REDACTED),
@@ -181,12 +197,23 @@ class CodexCliExecutor(Executor):
     def _probe_version(self, cli_path: str) -> str | None:
         """The version the executable on PATH reports, or None if it did not answer.
 
-        Discovery of the version is internal by design. The advertisement
-        schema is closed (`additionalProperties: false`), a Capability is model-
-        and vendor-neutral, and no `Executor` call returns build metadata, so
-        this adapter has no caller-readable field the string could travel in.
-        It tells `health()` an executable that identifies itself from one that
-        does not, and is then discarded.
+        Discovery of the version is internal by design, but not because the
+        contract has nowhere to put it: only the outer advertisement schema is
+        closed, while `capability.schema.json` sets `additionalProperties:
+        true` and gives each `satisfies` entry an open `parameters` object, so
+        a schema-valid field does exist. The reason is what a Capability *is*:
+        "an abstract, vendor/model-neutral statement of what an executor can
+        do", and `codex-cli 0.153.4` is a vendor's build string. Publishing it
+        there would put the one thing the schema's own description forbids into
+        a document that is otherwise neutral, and no `Executor` call carries
+        build metadata for a caller that wants it. So the string tells
+        `health()` an executable that identifies itself from one that does not,
+        and is then discarded.
+
+        The spec's discovery bullet also asks for supported models/modes. That
+        is unimplemented for the same reason and is not covered by this
+        adapter; a neutral place to publish both is a contract question, not an
+        adapter one.
 
         The exit status is not read: `--version` has no documented exit-code
         contract, and a build that prints its version and exits non-zero has
@@ -235,6 +262,16 @@ class CodexCliExecutor(Executor):
     def launch(self, request: ExecutionRequest) -> ExecutionHandle:
         if "prompt" not in request.parameters:
             raise ExecutorError("request.parameters is missing required key 'prompt'")
+        prompt = request.parameters["prompt"]
+        # Goes into argv below, where a non-string reaches `Popen` and raises a
+        # raw TypeError instead of this adapter's ExecutorError boundary. As
+        # with extra_args, no message names a value: a prompt can carry a
+        # credential.
+        if not isinstance(prompt, str):
+            raise ExecutorError(
+                "request.parameters['prompt'] must be a string; got "
+                f"{type(prompt).__name__}"
+            )
         extra_args = request.parameters.get("extra_args", [])
         # Splatted into argv below, so a string would become one entry per
         # character. No message names a value: an entry can carry a credential.
@@ -257,7 +294,7 @@ class CodexCliExecutor(Executor):
         # 0.153.4: without the terminator a prompt beginning `-c` becomes a real
         # config override (a sandbox escalation), and one equal to `exec`'s
         # resume/fork/review/help subcommands runs that.
-        argv = [cli_path, "exec", *extra_args, "--", request.parameters["prompt"]]
+        argv = [cli_path, "exec", *extra_args, "--", prompt]
         try:
             process = subprocess.Popen(
                 argv,

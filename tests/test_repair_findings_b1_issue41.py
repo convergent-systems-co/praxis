@@ -19,14 +19,18 @@ published, in `docs/`.
 
 from __future__ import annotations
 
+import base64
 import re
 import subprocess
 import threading
+import time
 from pathlib import Path
+from typing import get_args, get_type_hints
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import codex_doubles
 from codex_doubles import (
     check_real_codex_cli_auth_probe_and_health,
     codex_launched,
@@ -36,6 +40,7 @@ from codex_doubles import (
 from praxis_executors.adapters import codex_cli
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
 from praxis_executors.interface import (
+    ExecutionHandle,
     ExecutionRequest,
     ExecutorAvailability,
     ExecutorError,
@@ -723,3 +728,154 @@ def test_doc_example_of_future_adapters_no_longer_names_codex() -> None:
         "docs/executors.md's example of possible future backends must not "
         "still name Codex now that it is a shipped adapter, not a future one"
     )
+
+
+# Redaction cost: `_redact` runs over a whole transcript, so it has to stay
+# roughly linear in its length
+
+
+def _credential_free_blob(size: int) -> str:
+    """`size` characters of deterministic urlsafe-base64 naming no credential.
+
+    urlsafe base64 is the alphabet a `codex exec` transcript dumps a build
+    artifact, a binary diff or a captured payload in, and its `-` separators
+    are word boundaries, so it is dense in the positions the credential-field
+    pattern starts a match attempt from.
+    """
+    blob = base64.urlsafe_b64encode(bytes(range(256)) * 600).decode()
+    assert len(blob) >= size
+    return blob[:size]
+
+
+def test_redacting_a_large_credential_free_transcript_is_not_quadratic() -> None:
+    # `result()` redacts the whole stdout and stderr of a `codex exec` run with
+    # no size bound, and the credential-field pattern's unbounded leading
+    # `[A-Za-z0-9_-]*` made that quadratic: at every word boundary inside a
+    # long run the engine consumed to the end of the run and backtracked
+    # looking for the keyword alternation. 96KB took over five seconds, and the
+    # output-read timeout bounds only the pipe read, never the redaction, so a
+    # transcript that printed a base64 blob stalled the adapter.
+    blob = _credential_free_blob(96 * 1024)
+
+    started = time.perf_counter()
+    redacted = codex_cli._redact(blob)
+    elapsed = time.perf_counter() - started
+
+    assert redacted == blob, "the fixture must contain nothing to redact"
+    assert elapsed < 1.0, (
+        f"redacting 96KB of credential-free text took {elapsed:.2f}s; the "
+        "credential-field pattern is backtracking quadratically"
+    )
+
+
+def test_redaction_still_covers_a_token_behind_a_prefixed_field_name() -> None:
+    # The counterpart: bounding that leading run must not stop the pattern
+    # matching the prefixed field names real transcripts carry.
+    assert OPAQUE_TOKEN not in codex_cli._redact(f"X-Api-Key: {OPAQUE_TOKEN}")
+    assert OPAQUE_TOKEN not in codex_cli._redact(f"openai_api_key={OPAQUE_TOKEN}")
+
+
+# launch(): `prompt` must be a string, not merely present
+
+
+@pytest.mark.parametrize("prompt", [5, None, b"hello", ["hello"]])
+def test_launch_rejects_a_prompt_that_is_not_a_string(prompt: object) -> None:
+    # `prompt` is the adapter's one required parameter and was the only one it
+    # never type-checked: presence was enough. A non-string went straight into
+    # argv and surfaced as a raw `TypeError` out of `Popen`, not the
+    # `ExecutorError` boundary every other malformed parameter gets.
+    with pytest.raises(ExecutorError):
+        _launch_with({"prompt": prompt})
+
+
+def test_launch_prompt_rejection_names_the_type_it_got() -> None:
+    with pytest.raises(ExecutorError) as exc_info:
+        _launch_with({"prompt": 5})
+
+    assert "int" in str(exc_info.value)
+
+
+def test_launch_prompt_rejection_does_not_echo_the_value() -> None:
+    # A prompt can carry a credential like any other parameter, so the
+    # rejection names the type it got, never the value.
+    with pytest.raises(ExecutorError) as exc_info:
+        _launch_with({"prompt": [OPAQUE_TOKEN]})
+
+    assert OPAQUE_TOKEN not in str(exc_info.value)
+
+
+def test_launch_rejects_a_non_string_prompt_before_spawning_a_process() -> None:
+    with (
+        patch("praxis_executors.adapters.codex_cli.shutil.which", return_value="/usr/bin/codex"),
+        patch("praxis_executors.adapters.codex_cli.subprocess.Popen") as mock_popen,
+    ):
+        executor = CodexCliExecutor(executor_id="executor-codex-cli-repair")
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": 5},
+        )
+
+        with pytest.raises(ExecutorError):
+            executor.launch(request)
+
+    mock_popen.assert_not_called()
+
+
+# Redaction fidelity: a count and a relative path are not credentials
+
+
+NON_CREDENTIAL_VALUE_LINES = (
+    # `codex exec --json` reports token usage, and the all-digit exemption only
+    # ever covered integers.
+    "token: 1234567.8",
+    "total_tokens: 98765.4",
+    # A run after `bearer` short enough to be an ordinary word is prose; the
+    # digit rule alone let a four-digit one through.
+    "bearer 1234",
+    "the bearer 42 clause was struck",
+    # A relative path is where a credential lives, not the credential. The
+    # location exemption keys off the *field name*, so a field named exactly
+    # `credential` never reached it.
+    "credential: ../relative/path/thing",
+    "secret: ./config/local.json",
+    "password: ~/.codex/auth.json",
+)
+
+
+@pytest.mark.parametrize("line", NON_CREDENTIAL_VALUE_LINES)
+def test_redaction_leaves_a_non_credential_value_intact(line: str) -> None:
+    # Over-redaction is fail-safe, but it corrupts a transcript exactly as
+    # invisibly as a genuine redaction does -- the readability hazard the
+    # `credentials-redacted` marker exists to disclose.
+    assert codex_cli._redact(line) == line
+
+
+def test_redaction_still_covers_a_value_that_merely_starts_with_digits() -> None:
+    # The counterpart to widening the numeric exemption to decimals: it stays
+    # an exemption for *numbers*, not for anything with a digit in front.
+    assert "1234567890abcdef" not in codex_cli._redact("api_key: 1234567890abcdef")
+
+
+def test_redaction_still_covers_a_credential_that_is_not_a_relative_path() -> None:
+    # The path exemption is anchored to the `./`, `../` and `~/` prefixes that
+    # no opaque token or base64 credential starts with.
+    assert PADDED_BASE64_TOKEN not in codex_cli._redact(f"credential: {PADDED_BASE64_TOKEN}")
+    assert OPAQUE_TOKEN not in codex_cli._redact(f"secret: {OPAQUE_TOKEN}")
+
+
+def test_redaction_still_covers_a_bearer_token_at_the_shortest_pinned_length() -> None:
+    # The counterpart to giving the `bearer` run a length floor: the floor has
+    # to stay below the short-token case the adapter already promises to redact.
+    assert SHORT_BEARER_TOKEN not in codex_cli._redact(f"Bearer {SHORT_BEARER_TOKEN}")
+
+
+# The shared doubles must declare the handle type they hand back
+
+
+def test_codex_launched_declares_the_execution_handle_it_returns() -> None:
+    # `codex_launched` always returns an `ExecutionHandle` as its second
+    # element but was annotated `object`, so every caller unpacking it got no
+    # type information about the thing the helper exists to produce.
+    return_hint = get_type_hints(codex_doubles.codex_launched)["return"]
+
+    assert get_args(return_hint) == (CodexCliExecutor, ExecutionHandle)

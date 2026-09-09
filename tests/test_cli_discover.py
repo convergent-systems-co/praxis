@@ -14,8 +14,10 @@ sentence.
 The fakes below implement the `Executor` ABC directly rather than subclassing
 a real adapter: `praxis_cli.fields` degrades to `"n/a"` for a class it does
 not recognise instead of raising, which is what keeps one unknown adapter
-from taking the whole report down. Nothing here starts a `claude` subprocess
-or opens an Ollama socket.
+from taking the whole report down. The two probe-count tests are the
+exception -- `installed_field` dispatches on the concrete adapter class, so
+they need a real `OllamaExecutor` -- and monkeypatch both of its probes.
+Nothing here starts a `claude` subprocess or opens an Ollama socket.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from __future__ import annotations
 import json
 
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows, run_discover
+from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
@@ -199,6 +202,28 @@ def test_build_discover_rows_joins_auth_transports_the_way_status_does():
     assert rows[0]["auth_transport"] == "local,subscription_cli"
 
 
+def test_build_discover_rows_survives_a_capability_that_names_no_auth_transport():
+    # `capability.schema.json` requires only `spec_version` and `satisfies`, so
+    # a conforming adapter may advertise a capability naming no transport. That
+    # capability contributes nothing rather than taking the row down.
+    partial = _StubExecutor(
+        "executor-transportless",
+        [
+            {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": "reasoning"}],
+                "auth_transport": "local",
+            },
+        ],
+    )
+
+    rows = build_discover_rows({"executor-transportless": partial})
+
+    assert rows[0]["auth_transport"] == "local"
+    assert rows[0]["capabilities"] == ["coding", "reasoning"]
+
+
 def test_build_discover_rows_names_a_row_by_its_mapping_key_not_the_advertisement():
     # The mapping key is the id the CLI knows an executor by, and it is
     # available whether or not `.capabilities()` returns.
@@ -221,6 +246,50 @@ def test_build_discover_rows_names_every_failing_executor_by_its_registered_id()
         "executor-fake-bad-1",
         "executor-fake-bad-2",
     ]
+
+
+def test_build_discover_rows_does_not_reprobe_a_service_that_already_advertised(monkeypatch):
+    # `OllamaExecutor.health()` and `.capabilities()` both GET `/api/tags`, each
+    # at the adapter's own timeout. An advertisement that came back is already
+    # proof the service answered, so the row must not pay for that round trip
+    # a second time to fill in `installed`.
+    executor = OllamaExecutor(executor_id="executor-ollama-1")
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-ollama-1",
+            "capabilities": _CAPS,
+        },
+    )
+
+    def _unexpected_probe():
+        raise AssertionError("health() re-probed a service that already advertised")
+
+    monkeypatch.setattr(executor, "health", _unexpected_probe)
+
+    rows = build_discover_rows({"executor-ollama-1": executor})
+
+    assert rows[0]["installed"] == "yes"
+    assert rows[0]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_discover_rows_still_asks_health_when_the_advertisement_probe_failed(monkeypatch):
+    # A failed advertisement probe does not say whether the service is down
+    # ("no") or up but empty ("yes"), so `health()` is still the only answer.
+    executor = OllamaExecutor(executor_id="executor-ollama-1")
+
+    def _raise():
+        raise ExecutorError("ollama service unreachable")
+
+    monkeypatch.setattr(executor, "capabilities", _raise)
+    monkeypatch.setattr(executor, "health", lambda: ExecutorAvailability.DEGRADED)
+
+    rows = build_discover_rows({"executor-ollama-1": executor})
+
+    assert rows[0]["installed"] == "yes"
+    assert rows[0]["error"] == "ollama service unreachable"
 
 
 # print_discover_rows()
@@ -250,15 +319,20 @@ def test_print_discover_rows_renders_capabilities_as_text_not_python_syntax(caps
     assert "'" not in captured.out
 
 
-def test_print_discover_rows_reports_a_failed_probe_and_omits_error_otherwise(capsys):
+def test_print_discover_rows_states_a_failed_probe_reason_exactly_once(capsys):
     print_discover_rows(build_discover_rows({"executor-fake-bad": _failing()}))
     failed = capsys.readouterr().out
 
     print_discover_rows(build_discover_rows({"executor-fake-good": _succeeding()}))
     healthy = capsys.readouterr().out
 
-    assert "  error: capability probe failed" in failed
+    # Spec criterion 5's wording, and the only place the block says it: an
+    # `error:` line underneath would repeat the same sentence verbatim.
+    assert "  capabilities: unavailable (capability probe failed)" in failed
+    assert failed.count("capability probe failed") == 1
+    assert "error" not in failed
     assert "error" not in healthy
+    assert "unavailable" not in healthy
 
 
 # run_discover() -- must degrade gracefully rather than abort on a failing row.

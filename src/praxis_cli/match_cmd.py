@@ -43,12 +43,12 @@ def _print_unsatisfied(unsatisfied: list[matching.UnsatisfiedPromise]) -> None:
         print(_format_reason(entry))
 
 
-def _candidate_reason(
+def _candidate_verdict(
     requirement: dict,
     advertisement: dict,
     is_eligible: Callable[[str], bool],
-) -> str:
-    """Why this one candidate was not ranked, stated about the candidate.
+) -> tuple[bool, str]:
+    """This one candidate's eligibility, and why it was not ranked.
 
     Re-runs the real matcher over this advertisement alone rather than
     restating its eligibility or kind-coverage rules here, so a candidate is
@@ -56,24 +56,38 @@ def _candidate_reason(
     wording is candidate-scoped: `match`'s own reasons speak about the whole
     advertisement set, which reads as a contradiction beside a single row.
     """
+    eligible = is_eligible(advertisement["executor_id"])
     if not advertisement["capabilities"]:
         # `AuthTransportPolicy` rejects an empty advertisement outright, so
         # there is no transport to have excluded and no kind it fell short of.
         # Naming the required kind here would leave `eligible=no` unexplained.
-        return "advertises no capabilities"
+        return eligible, "advertises no capabilities"
+
     result = matching.match(requirement, [advertisement], is_eligible=is_eligible)
-    if result.unsatisfied:
-        kinds = ", ".join(entry.kind for entry in result.unsatisfied)
-        if any(entry.policy_excluded for entry in result.unsatisfied):
-            return (
-                f"policy excludes this candidate for required kind(s): "
-                f"{kinds}{_POLICY_EXCLUDED_SUFFIX}"
-            )
-        return f"does not satisfy required kind(s): {kinds}"
-    # Nothing unsatisfied and still unranked means there was no required kind
-    # to report against (no `--capability` was given) -- an eligible candidate
-    # would have been ranked, so the policy verdict is all that is left.
-    return f"excluded by policy{_POLICY_EXCLUDED_SUFFIX}"
+    excluded_kinds = [entry.kind for entry in result.unsatisfied if entry.policy_excluded]
+    unmet_kinds = [entry.kind for entry in result.unsatisfied if not entry.policy_excluded]
+
+    if eligible:
+        # An eligible candidate is unranked only for kinds it does not cover:
+        # `match` marks nothing `policy_excluded` when the single advertisement
+        # it ran over was itself eligible, and a candidate with no required kind
+        # left to miss would have been ranked.
+        return eligible, f"does not satisfy required kind(s): {', '.join(unmet_kinds)}"
+
+    # The policy verdict is what makes `eligible=no` true, so it is always
+    # stated. `match` can only mark a kind `policy_excluded` when this
+    # candidate advertised it, so a required kind the candidate never
+    # advertised comes back unmarked -- the two are reported side by side
+    # rather than one silently standing in for the other.
+    if excluded_kinds:
+        reason = (
+            f"policy excludes this candidate for required kind(s): {', '.join(excluded_kinds)}"
+        )
+    else:
+        reason = "excluded by policy"
+    if unmet_kinds:
+        reason += f"; does not satisfy required kind(s): {', '.join(unmet_kinds)}"
+    return eligible, reason + _POLICY_EXCLUDED_SUFFIX
 
 
 def run_match(
@@ -118,8 +132,7 @@ def run_match(
             if executor_id in rank_by_id:
                 print(f"{name}: eligible=yes score={rank_by_id[executor_id]}")
                 continue
-            reason = _candidate_reason(requirement, advertisement, is_eligible)
-            eligible = "yes" if is_eligible(executor_id) else "no"
-            print(f"{name}: eligible={eligible} reason={reason}")
+            eligible, reason = _candidate_verdict(requirement, advertisement, is_eligible)
+            print(f"{name}: eligible={'yes' if eligible else 'no'} reason={reason}")
 
     return 0

@@ -73,6 +73,43 @@ class _AvailableExecutor(Executor):
         raise NotImplementedError
 
 
+class _TransportlessExecutor(Executor):
+    """A fake Executor advertising one capability that names no transport.
+
+    `capability.schema.json` requires only `spec_version` and `satisfies`, so
+    this advertisement is conforming and must not take its row down.
+    """
+
+    def capabilities(self) -> dict:
+        return {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-transportless",
+            "capabilities": [
+                {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "coding"}]},
+                {
+                    "spec_version": _SPEC_VERSION,
+                    "auth_transport": "local",
+                    "satisfies": [{"kind": "reasoning"}],
+                },
+            ],
+        }
+
+    def health(self) -> ExecutorAvailability:
+        return ExecutorAvailability.AVAILABLE
+
+    def launch(self, request):
+        raise NotImplementedError
+
+    def status(self, handle):
+        raise NotImplementedError
+
+    def cancel(self, handle):
+        raise NotImplementedError
+
+    def result(self, handle):
+        raise NotImplementedError
+
+
 class _UnavailableExecutor(Executor):
     """A fake Executor whose `.capabilities()` raises `ExecutorError`."""
 
@@ -158,6 +195,13 @@ def test_build_status_rows_failing_executor_keeps_its_id_and_carries_the_reason_
             "error": "service unreachable",
         }
     ]
+
+
+def test_build_status_rows_survives_a_capability_that_names_no_auth_transport():
+    rows = build_status_rows({"executor-transportless": _TransportlessExecutor()})
+
+    assert rows[0]["auth_transport"] == "local"
+    assert rows[0]["capabilities"] == ["coding", "reasoning"]
 
 
 def test_build_status_rows_ids_do_not_shift_with_adapter_order():

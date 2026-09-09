@@ -22,7 +22,7 @@ import sys
 import pytest
 
 from praxis_cli import adapters as adapters_module
-from praxis_cli.main import main
+from praxis_cli.main import _build_parser, main
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 _SPEC_VERSION = "1.0.0"
@@ -123,6 +123,14 @@ def test_json_before_a_nested_subcommand_is_rejected_rather_than_ignored(capsys)
         main(["executors", "--json", "discover"])
 
     assert "--json" in capsys.readouterr().err
+
+
+def test_top_level_parser_stores_no_unread_subcommand_destination():
+    # The outer subparsers group carries no `dest`, so `executors` never lands
+    # a second attribute nothing downstream reads.
+    args = _build_parser().parse_args(["executors"])
+
+    assert not hasattr(args, "command")
 
 
 def test_match_with_capability_and_explain_does_not_crash(capsys):

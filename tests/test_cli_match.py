@@ -177,6 +177,54 @@ def test_explain_path_distinguishes_selected_policy_excluded_and_unmatched_candi
     ]
 
 
+def test_explain_names_the_policy_for_a_candidate_that_is_also_kind_short(capsys):
+    # `executor-both-bad` is ineligible *and* advertises none of the required
+    # kinds. Running `match` over it alone cannot mark the required kind
+    # `policy_excluded`, because the candidate never advertised that kind --
+    # so a kind-coverage reason on its own would leave `eligible=no`
+    # unexplained. Both facts belong on the line.
+    adapters = {
+        "executor-good": _candidate("executor-good", "kind-a", "local"),
+        "executor-both-bad": _candidate("executor-both-bad", "kind-b", "metered_api"),
+    }
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-both-bad"] == (
+        "executor-both-bad: eligible=no reason=excluded by policy; "
+        "does not satisfy required kind(s): kind-a (policy_excluded)"
+    )
+
+
+def test_explain_reports_both_an_excluded_kind_and_a_missing_one(capsys):
+    # Two required kinds, one of which this candidate advertises over an
+    # unsafe transport and one it does not advertise at all: the two reasons
+    # are stated side by side, neither swallowing the other.
+    mixed = _FixedAdvertisementExecutor(
+        {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-mixed",
+            "capabilities": [
+                {
+                    "spec_version": _SPEC_VERSION,
+                    "auth_transport": "metered_api",
+                    "satisfies": [{"kind": "kind-a"}],
+                }
+            ],
+        }
+    )
+
+    run_match({"executor-mixed": mixed}, capabilities=["kind-a", "kind-b"], explain=True)
+
+    lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
+    assert lines["executor-mixed"] == (
+        "executor-mixed: eligible=no reason=policy excludes this candidate for "
+        "required kind(s): kind-a; does not satisfy required kind(s): kind-b "
+        "(policy_excluded)"
+    )
+
+
 def test_explain_reason_for_an_eligible_candidate_is_about_that_candidate(capsys):
     # `matching.match`'s own reasons speak about the whole advertisement set
     # ("no eligible advertisement satisfies ..."), which contradicts
@@ -204,6 +252,30 @@ def test_explain_does_not_blame_the_policy_for_an_advertisement_with_no_capabili
     lines = {line.split(":", 1)[0]: line for line in capsys.readouterr().out.splitlines()}
     assert lines["executor-empty"] == (
         "executor-empty: eligible=no reason=advertises no capabilities"
+    )
+
+
+def test_explain_names_a_ranked_candidate_by_its_mapping_key(capsys):
+    # `discover` and `status` name a row by the `build_adapters()` mapping key;
+    # `match` must not print the same adapter under a second id.
+    adapters = {"executor-registered": _candidate("something-else", "kind-a", "local")}
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    assert capsys.readouterr().out.splitlines() == [
+        "executor-registered",
+        "executor-registered: eligible=yes score=1",
+    ]
+
+
+def test_explain_names_an_unranked_candidate_by_its_mapping_key(capsys):
+    adapters = {"executor-registered": _candidate("something-else", "kind-a", "metered_api")}
+
+    run_match(adapters, capabilities=["kind-a"], explain=True)
+
+    assert capsys.readouterr().out.splitlines()[-1] == (
+        "executor-registered: eligible=no reason=policy excludes this candidate for "
+        "required kind(s): kind-a (policy_excluded)"
     )
 
 

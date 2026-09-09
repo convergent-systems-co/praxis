@@ -15,10 +15,21 @@ from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability
 
 
-def installed_field(executor: Executor) -> str:
+def installed_field(executor: Executor, advertisement: dict | None) -> str:
+    """`advertisement` is the caller's one `.capabilities()` result, or `None`.
+
+    A returned advertisement is itself evidence the backing service answered,
+    so it stands in for a `.health()` probe rather than prompting a second
+    round trip to the same endpoint at the adapter's full timeout.
+    """
     if isinstance(executor, ClaudeCliExecutor):
         return "yes" if shutil.which("claude") is not None else "no"
     if isinstance(executor, OllamaExecutor):
+        if advertisement is not None:
+            # `capabilities()` only returns once `/api/tags` has answered with
+            # at least one model -- exactly what `health()` would re-request to
+            # decide the same thing.
+            return "yes"
         try:
             health = executor.health()
         except ValueError:
@@ -46,14 +57,20 @@ def version_field(_executor: Executor) -> str:
 
 
 def authenticated_field(executor: Executor, installed: str) -> str:
+    """No `ValueError` guard here, unlike `installed_field`'s Ollama branch.
+
+    That branch needs one because `OllamaExecutor.health()` decodes a JSON
+    body it does not control. Every path through `ClaudeCliExecutor.health()`
+    either returns an availability or is already handled inside the adapter:
+    `shutil.which` cannot raise, `_probe_version` catches its own subprocess
+    failures, and `_detect_authenticated` returns unconditionally. A guard
+    here would only ever catch a stub.
+    """
     if not isinstance(executor, ClaudeCliExecutor):
         return "n/a"
     if installed == "no":
         return "n/a (not installed)"
-    try:
-        health = executor.health()
-    except ValueError:
-        return "unknown"
+    health = executor.health()
     if health == ExecutorAvailability.AVAILABLE:
         return "yes"
     if health == ExecutorAvailability.DEGRADED:

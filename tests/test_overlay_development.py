@@ -120,6 +120,13 @@ def test_development_graph_reaches_terminal_success_with_passing_evidence(tmp_pa
     for node_id in final_state.cursors:
         assert final_state.cursors[node_id].status == NodeStatus.TERMINAL_SUCCESS.value
 
+    # This run only ever reaches nodes downstream of the task lane's entry
+    # node (write_tdd); the bundle lane's bundle_verify/final_review are
+    # never scheduled here, so an assertion that repair_bundle/awaiting_human
+    # are absent would pass vacuously without exercising the on-failure edge
+    # at all. See test_bundle_verify_success_edge_does_not_create_repair_bundle_cursor
+    # below for the direct-engine test that actually proves that edge.
+
 
 def test_development_graph_evidence_gate_rejects_failing_test_pass_proof(tmp_path: Path):
     registry = OverlayRegistry()
@@ -151,14 +158,7 @@ def test_development_graph_evidence_gate_rejects_failing_test_pass_proof(tmp_pat
         FakeExecutor(engine, script).run_to_completion()
 
 
-def test_repair_bundle_success_edge_reaches_awaiting_human_blocked_status(tmp_path: Path):
-    # FakeExecutor cannot be used here: FakeExecutor._TERMINAL_VALUES excludes
-    # both BLOCKED and HANDOFF, so it can never terminate once a cursor parks
-    # at one of those statuses -- this drives the engine directly instead.
-    registry = OverlayRegistry()
-    activated = register_development_overlay(registry)
-    graph = build_development_graph()
-
+def _seed_run_state(tmp_path: Path, graph, node_id: str) -> RunStateStore:
     # Seed the checkpoint file RunStateStore.load() will read, bypassing
     # store.save()'s schema validation: a zero-event checkpoint must record
     # last_applied_seq=-1 (current_state()'s own sentinel for "nothing
@@ -175,8 +175,8 @@ def test_repair_bundle_success_edge_reaches_awaiting_human_blocked_status(tmp_pa
                 "spec_version": graph.spec_version,
                 "run_id": "test-run",
                 "cursors": {
-                    "repair_bundle": {
-                        "node_id": "repair_bundle",
+                    node_id: {
+                        "node_id": node_id,
                         "status": NodeStatus.PENDING.value,
                     }
                 },
@@ -184,14 +184,28 @@ def test_repair_bundle_success_edge_reaches_awaiting_human_blocked_status(tmp_pa
             }
         )
     )
-    store = RunStateStore(run_state_path)
+    return RunStateStore(run_state_path)
+
+
+def test_repair_bundle_failure_edge_reaches_awaiting_human_blocked_status(tmp_path: Path):
+    # FakeExecutor cannot be used here: FakeExecutor._TERMINAL_VALUES excludes
+    # both BLOCKED and HANDOFF, so it can never terminate once a cursor parks
+    # at one of those statuses -- this drives the engine directly instead.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    store = _seed_run_state(tmp_path, graph, "repair_bundle")
     log = EventLog(tmp_path / "events")
     engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
 
     engine.apply("repair_bundle", "start")
-    state = engine.apply("repair_bundle", "complete")
+    # repair_bundle -> awaiting_human is an `on-failure` edge (graph.py): it
+    # fires only when repair_bundle itself reaches TERMINAL_FAILED, never on
+    # TERMINAL_SUCCESS -- drive it to "fail" here, not "complete".
+    state = engine.apply("repair_bundle", "fail")
 
-    assert state.cursors["repair_bundle"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert state.cursors["repair_bundle"].status == NodeStatus.TERMINAL_FAILED.value
     assert "awaiting_human" in state.cursors
     assert state.cursors["awaiting_human"].status == NodeStatus.PENDING.value
 
@@ -200,3 +214,48 @@ def test_repair_bundle_success_edge_reaches_awaiting_human_blocked_status(tmp_pa
 
     assert state.cursors["awaiting_human"].status == NodeStatus.BLOCKED.value
     assert compat.legacy_status_to_node_status("waiting_human") == NodeStatus.BLOCKED
+
+
+def test_bundle_verify_failure_edge_reaches_repair_bundle_pending_status(tmp_path: Path):
+    # Mirrors the repair_bundle failure-edge test above, but one hop
+    # upstream: bundle_verify -> repair_bundle is also an `on-failure` edge
+    # (graph.py), so a bundle_verify run to TERMINAL_FAILED must create a
+    # repair_bundle cursor, PENDING, and a TERMINAL_SUCCESS run must not.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    store = _seed_run_state(tmp_path, graph, "bundle_verify")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
+
+    engine.apply("bundle_verify", "start")
+    state = engine.apply("bundle_verify", "fail")
+
+    assert state.cursors["bundle_verify"].status == NodeStatus.TERMINAL_FAILED.value
+    assert "repair_bundle" in state.cursors
+    assert state.cursors["repair_bundle"].status == NodeStatus.PENDING.value
+
+
+def test_bundle_verify_success_edge_does_not_create_repair_bundle_cursor(tmp_path: Path):
+    # Mirrors the failure-edge test above, but drives bundle_verify to
+    # TERMINAL_SUCCESS instead: the on-failure edge to repair_bundle (graph.py)
+    # must fire only on TERMINAL_FAILED, never on TERMINAL_SUCCESS. Unlike
+    # test_development_graph_reaches_terminal_success_with_passing_evidence's
+    # FakeExecutor run (which never schedules bundle_verify at all, since it
+    # only reaches nodes downstream of the task lane's write_tdd entry node),
+    # this seeds bundle_verify directly so the edge is genuinely exercised.
+    registry = OverlayRegistry()
+    activated = register_development_overlay(registry)
+    graph = build_development_graph()
+
+    store = _seed_run_state(tmp_path, graph, "bundle_verify")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log, grader_registry=activated.grader_registry)
+
+    engine.apply("bundle_verify", "start")
+    state = engine.apply("bundle_verify", "complete")
+
+    assert state.cursors["bundle_verify"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "final_review" in state.cursors
+    assert "repair_bundle" not in state.cursors

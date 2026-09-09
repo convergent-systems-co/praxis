@@ -55,7 +55,13 @@ def _requirement() -> dict:
 def _reviewer(executor_id: str, result: ExecutionResult) -> FakeCapabilityExecutor:
     return FakeCapabilityExecutor(
         executor_id=executor_id,
-        capabilities=[{"spec_version": _SPEC_VERSION, "satisfies": [{"kind": _KIND}]}],
+        capabilities=[
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": _KIND}],
+                "auth_transport": "local",
+            }
+        ],
         script={_KIND: result},
     )
 

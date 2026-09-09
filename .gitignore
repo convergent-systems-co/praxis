@@ -11,3 +11,6 @@ dist/
 # directory -- it must never be committed alongside the real state.json/
 # events.jsonl capture.
 events.jsonl.lock
+
+# Local per-worktree indexing cache, not repo content
+.ai/

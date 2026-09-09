@@ -138,11 +138,18 @@ node-by-node scope — see those documents for the full detail.
 - **Category R (repair/recovery nodes and events):** `repair_bundle`, `context_recovery`,
   `blocker_recovery`, `awaiting_human`, `CONCERN_TRIAGED`, and `TASK_REPAIR_DONE` are now
   structurally present, not yet functionally reachable via a real failure transition, see #32 —
-  they are not closed in the functional sense, only structurally present.
+  they are not closed in the functional sense, only structurally present. **Update (bundle
+  remediation-1):** `repair_bundle`'s inbound edges and `repair_bundle` -> `awaiting_human` are
+  now `kind="on-failure"` and fire on genuine `TERMINAL_FAILED`, so `repair_bundle` and
+  `awaiting_human` specifically are now also functionally reachable (retry-count/budget/exhaustion
+  semantics still aren't modeled, a narrower remaining gap — see
+  [`docs/overlays/development.md`](../overlays/development.md)); `context_recovery` and
+  `blocker_recovery` remain not yet functionally reachable.
 - **Category H (human-interrupt node):** the `awaiting_human` slice is covered by the same
   caveat as category R above (structurally present, not yet functionally reachable via a real
-  failure transition, see #32). `human_required` and the node itself remain fully open — no
-  overlay node exists for it.
+  failure transition, see #32) — **update (bundle remediation-1):** now functionally reachable via
+  `repair_bundle`'s failure transition, per Category R's update above. `human_required` and the
+  node itself remain fully open — no overlay node exists for it.
 
 **Performance parity remains open**, regardless of this gap-closure work. Nothing above bears on
 the T6/T7 performance-parity discussion earlier in this document: that dimension is still

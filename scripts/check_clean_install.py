@@ -13,6 +13,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 import venv
 from pathlib import Path
 
@@ -41,6 +43,27 @@ instance = {
     ],
 }
 validate_document(instance, schema_path)
+"""
+
+# Exercises the dashboard's packaged static assets from the installed wheel:
+# constructs a DashboardSource against the committed example graph and an
+# empty (never touched at construction, per DashboardSource.__init__) run
+# directory, serves it on an OS-assigned port, and prints the bound port so
+# the parent process can probe it over HTTP.
+DASHBOARD_CHECK_SNIPPET = f"""
+import tempfile
+from pathlib import Path
+
+from praxis_dashboard import server
+from praxis_dashboard.sources import DashboardSource
+
+graph_path = Path({str(REPO_ROOT / "examples" / "sample-graph.json")!r})
+run_directory = tempfile.TemporaryDirectory()
+
+source = DashboardSource(graph_path, Path(run_directory.name))
+httpd = server.serve(source, port=0)
+print(httpd.server_port, flush=True)
+httpd.serve_forever()
 """
 
 
@@ -99,6 +122,43 @@ def main() -> None:
                 cwd=scratch_dir,
                 check=True,
             )
+
+            dashboard_process = subprocess.Popen(
+                [str(venv_python), "-c", DASHBOARD_CHECK_SNIPPET],
+                cwd=scratch_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                port_line = dashboard_process.stdout.readline().strip()
+                if not port_line.isdigit():
+                    stderr = dashboard_process.stderr.read()
+                    raise SystemExit(
+                        "check_clean_install: dashboard subprocess did not print a "
+                        f"port; stdout={port_line!r} stderr={stderr!r}"
+                    )
+                port = int(port_line)
+
+                for path in ("/", "/static/app.js"):
+                    url = f"http://127.0.0.1:{port}{path}"
+                    try:
+                        with urllib.request.urlopen(url) as response:
+                            status = response.status
+                    except urllib.error.HTTPError as exc:
+                        status = exc.code
+                    if status != 200:
+                        raise SystemExit(
+                            f"check_clean_install: dashboard {url} returned "
+                            f"HTTP {status}, expected 200"
+                        )
+            finally:
+                dashboard_process.terminate()
+                try:
+                    dashboard_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    dashboard_process.kill()
+                    dashboard_process.wait()
 
     print("check_clean_install: OK")
 

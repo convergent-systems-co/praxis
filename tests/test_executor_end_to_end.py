@@ -75,7 +75,11 @@ def _text_generation_executor(executor_id: str) -> FakeCapabilityExecutor:
     return FakeCapabilityExecutor(
         executor_id=executor_id,
         capabilities=[
-            {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "text-generation"}]}
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": "text-generation"}],
+                "auth_transport": "local",
+            }
         ],
         script={},
     )
@@ -85,7 +89,11 @@ def _code_execution_executor(executor_id: str) -> FakeCapabilityExecutor:
     return FakeCapabilityExecutor(
         executor_id=executor_id,
         capabilities=[
-            {"spec_version": _SPEC_VERSION, "satisfies": [{"kind": "code-execution"}]}
+            {
+                "spec_version": _SPEC_VERSION,
+                "satisfies": [{"kind": "code-execution"}],
+                "auth_transport": "local",
+            }
         ],
         script={
             "code-execution": ExecutionResult(

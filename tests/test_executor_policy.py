@@ -184,6 +184,24 @@ def test_auth_transport_policy_wired_into_match_excludes_sole_metered_api_candid
     assert result.selected is None
 
 
+def test_auth_transport_policy_is_eligible_false_when_capabilities_key_missing():
+    policy = AuthTransportPolicy()
+    advertisement = {"spec_version": "1.0.0", "executor_id": "executor-no-capabilities-key"}
+
+    assert policy.is_eligible("executor-no-capabilities-key", advertisement) is False
+
+
+def test_auth_transport_policy_is_eligible_false_when_capabilities_list_empty():
+    policy = AuthTransportPolicy()
+    advertisement = {
+        "spec_version": "1.0.0",
+        "executor_id": "executor-empty-capabilities",
+        "capabilities": [],
+    }
+
+    assert policy.is_eligible("executor-empty-capabilities", advertisement) is False
+
+
 def test_auth_transport_policy_has_no_env_var_bypass(monkeypatch):
     # Proves the *absence* of an env-var bypass — there is no env-scanning
     # code in this bundle (Explicitly out of scope, spec bullet 5).

@@ -1,0 +1,89 @@
+{
+  "bundle": "remediation-1",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Fix AuthTransportPolicy fail-open on missing/empty capabilities",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/policy.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Wire AuthTransportPolicy() as default eligibility in ExecutorRegistry.select()",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/registry.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Advertise auth_transport: local on SubprocessExecutor",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/subprocess_executor.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Update tests/test_executor_registry.py fixture + new default-deny test",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": ["tests/test_executor_registry.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Update tests/test_policy_gate_alternate_executor.py fixture",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": ["tests/test_policy_gate_alternate_executor.py"]
+    },
+    {
+      "id": "T6",
+      "title": "Update tests/test_executor_end_to_end.py fixtures",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": ["tests/test_executor_end_to_end.py"]
+    },
+    {
+      "id": "T7",
+      "title": "Update docs/executors.md stale opt-in claim",
+      "depends_on": ["T2"],
+      "kind": "docs",
+      "files": ["docs/executors.md"]
+    },
+    {
+      "id": "T8",
+      "title": "Add praxis_dashboard package-data entry",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["pyproject.toml"]
+    },
+    {
+      "id": "T9",
+      "title": "Extend check_clean_install.py to verify dashboard reachability",
+      "depends_on": ["T8"],
+      "kind": "code",
+      "files": ["scripts/check_clean_install.py"]
+    },
+    {
+      "id": "T10",
+      "title": "Change three edge kinds sequential -> on-failure, fix stale comments",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/graph.py"]
+    },
+    {
+      "id": "T11",
+      "title": "Update docs/overlays/development.md stale recovery-edge claim",
+      "depends_on": ["T10"],
+      "kind": "docs",
+      "files": ["docs/overlays/development.md"]
+    },
+    {
+      "id": "T12",
+      "title": "Rewrite stale test, add happy-path/genuine-failure coverage",
+      "depends_on": ["T10"],
+      "kind": "code",
+      "files": ["tests/test_overlay_development.py"]
+    }
+  ]
+}

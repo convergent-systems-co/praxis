@@ -266,8 +266,9 @@ class OllamaExecutor(Executor):
             self._results[handle_id] = ExecutionResult(status=status, payload={"error": str(exc)})
             return
 
+        status = ExecutorStatus.CANCELLED if handle_id in self._cancelled else ExecutorStatus.SUCCEEDED
         self._results[handle_id] = ExecutionResult(
-            status=ExecutorStatus.SUCCEEDED,
+            status=status,
             payload={
                 "response": payload.get("response"),
                 "model": payload.get("model"),

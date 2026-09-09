@@ -342,6 +342,39 @@ def test_cancel_closes_in_flight_request(running_ollama_server):
     assert executor.result(handle).status == ExecutorStatus.CANCELLED
 
 
+def test_cancel_before_connection_registered_reports_cancelled_not_succeeded(
+    running_ollama_server,
+):
+    """Regression test for #68: cancel() called before the worker thread has
+    registered a connection (i.e. before urlopen() returns) let the request
+    complete normally, and the success path unconditionally reported
+    SUCCEEDED without ever checking self._cancelled -- unlike the adjacent
+    exception-branch, which already did. Calling cancel() immediately after
+    launch() returns (no injected delay, no polling for the connection to
+    register) virtually guarantees the worker hasn't reached urlopen() yet,
+    so the request races ahead and completes via the success path while
+    handle_id is already in self._cancelled.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "hello there", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+    executor.cancel(handle)
+
+    status = _wait_for_terminal(executor, handle)
+    assert status == ExecutorStatus.CANCELLED
+    assert executor.result(handle).status == ExecutorStatus.CANCELLED
+
+
 def test_cancel_raises_executor_error_for_unknown_handle(running_ollama_server):
     """Matches status()/result()/SubprocessExecutor.cancel()'s validation."""
     base_url, _responses, _delays = running_ollama_server

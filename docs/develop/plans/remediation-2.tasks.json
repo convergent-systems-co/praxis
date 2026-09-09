@@ -1,0 +1,40 @@
+{
+  "bundle": "remediation-2",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Fix Ollama cancel() race silently reporting SUCCEEDED (#68)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Fix Ollama malformed /api/generate payload corrupting the handle (#69)",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Fix Ollama capabilities() unhandled exceptions for malformed responses (#70)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/ollama.py", "tests/test_ollama_executor.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Wire Claude _detect_authenticated to claude auth status --json (#71)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/claude_cli.py", "tests/test_claude_cli.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Strip Anthropic API env vars from Claude launch() subprocess environment (#72)",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/adapters/claude_cli.py", "tests/test_claude_cli.py"]
+    }
+  ]
+}

@@ -347,6 +347,30 @@ def test_launch_failure_redacts_credential_shaped_secret_from_error_message():
     assert FAKE_SECRET not in str(exc_info.value)
 
 
+# Environment sanitization (#72)
+
+
+def test_launch_strips_anthropic_api_key_from_subprocess_environment(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-value-for-test")
+    process = _mock_process(returncode=0, stdout="ok", stderr="")
+    with (
+        patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "praxis_executors.adapters.claude_cli.subprocess.Popen", return_value=process
+        ) as mock_popen,
+    ):
+        executor = _executor()
+        request = ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "coding"},
+            parameters={"prompt": "hello"},
+        )
+        executor.launch(request)
+
+    assert "env" in mock_popen.call_args.kwargs
+    env = mock_popen.call_args.kwargs["env"]
+    assert "ANTHROPIC_API_KEY" not in env
+
+
 # Optional real-CLI smoke test
 
 

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import threading
 import urllib.error
 import urllib.parse
@@ -49,11 +50,15 @@ _SPEC_VERSION = "1.0.0"
 
 
 class _MlxUnreachable(Exception):
-    """Raised when the local MLX HTTP server cannot be reached at all.
+    """Raised when no complete response was obtained from the local MLX server.
+
+    Covers both halves of that: a connection that never got a response at all,
+    and one whose status line and headers arrived but whose body could not be
+    read (`_do_request` raises this for a failed `response.read()` too).
 
     Distinct from a JSON-decode or non-2xx response error, so callers (e.g.
-    `health()`) can tell "service down" apart from "service returned
-    something unexpected."
+    `health()`) can tell "nothing usable came back" apart from "service
+    returned something unexpected."
     """
 
 
@@ -147,6 +152,20 @@ def _do_request(
     return json.loads(raw.decode("utf-8"))
 
 
+_SEGMENT = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+")
+
+
+def _segments(model_id: str) -> list[str]:
+    """Lower-cased words of a model id, split on punctuation *and* case changes.
+
+    `mlx-community/Qwen2.5-Coder-7B` yields `qwen2`, `5`, `coder`, `7`, `b`, so
+    a classifier can ask about a whole word instead of a substring. The three
+    alternatives cover an acronym run (`CODER`), a capitalised word
+    (`Coder2`), and an already-lower-case run (`codellama`), in that order.
+    """
+    return [segment.lower() for segment in _SEGMENT.findall(model_id)]
+
+
 def _classify_kinds(model_id: str) -> list[str]:
     """Classify what a hosted model can do, for advertisement purposes.
 
@@ -160,10 +179,13 @@ def _classify_kinds(model_id: str) -> list[str]:
     (`docs/ontology.md:13-16`); it travels in `parameters` instead.
     """
     kinds: list[str] = []
-    name = model_id.lower()
-    # `"code"` alone: every id containing `coder` contains `code`, so a second
-    # `"coder"` disjunct could never change the outcome.
-    if "code" in name:
+    # A word-start match, not a substring one: `"code" in model_id` also fires
+    # on `unicode`, `decoder` and `barcode`, advertising `coding` for models
+    # that do no such thing. Segmenting first means `Coder`, `CODER`,
+    # `codellama` and `StarCoder2` all match on their own token while those
+    # three do not. A glued lowercase id (`starcoder2`) is a deliberate miss:
+    # nothing distinguishes it from `decoder` without a model-name registry.
+    if any(segment.startswith("code") for segment in _segments(model_id)):
         kinds.append("coding")
     kinds.append("reasoning")
     return kinds
@@ -448,8 +470,13 @@ class MlxExecutor(Executor):
         handle_id = handle.handle_id
         with self._lock:
             self._cancelled.add(handle_id)
-            connections = self._connections.get(handle_id, [])
-            self._connections[handle_id] = []
+            # Popped, not reassigned: the worker's `finally` pops this key on
+            # its way out, so a `cancel()` landing after the generation already
+            # finished would re-create an entry that nothing pops again -- one
+            # leaked dict entry per late cancel, for the life of the process.
+            # `_register_connection` re-adds the key only for a handle that is
+            # not cancelled, and this handle now always is.
+            connections = self._connections.pop(handle_id, [])
         for connection in connections:
             try:
                 connection.close()

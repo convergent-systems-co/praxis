@@ -247,6 +247,45 @@ def test_generate_timeout_defaults_well_above_the_probe_timeout():
 # that a working method still raises "not implemented".
 
 
+_ABC_METHODS = {"capabilities", "health", "launch", "status", "cancel", "result"}
+
+
+def _mlx_executor_methods(source: str) -> dict:
+    """The `MlxExecutor` methods defined in `source`, by name."""
+    return {
+        child.name: child
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ClassDef) and node.name == "MlxExecutor"
+        for child in node.body
+        if isinstance(child, ast.FunctionDef)
+    }
+
+
+def _stub_methods(source: str) -> set:
+    """`MlxExecutor` methods whose body is nothing but a placeholder.
+
+    A stub is a method whose only statement, once its docstring is set aside,
+    is `pass`, `...`, or a raise. Keyed on the body rather than on the phrase
+    "not implemented" appearing anywhere in the module, so a docstring or
+    comment that happens to use those words is not a failure.
+    """
+    stubs = set()
+    for name, function in _mlx_executor_methods(source).items():
+        body = list(function.body)
+        first = body[0] if body else None
+        if isinstance(first, ast.Expr) and isinstance(getattr(first.value, "value", None), str):
+            body = body[1:]
+        if len(body) != 1:
+            continue
+        only = body[0]
+        if isinstance(only, (ast.Pass, ast.Raise)):
+            stubs.add(name)
+        elif isinstance(only, ast.Expr) and isinstance(only.value, ast.Constant):
+            if only.value.value is Ellipsis:
+                stubs.add(name)
+    return stubs
+
+
 def test_no_abc_method_is_an_unimplemented_stub():
     """The replacement for T1's stub test: no method still raises the placeholder.
 
@@ -256,17 +295,8 @@ def test_no_abc_method_is_an_unimplemented_stub():
     """
     source = _MLX_SOURCE_PATH.read_text(encoding="utf-8")
 
-    assert "not implemented" not in source
-
-    implemented = {
-        name
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.ClassDef) and node.name == "MlxExecutor"
-        for child in node.body
-        if isinstance(child, ast.FunctionDef)
-        for name in [child.name]
-    }
-    assert {"capabilities", "health", "launch", "status", "cancel", "result"} <= implemented
+    assert _stub_methods(source) == set()
+    assert _ABC_METHODS <= set(_mlx_executor_methods(source))
 
 
 def test_http_get_json_decodes_a_dict_body(running_mlx_server):
@@ -451,7 +481,10 @@ def test_fixture_delays_the_body_but_not_the_headers(running_mlx_server):
     """
     server, base_url = running_mlx_server
     server.responses["/v1/chat/completions"] = (200, {"id": "c1"})
-    server.delays["/v1/chat/completions"] = 0.5
+    # A full second of injected delay against a half-second margin: the headers
+    # take microseconds to arrive, so the slack is there for a loaded host, not
+    # for the behaviour under test.
+    server.delays["/v1/chat/completions"] = 1.0
     headers_at: list = []
 
     start = time.monotonic()
@@ -465,8 +498,8 @@ def test_fixture_delays_the_body_but_not_the_headers(running_mlx_server):
     finished = time.monotonic()
 
     assert body == {"id": "c1"}
-    assert headers_at[0] - start < 0.4
-    assert finished - start >= 0.5
+    assert headers_at[0] - start < 0.5
+    assert finished - start >= 1.0
 
 
 def _code_tokens_joined(source: str) -> str:
@@ -652,9 +685,18 @@ def test_classify_kinds_always_includes_a_baseline_reasoning_kind():
     assert "reasoning" in _classify_kinds("mlx-community/some-unremarkable-model")
 
 
+# `mlx-community/starcode-3b` used to sit in this list and no longer does: the
+# classifier matches whole words now, and a glued lower-case `starcode` is not
+# separable from `unicode` without a registry of model names. The camel-cased
+# spellings the real repos use (`CodeLlama`, `StarCoder2`) are covered instead.
 @pytest.mark.parametrize(
     "model_id",
-    ["mlx-community/Qwen2.5-Coder-7B", "mlx-community/starcode-3b", "org/CODER-X"],
+    [
+        "mlx-community/Qwen2.5-Coder-7B",
+        "mlx-community/CodeLlama-13b-Instruct",
+        "org/CODER-X",
+        "org/StarCoder2-7B",
+    ],
 )
 def test_classify_kinds_adds_coding_for_a_code_model(model_id):
     kinds = _classify_kinds(model_id)
@@ -880,17 +922,23 @@ def test_launch_posts_an_openai_shaped_non_streaming_chat_body(running_mlx_serve
 
 
 def test_launch_returns_before_the_generation_finishes(running_mlx_server):
-    """No blocking work on the caller's thread."""
+    """No blocking work on the caller's thread.
+
+    A second of injected delay against a half-second margin: `launch()` only
+    starts a thread, so the slack is headroom for a loaded host. An
+    implementation that waited for the generation would still take the full
+    second and fail.
+    """
     server, base_url = running_mlx_server
     server.responses["/v1/chat/completions"] = (200, _COMPLETION_BODY)
-    server.delays["/v1/chat/completions"] = 0.6
+    server.delays["/v1/chat/completions"] = 1.0
     executor = MlxExecutor("e1", base_url=base_url)
 
     start = time.monotonic()
     handle = executor.launch(_request(model="m", prompt="p"))
     elapsed = time.monotonic() - start
 
-    assert elapsed < 0.3
+    assert elapsed < 0.5
     assert executor.status(handle) is ExecutorStatus.RUNNING
     _await_terminal(executor, handle)
 
@@ -1235,8 +1283,14 @@ def test_the_fake_server_stops_without_paying_the_default_poll_interval():
     `shutdown()` only sets a flag; the serving loop notices it on its next
     poll, so a default-interval server costs about half a second to stop. Every
     test taking `running_mlx_server` pays that once, which was most of this
-    module's runtime. Timed through the module's own `_start`/`_stop` so the
-    fixture itself is what is pinned, not a copy of it.
+    module's runtime.
+
+    Asserted over the interval `_start` actually asks for, not over elapsed
+    wall-clock time: a teardown deadline tight enough to catch the 0.5s default
+    is also tight enough to flake on a loaded host, and this is a runtime
+    property, not a correctness one. The start/stop round trip still runs
+    through the module's own helpers, so `_stop` really stopping the serving
+    thread is pinned too.
     """
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _MlxTestHandler)
     httpd.responses = {}
@@ -1245,11 +1299,16 @@ def test_the_fake_server_stops_without_paying_the_default_poll_interval():
     httpd.received = []
     thread = _start(httpd)
 
-    started = time.monotonic()
     _stop(httpd, thread)
-    elapsed = time.monotonic() - started
 
-    assert elapsed < 0.25, f"tearing the fake server down took {elapsed:.3f}s"
+    assert not thread.is_alive()
+    call = next(
+        node
+        for node in ast.walk(ast.parse(inspect.getsource(_start)))
+        if isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "serve_forever"
+    )
+    interval = next(keyword.value.value for keyword in call.keywords if keyword.arg == "poll_interval")
+    assert interval <= 0.05, f"_start polls every {interval}s; `serve_forever`'s default 0.5s is the cost this pins"
 
 
 def test_both_v1_models_readers_contain_the_same_decode_failures(monkeypatch):
@@ -1291,3 +1350,177 @@ def test_the_inventory_description_of_a_bare_name_entry_is_empty():
     )
 
     assert _inventory_description(bare, "MlxExecutor") == ""
+
+
+# --------------------------------------------------------------------------
+# Repair findings, round 2 -- one reproduction per finding raised against the
+# first repair pass. Each pins the property the finding named, not the shape
+# of its fix.
+# --------------------------------------------------------------------------
+
+
+def test_cancel_after_the_worker_finished_leaves_no_per_handle_connection_state(
+    running_mlx_server,
+):
+    """`cancel()` must drain the connection list, never re-create it.
+
+    The worker's `finally` pops `_connections[handle_id]` on its way out, so a
+    `cancel()` landing afterwards -- the ordinary "cancel a job that has just
+    finished" race -- reassigns the key to a fresh empty list that nothing will
+    ever pop again. One dict entry per late cancel then accumulates for the
+    lifetime of the process.
+    """
+    server, base_url = running_mlx_server
+    server.responses["/v1/chat/completions"] = (200, _COMPLETION_BODY)
+    executor = MlxExecutor("e1", base_url=base_url)
+
+    handle = executor.launch(_request(model="m", prompt="p"))
+    assert _await_terminal(executor, handle) is ExecutorStatus.SUCCEEDED
+    executor.cancel(handle)
+
+    assert executor._connections == {}
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "mlx-community/unicode-normalizer-1b",
+        "org/text-decoder-v2",
+        "mlx-community/Barcode-Reader-3B",
+    ],
+    ids=["unicode", "decoder", "barcode"],
+)
+def test_classify_kinds_ignores_an_incidental_code_substring(model_id):
+    """`"code" in name` also matches `unicode`, `decoder` and `barcode`.
+
+    Advertising `coding` for one of those is a false claim about what the
+    executor can do, so the match has to land on a token boundary rather than
+    anywhere inside a word.
+    """
+    kinds = _classify_kinds(model_id)
+
+    assert "coding" not in kinds
+    assert "reasoning" in kinds
+
+
+def test_a_failed_body_read_raises_unreachable_and_its_docstring_admits_that(
+    running_mlx_server,
+):
+    """`_MlxUnreachable` also covers "headers arrived, body read failed".
+
+    Its docstring claimed the server "cannot be reached at all", which is not
+    true of this path: the connection was made and the status line and headers
+    came back before the read timed out.
+    """
+    server, base_url = running_mlx_server
+    server.responses["/v1/models"] = (200, {"object": "list", "data": []})
+    server.delays["/v1/models"] = 1.0
+
+    with pytest.raises(_MlxUnreachable) as excinfo:
+        _http_get_json(base_url, "/v1/models", 0.2)
+
+    assert "could not read from" in str(excinfo.value)
+    assert "cannot be reached at all" not in (_MlxUnreachable.__doc__ or "")
+
+
+def test_the_stub_sweep_ignores_prose_that_merely_says_not_implemented():
+    """The sweep has to key on a method body, not on the module's prose.
+
+    A raw `"not implemented" not in source` check fails on any future docstring
+    or comment using the phrase -- a reason unrelated to the property the test
+    exists to pin.
+    """
+    source = (
+        "class MlxExecutor:\n"
+        "    def capabilities(self) -> dict:\n"
+        '        """Nothing here is not implemented; see the note below."""\n'
+        "        # every server implements /v1/models, /v1/embeddings is not implemented\n"
+        "        return {}\n"
+    )
+
+    assert _stub_methods(source) == set()
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["raise ExecutorError('capabilities is not implemented')", "pass", "..."],
+    ids=["raise", "pass", "ellipsis"],
+)
+def test_the_stub_sweep_still_catches_a_method_that_only_placeholds(body):
+    source = (
+        "class MlxExecutor:\n"
+        "    def capabilities(self) -> dict:\n"
+        '        """Doc line the sweep must look past."""\n'
+        f"        {body}\n"
+    )
+
+    assert _stub_methods(source) == {"capabilities"}
+
+
+def test_capabilities_probes_with_the_short_timeout_not_the_generation_one(
+    running_mlx_server,
+):
+    """The mirror of the same assertion on `health()`.
+
+    Both read `/v1/models` through the same helper, so `capabilities()`
+    swapping `self._timeout` for `self._generate_timeout` would otherwise go
+    undetected and a discovery pass would stall on a wedged local server.
+    """
+    server, base_url = running_mlx_server
+    server.responses["/v1/models"] = (200, _models_body("m"))
+    server.delays["/v1/models"] = 2.0
+    executor = MlxExecutor("e1", base_url=base_url, timeout=0.2, generate_timeout=30.0)
+
+    start = time.monotonic()
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
+    assert time.monotonic() - start < 1.0
+
+
+def _wall_clock_margins(source: str) -> list[tuple[str, float]]:
+    """Every `<clock-derived expression> < <constant>` assertion in `source`.
+
+    A name assigned from `time.monotonic()` counts as clock-derived, so both
+    `elapsed < 0.3` and `headers_at[0] - start < 0.4` are found while
+    `time.monotonic() < deadline` (bounded by a variable, not a margin) is not.
+    """
+    tree = ast.parse(source)
+    clock_names = {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and "monotonic" in ast.unparse(node.value)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    margins: list[tuple[str, float]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or len(node.ops) != 1:
+            continue
+        if not isinstance(node.ops[0], (ast.Lt, ast.LtE)):
+            continue
+        comparator = node.comparators[0]
+        if not isinstance(comparator, ast.Constant) or not isinstance(
+            comparator.value, (int, float)
+        ):
+            continue
+        left = ast.unparse(node.left)
+        if "monotonic" in left or any(
+            re.search(rf"\b{name}\b", left) for name in clock_names
+        ):
+            margins.append((left, float(comparator.value)))
+    return margins
+
+
+def test_no_wall_clock_assertion_here_gates_on_a_sub_half_second_margin():
+    """Elapsed-time thresholds are load-sensitive on a shared CI host.
+
+    A margin measured in a couple of hundred milliseconds is a correctness gate
+    that a busy machine can fail for reasons that have nothing to do with the
+    adapter, so every timing assertion in this module leaves at least half a
+    second of slack.
+    """
+    margins = _wall_clock_margins(Path(__file__).resolve().read_text(encoding="utf-8"))
+
+    assert margins, "the sweep found no timing assertions at all -- it is looking in the wrong place"
+    tight = sorted(entry for entry in margins if entry[1] < 0.5)
+    assert not tight, f"wall-clock margins tight enough to flake on a loaded host: {tight}"

@@ -108,7 +108,11 @@ class _MlxTestHandler(BaseHTTPRequestHandler):
 
 
 def _start(httpd: ThreadingHTTPServer) -> threading.Thread:
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    # `shutdown()` only sets a flag the serving loop reads on its next poll, so
+    # the poll interval is the per-test teardown cost. The 0.5s default is most
+    # of this module's runtime; 0.01s is still far coarser than any assertion
+    # here depends on.
+    thread = threading.Thread(target=lambda: httpd.serve_forever(poll_interval=0.01), daemon=True)
     thread.start()
     return thread
 
@@ -1117,6 +1121,21 @@ def test_doc_no_longer_lists_mlx_among_hypothetical_adapters():
     )
 
 
+def _inventory_description(section: str, name: str) -> str:
+    """The prose describing `name` in the concrete-adapter inventory.
+
+    Drops the module-path parenthetical that follows the name, then keeps the
+    rest of that entry: text up to the first sentence or list-item terminator,
+    which is a period or semicolon followed by whitespace. A bare name and
+    module path therefore yields `""`. Splitting on the first period instead
+    lands inside `src/praxis_executors/adapters/mlx.py` and comes back
+    non-empty for every entry, describing or not.
+    """
+    tail = section.split(f"`{name}`", 1)[1]
+    tail = re.sub(r"^\s*\(`[^`]+`\)", "", tail, count=1)
+    return re.split(r"[.;]\s", tail, maxsplit=1)[0].strip(" ,")
+
+
 def test_doc_lists_mlx_executor_among_concrete_adapters():
     # Deliberately not pinned to the running adapter count, the list ordering,
     # or the exact surrounding prose. Per
@@ -1126,6 +1145,149 @@ def test_doc_lists_mlx_executor_among_concrete_adapters():
 
     assert "`MlxExecutor`" in section
     assert "src/praxis_executors/adapters/mlx.py" in section
-    description = section.split("`MlxExecutor`", 1)[1].split(".", 1)[0]
-    assert 'auth_transport: "local"' in section.split("`MlxExecutor`", 1)[1]
+    description = _inventory_description(section, "MlxExecutor")
     assert description  # the entry carries a description, not just a bare name
+    # Read from the entry itself, not from the whole rest of the section, where
+    # any other adapter's `auth_transport` would have satisfied it.
+    assert 'auth_transport: "local"' in description
+
+
+# --------------------------------------------------------------------------
+# Repair findings -- one reproduction per review finding on this bundle. Each
+# pins the property the finding said was missing, not the shape of its fix.
+# --------------------------------------------------------------------------
+
+
+def test_classify_kinds_tests_no_needle_subsumed_by_another():
+    """A needle containing another needle can never change the outcome.
+
+    Every id containing `coder` already contains `code`, so a second
+    `"coder" in name` disjunct is dead: it reads as an independent rule that
+    catches ids the first one misses, and there are none. Asserted over the
+    parsed condition rather than over return values because a dead disjunct is
+    by definition invisible from outside the function.
+    """
+    source = _MLX_SOURCE_PATH.read_text(encoding="utf-8")
+    function = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "_classify_kinds"
+    )
+    needles = [
+        node.left.value
+        for node in ast.walk(function)
+        if isinstance(node, ast.Compare)
+        and len(node.ops) == 1
+        and isinstance(node.ops[0], ast.In)
+        and isinstance(node.left, ast.Constant)
+        and isinstance(node.left.value, str)
+    ]
+
+    redundant = sorted(
+        {
+            outer
+            for outer in needles
+            for inner in needles
+            if inner != outer and inner in outer
+        }
+    )
+    assert not redundant, f"needles already implied by a shorter needle: {redundant}"
+
+
+class _RecordingConnection:
+    """Stands in for an in-flight `urlopen` response, recording `.close()`."""
+
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_a_connection_registered_after_cancel_is_closed_not_stored(running_mlx_server):
+    """`cancel()` can land before the worker's `urlopen()` has returned.
+
+    The connection the worker registers a moment later is then closed by
+    nobody: `cancel()` has already drained the list and will not run again.
+    The worker sits on the body for up to `generate_timeout` (120s by default)
+    with `status()` reporting RUNNING throughout. Registration is the last
+    point that can still see the cancellation, so it has to close the
+    connection rather than store it.
+    """
+    server, base_url = running_mlx_server
+    server.responses["/v1/chat/completions"] = (200, _COMPLETION_BODY)
+    server.delays["/v1/chat/completions"] = 0.5
+    executor = MlxExecutor("e1", base_url=base_url)
+
+    handle = executor.launch(_request(model="m", prompt="p"))
+    executor.cancel(handle)
+    late = _RecordingConnection()
+    executor._register_connection(handle.handle_id, late)
+
+    assert late.closed, "a connection registered after cancel() was stored, not closed"
+    assert late not in executor._connections.get(handle.handle_id, [])
+    assert _await_terminal(executor, handle) is ExecutorStatus.CANCELLED
+
+
+def test_the_fake_server_stops_without_paying_the_default_poll_interval():
+    """`serve_forever()`'s default 0.5s poll interval is charged to every test.
+
+    `shutdown()` only sets a flag; the serving loop notices it on its next
+    poll, so a default-interval server costs about half a second to stop. Every
+    test taking `running_mlx_server` pays that once, which was most of this
+    module's runtime. Timed through the module's own `_start`/`_stop` so the
+    fixture itself is what is pinned, not a copy of it.
+    """
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), _MlxTestHandler)
+    httpd.responses = {}
+    httpd.delays = {}
+    httpd.requests = []
+    httpd.received = []
+    thread = _start(httpd)
+
+    started = time.monotonic()
+    _stop(httpd, thread)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 0.25, f"tearing the fake server down took {elapsed:.3f}s"
+
+
+def test_both_v1_models_readers_contain_the_same_decode_failures(monkeypatch):
+    """`capabilities()` and `health()` net the same exceptions around one helper.
+
+    Both wrap the same `_http_get_json(..., "/v1/models", ...)` call, so a
+    `KeyError` one of them contains and the other does not is a disagreement
+    about what a decode can raise. Leaking it costs `capabilities()` regression
+    class #70: `src/praxis_cli/fields.py:26-48` reads a non-`ExecutorError` as a
+    defect in this adapter rather than a problem with the service.
+    """
+
+    def _raise_keyerror(*args, **kwargs):
+        raise KeyError("data")
+
+    monkeypatch.setattr(
+        "praxis_executors.adapters.mlx._http_get_json", _raise_keyerror
+    )
+    executor = MlxExecutor("e1", base_url="http://127.0.0.1:8080")
+
+    assert executor.health() is ExecutorAvailability.DEGRADED
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
+
+
+def test_the_inventory_description_of_a_bare_name_entry_is_empty():
+    """The extraction has to be able to come back empty, or asserting on it proves nothing.
+
+    Splitting the text after the name on its first period lands inside
+    `adapters/mlx.py`, so the result is non-empty even for an entry that is
+    nothing but a name and a module path -- exactly the entry
+    `test_doc_lists_mlx_executor_among_concrete_adapters` exists to reject.
+    """
+    bare = _unwrapped(
+        "Six concrete adapters ship today: `OllamaExecutor`\n"
+        "(`src/praxis_executors/adapters/ollama.py`); and `MlxExecutor`\n"
+        "(`src/praxis_executors/adapters/mlx.py`). None of the six is registered\n"
+        "with an `ExecutorRegistry` by default."
+    )
+
+    assert _inventory_description(bare, "MlxExecutor") == ""

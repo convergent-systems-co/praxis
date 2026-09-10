@@ -161,7 +161,9 @@ def _classify_kinds(model_id: str) -> list[str]:
     """
     kinds: list[str] = []
     name = model_id.lower()
-    if "code" in name or "coder" in name:
+    # `"code"` alone: every id containing `coder` contains `code`, so a second
+    # `"coder"` disjunct could never change the outcome.
+    if "code" in name:
         kinds.append("coding")
     kinds.append("reasoning")
     return kinds
@@ -250,9 +252,11 @@ class MlxExecutor(Executor):
             raise ExecutorError(f"local model server unreachable: {exc}") from exc
         except _MlxHTTPError as exc:
             raise ExecutorError(f"local model server returned an error: {exc}") from exc
-        except (ValueError, TypeError, AttributeError) as exc:
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
             # json.JSONDecodeError and UnicodeDecodeError are both ValueError
-            # subclasses, so a malformed or non-UTF-8 body lands here.
+            # subclasses, so a malformed or non-UTF-8 body lands here. The set
+            # matches `health()`'s below: both wrap the same helper call, so
+            # they must agree on what a decode can raise.
             raise ExecutorError(
                 f"local model server returned an undecodable /v1/models body: {exc}"
             ) from exc
@@ -349,8 +353,24 @@ class MlxExecutor(Executor):
         return ExecutionHandle(handle_id=handle_id)
 
     def _register_connection(self, handle_id: str, response: object) -> None:
+        """Record an in-flight connection, or close it if the handle is cancelled.
+
+        A `cancel()` landing between `launch()` and this call drains the
+        connection list and never runs again, so a connection stored here
+        afterwards would be closed by nobody: the worker would sit on the body
+        for up to `generate_timeout` with `status()` reporting RUNNING.
+        Closing here instead of storing collapses that window. The close
+        happens outside the lock, as `cancel()` does it.
+        """
         with self._lock:
-            self._connections.setdefault(handle_id, []).append(response)
+            cancelled = handle_id in self._cancelled
+            if not cancelled:
+                self._connections.setdefault(handle_id, []).append(response)
+        if cancelled:
+            try:
+                response.close()  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001 -- closing is best-effort
+                pass
 
     def _run_generation(self, handle_id: str, model: str, prompt: str) -> None:
         """Run one chat completion and record exactly one result for `handle_id`.

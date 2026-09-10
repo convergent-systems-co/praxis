@@ -1,0 +1,85 @@
+{
+  "bundle": "b-issue49",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "praxis_executors.telemetry: measurements, candidate config, evaluation record, event document",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/telemetry.py",
+        "tests/test_executor_telemetry.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Registry measures duration with time.monotonic and exposes execute_with_telemetry",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/registry.py",
+        "tests/test_executor_registry_telemetry.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Learning leg: emitted event documents are actually classified by extract_observations",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "tests/test_executor_telemetry_learning.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "No fabricated resource/cost metric, driven through real adapters and doubles",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": [
+        "tests/test_executor_telemetry_no_cost.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "ADR 0002: human-executor boundary decision, linked from docs/policy.md",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "docs/adr/0002-human-executor-boundary.md",
+        "docs/policy.md"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Human decision wiring: explicit grader_kind=human proof record, denial sequence, telemetry",
+      "depends_on": ["T1", "T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/human_decision.py",
+        "src/praxis_executors/policy.py",
+        "src/praxis_contracts/schemas/v1/capability.schema.json",
+        "tests/test_human_executor_decision.py",
+        "tests/test_human_executor_transport.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "docs/eval.md: extend the workload_id citation convention to live executions",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "docs/eval.md"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "docs/executors.md telemetry surface and dependency rule; docs/evidence.md if T6 changed proof-record production",
+      "depends_on": ["T2", "T6"],
+      "kind": "docs",
+      "files": [
+        "docs/executors.md",
+        "docs/evidence.md"
+      ]
+    }
+  ]
+}

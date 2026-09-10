@@ -19,6 +19,8 @@ remaining step is still the caller's responsibility.
 
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass
 from typing import Callable
 
 from praxis_evidence.proof import build_proof_record
@@ -26,10 +28,28 @@ from praxis_evidence.types import proof_record_to_document
 
 from . import matching, policy
 from .interface import Executor, ExecutionRequest, ExecutionResult, ExecutorAvailability, ExecutorStatus
+from .telemetry import (
+    ExecutionTelemetry,
+    build_execution_candidate_config,
+    build_execution_evaluation_record,
+    build_execution_event_document,
+)
 
 _TERMINAL_STATUSES = frozenset(
     {ExecutorStatus.SUCCEEDED, ExecutorStatus.FAILED, ExecutorStatus.CANCELLED}
 )
+
+
+@dataclass(frozen=True)
+class ExecutionOutcome:
+    """All non-persistent records produced for one measured execution."""
+
+    executor_id: str
+    result: ExecutionResult
+    proof_records: list[dict]
+    telemetry: ExecutionTelemetry
+    evaluation_record: object
+    event_document: dict
 
 
 class RegistryError(Exception):
@@ -83,7 +103,7 @@ class ExecutorRegistry:
         is_eligible: Callable[[str], bool] | None = None,
         poll: Callable[[], None] | None = None,
     ) -> ExecutionResult:
-        _, result = self._execute_selected(
+        _, result, _wall_seconds = self._execute_selected(
             requirement, request, is_eligible=is_eligible, poll=poll
         )
         return result
@@ -106,7 +126,7 @@ class ExecutorRegistry:
         `executor_id` this call's own `select()` actually chose -- a caller
         no longer has to re-derive that out of band.
         """
-        executor_id, result = self._execute_selected(
+        executor_id, result, _wall_seconds = self._execute_selected(
             requirement, request, is_eligible=is_eligible, poll=poll
         )
         records = evidence_to_proof_records(
@@ -119,6 +139,77 @@ class ExecutorRegistry:
         )
         return result, records
 
+    def execute_with_telemetry(
+        self,
+        requirement: dict,
+        request: ExecutionRequest,
+        *,
+        run_id: str,
+        graph_version: str,
+        node_id: str,
+        node_kind: str,
+        seq: int,
+        grader_kind: str = "deterministic",
+        repairs: int | None = None,
+        verification_passed: bool | None = None,
+        failure_class: str | None = None,
+        is_eligible: Callable[[str], bool] | None = None,
+        poll: Callable[[], None] | None = None,
+    ) -> ExecutionOutcome:
+        """Execute once and return proof, evaluation, telemetry, and event records.
+
+        `repairs`, `verification_passed`, and `failure_class` are caller-owned
+        observations (from the policy ledger, evidence gate, and failure
+        classifier respectively). This registry imports none of those policy
+        modules and persists none of the returned documents.
+        """
+        executor_id, result, wall_seconds = self._execute_selected(
+            requirement, request, is_eligible=is_eligible, poll=poll
+        )
+        proof_records = evidence_to_proof_records(
+            result.evidence,
+            run_id=run_id,
+            graph_version=graph_version,
+            node_id=node_id,
+            executor_id=executor_id,
+            grader_kind=grader_kind,
+        )
+        model = self._advertised_model(executor_id)
+        telemetry = ExecutionTelemetry(
+            executor_id=executor_id,
+            node_id=node_id,
+            node_kind=node_kind,
+            status=result.status.value,
+            wall_seconds=wall_seconds,
+            model=model,
+            repairs=repairs,
+            verification_passed=verification_passed,
+            failure_class=failure_class,
+        )
+        evaluation_record = build_execution_evaluation_record(telemetry)
+        event_document = build_execution_event_document(
+            telemetry, run_id=run_id, seq=seq
+        )
+        return ExecutionOutcome(
+            executor_id=executor_id,
+            result=result,
+            proof_records=proof_records,
+            telemetry=telemetry,
+            evaluation_record=evaluation_record,
+            event_document=event_document,
+        )
+
+    def _advertised_model(self, executor_id: str) -> str | None:
+        """Read an optional model from the selected executor's advertisement."""
+        advertisement = self._executors[executor_id].capabilities()
+        for capability in advertisement.get("capabilities", []):
+            for satisfied in capability.get("satisfies", []):
+                parameters = satisfied.get("parameters", {})
+                model = parameters.get("model")
+                if isinstance(model, str):
+                    return model
+        return None
+
     def _execute_selected(
         self,
         requirement: dict,
@@ -126,7 +217,7 @@ class ExecutorRegistry:
         *,
         is_eligible: Callable[[str], bool] | None = None,
         poll: Callable[[], None] | None = None,
-    ) -> tuple[str, ExecutionResult]:
+    ) -> tuple[str, ExecutionResult, float]:
         result = self.select(requirement, is_eligible=is_eligible)
         if result.selected is None:
             raise RegistryError(
@@ -135,6 +226,7 @@ class ExecutorRegistry:
 
         executor_id = result.selected.executor_id
         executor = self._executors[executor_id]
+        started_at = time.monotonic()
         handle = executor.launch(request)
 
         while True:
@@ -144,7 +236,11 @@ class ExecutorRegistry:
             if poll is not None:
                 poll()
 
-        return executor_id, executor.result(handle)
+        # Stop at terminal status, before result() may perform a slow read or
+        # decode. A monotonic clock measures elapsed duration without wall-clock
+        # adjustments making the telemetry negative or inflated.
+        wall_seconds = time.monotonic() - started_at
+        return executor_id, executor.result(handle), wall_seconds
 
 
 def evidence_to_proof_records(

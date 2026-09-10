@@ -205,6 +205,45 @@ See [`docs/policy.md`](policy.md) for the broader node/run-level policy system (
 authority, budgets) — in particular, how its `PolicyGate`'s alternate-executor retry decisions
 feed `DenyListPolicy`/`as_eligibility_callable` above.
 
+## `praxis_executors.telemetry`
+
+`src/praxis_executors/telemetry.py` turns one completed executor observation into the existing
+evaluation, evidence, and learning document shapes. `ExecutionTelemetry` carries the executor and
+node identifiers, node kind, status, observed wall time, and optional model, repair,
+verification, human-interrupt, failure-class, and resource measurements.
+
+- `telemetry_measurements` always records observed `wall_seconds` and `success`, and adds optional
+  measurements only when their source observation exists. It never estimates cost, tokens, or an
+  unknown value or unit.
+- `executor_configuration` and `build_execution_candidate_config` identify routing by executor id
+  and, when the advertisement actually publishes one, its model. The model is omitted otherwise;
+  it never leaks into the evaluator id or content-addressed candidate id.
+- `build_execution_evaluation_record` uses the exact graph `node_id` as `workload_id`, following
+  [`docs/eval.md`](eval.md)'s citation convention.
+- `build_execution_event_document` emits the existing `complete` or `fail` event shape. Its
+  payload carries the observed telemetry, including `failure_class` on failures, so the existing
+  [`praxis_learning`](../src/praxis_learning/extraction.py) extractor can classify recurrent
+  failures and successful recovery without a new event schema.
+
+`ExecutorRegistry.execute_with_telemetry` measures from immediately before `launch()` through
+the first terminal `status()` using `time.monotonic()`, then returns proof records, telemetry, an
+evaluation record, and an event document. It does not persist any of them or dispatch into
+`TransitionEngine.apply`; the caller owns that routing, just as it does for
+`execute_with_proof_records`.
+
+The telemetry and human-decision modules may import `praxis_evidence`, `praxis_eval`,
+`praxis_learning`, and `praxis_contracts`, but never `praxis_runtime`. `interface.py` and the
+adapter modules gain no cross-package import.
+
+## Human decisions
+
+Per [`ADR 0002`](adr/0002-human-executor-boundary.md), a human is not registered as an executor.
+`src/praxis_executors/human_decision.py` captures an explicit `pass`, `fail`, or `inconclusive`
+answer as a proof record with `grader_kind="human"`, and puts `escalations` on the shared
+`human_interrupts` telemetry field. Silence, timeout, or absence of an answer produces no proof
+record. A denial uses the existing `PolicyGate` sequence `accept` then `fail`; no runtime
+transition or transport vocabulary is widened.
+
 ## `praxis_executors.registry`
 
 `ExecutorRegistry` (`src/praxis_executors/registry.py`) tracks registered adapters and mediates

@@ -67,6 +67,32 @@ def test_graph_module_docstring_does_not_overstate_requirement_enforcement():
     assert "currently reads or enforces it" in doc
 
 
+def test_graph_module_docstring_does_not_claim_awaiting_human_is_unwired():
+    # Pins acceptance criterion 2 of bundle b-issue60: the recovery-lane paragraph
+    # used to say "None of the three are dispatched work and none are wired into the
+    # task or bundle lanes yet", which is false for `awaiting_human` -- graph.py wires
+    # it to the bundle lane with an on-failure edge from repair_bundle. The "not wired"
+    # claim must therefore name only context_recovery and blocker_recovery.
+    doc = " ".join((development_graph_module.__doc__ or "").split())
+    assert "none are wired into the task or bundle lanes" not in doc
+    assert (
+        "`context_recovery` and `blocker_recovery` are not wired into the task or "
+        "bundle lanes yet" in doc
+    )
+    assert (
+        "`awaiting_human` has one incoming `on-failure` edge from `repair_bundle`" in doc
+    )
+
+    # The docstring's claim is only worth pinning if the edge it describes is real.
+    graph = build_development_graph()
+    assert any(
+        edge.source == "repair_bundle"
+        and edge.target == "awaiting_human"
+        and edge.kind == "on-failure"
+        for edge in graph.edges
+    )
+
+
 def test_development_manifest_declares_required_vocabulary():
     assert DEVELOPMENT_MANIFEST.namespace == "development"
     assert _TEST_PASS in DEVELOPMENT_MANIFEST.declares.proof_types

@@ -132,7 +132,7 @@ def test_graph_section_describes_recovery_retry_edges_as_on_failure() -> None:
     )
     assert "#32" in section, (
         "## Graph section must cross-reference #32, matching the conflict_fn "
-        "wiring-gap paragraph's disclosure register"
+        "wiring paragraph's disclosure register"
     )
 
 

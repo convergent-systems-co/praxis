@@ -1,0 +1,45 @@
+{
+  "bundle": "b-issue60",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Retire the \"wiring-gap\" cross-reference and the \"terminal create_pr\" claim",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/overlays/development.md"]
+    },
+    {
+      "id": "T2",
+      "title": "Stop the graph module docstring claiming all three recovery nodes are unwired",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/overlays/development/graph.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Remove the four surviving topology-only groupings of awaiting_human",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/parity/state-event-migration.md"]
+    },
+    {
+      "id": "T4",
+      "title": "Correct the stale assertion message in the overlay-doc test",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["tests/test_development_overlay_doc.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Whole-suite gate and cross-file consistency check",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "kind": "code",
+      "files": [
+        "docs/overlays/development.md",
+        "docs/parity/state-event-migration.md",
+        "src/overlays/development/graph.py",
+        "tests/test_development_overlay_doc.py"
+      ]
+    }
+  ]
+}

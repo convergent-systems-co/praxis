@@ -32,9 +32,9 @@ A third, recovery lane (`context_recovery`, `blocker_recovery`,
 `awaiting_human`) is present as topology-only placeholders: each has
 `metadata={}`. `context_recovery` and `blocker_recovery` have no edges;
 `awaiting_human` has one incoming `on-failure` edge from `repair_bundle`.
-None of the three are dispatched work and none are wired into the task or
-bundle lanes yet -- see #32 and docs/overlays/development.md for the scoping
-rationale.
+None of the three are dispatched work. `context_recovery` and
+`blocker_recovery` are not wired into the task or bundle lanes yet -- see #32
+and docs/overlays/development.md for the scoping rationale.
 """
 
 from __future__ import annotations

@@ -8,9 +8,13 @@ partial write). The graph's edges play no part in that per-node legality
 check -- they are consulted only afterward, once a transition to
 TERMINAL_SUCCESS or TERMINAL_FAILED is committed, to decide which successor
 cursors to create next. Fan-out edges each create an independent successor
-cursor as soon as their source completes; join edges only create their shared
-successor cursor once every incoming edge's source has reported
-TERMINAL_SUCCESS.
+cursor as soon as their source completes; a join edge creates its shared
+successor cursor only once every "join"-kind incoming edge of that target
+has reported TERMINAL_SUCCESS. Incoming edges of other kinds do not gate
+that join -- each non-on-failure one still creates the target's cursor on
+its own source's success, fan-out-style -- so a target with mixed
+incoming-edge kinds is created by whichever eligible edge fires first, and
+is never created twice.
 An "on-failure" edge fires only when its source reaches TERMINAL_FAILED,
 creating each target's cursor unconditionally (fan-out-style, with no
 join-on-failure equivalent) and never firing on TERMINAL_SUCCESS.
@@ -252,6 +256,9 @@ class TransitionEngine:
             cursors[edge.target] = Cursor(node_id=edge.target, status=NodeStatus.PENDING.value)
 
     def _join_ready(self, target: str, cursors: dict[str, Cursor]) -> bool:
+        # The kind == "join" filter is deliberate (issue #59): only join-kind
+        # incoming edges gate the target, mirroring _check_evidence's
+        # join_sources computation below.
         incoming = [
             edge
             for edge in self._graph.edges

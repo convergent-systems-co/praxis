@@ -1,0 +1,35 @@
+{
+  "bundle": "b-issue42",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Investigate the live Copilot surface and pin the module header",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/adapters/copilot_cli.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "CopilotCliExecutor and its tests",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/adapters/copilot_cli.py",
+        "tests/test_copilot_cli.py",
+        "tests/copilot_doubles.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "docs/executors.md records the shipped Copilot adapter",
+      "depends_on": [],
+      "kind": "docs",
+      "files": [
+        "docs/executors.md",
+        "tests/test_docs_executors_copilot.py"
+      ]
+    }
+  ]
+}

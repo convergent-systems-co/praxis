@@ -248,7 +248,17 @@ class OllamaExecutor(Executor):
             daemon=True,
         )
         self._threads[handle_id] = thread
-        thread.start()
+        try:
+            thread.start()
+        except Exception:
+            # Both entries above were created before the thread existed, so a
+            # failed start (e.g. `RuntimeError: can't start new thread`) would
+            # otherwise abandon them: no worker will ever resolve the handle
+            # and no caller has a handle to reap it with.
+            self._threads.pop(handle_id, None)
+            with self._lock:
+                self._connections.pop(handle_id, None)
+            raise
         return ExecutionHandle(handle_id=handle_id)
 
     def _run_generate(self, handle_id: str, model: str, prompt: str) -> None:
@@ -269,6 +279,13 @@ class OllamaExecutor(Executor):
                 response.close()
             payload = json.loads(raw.decode("utf-8"))
         except Exception as exc:  # noqa: BLE001 -- worker thread must always resolve the handle
+            # Covers `urlopen()` raising before any response was registered
+            # (service down, connection refused, timeout): the inner `finally`
+            # never ran, so the entry `launch()` created would be left behind.
+            # `pop(..., None)` because the inner `finally` may already have
+            # removed it -- the double pop has to be harmless.
+            with self._lock:
+                self._connections.pop(handle_id, None)
             status = ExecutorStatus.CANCELLED if handle_id in self._cancelled else ExecutorStatus.FAILED
             self._results[handle_id] = ExecutionResult(status=status, payload={"error": str(exc)})
             return
@@ -321,3 +338,36 @@ class OllamaExecutor(Executor):
         if thread.is_alive():
             raise ExecutorError("cannot fetch result while execution is still RUNNING")
         return self._results[handle.handle_id]
+
+    def forget(self, handle: ExecutionHandle) -> None:
+        """Evict every per-handle structure for a terminal `handle`.
+
+        Nothing else in this class ever removes an entry, so a long-lived
+        executor accumulates a `Thread` object and a full `ExecutionResult`
+        payload per `launch()` for the life of the process. `forget` is the
+        reaping primitive that bounds that growth; the caller decides when a
+        handle is done being read.
+
+        Removes the `handle_id` from all four of `_threads`, `_results`,
+        `_cancelled`, and `_connections`, after which the handle is unknown to
+        `status()`, `result()`, `cancel()`, and to `forget` itself -- so this
+        is deliberately not idempotent: a second call raises the same
+        `unknown execution handle:` error any other method would.
+
+        Raises `ExecutorError` for an unknown handle, and for one that is still
+        RUNNING. Refusing a live handle matters: `_run_generate` writes
+        `self._results[handle_id]` unconditionally when it finishes, so
+        evicting mid-flight lets the worker re-create the entry after eviction
+        -- the same leak, now with no handle left that could ever reap it.
+        """
+        thread = self._thread_for(handle)  # raises ExecutorError for an unknown handle_id
+        if thread.is_alive():
+            # Refuse before evicting anything, so a rejected call leaves all
+            # four structures exactly as it found them.
+            raise ExecutorError("cannot forget a handle while execution is still RUNNING")
+        handle_id = handle.handle_id
+        with self._lock:
+            self._connections.pop(handle_id, None)
+        self._threads.pop(handle_id, None)
+        self._results.pop(handle_id, None)
+        self._cancelled.discard(handle_id)

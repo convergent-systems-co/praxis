@@ -1,0 +1,13 @@
+{"bundle": "b-issue75",
+ "tasks": [
+   {"id": "T1",
+    "title": "Add OllamaExecutor.forget() and close the early-throw cleanup holes in launch()/_run_generate()",
+    "depends_on": [],
+    "kind": "code",
+    "files": ["src/praxis_executors/adapters/ollama.py"]},
+   {"id": "T2",
+    "title": "Tests for handle reaping, RUNNING refusal, and early-throw cleanup",
+    "depends_on": ["T1"],
+    "kind": "code",
+    "files": ["tests/test_ollama_executor.py"]}
+ ]}

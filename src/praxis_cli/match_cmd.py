@@ -45,18 +45,24 @@ def _print_unsatisfied(unsatisfied: list[matching.UnsatisfiedPromise]) -> None:
 
 
 def _validated_kinds(advertisement: dict) -> list[str]:
-    """The kinds this advertisement satisfies, once every key read below exists.
+    """The kinds this advertisement satisfies, once every key read below exists
+    and is the type its schema promises.
 
     `capability_kinds` reads the ones `capability-advertisement.schema.json`
     requires; `executor_id` is read here because `name_by_advertised_id` and
-    `matching.match` both subscript it unguarded. Both are read under the
-    caller's `MalformedAdvertisement` guard, so an advertisement that answers
-    without answering conformingly costs its own candidate -- as it costs
-    `discover` and `status` a row -- instead of reaching them as a raw
-    `KeyError`. Every failure this raises is that one class, and nothing
-    wider, so a defect in the derivation code itself still surfaces. Kinds
-    first, because a body that is not a mapping at all fails there, with
-    `MalformedAdvertisement` to say so.
+    `matching.match` both subscript it unguarded, the latter into a sort key
+    compared against every other candidate's -- so a present-but-wrongly-typed
+    id (an int, say) does not merely fail to compare meaningfully, it raises
+    `TypeError` out of the sort itself and takes the whole command down, not
+    the one candidate. `fields._as_advertised_string` is the same type check
+    `kind` and `auth_transport` already get for the identical reason; both are
+    read under the caller's `MalformedAdvertisement` guard, so an advertisement
+    that answers without answering conformingly costs its own candidate -- as
+    it costs `discover` and `status` a row -- instead of reaching them as a
+    raw `KeyError` or `TypeError`. Every failure this raises is that one
+    class, and nothing wider, so a defect in the derivation code itself still
+    surfaces. Kinds first, because a body that is not a mapping at all fails
+    there, with `MalformedAdvertisement` to say so.
 
     The kinds come back rather than being derived a second time per candidate:
     the list `--explain` reports a candidate's shortfall against has to be the
@@ -65,6 +71,7 @@ def _validated_kinds(advertisement: dict) -> list[str]:
     kinds = fields.capability_kinds(advertisement)
     if "executor_id" not in advertisement:
         raise fields.malformed_advertisement("executor_id")
+    fields._as_advertised_string(advertisement["executor_id"], "executor_id")
     return kinds
 
 

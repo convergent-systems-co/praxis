@@ -178,6 +178,32 @@ def test_run_match_survives_a_capabilities_call_that_returns_a_malformed_adverti
         assert capsys.readouterr().out.splitlines() == ["selected: executor-good"]
 
 
+def test_run_match_survives_a_non_string_executor_id(monkeypatch, capsys):
+    # A present-but-wrongly-typed executor_id (an int here) reaches
+    # matching.match's sort key, which compares it against every other
+    # candidate's: with no preferred kinds every candidate ties on the first
+    # two tuple elements, so the id is always compared, and a str-vs-int
+    # comparison raises TypeError out of the sort itself -- taking the whole
+    # command down instead of costing the one non-conforming candidate.
+    executor = _FakeExecutor("executor-malformed")
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": 7,
+            "capabilities": [_capability("kind-a", "local")],
+        },
+    )
+
+    exit_code = run_match(
+        {**_adapters(), "executor-malformed": executor}, capabilities=["kind-a"], explain=False
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.splitlines() == ["selected: executor-good"]
+
+
 def test_explain_reports_a_malformed_advertisement_as_unreadable(monkeypatch, capsys):
     executor = _FakeExecutor("executor-malformed")
     monkeypatch.setattr(

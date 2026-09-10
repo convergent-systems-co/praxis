@@ -304,7 +304,7 @@ def test_status_result_cancel_each_raise_executor_error_for_unknown_handle():
 # Credential safety (Clarified AC 7)
 
 
-def test_result_redacts_credential_shaped_secret_from_evidence_and_payload():
+def test_result_redacts_credential_shaped_secret_from_payload():
     process = _mock_process(
         returncode=0,
         stdout=f"...{FAKE_SECRET}...",
@@ -322,17 +322,17 @@ def test_result_redacts_credential_shaped_secret_from_evidence_and_payload():
         handle = executor.launch(request)
         result = executor.result(handle)
 
-    assert FAKE_SECRET not in str(result.evidence)
-    assert FAKE_SECRET not in result.payload["stdout"]
-    assert FAKE_SECRET not in result.payload["stderr"]
+    assert FAKE_SECRET not in str(result.payload)
+    assert result.payload["credentials-redacted"] is True
 
 
-def test_launch_failure_redacts_credential_shaped_secret_from_error_message():
+@pytest.mark.parametrize("secret", [FAKE_SECRET, "sk-12345678901234567890"])
+def test_launch_failure_redacts_credential_shaped_secret_from_error_message(secret):
     with (
         patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
         patch(
             "praxis_executors.adapters.claude_cli.subprocess.Popen",
-            side_effect=OSError(f"launch failed: {FAKE_SECRET}"),
+            side_effect=OSError(f"launch failed: {secret}"),
         ),
     ):
         executor = _executor()
@@ -344,7 +344,7 @@ def test_launch_failure_redacts_credential_shaped_secret_from_error_message():
         with pytest.raises(ExecutorError) as exc_info:
             executor.launch(request)
 
-    assert FAKE_SECRET not in str(exc_info.value)
+    assert secret not in str(exc_info.value)
 
 
 # Environment sanitization (#72)

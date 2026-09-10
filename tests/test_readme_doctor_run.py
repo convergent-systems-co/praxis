@@ -132,6 +132,15 @@ def _sentences(text: str) -> list[str]:
     return re.split(r"(?<=[.!?])\s+", text)
 
 
+def _clauses(sentence: str) -> list[str]:
+    """`sentence` split into clauses on `,`/`;`/`:`, so a check can be scoped to
+    the clause that carries its claim instead of to every word in the sentence.
+    A sentence that states two constraints joined by a comma otherwise lets the
+    first one supply the words the second one is being searched for.
+    """
+    return re.split(r"[,;:]", sentence)
+
+
 def _clause(sentence: str, start: int, end: int | None) -> str:
     """The clause of `sentence` beginning at `start`, ending at `end` or at the
     next `;`/`:` -- so a rule stated as "exits 0 when X and exits 1 when Y" can be
@@ -431,6 +440,38 @@ def test_run_documents_that_explicit_selection_is_still_constrained() -> None:
         "must still satisfy the node's requirement, and that the node is "
         "refused when it does not (criterion 18)"
     )
+
+
+def test_run_documents_its_own_exit_code_direction() -> None:
+    rules = [
+        (sentence, EXIT_0.search(sentence), EXIT_NONZERO.search(sentence))
+        for sentence in _sentences(_prose_only(_run_docs()))
+    ]
+    rules = [
+        (sentence, zero.start(), nonzero.start())
+        for sentence, zero, nonzero in rules
+        if zero and nonzero
+    ]
+    assert rules, (
+        "`praxis run`'s documentation must state in one sentence that it exits "
+        "0 once every node reaches a terminal state and nonzero as soon as a "
+        "node fails closed"
+    )
+    for sentence, zero_at, nonzero_at in rules:
+        ok_clause = _clause(
+            sentence, zero_at, nonzero_at if nonzero_at > zero_at else None
+        )
+        fail_clause = _clause(
+            sentence, nonzero_at, zero_at if zero_at > nonzero_at else None
+        )
+        assert "fail" in fail_clause.lower(), (
+            "the nonzero exit must be the one attached to a node failing "
+            f"closed; the nonzero clause reads {fail_clause!r}"
+        )
+        assert "fail" not in ok_clause.lower(), (
+            "exit 0 must be attached to completion, not to a node failing "
+            f"closed; the exit-0 clause reads {ok_clause!r}"
+        )
 
 
 def test_run_documents_the_run_dir_contract() -> None:

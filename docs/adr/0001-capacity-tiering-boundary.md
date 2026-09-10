@@ -33,17 +33,19 @@ bundle," tracking only retry and repair counts (`EffectiveBudget.max_retries`,
 `max_repairs`, plus optional `max_cost`/`max_time_seconds` ceilings a node can tighten
 but never loosen). It carries no `tool_call`/`turn`/`result` signal, no wall-clock
 `hours` dimension, and nothing survives past the lifetime of one in-process object.
-`docs/policy.md` lines 203-207 name this directly as a known, accepted gap: "`BudgetLedger`'s
-in-memory-only persistence is a follow-up integration seam" left for "a future
-overlay/integration layer to reconcile," not a defect to fix inside this module's
+`docs/policy.md`'s "`BudgetLedger`'s in-memory-only persistence is a follow-up
+integration seam." bullet names this directly as a known, accepted gap, and
+`src/praxis_policy/budgets.py`'s module docstring leaves it for "a future
+overlay/integration layer to reconcile," not as a defect to fix inside this module's
 existing contract.
 
 The other place tiering could attach is `src/praxis_runtime/transitions.py`. Its
-`NodeStatus.HANDOFF` (line 71) exists today only as one more enum member, and its
-entry in the transition table (line 89, `HANDOFF: {"accept": RUNNING}`) is a bare pause
-state with exactly one outbound edge back to `RUNNING`. There is no threshold logic,
-no signal counting, and no wall-clock dimension anywhere near it — `TransitionEngine`
-treats `HANDOFF` as an opaque pause a caller enters and later accepts out of, nothing more.
+`NodeStatus.HANDOFF` member exists today only as one more enum member, and its row in
+the module-level `_TRANSITIONS` table (`NodeStatus.HANDOFF: {"accept": NodeStatus.RUNNING}`)
+is a bare pause state with exactly one outbound edge back to `RUNNING`. There is no
+threshold logic, no signal counting, and no wall-clock dimension anywhere near it —
+`TransitionEngine` treats `HANDOFF` as an opaque pause a caller enters and later accepts
+out of, nothing more.
 
 `docs/overlays/development-compat.md`'s "What is not mapped" section is explicit that
 `runtime/checkpoint.py` (run-state checkpointing), `runtime/schedule.py` (task
@@ -79,16 +81,17 @@ therefore no Praxis-side orchestrator today that a tiering mechanism would even 
    `develop`-specific, and give `NodeStatus.HANDOFF` real tier-driven behavior in
    `TransitionEngine`. This would let any future Praxis-native orchestrator (not just
    `develop`) reuse the same tiering primitive instead of reinventing it, and it would
-   close the gap `docs/policy.md` lines 203-207 already flags as a "follow-up
-   integration seam" in the same change that adds tiering.
+   close the gap `docs/policy.md`'s "`BudgetLedger`'s in-memory-only persistence is a
+   follow-up integration seam." bullet already flags, in the same change that adds
+   tiering.
 
 2. **Leave capacity tiering permanently skill-side**, layered on `TransitionEngine`'s
    existing bare `NodeStatus.HANDOFF`. Praxis exposes only the `HANDOFF` status and
-   pause-state semantics it already has (line 89's `{"accept": RUNNING}` edge); the
-   threshold logic, signal counting, and handoff-file rendering (`CAPACITY_THRESHOLDS`,
-   `capacity_record()`, `handoff_markdown()`) stay exactly where `checkpoint.py`
-   already implements them, cross-process and persisted, and Praxis core takes on no
-   new domain concept.
+   pause-state semantics it already has (its `_TRANSITIONS` row's
+   `{"accept": NodeStatus.RUNNING}` edge); the threshold logic, signal counting, and
+   handoff-file rendering (`CAPACITY_THRESHOLDS`, `capacity_record()`,
+   `handoff_markdown()`) stay exactly where `checkpoint.py` already implements them,
+   cross-process and persisted, and Praxis core takes on no new domain concept.
 
 ## Decision
 
@@ -117,7 +120,8 @@ bullet describe it as a deliberately narrow, domain-agnostic primitive.
 ## Consequences
 
 Under this decision, Praxis core stays simpler and does not improve its own persistence
-story for `docs/policy.md` lines 203-207's `BudgetLedger` seam as a side effect of an
+story for the `BudgetLedger` seam `docs/policy.md`'s "`BudgetLedger`'s in-memory-only
+persistence is a follow-up integration seam." bullet names as a side effect of an
 unrelated feature: `NodeStatus.HANDOFF` remains a one-edge pause state, `budgets.py`
 remains in-memory retry/repair counting only, and no new signal vocabulary or
 threshold schema is added to `praxis_policy` or `praxis_runtime.transitions` — a real

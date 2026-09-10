@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 
+import pytest
 from conftest import _undecodable_output_error
 
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
@@ -18,10 +19,12 @@ from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
 
 from praxis_cli.fields import (
+    MalformedAdvertisement,
     auth_transports,
     authenticated_field,
     capability_kinds,
     installed_field,
+    malformed_advertisement,
     render_cell,
     status_field,
     version_field,
@@ -328,6 +331,20 @@ def test_authenticated_field_fake_is_na():
     assert authenticated_field(_fake(), installed="n/a (built-in)") == "n/a"
 
 
+# malformed_advertisement() -- the wording every command prints verbatim
+
+
+def test_the_missing_key_wording_is_part_of_this_modules_public_surface():
+    # `match_cmd` reads one key of an advertisement itself, before handing the
+    # rest to `capability_kinds`, and reports a missing one in exactly these
+    # words. It is the only caller of this wording outside this module, and it
+    # reached it through a private name to get there.
+    error = malformed_advertisement("executor_id")
+
+    assert isinstance(error, MalformedAdvertisement)
+    assert str(error) == "advertisement is missing required key 'executor_id'"
+
+
 # capability_kinds()
 
 
@@ -354,6 +371,22 @@ def test_capability_kinds_dedups_preserving_first_seen_order():
     advertisement = _advertisement_with_duplicates()
 
     assert capability_kinds(advertisement) == ["coding", "reasoning", "tools"]
+
+
+def test_capability_kinds_reports_a_capability_that_is_not_an_object():
+    # A missing key is not the only way an adapter answers non-conformingly:
+    # `capabilities` may come back holding something that is not a capability
+    # at all, which reaches this function as a `TypeError`. Both are the
+    # adapter's fault, so both leave through the same exception -- otherwise a
+    # caller that guards only its own reading of an advertisement loses the
+    # whole report to one adapter's badly shaped body.
+    with pytest.raises(MalformedAdvertisement):
+        capability_kinds({"spec_version": "1.0.0", "capabilities": ["not-an-object"]})
+
+
+def test_capability_kinds_reports_a_capabilities_value_that_is_not_a_list():
+    with pytest.raises(MalformedAdvertisement):
+        capability_kinds({"spec_version": "1.0.0", "capabilities": 3})
 
 
 # auth_transports()
@@ -387,6 +420,14 @@ def _partial_transport_advertisement() -> dict:
 
 def test_auth_transports_skips_a_capability_that_names_no_transport():
     assert auth_transports(_partial_transport_advertisement()) == ["local"]
+
+
+def test_auth_transports_reports_a_capability_that_is_not_an_object():
+    # The same non-conforming body `capability_kinds` reports, reaching this
+    # function as an `AttributeError` instead, because the capability is
+    # `.get()`-ed rather than subscripted. It leaves as the same exception.
+    with pytest.raises(MalformedAdvertisement):
+        auth_transports({"spec_version": "1.0.0", "capabilities": ["not-an-object"]})
 
 
 def test_auth_transports_is_empty_when_no_capability_names_a_transport():

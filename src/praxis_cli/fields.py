@@ -63,16 +63,44 @@ class MalformedAdvertisement(ValueError):
     `note_probe_failure` logs it with its type, because an adapter answering
     non-conformingly is its own fault and not an outage in the service it
     speaks to.
+
+    It is also the only thing the readers below raise, which is what lets a
+    command guard its own reading of an advertisement on this class alone. The
+    two are worth keeping apart: an adapter that answers non-conformingly costs
+    one row, while a `TypeError` from a command's own derivation code is a
+    defect in the CLI, and reporting that as `unavailable (<reason>)` blames an
+    adapter for it and logs it as more likely a fault in that adapter.
     """
 
 
-def _malformed(exc: KeyError) -> MalformedAdvertisement:
-    """The `MalformedAdvertisement` for a missing-key lookup, worded once.
+def malformed_advertisement(key: str) -> MalformedAdvertisement:
+    """The `MalformedAdvertisement` for a missing required key, worded once.
 
-    `KeyError`'s own message is the bare key, which reads as nothing in a
+    A `KeyError`'s own message is the bare key, which reads as nothing in a
     report cell -- the caller prints this reason verbatim.
+
+    Public because `match` checks one key of an advertisement itself, before
+    handing the rest here: `executor_id`, which `matching.match` subscripts
+    unguarded, so a missing one fails inside `match`'s own probe guard rather
+    than deep inside the matcher. It reports that in these words, and a caller
+    outside this module should not need a private name to say what this module
+    already says.
     """
-    return MalformedAdvertisement(f"advertisement is missing required key {exc}")
+    return MalformedAdvertisement(f"advertisement is missing required key '{key}'")
+
+
+def _unreadable_advertisement(exc: BaseException) -> MalformedAdvertisement:
+    """The `MalformedAdvertisement` for an advertisement whose shape is wrong.
+
+    A missing key is not the only way an adapter answers non-conformingly: a
+    `capabilities` that is not a list, or a list holding something that is not
+    a capability, reaches the readers below as a `TypeError` or an
+    `AttributeError`. Both are the adapter's doing exactly as a missing key is,
+    so both leave as the same exception -- which is what lets a caller guard
+    its own reading of an advertisement narrowly, without a bug in that
+    reading being reported as the adapter's fault.
+    """
+    return MalformedAdvertisement(f"advertisement is not shaped as its schema describes ({exc})")
 
 
 def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None:
@@ -106,6 +134,23 @@ def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> No
     )
 
 
+def unavailable_cells(executor: Executor, probe: str, exc: BaseException) -> tuple[str, str]:
+    """The `auth_transport` and `capabilities` cells a failed probe leaves behind.
+
+    Criterion 5's own wording for the reason cell (`unavailable (<reason>)`),
+    and `UNAVAILABLE` rather than an empty transport list -- empty is what a
+    conforming advertisement naming no transport already means. Spelled here so
+    `discover` and `status` cannot word the same failure two different ways.
+
+    Records the failure through `note_probe_failure` on the way: degrading a
+    row and saying why it degraded are one step, and a caller that did the
+    first without the second would report a fault in an adapter as an outage in
+    the service it speaks to with nothing anywhere to tell them apart.
+    """
+    note_probe_failure(executor, probe, exc)
+    return UNAVAILABLE, f"{UNAVAILABLE} ({exc})"
+
+
 def _advertisement_answers_for_health(executor: Executor) -> bool:
     """Does this adapter's advertisement already carry its availability verdict?
 
@@ -121,6 +166,23 @@ def _advertisement_answers_for_health(executor: Executor) -> bool:
     thing that can speak for it. Both the `installed` cell and the `status`
     cell read this one predicate, so a fifth adapter with the same property is
     one edit rather than two.
+
+    What the substitution buys, and what it does not, is this predicate's
+    subject too -- `discover` and `status` both order their probe around it and
+    would otherwise each explain it. Probing the advertisement first and
+    handing it to the field function is what makes the substitution possible at
+    all: an adapter whose `.capabilities()` and `.health()` hit the same
+    endpoint is asked once rather than waited on twice at its own timeout.
+
+    That saving is the success path only. A failed probe leaves no
+    advertisement to stand in, so the field function still asks `health()` -- a
+    second round trip to the same endpoint, at the adapter's full timeout, for
+    exactly the adapter that just failed to answer. The cost is accepted
+    deliberately: a failed advertisement probe is not an availability verdict
+    (reachable but erroring and reachable but empty both fail it, and both are
+    `degraded`), so `health()` is still the only thing that can fill the cell
+    in, and a row that names the verdict beats one that says only that the
+    status is unknown.
     """
     return isinstance(executor, OllamaExecutor)
 
@@ -240,8 +302,9 @@ def capability_kinds(advertisement: dict) -> list[str]:
     """Every kind the advertisement's capabilities satisfy, first-seen order, deduped.
 
     Raises `MalformedAdvertisement` for an advertisement missing a key its
-    schema requires, so a caller reading it inside its probe guard degrades one
-    row rather than taking a whole command down for one non-conforming adapter.
+    schema requires, and for one shaped in a way that schema does not describe
+    at all, so a caller guarding this read degrades one row rather than taking
+    a whole command down for one non-conforming adapter.
     """
     kinds: list[str] = []
     try:
@@ -251,7 +314,9 @@ def capability_kinds(advertisement: dict) -> list[str]:
                 if kind not in kinds:
                     kinds.append(kind)
     except KeyError as exc:
-        raise _malformed(exc) from exc
+        raise malformed_advertisement(exc.args[0]) from exc
+    except (TypeError, AttributeError) as exc:
+        raise _unreadable_advertisement(exc) from exc
     return kinds
 
 
@@ -265,16 +330,18 @@ def auth_transports(advertisement: dict) -> list[str]:
     class, and the same `.get()` `AuthTransportPolicy` already reads it with.
 
     The `capabilities` list itself is required, so its absence is a malformed
-    advertisement rather than an empty one, reported as `capability_kinds`
-    reports it.
+    advertisement rather than an empty one -- as is a capability that is not an
+    object, which has no `.get()` to skip a missing transport with. Both are
+    reported as `capability_kinds` reports them.
     """
     transports: list[str] = []
     try:
-        capabilities = advertisement["capabilities"]
+        for capability in advertisement["capabilities"]:
+            transport = capability.get("auth_transport")
+            if transport is not None and transport not in transports:
+                transports.append(transport)
     except KeyError as exc:
-        raise _malformed(exc) from exc
-    for capability in capabilities:
-        transport = capability.get("auth_transport")
-        if transport is not None and transport not in transports:
-            transports.append(transport)
+        raise malformed_advertisement(exc.args[0]) from exc
+    except (TypeError, AttributeError) as exc:
+        raise _unreadable_advertisement(exc) from exc
     return transports

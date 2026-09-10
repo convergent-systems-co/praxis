@@ -44,9 +44,32 @@ def _print_unsatisfied(unsatisfied: list[matching.UnsatisfiedPromise]) -> None:
         print(_format_reason(entry))
 
 
+def _validated_kinds(advertisement: dict) -> list[str]:
+    """The kinds this advertisement satisfies, once every key read below exists.
+
+    `capability_kinds` reads the ones `capability-advertisement.schema.json`
+    requires; `executor_id` is read here because `name_by_advertised_id` and
+    `matching.match` both subscript it unguarded. Both are read while the
+    caller's probe guard is still up, so an advertisement that answers without
+    answering conformingly costs its own candidate -- as it costs `discover`
+    and `status` a row -- instead of reaching them as a raw `KeyError`, which
+    that guard does not catch. Kinds first, because a body that is not a
+    mapping at all fails there, with `MalformedAdvertisement` to say so.
+
+    The kinds come back rather than being derived a second time per candidate:
+    the list `--explain` reports a candidate's shortfall against has to be the
+    one the candidate was admitted on.
+    """
+    kinds = fields.capability_kinds(advertisement)
+    if "executor_id" not in advertisement:
+        raise fields.malformed_advertisement("executor_id")
+    return kinds
+
+
 def _candidate_verdict(
     requirement: dict,
     advertisement: dict,
+    advertised_kinds: list[str],
     is_eligible: Callable[[str], bool],
 ) -> tuple[bool, str]:
     """This one candidate's eligibility, and why it was not ranked.
@@ -71,26 +94,23 @@ def _candidate_verdict(
     # the other required kinds went missing. Only the kinds this
     # advertisement genuinely does not carry belong in a candidate-scoped
     # line, so the covered ones are dropped here.
-    advertised_kinds = set(fields.capability_kinds(advertisement))
+    covered = set(advertised_kinds)
     excluded_kinds = [entry.kind for entry in result.unsatisfied if entry.policy_excluded]
     unmet_kinds = [
         entry.kind
         for entry in result.unsatisfied
-        if not entry.policy_excluded and entry.kind not in advertised_kinds
+        if not entry.policy_excluded and entry.kind not in covered
     ]
 
     if eligible:
         if not unmet_kinds:
-            # An eligible candidate that misses no required kind ranks on its
-            # own, so the full run dropped it for a reason this re-run cannot
-            # reproduce: `match` and the policy both key a candidate by
-            # advertised id and resolve a duplicate last-wins, which leaves
-            # every earlier advertisement of that id unjudged. Naming the
-            # collision beats a kind list with nothing in it.
-            return eligible, (
-                f"another adapter advertises the same executor id "
-                f"({advertisement['executor_id']}); that advertisement was the one ranked"
-            )
+            # Not reachable from `run_match`: an eligible candidate that misses
+            # no required kind ranks on its own, and the one case where the
+            # full run drops such a candidate -- a duplicate advertised id,
+            # which `match` and the policy both resolve last-wins -- is
+            # answered before this function is asked. A sentence rather than a
+            # kind list with nothing in it, for a caller that reaches it anyway.
+            return eligible, "unranked, and a re-run over this candidate alone gives no reason why"
         # Otherwise an eligible candidate is unranked only for kinds it does not
         # cover: `match` marks nothing `policy_excluded` when the single
         # advertisement it ran over was itself eligible.
@@ -121,6 +141,10 @@ def run_match(
     # `executor_id`. Every lookup below goes through the latter, every printed
     # name through the former.
     gathered: list[tuple[str, dict]] = []
+    # Derived once, in the gather loop, and read again by `_candidate_verdict`
+    # below: the kinds a candidate is judged to have fallen short of are the
+    # ones it was admitted on.
+    kinds_by_name: dict[str, list[str]] = {}
     # An adapter that could not be asked is not a candidate `match` can rank,
     # but dropping it silently leaves a user unable to tell it was considered
     # at all -- `--explain` reports it below, the way `discover` and `status`
@@ -131,22 +155,13 @@ def run_match(
     for name, executor in adapters.items():
         try:
             advertisement = executor.capabilities()
-            # Read here the same keys `name_by_advertised_id` below and
-            # `matching.match` internally subscript unguarded, so an
-            # advertisement that answers but is missing one of them fails
-            # inside this probe guard -- the same one `discover`/`status`
-            # degrade a row on -- rather than as a raw `KeyError` surfacing
-            # from the dict comprehension or from deep inside the matcher.
-            try:
-                advertisement["executor_id"]
-            except KeyError as exc:
-                raise fields._malformed(exc) from exc
-            fields.capability_kinds(advertisement)
+            kinds = _validated_kinds(advertisement)
         except fields.PROBE_FAILED as exc:
             fields.note_probe_failure(executor, "capabilities", exc)
             unreadable[name] = str(exc)
             continue
         gathered.append((name, advertisement))
+        kinds_by_name[name] = kinds
 
     advertisements = [advertisement for _, advertisement in gathered]
     # Last adapter wins if two advertise the same id, because that is how both
@@ -192,18 +207,27 @@ def run_match(
                 continue
             advertisement = advertisement_by_name[name]
             executor_id = advertisement["executor_id"]
-            # A rank belongs to the adapter whose advertisement was the one
-            # judged, resolved last-wins exactly as `name_by_advertised_id` is
-            # and for the same reason: `match` and the policy both key a
-            # candidate by advertised id. An earlier adapter sharing that id had
-            # its own advertisement -- and its own auth transport -- read by
-            # neither, so crediting it here reported an unsafe-by-default
-            # transport as an eligible, ranked candidate. It falls through to
-            # `_candidate_verdict`, which names the collision instead.
-            if executor_id in rank_by_id and name_by_advertised_id[executor_id] == name:
+            if name_by_advertised_id[executor_id] != name:
+                # A duplicate advertised id is resolved last-wins by `match` and
+                # by the policy alike, both keying a candidate by that id, so
+                # this adapter's own advertisement -- and its own auth transport
+                # -- was read by neither. `eligible=unknown` for the same reason
+                # an unreadable advertisement gets it: the only verdict on file
+                # answers for the other adapter's advertisement, and reporting
+                # it here would credit this one with an eligibility the policy
+                # never judged, or with the other's rank.
+                print(
+                    f"{name}: eligible=unknown reason=another adapter advertises "
+                    f"the same executor id ({executor_id}); that advertisement "
+                    f"was the one judged"
+                )
+                continue
+            if executor_id in rank_by_id:
                 print(f"{name}: eligible=yes score={rank_by_id[executor_id]}")
                 continue
-            eligible, reason = _candidate_verdict(requirement, advertisement, is_eligible)
+            eligible, reason = _candidate_verdict(
+                requirement, advertisement, kinds_by_name[name], is_eligible
+            )
             print(f"{name}: eligible={'yes' if eligible else 'no'} reason={reason}")
 
     return 0

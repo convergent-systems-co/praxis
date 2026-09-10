@@ -26,6 +26,7 @@ import json
 import logging
 
 import jsonschema
+import pytest
 from conftest import _MALFORMED_ADVERTISEMENTS, _FakeExecutor, _json_decode_error
 
 from praxis_cli.status_cmd import (
@@ -290,6 +291,43 @@ def test_build_status_rows_degrades_a_row_whose_returned_advertisement_is_malfor
         assert rows[0]["auth_transport"] == "unavailable"
         assert rows[0]["capabilities"].startswith("unavailable (")
         assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_status_rows_degrades_a_row_whose_capability_entry_is_not_an_object(monkeypatch):
+    # An advertisement can be non-conforming in a way no missing key describes:
+    # `capabilities` holding something that is not a capability. That is still
+    # the adapter answering without answering, so it costs its own row.
+    executor = _FakeExecutor("executor-shape", health=ExecutorAvailability.AVAILABLE)
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-shape",
+            "capabilities": ["not-an-object"],
+        },
+    )
+
+    rows = build_status_rows({"executor-shape": executor, "executor-good": _available()})
+
+    assert rows[0]["auth_transport"] == "unavailable"
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_status_rows_lets_a_defect_in_the_clis_own_derivation_surface(monkeypatch):
+    # The probe guard exists for an adapter that could not be asked. It used to
+    # wrap this module's own reading of the advertisement too, so a bug in that
+    # reading came out as `unavailable (...)` -- reported against the adapter,
+    # and logged as more likely a fault in it. A defect here is this module's,
+    # and it has to be visible as one.
+    def _cli_side_defect(_advertisement):
+        raise TypeError("sequence item 0: expected str instance, int found")
+
+    monkeypatch.setattr("praxis_cli.status_cmd.auth_transports", _cli_side_defect)
+
+    with pytest.raises(TypeError):
+        build_status_rows({"executor-good": _available()})
 
 
 def test_a_malformed_advertisement_is_logged_as_a_fault_not_an_outage(monkeypatch, caplog):

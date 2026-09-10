@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 
+import pytest
 from conftest import (
     _MALFORMED_ADVERTISEMENTS,
     _FakeExecutor,
@@ -312,6 +313,45 @@ def test_build_discover_rows_degrades_a_row_whose_returned_advertisement_is_malf
         assert rows[0]["auth_transport"] == "unavailable"
         assert rows[0]["capabilities"].startswith("unavailable (")
         assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_discover_rows_degrades_a_row_whose_capability_entry_is_not_an_object(monkeypatch):
+    # An advertisement can be non-conforming in a way no missing key describes:
+    # `capabilities` holding something that is not a capability. That is still
+    # the adapter answering without answering, so it costs its own row.
+    executor = _succeeding("executor-shape")
+    monkeypatch.setattr(
+        executor,
+        "capabilities",
+        lambda: {
+            "spec_version": _SPEC_VERSION,
+            "executor_id": "executor-shape",
+            "capabilities": ["not-an-object"],
+        },
+    )
+
+    rows = build_discover_rows(
+        {"executor-shape": executor, "executor-fake-good": _succeeding()}
+    )
+
+    assert rows[0]["auth_transport"] == "unavailable"
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert rows[1]["capabilities"] == ["coding", "reasoning"]
+
+
+def test_build_discover_rows_lets_a_defect_in_the_clis_own_derivation_surface(monkeypatch):
+    # The probe guard exists for an adapter that could not be asked. It used to
+    # wrap this module's own reading of the advertisement too, so a bug in that
+    # reading came out as `unavailable (...)` -- reported against the adapter,
+    # and logged as more likely a fault in it. A defect here is this module's,
+    # and it has to be visible as one.
+    def _cli_side_defect(_advertisement):
+        raise TypeError("sequence item 0: expected str instance, int found")
+
+    monkeypatch.setattr("praxis_cli.discover_cmd.auth_transports", _cli_side_defect)
+
+    with pytest.raises(TypeError):
+        build_discover_rows({"executor-fake-good": _succeeding()})
 
 
 # probe-failure logging -- the same record `status` and `match` make

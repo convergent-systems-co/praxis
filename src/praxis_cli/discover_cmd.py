@@ -6,13 +6,13 @@ from typing import Mapping
 
 from praxis_cli.fields import (
     PROBE_FAILED,
-    UNAVAILABLE,
+    MalformedAdvertisement,
     auth_transports,
     authenticated_field,
     capability_kinds,
     installed_field,
-    note_probe_failure,
     render_cell,
+    unavailable_cells,
     version_field,
 )
 from praxis_executors.interface import Executor
@@ -32,47 +32,38 @@ def build_discover_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     """One row per adapter: the four fields criterion 5 names, plus the
     `auth_transport` that criterion names alongside the capability kinds.
 
-    Matches `status_cmd`'s row contract: a failed `.capabilities()` probe
-    states its reason in the `capabilities` cell, in criterion 5's own wording
-    (`unavailable (<reason>)`), and marks `auth_transport` unavailable rather
-    than empty -- empty is what a conforming advertisement that names no
-    transport already means.
+    A failed `.capabilities()` probe degrades this row to the cells
+    `fields.unavailable_cells` words, the row contract `status` shares.
 
-    The advertisement is probed first and then handed to `installed_field`, so
-    an adapter whose `.capabilities()` and `.health()` hit the same endpoint
-    is asked once rather than waited on twice at its own timeout.
-
-    That saving is the success path only. A failed probe leaves no advertisement
-    to stand in, so `installed_field` still asks `health()` -- a second round
-    trip to the same endpoint, at the adapter's full timeout, for exactly the
-    adapter that just failed to answer. The cost is accepted deliberately: a
-    failed advertisement probe does not say whether the service is down ("no")
-    or up but empty ("yes"), so `health()` is still the only thing that can
-    fill the cell in.
+    The advertisement is probed first and then handed to `installed_field`; why
+    that ordering saves a round trip, and why a failed probe still costs one,
+    is `praxis_cli.fields`' subject, where the substitution predicate lives.
 
     A failed probe is caught on `fields.PROBE_FAILED`, the one set `status` and
     `match` also degrade a row on, so the three commands cannot disagree about
-    which failure is survivable. The advertisement is read inside that guard,
-    not after it: an adapter that answers with an advertisement missing a key
-    its schema requires has failed this probe just as much as one that raised,
-    and a report is no place to learn that from a traceback.
+    which failure is survivable. Reading the advertisement afterwards is
+    guarded separately, on `fields.MalformedAdvertisement`, which is the class
+    that says why the two are worth keeping apart.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
         try:
             advertisement = executor.capabilities()
-            auth_transport = ",".join(auth_transports(advertisement))
-            capabilities = capability_kinds(advertisement)
         except PROBE_FAILED as exc:
             # One adapter whose backing CLI or service is absent must not take
             # the whole report down -- its row degrades, the rest still print.
-            # Recorded as `status` and `match` record the same probe's failure:
-            # the row reads `unavailable (...)` for an outage and for a fault
-            # inside the adapter alike, and only the type tells them apart.
-            note_probe_failure(executor, "capabilities", exc)
             advertisement = None
-            auth_transport = UNAVAILABLE
-            capabilities = f"{UNAVAILABLE} ({exc})"
+            auth_transport, capabilities = unavailable_cells(executor, "capabilities", exc)
+        else:
+            try:
+                auth_transport = ",".join(auth_transports(advertisement))
+                capabilities = capability_kinds(advertisement)
+            except MalformedAdvertisement as exc:
+                # The advertisement is dropped with the cells: it answered, but
+                # not conformingly, so it is no evidence about the backing
+                # service and `installed_field` still has to ask `health()`.
+                advertisement = None
+                auth_transport, capabilities = unavailable_cells(executor, "capabilities", exc)
         installed = installed_field(executor, advertisement)
         rows.append(
             {

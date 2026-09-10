@@ -18,6 +18,7 @@ import logging
 
 from conftest import _MALFORMED_ADVERTISEMENTS, _FakeExecutor, _json_decode_error
 
+from praxis_cli import fields
 from praxis_cli.match_cmd import _format_reason, build_requirement, run_match
 from praxis_executors.interface import Executor, ExecutorError
 from praxis_executors.matching import UnsatisfiedPromise
@@ -284,6 +285,29 @@ def test_explain_names_only_the_required_kinds_an_eligible_candidate_actually_mi
     )
 
 
+def test_explain_derives_each_candidates_kinds_once(monkeypatch, capsys):
+    # The gather loop reads an advertisement's kinds to find out whether it can
+    # be read at all, and the `--explain` verdict needs the same list to say
+    # which required kinds a candidate misses. Deriving it twice means the
+    # second answer can differ from the one the candidate was admitted on.
+    derived: list[str] = []
+    original = fields.capability_kinds
+
+    def _counting(advertisement: dict) -> list[str]:
+        derived.append(advertisement["executor_id"])
+        return original(advertisement)
+
+    monkeypatch.setattr(fields, "capability_kinds", _counting)
+
+    run_match(
+        {"executor-other": _candidate("executor-other", "kind-b", "local")},
+        capabilities=["kind-a"],
+        explain=True,
+    )
+
+    assert derived == ["executor-other"]
+
+
 def test_explain_reason_for_an_eligible_candidate_is_about_that_candidate(capsys):
     # `matching.match`'s own reasons speak about the whole advertisement set
     # ("no eligible advertisement satisfies ..."), which contradicts
@@ -401,8 +425,8 @@ def test_explain_does_not_print_an_empty_kind_list_for_a_superseded_advertisemen
     assert exit_code == 0
     first = next(line for line in lines if line.startswith("adapter-first:"))
     assert first == (
-        "adapter-first: eligible=yes reason=another adapter advertises the same "
-        "executor id (executor-dup); that advertisement was the one ranked"
+        "adapter-first: eligible=unknown reason=another adapter advertises the same "
+        "executor id (executor-dup); that advertisement was the one judged"
     )
     # The adapter whose advertisement was actually judged still gets the
     # kind-shortfall reason, so the two cases stay distinguishable.
@@ -419,6 +443,11 @@ def test_explain_does_not_credit_a_superseded_advertisement_with_the_ranked_scor
     # `adapter-second`'s `local` -- and `adapter-first`'s own `metered_api` was
     # read by neither. Crediting `adapter-first` with that rank reports the
     # unsafe-by-default transport criterion 7 exists to surface as its opposite.
+    #
+    # `eligible=unknown` for the same reason the score is withheld: the
+    # eligibility on file is the one the last-wins id resolved to, which answers
+    # for the other adapter's advertisement. Printing `yes` here reports a
+    # verdict the policy never reached about this `metered_api` transport.
     adapters = {
         "adapter-first": _candidate("executor-dup", "kind-a", "metered_api"),
         "adapter-second": _candidate("executor-dup", "kind-a", "local"),
@@ -430,8 +459,8 @@ def test_explain_does_not_credit_a_superseded_advertisement_with_the_ranked_scor
     assert exit_code == 0
     first = next(line for line in lines if line.startswith("adapter-first:"))
     assert first == (
-        "adapter-first: eligible=yes reason=another adapter advertises the same "
-        "executor id (executor-dup); that advertisement was the one ranked"
+        "adapter-first: eligible=unknown reason=another adapter advertises the same "
+        "executor id (executor-dup); that advertisement was the one judged"
     )
     # Rank 2, not 1: both duplicate advertisements passed the eligibility the
     # id resolved to, so `match` ranked both, and the one the policy actually

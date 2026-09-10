@@ -14,10 +14,19 @@
    is never repeated as one of the columns underneath it.
 4. README's executors section shows every command as a runnable example.
 
+5. The rule about when a failed probe still costs a `health()` round trip is
+   written out once, not once per command module. Two near-verbatim copies of
+   the same paragraph drift apart, and a reader who finds the stale one is
+   told something about this code that is no longer true.
+
 Every assertion here is on behaviour: what a function returns, or what a
 command prints. Assertions on a module's source text or on the absence of an
 attribute belong to no requirement -- they only record the shape the code
-happened to have when a reviewer last read it -- so this file makes none.
+happened to have when a reviewer last read it -- so this file makes none, with
+one exception. Finding 5 is about prose: two docstrings explaining the same
+rule in the same words. Nothing a function returns or prints reproduces that,
+so the test for it compares the two docstrings, which is the duplication
+itself and not the shape of the code around it.
 
 Nothing here asserts against docs/develop/plans/b2-issue45.md either. That
 plan is a completed bundle's planning artifact, frozen once the bundle shipped,
@@ -36,6 +45,7 @@ and tests/test_cli_match.py, rather than a second time here.
 
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from conftest import _FakeExecutor
@@ -43,6 +53,7 @@ from conftest import _FakeExecutor
 from praxis_cli import fields
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows
 from praxis_cli.match_cmd import run_match
+from praxis_cli.status_cmd import build_status_rows
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import ExecutorAvailability
 
@@ -165,3 +176,30 @@ def test_readme_shows_every_command_as_a_runnable_example():
         "praxis executors match --capability",
     ):
         assert command in section, f"README's executors section does not show `{command}`"
+
+
+# 5. the probe-order rule is explained in one place
+
+
+def _collapsed(docstring: str | None) -> str:
+    assert docstring is not None
+    return " ".join(docstring.split())
+
+
+def test_the_probe_order_rationale_is_explained_in_one_place():
+    # `build_discover_rows` and `build_status_rows` order their probe the same
+    # way for the same reason, and each used to write that reason out in full.
+    # A run this long is a shared paragraph, not a shared turn of phrase: the
+    # two commands may each say what they do, but the rule behind it belongs
+    # where the substitution predicate lives, and gets referenced from here.
+    discover = _collapsed(build_discover_rows.__doc__)
+    status = _collapsed(build_status_rows.__doc__)
+
+    overlap = SequenceMatcher(None, discover, status, autojunk=False).find_longest_match(
+        0, len(discover), 0, len(status)
+    )
+
+    assert overlap.size < 80, (
+        "the same explanation is written out in both command modules: "
+        f"{discover[overlap.a : overlap.a + overlap.size]!r}"
+    )

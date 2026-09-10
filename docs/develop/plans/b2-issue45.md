@@ -103,7 +103,14 @@ Shipped deviations.
   the two display strings, spelled once for all three commands.
 - `class MalformedAdvertisement(ValueError)` — raised by `capability_kinds`
   and `auth_transports` for an advertisement missing a key its schema
-  requires. A `ValueError` subclass so it is already inside `PROBE_FAILED`.
+  requires, or shaped in a way that schema does not describe. A `ValueError`
+  subclass so it is already inside `PROBE_FAILED`.
+- `def malformed_advertisement(key: str) -> MalformedAdvertisement` — the
+  missing-key wording, worded once and public because `match` reports it for
+  the one key it reads itself.
+- `def unavailable_cells(executor: Executor, probe: str, exc: BaseException)
+  -> tuple[str, str]` — the `auth_transport`/`capabilities` cells a failed
+  probe leaves behind, recorded through `note_probe_failure` on the way.
 
 **Depends on:** none (dispatches by `isinstance` against the adapter
 classes directly; does not call `adapters.build_adapters()`)
@@ -415,6 +422,18 @@ that exists rather than the code first sketched.
   has failed its probe just as much as one that raised. Raised as a
   `ValueError` so it needs no widening of `PROBE_FAILED`, and so one
   non-conforming adapter costs its own row and nothing more.
+- **Reading an advertisement is guarded separately from probing for it.**
+  `discover` and `status` catch `PROBE_FAILED` around `.capabilities()` only,
+  and `MalformedAdvertisement` around their own reading of what came back. The
+  wide guard reported a defect in the CLI's derivation code as an adapter
+  outage. `capability_kinds`/`auth_transports` raise `MalformedAdvertisement`
+  for a wrongly shaped advertisement as well as a missing key, so narrowing
+  costs no adapter its degraded row.
+- **`match --explain` reports a superseded advertisement as
+  `eligible=unknown`.** Two adapters advertising one id are resolved last-wins
+  by both `match` and the policy, so the earlier adapter's own advertisement —
+  and its own auth transport — was judged by neither. `yes` claimed a verdict
+  the policy never reached.
 - **`print_status_json` validates its own rows against `STATUS_ROW_SCHEMA`.**
   The schema is the contract a `--json` consumer reads, so the command that
   emits the rows is what checks itself against it. A non-conforming row is

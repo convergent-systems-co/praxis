@@ -11,6 +11,10 @@ test_transitions.py, test_checkpoint_resume.py, and
 test_repair_findings_b3_issue4.py wherever a test wants the grader's verdict
 to track whatever each record itself claims, rather than exercising the
 grading algorithm -- kept here once for the same reason as `_linear_graph`.
+
+Executor-adapter doubles deliberately do not live here: this file is imported
+for every test session, so an adapter import in it is one every unrelated
+suite pays for. The `CodexCliExecutor` doubles are in tests/codex_doubles.py.
 """
 
 from __future__ import annotations
@@ -19,6 +23,14 @@ from praxis_evidence.types import GradeResult, ProofRecord
 from praxis_runtime.graph import Edge, Graph, Node
 
 _SPEC_VERSION = "1.0.0"
+
+
+def pytest_configure(config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "slow: load-sensitive or long-running; deselect with -m 'not slow' "
+        "where the machine cannot give the test its timing headroom",
+    )
 
 
 def _linear_graph() -> Graph:

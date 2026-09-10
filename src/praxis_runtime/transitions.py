@@ -390,7 +390,7 @@ class TransitionEngine:
         # the bare literal, since every overlay's declares.resource_types
         # follows that namespace-dotted convention -- this keeps the check
         # overlay-agnostic without per-overlay registration.
-        if resource_type == "filesystem" or resource_type.rsplit(".", 1)[-1] == "filesystem":
+        if resource_type.rsplit(".", 1)[-1] == "filesystem":
             return paths_overlap
         return None
 

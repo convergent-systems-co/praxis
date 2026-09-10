@@ -1,0 +1,71 @@
+{
+  "bundle": "b-issue48",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Bootstrap praxis_orchestration and fix the public API surface",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_orchestration/**"]
+    },
+    {
+      "id": "T2",
+      "title": "Implement run_escalation_ladder and its core runner tests",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_orchestration/escalation.py",
+        "tests/test_escalation_ladder_runner.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Ladder topology tests",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["tests/test_escalation_ladder_topology.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Failure-path and escalation-surface tests",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": ["tests/test_escalation_ladder_failures.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Budget-keying and profile-behavior tests",
+      "depends_on": ["T2"],
+      "kind": "code",
+      "files": ["tests/test_escalation_ladder_budgets.py"]
+    },
+    {
+      "id": "T6",
+      "title": "Evidence-gate limitation test",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["tests/test_escalation_evidence_gate.py"]
+    },
+    {
+      "id": "T7",
+      "title": "Add docs/orchestration.md for the new package",
+      "depends_on": ["T1"],
+      "kind": "docs",
+      "files": ["docs/orchestration.md"]
+    },
+    {
+      "id": "T8",
+      "title": "Retire the no-orchestrator-module claim in executors doc and registry docstring",
+      "depends_on": ["T1"],
+      "kind": "docs",
+      "files": ["docs/executors.md", "src/praxis_executors/registry.py"]
+    },
+    {
+      "id": "T9",
+      "title": "Cross-reference the ladder's fail mapping from docs/policy.md",
+      "depends_on": ["T1"],
+      "kind": "docs",
+      "files": ["docs/policy.md"]
+    }
+  ]
+}

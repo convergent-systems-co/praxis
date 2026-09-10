@@ -162,6 +162,11 @@ through `_TRANSITIONS` in `src/praxis_runtime/transitions.py::_TRANSITIONS`:
 `TransitionEngine.apply` itself — every module above returns a plain, side-effect-free decision;
 applying `event_type` to a `TransitionEngine` is the caller's responsibility.
 
+When a [`RETRY_ALTERNATE_EXECUTOR`](orchestration.md) decision is consumed by an `on-failure`
+escalation ladder, the caller applies `fail` to the attempt node rather than the decision's
+`block`, because `on-failure` edges fire only on `TERMINAL_FAILED`. This changes no
+`praxis_policy` behavior: the gate remains decision-only.
+
 ## Relationship to `praxis_executors.policy`
 
 `praxis_executors.policy.ExecutorPolicy` (see `docs/executors.md`) and `praxis_policy` answer

@@ -10,11 +10,11 @@ registry's. `evidence_to_proof_records` below is that reusable conversion.
 `ExecutorRegistry.execute_with_proof_records` is its production caller: the
 registry already knows which `executor_id` `select()` chose while executing
 a request, so it performs the conversion itself instead of leaving every
-caller to re-derive the winning `executor_id` out of band. This still is
-not full wiring into `TransitionEngine.apply`: no executor-to-runtime
-orchestrator module exists in this codebase today to take the returned
-proof records and dispatch them into a run's transitions, so that
-remaining step is still the caller's responsibility.
+caller to re-derive the winning `executor_id` out of band. The
+executor-to-runtime orchestration seam lives in
+`src/praxis_orchestration/escalation.py` and is documented in
+`docs/orchestration.md`; the registry itself remains independent of
+`praxis_runtime`.
 """
 
 from __future__ import annotations

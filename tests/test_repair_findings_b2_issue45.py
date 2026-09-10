@@ -14,19 +14,21 @@
    is never repeated as one of the columns underneath it.
 4. README's executors section shows every command as a runnable example.
 
-5. The rule about when a failed probe still costs a `health()` round trip is
-   written out once, not once per command module. Two near-verbatim copies of
-   the same paragraph drift apart, and a reader who finds the stale one is
-   told something about this code that is no longer true.
+5. A value an advertisement's schema types as a string, arriving as something
+   else, costs the adapter its own row and nothing more. Both cells reach a
+   report through a `",".join(...)`, which raises outside the guard a command
+   puts around its reading of an advertisement and so took the whole command
+   down.
 
-Every assertion here is on behaviour: what a function returns, or what a
-command prints. Assertions on a module's source text or on the absence of an
-attribute belong to no requirement -- they only record the shape the code
-happened to have when a reviewer last read it -- so this file makes none, with
-one exception. Finding 5 is about prose: two docstrings explaining the same
-rule in the same words. Nothing a function returns or prints reproduces that,
-so the test for it compares the two docstrings, which is the duplication
-itself and not the shape of the code around it.
+6. `discover` and `status` word a failed read the same way and record it the
+   same way, because they make it in one place. A read that failed after the
+   call returned is not reported as the call raising.
+
+Every assertion here is on behaviour: what a function returns, what a command
+prints, or what it records. Assertions on a module's source text or on the
+absence of an attribute belong to no requirement -- they only record the shape
+the code happened to have when a reviewer last read it -- so this file makes
+none.
 
 Nothing here asserts against docs/develop/plans/b2-issue45.md either. That
 plan is a completed bundle's planning artifact, frozen once the bundle shipped,
@@ -45,15 +47,16 @@ and tests/test_cli_match.py, rather than a second time here.
 
 from __future__ import annotations
 
-from difflib import SequenceMatcher
+import logging
 from pathlib import Path
 
+import pytest
 from conftest import _FakeExecutor
 
 from praxis_cli import fields
 from praxis_cli.discover_cmd import build_discover_rows, print_discover_rows
 from praxis_cli.match_cmd import run_match
-from praxis_cli.status_cmd import build_status_rows
+from praxis_cli.status_cmd import build_status_rows, print_status_table
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.interface import ExecutorAvailability
 
@@ -178,28 +181,87 @@ def test_readme_shows_every_command_as_a_runnable_example():
         assert command in section, f"README's executors section does not show `{command}`"
 
 
-# 5. the probe-order rule is explained in one place
+# 5. a value typed as a string in the schema, arriving as something else
 
 
-def _collapsed(docstring: str | None) -> str:
-    assert docstring is not None
-    return " ".join(docstring.split())
+def _wrongly_typed(executor_id: str, capability: dict) -> _FakeExecutor:
+    """An adapter answering with one capability nothing validated on the way.
 
-
-def test_the_probe_order_rationale_is_explained_in_one_place():
-    # `build_discover_rows` and `build_status_rows` order their probe the same
-    # way for the same reason, and each used to write that reason out in full.
-    # A run this long is a shared paragraph, not a shared turn of phrase: the
-    # two commands may each say what they do, but the rule behind it belongs
-    # where the substitution predicate lives, and gets referenced from here.
-    discover = _collapsed(build_discover_rows.__doc__)
-    status = _collapsed(build_status_rows.__doc__)
-
-    overlap = SequenceMatcher(None, discover, status, autojunk=False).find_longest_match(
-        0, len(discover), 0, len(status)
+    `promise.schema.json` types `kind` as a string and `capability.schema.json`
+    types `auth_transport` as one, but nothing between an adapter and the CLI
+    checks either, and both cells reach a report through a `",".join(...)`.
+    """
+    return _FakeExecutor(
+        executor_id,
+        capabilities=[capability],
+        health=ExecutorAvailability.AVAILABLE,
     )
 
-    assert overlap.size < 80, (
-        "the same explanation is written out in both command modules: "
-        f"{discover[overlap.a : overlap.a + overlap.size]!r}"
+
+def _conforming(executor_id: str = "adapter-conforming") -> _FakeExecutor:
+    return _FakeExecutor(
+        executor_id,
+        capabilities=_advertisement()["capabilities"],
+        health=ExecutorAvailability.AVAILABLE,
     )
+
+
+def test_discover_reports_the_other_adapters_when_a_kind_is_not_a_string(capsys):
+    # A number where the schema says string is the adapter answering without
+    # answering conformingly, which costs it its row -- not the report.
+    adapters = {
+        "adapter-numeric-kind": _wrongly_typed(
+            "executor-numeric-kind",
+            {"spec_version": _SPEC_VERSION, "auth_transport": "local", "satisfies": [{"kind": 3}]},
+        ),
+        "adapter-conforming": _conforming(),
+    }
+
+    rows = build_discover_rows(adapters)
+    print_discover_rows(rows)
+
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert rows[1]["capabilities"] == ["kind-a"]
+    assert "kind-a" in capsys.readouterr().out
+
+
+def test_status_reports_the_other_adapters_when_an_auth_transport_is_not_a_string(capsys):
+    adapters = {
+        "adapter-numeric-transport": _wrongly_typed(
+            "executor-numeric-transport",
+            {"spec_version": _SPEC_VERSION, "auth_transport": 7, "satisfies": [{"kind": "kind-a"}]},
+        ),
+        "adapter-conforming": _conforming(),
+    }
+
+    rows = build_status_rows(adapters)
+    print_status_table(rows)
+
+    assert rows[0]["auth_transport"] == "unavailable"
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert rows[1]["auth_transport"] == "local"
+    assert "local" in capsys.readouterr().out
+
+
+# 6. both commands read an advertisement in one place, and say what failed
+
+
+@pytest.mark.parametrize("build_rows", (build_discover_rows, build_status_rows))
+def test_a_response_that_could_not_be_read_is_not_recorded_as_a_call_that_raised(
+    build_rows, caplog
+):
+    # The adapter's `.capabilities()` returned; what failed is the CLI's own
+    # reading of what came back. A record naming the call sends a reader
+    # looking for a raise inside a method that never raised.
+    adapters = {
+        "adapter-malformed": _wrongly_typed(
+            "executor-malformed", {"spec_version": _SPEC_VERSION, "auth_transport": "local"}
+        )
+    }
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        rows = build_rows(adapters)
+
+    assert rows[0]["capabilities"].startswith("unavailable (")
+    assert "capabilities() response" in caplog.text
+    assert "capabilities() raised" not in caplog.text

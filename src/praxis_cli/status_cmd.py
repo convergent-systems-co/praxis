@@ -9,15 +9,11 @@ from typing import Mapping
 import jsonschema
 
 from praxis_cli.fields import (
-    PROBE_FAILED,
     UNAVAILABLE,
     UNDETERMINED,
-    MalformedAdvertisement,
-    auth_transports,
-    capability_kinds,
+    advertisement_cells,
     render_cell,
     status_field,
-    unavailable_cells,
 )
 from praxis_executors.interface import Executor, ExecutorAvailability
 
@@ -87,45 +83,16 @@ _ROW_VALIDATOR = jsonschema.Draft202012Validator(STATUS_ROW_SCHEMA)
 def build_status_rows(adapters: Mapping[str, Executor]) -> list[dict]:
     """One row per adapter, carrying exactly the four columns criterion 6 names.
 
-    A probe that fails leaves behind the cells `fields.unavailable_cells`
-    words, the same row contract `discover` carries.
-
-    Catches `fields.PROBE_FAILED` rather than `ExecutorError` alone: an
-    adapter's transport layer can surface a malformed response that is not its
-    own `ExecutorError`, and one such adapter must degrade its own row rather
-    than take the whole command down. Which failures those are is `fields`'
-    subject, spelled once for `discover` and `match` too.
-
-    Reading the advertisement afterwards has a guard to itself, catching only
-    `fields.MalformedAdvertisement`, for the reason that class gives.
-
-    The advertisement is probed first and then handed to `status_field`, the
-    same order `build_discover_rows` takes; why that ordering saves a round trip
-    and why a failed probe still costs one is `praxis_cli.fields`' subject.
+    The advertisement, and the two cells read out of it, come from
+    `fields.advertisement_cells` -- the same probe, guards and degraded cells
+    `discover` takes, so an adapter that costs one command a line cannot cost
+    the other the whole command. What a failed probe leaves behind, and why
+    `status_field` is still asked for a row that failed one, is that function's
+    subject.
     """
     rows: list[dict] = []
     for executor_id, executor in adapters.items():
-        try:
-            advertisement = executor.capabilities()
-        except PROBE_FAILED as exc:
-            # A failed advertisement probe is not a verdict about availability,
-            # so `status_field` still asks `health()` below: a row that names
-            # its reason beats a row that only says the status is unknown.
-            advertisement = None
-            auth_transport, capabilities = unavailable_cells(executor, "capabilities", exc)
-        else:
-            try:
-                # Comma without a space: `auth_transport` is not the last
-                # column, and a reader scanning the table down a column should
-                # not have to guess where one cell's value ends.
-                auth_transport = ",".join(auth_transports(advertisement))
-                capabilities = capability_kinds(advertisement)
-            except MalformedAdvertisement as exc:
-                # Dropped with the cells: an advertisement that answered without
-                # answering conformingly is no evidence about the backing
-                # service either, so `status_field` asks `health()` for this row.
-                advertisement = None
-                auth_transport, capabilities = unavailable_cells(executor, "capabilities", exc)
+        advertisement, auth_transport, capabilities = advertisement_cells(executor)
         rows.append(
             {
                 "executor_id": executor_id,

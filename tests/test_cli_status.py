@@ -319,12 +319,13 @@ def test_build_status_rows_lets_a_defect_in_the_clis_own_derivation_surface(monk
     # The probe guard exists for an adapter that could not be asked. It used to
     # wrap this module's own reading of the advertisement too, so a bug in that
     # reading came out as `unavailable (...)` -- reported against the adapter,
-    # and logged as more likely a fault in it. A defect here is this module's,
-    # and it has to be visible as one.
+    # and logged as more likely a fault in it. A defect here is the CLI's, and
+    # it has to be visible as one. Patched in `praxis_cli.fields`, where the
+    # read `discover` and `status` share now lives.
     def _cli_side_defect(_advertisement):
         raise TypeError("sequence item 0: expected str instance, int found")
 
-    monkeypatch.setattr("praxis_cli.status_cmd.auth_transports", _cli_side_defect)
+    monkeypatch.setattr("praxis_cli.fields.auth_transports", _cli_side_defect)
 
     with pytest.raises(TypeError):
         build_status_rows({"executor-good": _available()})

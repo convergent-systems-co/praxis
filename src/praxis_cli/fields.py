@@ -47,6 +47,17 @@ UNDETERMINED = "unknown"
 # `status` and `match` for the advertisement probe they each make.
 PROBE_FAILED = (ExecutorError, ValueError, AttributeError, TypeError)
 
+# What `note_probe_failure` names as the source of a failure, printed after the
+# adapter's class name and so written as it should read there.
+#
+# `CAPABILITIES_RESPONSE` is deliberately not the call: the call returned, and
+# what failed is this module's reading of what came back. Recording that under
+# the call's own name sends a reader looking for a raise inside a method that
+# never raised.
+CAPABILITIES_PROBE = "capabilities()"
+CAPABILITIES_RESPONSE = "capabilities() response"
+HEALTH_PROBE = "health()"
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -103,9 +114,32 @@ def _unreadable_advertisement(exc: BaseException) -> MalformedAdvertisement:
     return MalformedAdvertisement(f"advertisement is not shaped as its schema describes ({exc})")
 
 
+def _as_advertised_string(value: object, field: str) -> str:
+    """`value`, once it is the string the advertisement's schema types it as.
+
+    `promise.schema.json` types `kind` and `capability.schema.json` types
+    `auth_transport` as strings, and nothing between an adapter and this module
+    checks either. Both cells reach a report through a `",".join(...)` -- in
+    `render_cell` for the capability kinds, and in the transport cell the
+    readers below are joined into -- which raises `TypeError` on anything else,
+    outside the guard a caller puts around its reading of an advertisement and
+    so fatal to the whole command rather than to one row.
+
+    A value of the wrong type is the same non-conformance a missing key is, so
+    it leaves as the same exception and costs the same single row.
+    """
+    if not isinstance(value, str):
+        raise _unreadable_advertisement(TypeError(f"{field} is {type(value).__name__}, not str"))
+    return value
+
+
 def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> None:
     """Record a caught probe failure, naming its type when it is not the
     adapter's own vocabulary.
+
+    `probe` is printed verbatim after the adapter's class name, so it carries
+    its own `()` -- the constants above are what this module and its commands
+    pass, and one of them names a read of a response rather than a call.
 
     `PROBE_FAILED` nets more than `ExecutorError` so a malformed response
     degrades one row instead of taking a whole report down. The same net
@@ -120,10 +154,10 @@ def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> No
     an absent `claude` binary on every invocation.
     """
     if isinstance(exc, ExecutorError):
-        _LOGGER.debug("%s.%s() reported: %s", type(executor).__name__, probe, exc)
+        _LOGGER.debug("%s.%s reported: %s", type(executor).__name__, probe, exc)
         return
     _LOGGER.warning(
-        "%s.%s() raised %s, which is not an ExecutorError: reported as "
+        "%s.%s raised %s, which is not an ExecutorError: reported as "
         "unavailable, but a failure outside an adapter's own vocabulary is "
         "more likely a fault in the adapter than an outage in the service it "
         "speaks to (%s)",
@@ -201,7 +235,7 @@ def _health_verdict(executor: Executor) -> ExecutorAvailability | None:
     try:
         return executor.health()
     except PROBE_FAILED as exc:
-        note_probe_failure(executor, "health", exc)
+        note_probe_failure(executor, HEALTH_PROBE, exc)
         return None
 
 
@@ -303,14 +337,15 @@ def capability_kinds(advertisement: dict) -> list[str]:
 
     Raises `MalformedAdvertisement` for an advertisement missing a key its
     schema requires, and for one shaped in a way that schema does not describe
-    at all, so a caller guarding this read degrades one row rather than taking
-    a whole command down for one non-conforming adapter.
+    at all -- a `kind` that is not a string included -- so a caller guarding
+    this read degrades one row rather than taking a whole command down for one
+    non-conforming adapter.
     """
     kinds: list[str] = []
     try:
         for capability in advertisement["capabilities"]:
             for entry in capability["satisfies"]:
-                kind = entry["kind"]
+                kind = _as_advertised_string(entry["kind"], "kind")
                 if kind not in kinds:
                     kinds.append(kind)
     except KeyError as exc:
@@ -331,17 +366,59 @@ def auth_transports(advertisement: dict) -> list[str]:
 
     The `capabilities` list itself is required, so its absence is a malformed
     advertisement rather than an empty one -- as is a capability that is not an
-    object, which has no `.get()` to skip a missing transport with. Both are
-    reported as `capability_kinds` reports them.
+    object, which has no `.get()` to skip a missing transport with, and a
+    transport that is not a string. All three are reported as `capability_kinds`
+    reports them.
     """
     transports: list[str] = []
     try:
         for capability in advertisement["capabilities"]:
-            transport = capability.get("auth_transport")
-            if transport is not None and transport not in transports:
+            named = capability.get("auth_transport")
+            if named is None:
+                continue
+            transport = _as_advertised_string(named, "auth_transport")
+            if transport not in transports:
                 transports.append(transport)
     except KeyError as exc:
         raise malformed_advertisement(exc.args[0]) from exc
     except (TypeError, AttributeError) as exc:
         raise _unreadable_advertisement(exc) from exc
     return transports
+
+
+def advertisement_cells(executor: Executor) -> tuple[dict | None, str, list[str] | str]:
+    """One adapter's advertisement, and the two cells derived from it.
+
+    `discover` and `status` ask the same adapter the same question, read the
+    answer the same way and degrade the same way when it cannot be read, so
+    they do it here once rather than each spelling out the probe, its two
+    guards and the cells a failure leaves behind.
+
+    The advertisement comes back so the caller can hand it to `installed_field`
+    or `status_field`: probing for it first is what lets an adapter whose
+    `.capabilities()` and `.health()` reach the same endpoint be asked once
+    rather than waited on twice at its own timeout, as
+    `_advertisement_answers_for_health` describes. `None` comes back for a probe
+    that failed and for an answer that could not be read, because neither is
+    evidence about the backing service -- so the field function still asks
+    `health()` for that row, and a row that names the verdict beats one that
+    says only that the status is unknown.
+
+    Two guards, not one. `PROBE_FAILED` covers the call, which is an adapter
+    that could not be asked; `MalformedAdvertisement` covers this module's own
+    reading of what came back, and nothing wider, so a defect in that reading
+    surfaces as the CLI's rather than being reported against the adapter. The
+    two are recorded under different names for the same reason.
+    """
+    try:
+        advertisement = executor.capabilities()
+    except PROBE_FAILED as exc:
+        return (None, *unavailable_cells(executor, CAPABILITIES_PROBE, exc))
+    try:
+        # Comma without a space: `auth_transport` is not the last column of
+        # `status`'s table, and a reader scanning down a column should not have
+        # to guess where one cell's value ends.
+        transports = ",".join(auth_transports(advertisement))
+        return advertisement, transports, capability_kinds(advertisement)
+    except MalformedAdvertisement as exc:
+        return (None, *unavailable_cells(executor, CAPABILITIES_RESPONSE, exc))

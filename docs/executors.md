@@ -260,7 +260,10 @@ deterministic, scripted executor for tests; `SubprocessExecutor`
 (`src/praxis_executors/adapters/subprocess_executor.py`), a real OS-subprocess executor;
 `ClaudeCliExecutor` (`src/praxis_executors/adapters/claude_cli.py`), which drives the
 locally-installed `claude` subscription CLI as a subprocess and advertises
-`auth_transport: "subscription_cli"`; `CodexCliExecutor`
+`auth_transport: "subscription_cli"` — its `health()` version and auth probes as well as its
+`launch()` subprocess all run with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, and
+`ANTHROPIC_BASE_URL` removed from the inherited environment, so an ambient metered API key can
+never stand in for the subscription it advertises; `CodexCliExecutor`
 (`src/praxis_executors/adapters/codex_cli.py`), which drives the locally-installed `codex`
 subscription CLI as a subprocess and also advertises `auth_transport: "subscription_cli"`; and
 `OllamaExecutor` (`src/praxis_executors/adapters/ollama.py`), a local-HTTP-backed executor

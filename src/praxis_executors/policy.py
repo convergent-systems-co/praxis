@@ -56,7 +56,21 @@ class AuthTransportPolicy(ExecutorPolicy):
         return True
 
     def _capability_is_eligible(self, capability: dict) -> bool:
+        """Whether this one capability's transport is one this policy admits.
+
+        `capability.schema.json` types `auth_transport` as a string, and
+        nothing between an adapter and this module checks that it is one --
+        the same gap `fields._as_advertised_string` closes for the report
+        readers. Here an unhashable value (a list or a dict, say) raises
+        `TypeError` out of the membership test below rather than costing the
+        capability its eligibility, and that exception leaves `is_eligible`
+        for a caller that asked a yes-or-no question. A value of the wrong
+        type is the same non-conformance a missing key is, so it fails closed
+        the same way: not a recognised transport, and so not eligible.
+        """
         auth_transport = capability.get("auth_transport")
+        if not isinstance(auth_transport, str):
+            return False
         if auth_transport not in _RECOGNIZED_AUTH_TRANSPORTS:
             return False
         if auth_transport in self.denied_auth_transports:

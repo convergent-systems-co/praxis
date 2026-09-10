@@ -79,11 +79,24 @@ _CREDENTIAL_PATTERNS = (
     ),
 )
 
+_CREDENTIAL_ENV_VARS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+)
+
 
 def _redact(text: str) -> str:
     for pattern, replacement in _CREDENTIAL_PATTERNS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    for key in _CREDENTIAL_ENV_VARS:
+        env.pop(key, None)
+    return env
 
 
 class ClaudeCliExecutor(Executor):
@@ -122,6 +135,7 @@ class ClaudeCliExecutor(Executor):
         if authenticated is False:
             # Deliberately no fallback branch here: an unauthenticated CLI
             # must resolve straight to UNAVAILABLE, never a metered API key.
+            # Both probes above run credential-stripped for that same reason.
             return ExecutorAvailability.UNAVAILABLE
         if authenticated is True:
             return ExecutorAvailability.AVAILABLE
@@ -129,7 +143,13 @@ class ClaudeCliExecutor(Executor):
 
     def _probe_version(self, cli_path: str) -> None:
         try:
-            subprocess.run([cli_path, "--version"], capture_output=True, text=True, timeout=5)
+            subprocess.run(
+                [cli_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=_subprocess_env(),
+            )
         except (OSError, subprocess.TimeoutExpired):
             pass
 
@@ -140,6 +160,7 @@ class ClaudeCliExecutor(Executor):
                 capture_output=True,
                 text=True,
                 timeout=5,
+                env=_subprocess_env(),
             )
             return json.loads(result.stdout)["loggedIn"]
         except (
@@ -182,9 +203,7 @@ class ClaudeCliExecutor(Executor):
         if cli_path is None:
             raise ExecutorError("claude CLI is not available on PATH")
         argv = [cli_path, "-p", prompt, *extra_args]
-        env = os.environ.copy()
-        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"):
-            env.pop(key, None)
+        env = _subprocess_env()
         try:
             process = subprocess.Popen(
                 argv,

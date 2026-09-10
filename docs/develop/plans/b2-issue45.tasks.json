@@ -1,0 +1,15 @@
+{"bundle": "b2-issue45",
+ "tasks": [
+   {"id": "T1", "title": "Shared adapter construction path", "depends_on": [], "kind": "code",
+    "files": ["src/praxis_cli/adapters.py", "tests/test_cli_adapters.py"]},
+   {"id": "T2", "title": "Per-adapter field derivation", "depends_on": [], "kind": "code",
+    "files": ["src/praxis_cli/fields.py", "tests/test_cli_fields.py"]},
+   {"id": "T3", "title": "praxis executors discover", "depends_on": ["T2"], "kind": "code",
+    "files": ["src/praxis_cli/discover_cmd.py", "tests/test_cli_discover.py"]},
+   {"id": "T4", "title": "bare praxis executors status table and --json", "depends_on": ["T2"], "kind": "code",
+    "files": ["src/praxis_cli/status_cmd.py", "tests/test_cli_status.py"]},
+   {"id": "T5", "title": "praxis executors match --capability --explain", "depends_on": [], "kind": "code",
+    "files": ["src/praxis_cli/match_cmd.py", "tests/test_cli_match.py"]},
+   {"id": "T6", "title": "main() dispatch and argparse wiring", "depends_on": ["T1", "T3", "T4", "T5"], "kind": "code",
+    "files": ["src/praxis_cli/main.py", "tests/test_praxis_cli_executors.py"]}
+ ]}

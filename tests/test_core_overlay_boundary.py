@@ -52,7 +52,16 @@ CORE_PACKAGE_DIRS = (
 # docstring); left as a plain substring where a current-tree sweep found no
 # such collision.
 FORBIDDEN_TERMS = {
-    "github": r"github",
+    # Narrowed to exempt one literal: `github_pat_`, the prefix of a
+    # fine-grained personal-access token. A core adapter that redacts
+    # credentials out of a subprocess transcript has to match that prefix
+    # exactly -- a placeholder would match nothing, and spelling it another way
+    # to slip past this plain-text scan would be worse than the leak. A
+    # credential format is not the domain vocabulary this boundary exists to
+    # keep out of core, and the exemption is that prefix and nothing else:
+    # every prose mention of the forge still fails, as does the bare vendor
+    # name anywhere else on the same line.
+    "github": r"github(?!_pat_)",
     "gitlab": r"gitlab",
     "bitbucket": r"bitbucket",
     "git": r"\bgit\b",
@@ -155,6 +164,23 @@ def test_core_schema_descriptions_contain_no_forbidden_development_vocabulary():
         "software-development/VCS vocabulary that belongs in an overlay, not "
         "core:\n" + "\n".join(violations)
     )
+
+
+def test_the_credential_prefix_exemption_stays_narrow():
+    """The `github_pat_` exemption must not become a hole for the vendor name."""
+    pattern = _COMPILED_TERMS["github"]
+
+    assert pattern.search('(re.compile(r"github_pat_[A-Za-z0-9_]{20,}"), _REDACTED),') is None
+
+    for still_forbidden in (
+        "# GitHub is where the pull requests live",
+        "url = 'https://github.com/example/example'",
+        "GITHUB_TOKEN",
+        # The exemption is the prefix, not a licence to name the vendor
+        # elsewhere on a line that happens to contain it.
+        "# github_pat_ tokens come from GitHub",
+    ):
+        assert pattern.search(still_forbidden), still_forbidden
 
 
 def test_forbidden_term_list_is_nonempty():

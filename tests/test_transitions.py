@@ -88,6 +88,30 @@ def _fan_out_join_graph() -> Graph:
     )
 
 
+def _mixed_incoming_kind_join_graph() -> Graph:
+    """A join target reached by incoming edges of two different kinds: "t" has
+    one "join"-kind predecessor ("a") and one "sequential"-kind predecessor
+    ("b"). Only the "join"-kind edge is gated by _join_ready; the sequential
+    edge creates "t"'s cursor fan-out-style on its own source's success."""
+    return Graph(
+        spec_version="1.0.0",
+        nodes={
+            "start": Node(id="start", kind="task"),
+            "a": Node(id="a", kind="task"),
+            "b": Node(id="b", kind="task"),
+            "t": Node(id="t", kind="task"),
+        },
+        edges=[
+            Edge(source="start", target="a", kind="fan-out"),
+            Edge(source="start", target="b", kind="fan-out"),
+            Edge(source="a", target="t", kind="join"),
+            Edge(source="b", target="t", kind="sequential"),
+        ],
+        entry_node="start",
+        terminal_nodes={"t"},
+    )
+
+
 def _fan_out_join_graph_with_upstream_gate() -> Graph:
     return Graph(
         spec_version="1.0.0",
@@ -454,6 +478,96 @@ def test_join_ignores_unrelated_on_failure_incoming_edge(tmp_path: Path):
     # even though x hasn't reached TERMINAL_SUCCESS (it hasn't even started).
     assert "z" in state.cursors
     assert state.cursors["z"].status == NodeStatus.PENDING.value
+
+
+def test_mixed_kind_join_target_created_when_join_predecessor_completes_first(tmp_path: Path):
+    # Deliberately pinned semantics for issue #59 (fix option 2), not incidental
+    # behavior: _join_ready gates only on "join"-kind incoming edges, so a target
+    # with mixed incoming-edge kinds is NOT held back by its other-kind
+    # predecessors. This covers the completion order where the "join"-kind
+    # predecessor ("a") finishes first, while the "sequential" one ("b") has not
+    # started; the sibling test covers the opposite order.
+    graph = _mixed_incoming_kind_join_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+
+    engine.apply("a", "start")
+    state = engine.apply("a", "complete")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "t" in state.cursors
+    assert state.cursors["t"].status == NodeStatus.PENDING.value
+    # b never gated the join: it is still sitting at its fan-out PENDING cursor.
+    assert state.cursors["b"].status == NodeStatus.PENDING.value
+
+
+def test_mixed_kind_join_target_not_recreated_when_non_join_predecessor_completes_first(
+    tmp_path: Path,
+):
+    # Deliberately pinned semantics for issue #59 (fix option 2), not incidental
+    # behavior: this covers the opposite completion order to the sibling test --
+    # the "sequential" predecessor ("b") finishes first and creates "t"'s cursor
+    # fan-out-style, then the "join"-kind predecessor ("a") finishes and finds
+    # the join already satisfied. What this pins is that "a"'s completion adds
+    # no second cursor entry for "t" and leaves it at PENDING. It does not pin
+    # the `edge.target in cursors` guard in TransitionEngine._advance_successors
+    # against a reset -- an unguarded overwrite here would rewrite PENDING as
+    # PENDING and be invisible. The reset case is pinned by
+    # test_mixed_kind_join_target_in_flight_cursor_survives_join_predecessor_completion,
+    # which holds "t" at RUNNING instead.
+    graph = _mixed_incoming_kind_join_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+
+    engine.apply("b", "start")
+    state = engine.apply("b", "complete")
+
+    assert state.cursors["b"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert "t" in state.cursors
+    assert state.cursors["t"].status == NodeStatus.PENDING.value
+
+    engine.apply("a", "start")
+    state = engine.apply("a", "complete")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_SUCCESS.value
+    # "t" is unchanged by a's completion: still exactly one cursor, still PENDING.
+    assert sorted(state.cursors) == ["a", "b", "start", "t"]
+    assert state.cursors["t"].status == NodeStatus.PENDING.value
+
+
+def test_mixed_kind_join_target_in_flight_cursor_survives_join_predecessor_completion(
+    tmp_path: Path,
+):
+    # Same pinned issue-#59 semantics as the two tests above, in the
+    # non-join-predecessor-first order, but with "t" already advanced past
+    # PENDING before the "join"-kind predecessor completes. Cursors are
+    # round-tripped through the state store on every apply, so identity checks
+    # cannot prove "same cursor object"; observing that an in-flight RUNNING
+    # cursor is not knocked back to PENDING is what actually pins the
+    # `edge.target in cursors` guard against a reset.
+    graph = _mixed_incoming_kind_join_graph()
+    store = RunStateStore(tmp_path / "run-state.json")
+    log = EventLog(tmp_path / "events")
+    engine = TransitionEngine(graph, store, log)
+    engine.apply("start", "start")
+    engine.apply("start", "complete")
+
+    engine.apply("b", "start")
+    engine.apply("b", "complete")
+    state = engine.apply("t", "start")
+    assert state.cursors["t"].status == NodeStatus.RUNNING.value
+
+    engine.apply("a", "start")
+    state = engine.apply("a", "complete")
+
+    assert state.cursors["a"].status == NodeStatus.TERMINAL_SUCCESS.value
+    assert state.cursors["t"].status == NodeStatus.RUNNING.value
 
 
 def test_on_failure_edge_creates_pending_cursor_when_source_reaches_terminal_failed(

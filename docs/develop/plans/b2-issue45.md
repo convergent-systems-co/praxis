@@ -108,9 +108,11 @@ Shipped deviations.
 - `def malformed_advertisement(key: str) -> MalformedAdvertisement` — the
   missing-key wording, worded once and public because `match` reports it for
   the one key it reads itself.
-- `def unavailable_cells(executor: Executor, probe: str, exc: BaseException)
-  -> tuple[str, str]` — the `auth_transport`/`capabilities` cells a failed
-  probe leaves behind, recorded through `note_probe_failure` on the way.
+- `CAPABILITIES_PROBE`, `CAPABILITIES_RESPONSE` — what `note_probe_failure`
+  names as the source of a failure, so `discover`, `status` and `match` word
+  the same failure the same way. The cells a failed probe leaves behind are
+  filled in privately, inside `advertisement_cells`, which is the one place
+  either row-based command reaches a failed probe through.
 
 **Depends on:** none (dispatches by `isinstance` against the adapter
 classes directly; does not call `adapters.build_adapters()`)
@@ -450,3 +452,10 @@ that exists rather than the code first sketched.
   unknown subcommand gives no diagnostic and no non-zero exit status. Widening
   the gate is out of this bundle's scope because it risks the legacy path
   criterion 3 exists to protect; it wants its own issue.
+
+- **`praxis executors match` exits 0 whether or not anything was selected.**
+  `run_match` returns 0 on every path, so a script has to parse stdout for
+  `no executor selected` to tell a match from a miss. This plan's T5 specifies
+  that return value and the spec names no exit code for the command at all, so
+  a non-zero code for "nothing matched" would be a new convention rather than
+  a repair; like the subcommand gate above, it wants its own issue.

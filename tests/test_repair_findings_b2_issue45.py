@@ -265,3 +265,54 @@ def test_a_response_that_could_not_be_read_is_not_recorded_as_a_call_that_raised
     assert rows[0]["capabilities"].startswith("unavailable (")
     assert "capabilities() response" in caplog.text
     assert "capabilities() raised" not in caplog.text
+
+
+# 7. `match` reads an advertisement under the same two guards, worded the same
+
+
+def test_match_records_a_probe_that_raised_as_the_call_it_was(caplog):
+    # The same failure costs `discover` and `status` a row and `match` a
+    # candidate, so all three name it the same way. `match` naming the call
+    # without its `()` made one adapter's outage read as two different events.
+    adapters = {
+        "adapter-unreachable": _FakeExecutor(
+            "executor-unreachable", capabilities_error=ValueError("Expecting value")
+        )
+    }
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        assert run_match(adapters, capabilities=["kind-a"], explain=True) == 0
+
+    assert "capabilities() raised" in caplog.text
+
+
+def test_match_records_a_response_it_could_not_read_as_a_response(caplog):
+    # The adapter's `.capabilities()` returned; what failed is the CLI's own
+    # reading of what came back -- recorded under the response's name here for
+    # the reason `discover` and `status` already record it under that name.
+    adapters = {
+        "adapter-malformed": _FakeExecutor(
+            "executor-malformed", capabilities=[{"spec_version": _SPEC_VERSION}]
+        )
+    }
+
+    with caplog.at_level(logging.WARNING, logger="praxis_cli.fields"):
+        assert run_match(adapters, capabilities=["kind-a"], explain=True) == 0
+
+    assert "capabilities() response" in caplog.text
+    assert "capabilities() raised" not in caplog.text
+
+
+def test_match_lets_a_defect_in_the_clis_own_derivation_surface(monkeypatch):
+    # One wide probe guard over both the call and the CLI's reading of what it
+    # returned blamed the adapter for a bug in that reading, and `match` went
+    # further than the degraded row `discover` and `status` would have shown:
+    # the candidate vanished and the command exited 0 reporting no selection.
+    # A defect in the CLI's own derivation code has to surface as one.
+    def _cli_side_defect(_advertisement):
+        raise TypeError("sequence item 0: expected str instance, int found")
+
+    monkeypatch.setattr("praxis_cli.fields.capability_kinds", _cli_side_defect)
+
+    with pytest.raises(TypeError):
+        run_match({"adapter-conforming": _conforming()}, capabilities=["kind-a"], explain=False)

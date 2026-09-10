@@ -54,9 +54,15 @@ PROBE_FAILED = (ExecutorError, ValueError, AttributeError, TypeError)
 # what failed is this module's reading of what came back. Recording that under
 # the call's own name sends a reader looking for a raise inside a method that
 # never raised.
+#
+# The first two are public because `match` reads an advertisement itself and
+# records both failures through `note_probe_failure`, and the same failure
+# should not be worded one way there and another way here. `_HEALTH_PROBE` is
+# private because no command probes health -- this module is the only caller
+# that has one to name.
 CAPABILITIES_PROBE = "capabilities()"
 CAPABILITIES_RESPONSE = "capabilities() response"
-HEALTH_PROBE = "health()"
+_HEALTH_PROBE = "health()"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,8 +98,9 @@ def malformed_advertisement(key: str) -> MalformedAdvertisement:
 
     Public because `match` checks one key of an advertisement itself, before
     handing the rest here: `executor_id`, which `matching.match` subscripts
-    unguarded, so a missing one fails inside `match`'s own probe guard rather
-    than deep inside the matcher. It reports that in these words, and a caller
+    unguarded, so a missing one fails inside `match`'s own
+    `MalformedAdvertisement` guard rather than deep inside the matcher -- which
+    is why it leaves as that class. It reports that in these words, and a caller
     outside this module should not need a private name to say what this module
     already says.
     """
@@ -138,8 +145,8 @@ def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> No
     adapter's own vocabulary.
 
     `probe` is printed verbatim after the adapter's class name, so it carries
-    its own `()` -- the constants above are what this module and its commands
-    pass, and one of them names a read of a response rather than a call.
+    its own `()` -- the constants above are what this module and `match` pass,
+    and one of them names a read of a response rather than a call.
 
     `PROBE_FAILED` nets more than `ExecutorError` so a malformed response
     degrades one row instead of taking a whole report down. The same net
@@ -168,13 +175,17 @@ def note_probe_failure(executor: Executor, probe: str, exc: BaseException) -> No
     )
 
 
-def unavailable_cells(executor: Executor, probe: str, exc: BaseException) -> tuple[str, str]:
+def _unavailable_cells(executor: Executor, probe: str, exc: BaseException) -> tuple[str, str]:
     """The `auth_transport` and `capabilities` cells a failed probe leaves behind.
 
     Criterion 5's own wording for the reason cell (`unavailable (<reason>)`),
     and `UNAVAILABLE` rather than an empty transport list -- empty is what a
     conforming advertisement naming no transport already means. Spelled here so
     `discover` and `status` cannot word the same failure two different ways.
+
+    Private: `advertisement_cells` below is the one place either command
+    reaches a failed probe through, so no caller outside this module has a
+    pair of cells to fill in.
 
     Records the failure through `note_probe_failure` on the way: degrading a
     row and saying why it degraded are one step, and a caller that did the
@@ -235,7 +246,7 @@ def _health_verdict(executor: Executor) -> ExecutorAvailability | None:
     try:
         return executor.health()
     except PROBE_FAILED as exc:
-        note_probe_failure(executor, HEALTH_PROBE, exc)
+        note_probe_failure(executor, _HEALTH_PROBE, exc)
         return None
 
 
@@ -413,7 +424,7 @@ def advertisement_cells(executor: Executor) -> tuple[dict | None, str, list[str]
     try:
         advertisement = executor.capabilities()
     except PROBE_FAILED as exc:
-        return (None, *unavailable_cells(executor, CAPABILITIES_PROBE, exc))
+        return (None, *_unavailable_cells(executor, CAPABILITIES_PROBE, exc))
     try:
         # Comma without a space: `auth_transport` is not the last column of
         # `status`'s table, and a reader scanning down a column should not have
@@ -421,4 +432,4 @@ def advertisement_cells(executor: Executor) -> tuple[dict | None, str, list[str]
         transports = ",".join(auth_transports(advertisement))
         return advertisement, transports, capability_kinds(advertisement)
     except MalformedAdvertisement as exc:
-        return (None, *unavailable_cells(executor, CAPABILITIES_RESPONSE, exc))
+        return (None, *_unavailable_cells(executor, CAPABILITIES_RESPONSE, exc))

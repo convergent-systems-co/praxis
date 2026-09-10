@@ -49,12 +49,14 @@ def _validated_kinds(advertisement: dict) -> list[str]:
 
     `capability_kinds` reads the ones `capability-advertisement.schema.json`
     requires; `executor_id` is read here because `name_by_advertised_id` and
-    `matching.match` both subscript it unguarded. Both are read while the
-    caller's probe guard is still up, so an advertisement that answers without
-    answering conformingly costs its own candidate -- as it costs `discover`
-    and `status` a row -- instead of reaching them as a raw `KeyError`, which
-    that guard does not catch. Kinds first, because a body that is not a
-    mapping at all fails there, with `MalformedAdvertisement` to say so.
+    `matching.match` both subscript it unguarded. Both are read under the
+    caller's `MalformedAdvertisement` guard, so an advertisement that answers
+    without answering conformingly costs its own candidate -- as it costs
+    `discover` and `status` a row -- instead of reaching them as a raw
+    `KeyError`. Every failure this raises is that one class, and nothing
+    wider, so a defect in the derivation code itself still surfaces. Kinds
+    first, because a body that is not a mapping at all fails there, with
+    `MalformedAdvertisement` to say so.
 
     The kinds come back rather than being derived a second time per candidate:
     the list `--explain` reports a candidate's shortfall against has to be the
@@ -153,11 +155,26 @@ def run_match(
     # cannot cost `match` the whole command.
     unreadable: dict[str, str] = {}
     for name, executor in adapters.items():
+        # Two guards, not one, exactly as `fields.advertisement_cells` splits
+        # them for the other two commands: `PROBE_FAILED` covers the call, which
+        # is an adapter that could not be asked, and `MalformedAdvertisement`
+        # covers this command's own reading of what came back, and nothing
+        # wider. One guard over both blamed the adapter for a defect in that
+        # reading -- and cost `match` more than it costs a row-based command,
+        # since the candidate simply vanished and the run reported no selection.
         try:
             advertisement = executor.capabilities()
-            kinds = _validated_kinds(advertisement)
         except fields.PROBE_FAILED as exc:
-            fields.note_probe_failure(executor, "capabilities", exc)
+            fields.note_probe_failure(executor, fields.CAPABILITIES_PROBE, exc)
+            unreadable[name] = str(exc)
+            continue
+        try:
+            kinds = _validated_kinds(advertisement)
+        except fields.MalformedAdvertisement as exc:
+            # Recorded under the response's name, not the call's: the call
+            # returned, and a record naming it sends a reader looking for a
+            # raise inside a method that never raised.
+            fields.note_probe_failure(executor, fields.CAPABILITIES_RESPONSE, exc)
             unreadable[name] = str(exc)
             continue
         gathered.append((name, advertisement))
@@ -230,4 +247,8 @@ def run_match(
             )
             print(f"{name}: eligible={'yes' if eligible else 'no'} reason={reason}")
 
+    # Known limitation, recorded in docs/develop/plans/b2-issue45.md: 0 for a
+    # run that selected nothing too, so a caller has to read stdout to tell the
+    # two apart. The plan specifies this exit code and the spec names none, so
+    # changing it is its own decision rather than this command's to make.
     return 0

@@ -10,13 +10,13 @@ from __future__ import annotations
 import logging
 
 import pytest
-from conftest import _undecodable_output_error
+from conftest import _FakeExecutor, _undecodable_output_error
 
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
-from praxis_executors.interface import Executor, ExecutorAvailability, ExecutorError
+from praxis_executors.interface import ExecutorAvailability, ExecutorError
 
 from praxis_cli.fields import (
     MalformedAdvertisement,
@@ -35,33 +35,6 @@ from praxis_cli.fields import (
 # unchecked and `response.get("models")` then lands on a list. Neither the
 # adapter's own `ExecutorError` nor a `ValueError`.
 _NON_OBJECT_JSON = AttributeError("'list' object has no attribute 'get'")
-
-
-class _UnknownExecutor(Executor):
-    """An `Executor` implemented straight off the ABC.
-
-    Deliberately none of the four concrete adapter classes `fields.py`
-    dispatches on -- a stand-in for the fifth adapter that lands after this
-    module was written, which the CLI has to survive.
-    """
-
-    def capabilities(self) -> dict:
-        raise NotImplementedError
-
-    def health(self) -> ExecutorAvailability:
-        raise NotImplementedError
-
-    def launch(self, request):
-        raise NotImplementedError
-
-    def status(self, handle):
-        raise NotImplementedError
-
-    def cancel(self, handle):
-        raise NotImplementedError
-
-    def result(self, handle):
-        raise NotImplementedError
 
 
 def _claude() -> ClaudeCliExecutor:
@@ -224,7 +197,10 @@ def test_an_adapters_own_executor_error_is_not_logged_as_an_adapter_fault(monkey
 def test_installed_field_returns_a_neutral_value_for_an_unrecognised_adapter():
     # "Installed" is not derivable for a class this module knows nothing
     # about, and raising would take a whole command down for one unknown row.
-    assert installed_field(_UnknownExecutor(), _ADVERTISEMENT) == "n/a"
+    # `_FakeExecutor` implements the ABC directly, so it is none of the four
+    # concrete classes `fields.py` dispatches on -- the stand-in for the fifth
+    # adapter that lands after this module was written.
+    assert installed_field(_FakeExecutor(), _ADVERTISEMENT) == "n/a"
 
 
 # version_field()

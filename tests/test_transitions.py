@@ -714,6 +714,28 @@ def test_module_docstring_edge_consultation_sentence_covers_both_terminal_status
     )
 
 
+def test_module_docstring_join_rule_is_kind_qualified():
+    import praxis_runtime.transitions as transitions_module
+
+    doc = transitions_module.__doc__
+    assert doc, "transitions.py must have a module docstring"
+
+    normalized = " ".join(doc.split()).lower()
+    assert "every incoming edge's source" not in normalized, (
+        "the docstring claims a join edge waits for every incoming edge's "
+        'source, but _join_ready gates only on the target\'s "join"-kind '
+        "incoming edges -- an incoming edge of any other kind does not gate "
+        "the join, so the unqualified claim overstates what the engine waits "
+        "for (issue #59)"
+    )
+    assert '"join"-kind incoming edge' in normalized, (
+        "the docstring must still document the join rule, qualified to "
+        '"join"-kind incoming edges -- deleting the sentence outright would '
+        "satisfy the negative assertion above while leaving the engine's "
+        "actual join gating rule undocumented (issue #59)"
+    )
+
+
 def test_concurrent_transition_engine_instances_do_not_race_on_apply(
     tmp_path: Path, monkeypatch
 ):

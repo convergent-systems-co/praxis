@@ -132,6 +132,38 @@ def _sentences(text: str) -> list[str]:
     return re.split(r"(?<=[.!?])\s+", text)
 
 
+def _clause(sentence: str, start: int, end: int | None) -> str:
+    """The clause of `sentence` beginning at `start`, ending at `end` or at the
+    next `;`/`:` -- so a rule stated as "exits 0 when X and exits 1 when Y" can be
+    read as two halves rather than as a bag of words that reads the same reversed.
+    """
+    clause = sentence[start:end] if end is not None else sentence[start:]
+    return re.split(r"[;:]", clause)[0]
+
+
+EXIT_0 = re.compile(r"exit(s|\s+code)?\s+0", re.I)
+EXIT_NONZERO = re.compile(r"exit(s|\s+code)?\s+1|nonzero", re.I)
+NEGATION = re.compile(r"\b(no|none|not|neither|nor|never|without)\b|n't", re.I)
+
+# A refusal the prose actually asserts, as opposed to one it names only to deny.
+# `is refused` counts; `rather than refused` and `never refused` do not -- a bare
+# /refus/ search matches an inverted claim just as happily as the true one.
+AFFIRMATIVE_REFUSAL = re.compile(
+    r"\b(is|are|was|were|be|being|gets?)\s+(\w+ly\s+)?refused\b|\brefus(es|ing)\b",
+    re.I,
+)
+DENIED_REFUSAL = re.compile(
+    r"\b(rather than|instead of|not|never|no longer|without)\s+(being\s+)?refus\w*",
+    re.I,
+)
+
+
+def _asserts_refusal(sentence: str) -> bool:
+    return bool(AFFIRMATIVE_REFUSAL.search(sentence)) and not DENIED_REFUSAL.search(
+        sentence
+    )
+
+
 # 1. the bundle's three falsified claims are gone, and nothing else moved
 
 
@@ -245,14 +277,39 @@ def test_doctor_verdicts_and_exit_code_are_documented() -> None:
             f"`praxis doctor`'s documentation must state the {verdict} verdict "
             "every check ends with (criterion 7)"
         )
-    assert re.search(r"exit(s|\s+code)?\s+0", doctor, re.I), (
-        "`praxis doctor`'s documentation must state that it exits 0 when no "
-        "check fails (criterion 7)"
+    # The two exit codes have to be tied to the fail/no-fail condition *in one
+    # sentence*, and in the right direction. Searched for independently, "exits
+    # 0" and "exits 1" are satisfied just as well by prose that swaps them.
+    rules = [
+        (sentence, EXIT_0.search(sentence), EXIT_NONZERO.search(sentence))
+        for sentence in _sentences(_prose_only(doctor))
+    ]
+    rules = [
+        (sentence, zero.start(), nonzero.start())
+        for sentence, zero, nonzero in rules
+        if zero and nonzero and "fail" in sentence.lower()
+    ]
+    assert rules, (
+        "`praxis doctor`'s documentation must state in one sentence that it "
+        "exits 0 when no check is `fail` and nonzero when at least one is "
+        "(criterion 7); stating the two exit codes apart from the condition "
+        "lets them be swapped without any assertion noticing"
     )
-    assert re.search(r"exit(s|\s+code)?\s+1|nonzero", doctor, re.I), (
-        "`praxis doctor`'s documentation must state that a failing check drives "
-        "a nonzero exit code (criterion 7)"
-    )
+    for sentence, zero_at, nonzero_at in rules:
+        ok_clause = _clause(
+            sentence, zero_at, nonzero_at if nonzero_at > zero_at else None
+        )
+        fail_clause = _clause(
+            sentence, nonzero_at, zero_at if zero_at > nonzero_at else None
+        )
+        assert NEGATION.search(ok_clause), (
+            "exit 0 must be documented as the *absence* of a failing check "
+            f"(criterion 7); the exit-0 clause reads {ok_clause!r}"
+        )
+        assert not NEGATION.search(fail_clause), (
+            "the nonzero exit must be documented as at least one check failing, "
+            f"not as the absence of one; the clause reads {fail_clause!r}"
+        )
 
 
 def test_doctor_warns_rather_than_fails_on_a_machine_with_no_executor_backends() -> None:
@@ -280,6 +337,31 @@ def test_doctor_documents_that_no_user_configuration_file_exists_to_validate() -
         "`praxis doctor`'s configuration check must state that no user "
         "configuration file exists to validate (criterion 9) -- it is a named "
         "gap, like `executors discover`'s `version: unknown`"
+    )
+
+
+def test_doctor_documents_that_it_never_scans_the_working_tree() -> None:
+    doctor = _prose_only(_doctor_docs())
+    relevant = [
+        sentence
+        for sentence in _sentences(doctor)
+        if "working tree" in sentence.lower()
+    ]
+    assert relevant, (
+        "`praxis doctor`'s graph/overlay check must state that doctor validates "
+        "only the documents it is handed and never scans the working tree"
+    )
+    assert all(
+        re.search(
+            r"\b(never|not|no|does not|doesn'?t)\b(\s+\w+){0,2}\s+scans?\b",
+            sentence,
+            re.I,
+        )
+        for sentence in relevant
+    ), (
+        "the working-tree statement must be a negation -- prose saying doctor "
+        "scans the working tree for documents is the inversion this guards "
+        "against"
     )
 
 
@@ -318,18 +400,36 @@ def test_run_documents_target_resolution() -> None:
 
 
 def test_run_documents_that_explicit_selection_is_still_constrained() -> None:
-    run = _prose_only(_run_docs())
-    assert "policy" in run.lower(), (
-        "`praxis run`'s documentation must state that an explicit `--executor` "
-        "is still subject to policy (criterion 18)"
+    sentences = _sentences(_prose_only(_run_docs()))
+    # Policy and the refusal have to meet in one sentence: searched for
+    # separately, prose saying the explicit choice *bypasses* policy and is
+    # silently overridden "rather than refused" satisfies both searches.
+    policy = [
+        sentence
+        for sentence in sentences
+        if "policy" in sentence.lower() and _asserts_refusal(sentence)
+    ]
+    assert policy, (
+        "`praxis run`'s documentation must state, in one sentence, that an "
+        "explicit `--executor` is still subject to policy and that a "
+        "policy-denied executor is refused rather than silently overridden "
+        "(criterion 18)"
     )
-    assert "requirement" in run.lower(), (
-        "`praxis run`'s documentation must state that an explicit `--executor` "
-        "must still satisfy the node's requirement (criterion 18)"
+    assert not any(re.search(r"\bbypass", sentence, re.I) for sentence in policy), (
+        "an explicit `--executor` must not be documented as bypassing policy "
+        "(criterion 18)"
     )
-    assert re.search(r"refus", run, re.I), (
-        "a policy-violating explicit choice must be documented as refused, not "
-        "silently overridden (criterion 18)"
+    requirement = [
+        sentence
+        for sentence in sentences
+        if "requirement" in sentence.lower()
+        and re.search(r"\bstill\b|\bmust\b", sentence, re.I)
+        and _asserts_refusal(sentence)
+    ]
+    assert requirement, (
+        "`praxis run`'s documentation must state that an explicit `--executor` "
+        "must still satisfy the node's requirement, and that the node is "
+        "refused when it does not (criterion 18)"
     )
 
 
@@ -347,11 +447,13 @@ def test_run_documents_the_run_dir_contract() -> None:
     refused = [
         sentence
         for sentence in _sentences(run)
-        if "run-state.json" in sentence and re.search(r"refus", sentence, re.I)
+        if "run-state.json" in sentence and _asserts_refusal(sentence)
     ]
     assert refused, (
         "`praxis run`'s documentation must state that a `--run-dir` already "
-        "holding a `run-state.json` is refused (criterion 22)"
+        "holding a `run-state.json` is refused (criterion 22) -- prose saying "
+        "such a directory is overwritten and 'never refused' is the inversion "
+        "this guards against"
     )
 
 
@@ -372,11 +474,16 @@ def test_readme_states_that_neither_command_has_json_output() -> None:
     relevant = [
         sentence
         for sentence in _sentences(usage)
-        if "`--json`" in sentence and "doctor" in sentence and "run" in sentence
+        if "`--json`" in sentence
+        and "doctor" in sentence
+        and "run" in sentence
+        and NEGATION.search(sentence)
     ]
     assert relevant, (
         "the Usage section must state that `--json` is not available for "
-        "`doctor` or `run`; `--json` stays bound to the `executors` status table"
+        "`doctor` or `run`; `--json` stays bound to the `executors` status "
+        "table. Naming the three tokens without a negation is satisfied by "
+        "prose saying both commands accept it too"
     )
 
 

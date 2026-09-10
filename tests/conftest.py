@@ -23,6 +23,11 @@ test_cli_fields.py and test_cli_discover.py so the one probe failure a real
 `claude` binary can raise is constructed the same way in both, and
 `_MALFORMED_ADVERTISEMENTS` is the fourth, shared by test_cli_discover.py and
 test_cli_status.py.
+
+Executor-adapter doubles otherwise deliberately do not live here: this file
+is imported for every test session, so an adapter import in it is one every
+unrelated suite pays for. The `CodexCliExecutor` doubles are in
+tests/codex_doubles.py.
 """
 
 from __future__ import annotations
@@ -54,6 +59,14 @@ _MALFORMED_ADVERTISEMENTS = (
         "capabilities": [{"spec_version": _SPEC_VERSION, "satisfies": [{}]}],
     },
 )
+
+
+def pytest_configure(config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "slow: load-sensitive or long-running; deselect with -m 'not slow' "
+        "where the machine cannot give the test its timing headroom",
+    )
 
 
 def _linear_graph() -> Graph:

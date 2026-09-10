@@ -220,6 +220,70 @@ def test_capabilities_raises_executor_error_for_model_entry_missing_name(running
         executor.capabilities()
 
 
+def test_capabilities_omits_context_window_when_show_response_is_a_json_array(running_ollama_server):
+    """Repair finding (#70 gap 1): an `/api/show` body that decodes to a JSON
+    array instead of an object must not fail the whole capabilities() call
+    via an uncaught AttributeError from `show.get("capabilities")` -- same
+    best-effort-degrade contract already covered above for a non-JSON body."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (200, ["unexpected", "array"])
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert "context_window" not in advertisement["capabilities"][0]
+
+
+def test_capabilities_raises_executor_error_for_non_dict_model_entry(running_ollama_server):
+    """Repair finding (#70 gap 2): a `/api/tags` model entry that isn't a
+    dict at all (e.g. a bare number) must raise a handled ExecutorError, not
+    an uncaught TypeError from `"name" not in model`."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [123]})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    with pytest.raises(ExecutorError):
+        executor.capabilities()
+
+
+def test_capabilities_falls_back_to_reasoning_when_show_capabilities_is_not_a_list(running_ollama_server):
+    """Repair finding (#70 gap 3): an `/api/show` `capabilities` field that
+    isn't a list (e.g. a bare number) must not fail the whole capabilities()
+    call via an uncaught TypeError inside `_classify_kinds` -- it should fall
+    back the same way a fully-absent `/api/show` response already does."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (200, {"capabilities": 5})
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    kinds = {entry["kind"] for entry in advertisement["capabilities"][0]["satisfies"]}
+    assert "reasoning" in kinds
+
+
+def test_capabilities_preserves_context_window_when_classify_kinds_fails_after_extraction(
+    running_ollama_server,
+):
+    """Repair finding: the per-model except block used to unconditionally
+    reset context_window=None even when it was already successfully
+    extracted before an unrelated exception in `_classify_kinds` (e.g. a
+    non-list `capabilities` field) -- discarding valid context_window data.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/tags"] = (200, {"models": [{"name": "llama3"}]})
+    responses["/api/show"] = (
+        200,
+        {"model_info": {"llama.context_length": 4096}, "capabilities": 5},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    advertisement = executor.capabilities()
+
+    assert advertisement["capabilities"][0]["context_window"] == 4096
+
+
 def test_capabilities_raises_executor_error_when_no_models_installed(running_ollama_server):
     """Repair finding: an empty `capabilities` array violates
     capability-advertisement.schema.json's minItems:1 -- reachable-with-zero-models
@@ -299,6 +363,29 @@ def test_successful_generate_reaches_succeeded(running_ollama_server):
     assert executor.result(handle).payload["response"] == "hello there"
 
 
+def test_generate_with_non_dict_payload_reaches_failed(running_ollama_server):
+    """Regression test for #69: a malformed `/api/generate` response body that
+    decodes to valid JSON but isn't a dict (e.g. a bare JSON array) must not
+    permanently corrupt the handle. Before the fix, `payload.get(...)` on a
+    non-dict payload raised `AttributeError` inside the worker thread before
+    `self._results[handle_id]` was ever set, leaving `status()`/`result()`
+    raising `KeyError` forever instead of resolving to a terminal state.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (200, ["not", "a", "dict"])
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.FAILED
+    assert executor.result(handle).status == ExecutorStatus.FAILED
+
+
 def test_cancel_closes_in_flight_request(running_ollama_server):
     base_url, responses, delays = running_ollama_server
     delays["/api/generate"] = 2.0
@@ -338,6 +425,39 @@ def test_cancel_closes_in_flight_request(running_ollama_server):
     # connection -- a no-op cancel() would leave status RUNNING past this
     # deadline instead of resolving to CANCELLED.
     status = _wait_for_terminal(executor, handle, timeout=1.5)
+    assert status == ExecutorStatus.CANCELLED
+    assert executor.result(handle).status == ExecutorStatus.CANCELLED
+
+
+def test_cancel_before_connection_registered_reports_cancelled_not_succeeded(
+    running_ollama_server,
+):
+    """Regression test for #68: cancel() called before the worker thread has
+    registered a connection (i.e. before urlopen() returns) let the request
+    complete normally, and the success path unconditionally reported
+    SUCCEEDED without ever checking self._cancelled -- unlike the adjacent
+    exception-branch, which already did. Calling cancel() immediately after
+    launch() returns (no injected delay, no polling for the connection to
+    register) virtually guarantees the worker hasn't reached urlopen() yet,
+    so the request races ahead and completes via the success path while
+    handle_id is already in self._cancelled.
+    """
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "hello there", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+    executor.cancel(handle)
+
+    status = _wait_for_terminal(executor, handle)
     assert status == ExecutorStatus.CANCELLED
     assert executor.result(handle).status == ExecutorStatus.CANCELLED
 

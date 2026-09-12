@@ -27,6 +27,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import pytest
 from conftest import _FakeExecutor
@@ -230,10 +231,22 @@ sys.stderr.write(json.dumps({"before": before, "after": after, "code": code}))
 """
 
 
+_SRC_DIR = str(Path(__file__).resolve().parent.parent / "src")
+
+
 def _probe(*argv: str, stub_adapters: bool = False) -> dict:
     environment = dict(os.environ)
     if stub_adapters:
         environment["PRAXIS_STUB_ADAPTERS"] = "1"
+    # `pythonpath = ["src"]` in pyproject.toml puts src on the *test* process's
+    # sys.path; a child started from `sys.executable` inherits none of that. It
+    # happens to import anyway when the interpreter running the suite has the
+    # project installed, so without this the probe passes under the project
+    # virtualenv and fails with ModuleNotFoundError under a bare interpreter --
+    # a failure about how the suite was invoked, not about the code it tests.
+    environment["PYTHONPATH"] = os.pathsep.join(
+        [_SRC_DIR, *([environment["PYTHONPATH"]] if environment.get("PYTHONPATH") else [])]
+    )
     completed = subprocess.run(
         [sys.executable, "-c", _PROBE, *argv],
         capture_output=True,

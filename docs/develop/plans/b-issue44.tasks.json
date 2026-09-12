@@ -1,0 +1,17 @@
+{"bundle": "b-issue44",
+ "tasks": [
+   {"id": "T1", "title": "Bootstrap: module scaffold, constructor, loopback + HTTP helpers, fake-server test fixture", "depends_on": [], "kind": "code",
+    "files": ["src/praxis_executors/adapters/mlx.py", "tests/test_mlx_executor.py"]},
+   {"id": "T2", "title": "health(): three-state availability over GET /v1/models", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/mlx.py", "tests/test_mlx_executor.py"]},
+   {"id": "T3", "title": "capabilities(): per-model advertisement and shape-error containment", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/mlx.py", "tests/test_mlx_executor.py"]},
+   {"id": "T4", "title": "Execution lifecycle: launch/status/cancel/result over POST /v1/chat/completions", "depends_on": ["T1"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/mlx.py", "tests/test_mlx_executor.py"]},
+   {"id": "T5", "title": "docs/executors.md: retire MLX as hypothetical, list the concrete adapter", "depends_on": [], "kind": "docs",
+    "files": ["docs/executors.md"]},
+   {"id": "T6", "title": "Pin the updated doc claims from tests/test_mlx_executor.py", "depends_on": ["T1", "T5"], "kind": "code",
+    "files": ["tests/test_mlx_executor.py"]},
+   {"id": "T7", "title": "Integration pass: whole suite green, changed-file set verified", "depends_on": ["T2", "T3", "T4", "T6"], "kind": "code",
+    "files": ["src/praxis_executors/adapters/mlx.py", "tests/test_mlx_executor.py", "docs/executors.md"]}
+ ]}

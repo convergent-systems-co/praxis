@@ -242,9 +242,9 @@ in [`docs/orchestration.md`](orchestration.md). The registry itself remains inde
 
 ## Adding a new executor adapter
 
-Adding a new backend (e.g. a future OpenCode or MLX/local adapter, or any other future executor)
-requires no change to `praxis_runtime`, `praxis_contracts`, or any graph document — the extension
-path is entirely local to `praxis_executors`:
+Adding a new backend (e.g. a future OpenCode adapter, or any other future executor) requires no
+change to `praxis_runtime`, `praxis_contracts`, or any graph document — the extension path is
+entirely local to `praxis_executors`:
 
 1. Implement a new class in `src/praxis_executors/adapters/` subclassing `Executor`.
 2. Implement its five methods: `launch`, `status`, `cancel`, `capabilities`, `result` (plus
@@ -257,7 +257,7 @@ path is entirely local to `praxis_executors`:
 6. Once registered, the adapter is selectable through the existing `matching`/`policy`/`registry`
    machinery with no further wiring.
 
-None of those remaining hypothetical adapters (OpenCode, MLX) exist yet. Six concrete
+None of those remaining hypothetical adapters (OpenCode) exist yet. Six concrete
 adapters ship today: `FakeCapabilityExecutor` (`src/praxis_executors/adapters/fake.py`), a
 deterministic, scripted executor for tests; `SubprocessExecutor`
 (`src/praxis_executors/adapters/subprocess_executor.py`), a real OS-subprocess executor;
@@ -271,8 +271,10 @@ never stand in for the subscription it advertises; `CodexCliExecutor`
 subscription CLI as a subprocess and also advertises `auth_transport: "subscription_cli"`;
 `CopilotCliExecutor` (`src/praxis_executors/adapters/copilot_cli.py`), which drives the
 locally-installed `copilot` subscription CLI as a subprocess and likewise advertises
-`auth_transport: "subscription_cli"`; and `OllamaExecutor`
+`auth_transport: "subscription_cli"`; `OllamaExecutor`
 (`src/praxis_executors/adapters/ollama.py`), a local-HTTP-backed executor
-against a locally-running Ollama service (`auth_transport: "local"`). None of the six is
+against a locally-running Ollama service (`auth_transport: "local"`); and `MlxExecutor`
+(`src/praxis_executors/adapters/mlx.py`), a local-HTTP-backed executor against an
+already-running local `mlx_lm.server` (`auth_transport: "local"`). None of the six is
 registered with an `ExecutorRegistry` by default — steps 4-5 above are left to the caller that
 wires a concrete deployment together.

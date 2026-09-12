@@ -1,0 +1,40 @@
+{
+  "bundle": "b-issue59",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Module docstring states the narrow join-kind gating rule",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_runtime/transitions.py"]
+    },
+    {
+      "id": "T2",
+      "title": "docs/runtime.md fail-closed paragraph matches the docstring",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/runtime.md"]
+    },
+    {
+      "id": "T3",
+      "title": "Regression tests for mixed-incoming-edge-kind join target, both completion orders",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["tests/test_transitions.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Docstring guard test pinning the kind-qualified join wording",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": ["tests/test_transitions.py"]
+    },
+    {
+      "id": "T5",
+      "title": "Correction note on the stale b4-issue32 plan claim",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/develop/plans/b4-issue32.md"]
+    }
+  ]
+}

@@ -141,3 +141,25 @@ session's sandboxed working directories (worktree root and run directory only), 
 calls were blocked. The DAG was verified manually instead: 3 tasks, each with a single-file,
 non-overlapping footprint, zero `depends_on` edges among them — no cycle, no undeclared
 footprint touch, no accidental serialization possible.
+
+## Correction (issue #59)
+
+The `TERMINAL_SUCCESS` line above (lines 15-16, "existing behavior, unchanged") is not
+accurate, and is left in place only as a record of what this bundle planned. As shipped, this
+bundle also narrowed `_join_ready`'s incoming-edge filter (in commit `2d0afc5`) from every edge
+targeting the node to only `"join"`-kind edges targeting it. That changes when a target with
+mixed incoming-edge kinds is created: it becomes `PENDING` as soon as its `"join"`-kind
+predecessors succeed, instead of waiting for the sources of its non-join incoming edges as well.
+
+Issue #59 resolved the contradiction in favour of the narrow filter (its fix option 2), because
+it makes `_join_ready` consistent with `_check_evidence`'s pre-existing `join_sources`
+computation. `docs/develop/specs/b-issue59.md` records that decision, the alternative it
+rejected, and the acceptance criteria for propagating the narrow semantics into the
+`src/praxis_runtime/transitions.py` module docstring, the runtime documentation, and the join
+regression tests.
+
+This section is a dated record (September 2026) of that decision, not a live claim about the
+current code. The durable statement of how `_join_ready` behaves is
+`src/praxis_runtime/transitions.py`'s module docstring together with the join tests that pin
+it; a later change to that scope belongs in its own issue and its own record, not in an edit
+here.

@@ -66,13 +66,19 @@ Evaluation-record construction and validation (`src/praxis_eval/measurements.py`
   empty) and validates the built document against `schemas/v1/evaluation-record.schema.json`.
 
 **The `workload_id` citation convention:** `workload_id` must cite an exact external
-workload/scenario identifier verbatim — e.g. a `benchmark/corpus/*.md` filename such as
-`02-feature-implementation.md` — never a paraphrase. This mirrors the citation discipline
-`benchmark/baseline/acceptance-thresholds.md` already established for baseline gates, and lets an
-`EvaluationRecord` be traced back to exactly which corpus scenario produced it. The schema itself
-only requires `workload_id` to be a string; this is a documented convention enforced by this
-module's callers, not a runtime check — the same "the schema can't express it, the code and the
-docs carry it" pattern `praxis_eval.thresholds` uses for duplicate-metric detection below.
+workload/scenario identifier verbatim — never a paraphrase. The same rule has two citation
+forms, one per kind of producer, because the exact identifier available differs. A corpus
+evaluation cites the `benchmark/corpus/*.md` filename, such as
+`02-feature-implementation.md`. A live execution, which has no corpus file, cites the graph
+`node_id` the caller passed in, used unmodified — no prefix, no formatting, no synthesized
+string. Both forms are the one discipline applied to whichever exact identifier the producer
+actually holds, mirroring the citation discipline
+`benchmark/baseline/acceptance-thresholds.md` already established for baseline gates, and
+letting an `EvaluationRecord` be traced back to exactly which corpus scenario or graph node
+produced it. The schema itself only requires `workload_id` to be a string; this is a
+documented convention enforced by this module's callers, not a runtime check — the same "the
+schema can't express it, the code and the docs carry it" pattern `praxis_eval.thresholds` uses
+for duplicate-metric detection below.
 
 ## `praxis_eval.thresholds`
 

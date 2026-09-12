@@ -14,7 +14,7 @@ The overlay's own scope decision was made by issue #12 and is documented at
 full port. The `develop` skill's own `GRAPH.yaml` describes roughly 30 nodes across five lanes
 ... this graph only needs to demonstrate that the existing graph can be expressed through the
 overlay contract, not reproduce every node in it."* Issues #28/#29 (bundled here as b2-issue28)
-widened that graph additively to also express the bundle lane and a topology-only
+widened that graph additively to also express the bundle lane and a
 recovery/human-interrupt lane; issue #30 is this refresh of the parity evidence — fixtures and
 this document — against that wider surface. This document names exactly which nodes and events
 remain outside the overlay's surface, and why, per scenario.
@@ -24,7 +24,7 @@ remain outside the overlay's surface, and why, per scenario.
 The overlay now covers the legacy `GRAPH.yaml` **task lane** 4-node linear chain
 (`write_tdd -> implement -> verify -> commit_task`), the **bundle lane** 6-node chain
 (`plan_bundle -> task_scheduler -> bundle_verify -> final_review -> documentation_review ->
-create_pr`) plus its `repair_bundle` retry node, the topology-only **recovery lane**
+create_pr`) plus its `repair_bundle` retry node, the **recovery lane**
 (`context_recovery`, `blocker_recovery`, `awaiting_human`), and every legacy event that
 `overlays/development/compat.py`'s `legacy_event_to_proof_type` or `legacy_event_to_recovery_node`
 resolves onto that surface:
@@ -44,7 +44,7 @@ resolves onto that surface:
 | `repair_bundle`          | `build_development_graph()` node id                                                  |
 | `context_recovery`       | `build_development_graph()` node id (topology-only placeholder, see #32)             |
 | `blocker_recovery`       | `build_development_graph()` node id (topology-only placeholder, see #32)             |
-| `awaiting_human`         | `build_development_graph()` node id (topology-only placeholder, see #32)             |
+| `awaiting_human`         | `build_development_graph()` node id (inbound `on-failure` edge from `repair_bundle`) |
 | `VERIFY_DONE`            | `compat.legacy_event_to_proof_type` -> `development.test-pass`                       |
 | `REVIEW_APPROVED`        | `compat.legacy_event_to_proof_type` -> `development.review-approved`                 |
 | `PLAN_DONE`              | `compat.legacy_event_to_proof_type` -> `development.plan-done`                       |
@@ -397,7 +397,7 @@ Per acceptance criterion 2, the gap documented above is **accepted and scoped, n
 
 - The task lane (`write_tdd -> implement -> verify -> commit_task`), the bundle lane
   (`plan_bundle -> task_scheduler -> bundle_verify -> final_review -> documentation_review ->
-  create_pr` plus `repair_bundle`), and the topology-only recovery lane (`context_recovery`,
+  create_pr` plus `repair_bundle`), and the recovery lane (`context_recovery`,
   `blocker_recovery`, `awaiting_human`) are exactly what #28/#29 widened the development overlay
   to express, and are exactly what #13/#30's parity fixtures (`benchmark/fixtures/*.json`, proved
   by `tests/test_parity_fixtures.py`) hold the overlay to. No fixture claims

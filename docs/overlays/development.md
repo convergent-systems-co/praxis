@@ -44,9 +44,11 @@ a full port, if ever needed, is future work, not something this overlay's scope 
 **Bundle lane.** Alongside the 4-node task lane above, `build_development_graph()` also expresses
 the `~/.ai/skills/develop` bundle lane as a second sequential chain:
 `plan_bundle` -> `task_scheduler` -> `bundle_verify` -> `final_review` -> `documentation_review` -> `create_pr`.
-The terminal `create_pr` node's `metadata["evidence_requirement"]` requires all four of the new
-proof types listed under "## Manifest" above. `repair_bundle` is the bundle lane's retry node: it
-has edges in from both `bundle_verify` and `final_review`, standing in for the
+The bundle lane's last node, `create_pr`, has a `metadata["evidence_requirement"]` requiring all
+four of the new proof types listed under "## Manifest" above. Being last in the chain does not make
+it a graph terminal: `Graph.terminal_nodes` remains `{"commit_task"}`, the task lane's terminal node.
+`repair_bundle` is the bundle lane's retry node: it has edges in from both
+`bundle_verify` and `final_review`, standing in for the
 `~/.ai/skills/develop` graph's retry branch off either of those two nodes.
 
 **Recovery lane is topology-only.** A third lane — `context_recovery`, `blocker_recovery`,
@@ -55,7 +57,7 @@ edge is `repair_bundle` -> `awaiting_human`. `context_recovery` and `blocker_rec
 at all in this graph. These nodes are not dispatched work; they exist so that the node *names* from
 the `~/.ai/skills/develop` recovery/scheduler lanes are expressible through the overlay contract,
 matching acceptance criterion 2's "can be expressed" bar rather than a full port (see #32 disclosure
-immediately below, in the same register as the `conflict_fn` wiring-gap paragraph under
+immediately below, in the same register as the `conflict_fn` wiring paragraph under
 "## Resource provider").
 
 **Recovery/retry edges are `kind="on-failure"` (#32).** `bundle_verify` -> `repair_bundle`,

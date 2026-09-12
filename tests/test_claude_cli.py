@@ -371,6 +371,32 @@ def test_launch_strips_anthropic_api_key_from_subprocess_environment(monkeypatch
     assert "ANTHROPIC_API_KEY" not in env
 
 
+def test_health_probes_use_the_same_filtered_environment_as_launch(monkeypatch):
+    # The version and auth probes must not see the Anthropic credential
+    # variables launch() strips: an ambient API key must not be able to make
+    # health() report AVAILABLE for an executor advertising subscription_cli.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-api-key-for-test")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "fake-auth-token-for-test")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://base-url.invalid")
+    monkeypatch.setenv("PRAXIS_UNRELATED", "keep-me")
+    with (
+        patch("praxis_executors.adapters.claude_cli.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "praxis_executors.adapters.claude_cli.subprocess.run",
+            return_value=_mock_run_result('{"loggedIn": true}'),
+        ) as mock_run,
+    ):
+        _executor().health()
+
+    assert len(mock_run.call_args_list) == 2
+    for call in mock_run.call_args_list:
+        env = call.kwargs["env"]
+        assert "ANTHROPIC_API_KEY" not in env
+        assert "ANTHROPIC_AUTH_TOKEN" not in env
+        assert "ANTHROPIC_BASE_URL" not in env
+        assert env.get("PRAXIS_UNRELATED") == "keep-me"
+
+
 # Optional real-CLI smoke test
 
 

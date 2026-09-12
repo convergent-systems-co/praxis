@@ -1,0 +1,49 @@
+{
+  "bundle": "b-issue53",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Claude CLI health probes run against a credential-stripped environment (criterion 4)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/adapters/claude_cli.py",
+        "tests/test_claude_cli.py",
+        "docs/executors.md"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "tests/test_security_policy_bypass.py + minimal fail-closed fix in policy.py (criteria 1-3, 5-11)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "tests/test_security_policy_bypass.py",
+        "src/praxis_executors/policy.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "tests/test_security_credential_nonleakage.py: argv, redaction, ollama and subprocess adapters (criteria 12-14)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "tests/test_security_credential_nonleakage.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Full-suite integration check and criterion coverage map (criterion 15)",
+      "depends_on": ["T1", "T2", "T3"],
+      "kind": "code",
+      "files": [
+        "tests/test_security_policy_bypass.py",
+        "tests/test_security_credential_nonleakage.py",
+        "tests/test_claude_cli.py",
+        "src/praxis_executors/adapters/claude_cli.py",
+        "src/praxis_executors/policy.py",
+        "docs/executors.md"
+      ]
+    }
+  ]
+}

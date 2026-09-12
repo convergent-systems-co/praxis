@@ -210,7 +210,10 @@ feed `DenyListPolicy`/`as_eligibility_callable` above.
 `ExecutorRegistry` (`src/praxis_executors/registry.py`) tracks registered adapters and mediates
 selection and execution. It has no dependency on `praxis_runtime`; dispatching converted proof
 records into `TransitionEngine.apply` is still the caller's responsibility, not the registry's —
-no executor-to-runtime orchestrator module exists in this codebase today.
+the executor-to-runtime orchestrator is
+[`src/praxis_orchestration/escalation.py`](../src/praxis_orchestration/escalation.py), documented
+in [`docs/orchestration.md`](orchestration.md). The registry itself remains independent of
+`praxis_runtime`.
 
 - `def evidence_to_proof_records(evidence: dict, *, run_id: str, graph_version: str, node_id: str, executor_id: str, grader_kind: str = "deterministic") -> list[dict]`:
   the reusable conversion from an `ExecutionResult.evidence` flat `{proof_type: claim}` dict into

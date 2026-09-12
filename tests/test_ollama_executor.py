@@ -386,6 +386,166 @@ def test_generate_with_non_dict_payload_reaches_failed(running_ollama_server):
     assert executor.result(handle).status == ExecutorStatus.FAILED
 
 
+def test_forget_reaps_succeeded_handle_and_makes_it_unknown(running_ollama_server):
+    """AC1/AC2: a terminal handle can be reaped and is no longer reusable."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "hello there", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.SUCCEEDED
+    executor.forget(handle)
+
+    assert handle.handle_id not in executor._threads
+    assert handle.handle_id not in executor._results
+    assert handle.handle_id not in executor._cancelled
+    assert handle.handle_id not in executor._connections
+    for operation in (
+        executor.status,
+        executor.result,
+        executor.cancel,
+        executor.forget,
+    ):
+        with pytest.raises(ExecutorError, match="unknown execution handle"):
+            operation(handle)
+
+
+def test_forget_reaps_failed_handle(running_ollama_server):
+    """AC4: FAILED handles must be reaped just like successful handles."""
+    base_url, responses, _delays = running_ollama_server
+    responses["/api/generate"] = (200, ["not", "a", "dict"])
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.FAILED
+    executor.forget(handle)
+
+    assert handle.handle_id not in executor._threads
+    assert handle.handle_id not in executor._results
+    assert handle.handle_id not in executor._cancelled
+    assert handle.handle_id not in executor._connections
+
+
+def test_forget_reaps_cancelled_handle_and_cancel_marker(running_ollama_server):
+    """AC4: CANCELLED handles must evict the marker that caused cancellation."""
+    base_url, responses, delays = running_ollama_server
+    delays["/api/generate"] = 2.0
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "too slow", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    registration_deadline = time.monotonic() + 1.0
+    while (
+        not executor._connections.get(handle.handle_id)
+        and time.monotonic() < registration_deadline
+    ):
+        time.sleep(0.01)
+    assert executor._connections.get(handle.handle_id)
+    executor.cancel(handle)
+    assert _wait_for_terminal(executor, handle, timeout=1.5) == ExecutorStatus.CANCELLED
+    assert handle.handle_id in executor._cancelled
+
+    executor.forget(handle)
+    assert handle.handle_id not in executor._threads
+    assert handle.handle_id not in executor._results
+    assert handle.handle_id not in executor._cancelled
+    assert handle.handle_id not in executor._connections
+
+
+def test_forget_refuses_running_handle_without_eviction(running_ollama_server):
+    """AC3: a live worker cannot be forgotten while it can recreate its result."""
+    base_url, responses, delays = running_ollama_server
+    delays["/api/generate"] = 2.0
+    responses["/api/generate"] = (
+        200,
+        {"model": "llama3", "response": "too slow", "done": True},
+    )
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    registration_deadline = time.monotonic() + 1.0
+    while (
+        not executor._connections.get(handle.handle_id)
+        and time.monotonic() < registration_deadline
+    ):
+        time.sleep(0.01)
+    assert executor._connections.get(handle.handle_id)
+    with pytest.raises(ExecutorError, match="still RUNNING"):
+        executor.forget(handle)
+    assert handle.handle_id in executor._threads
+    executor.cancel(handle)
+    assert _wait_for_terminal(executor, handle, timeout=1.5) == ExecutorStatus.CANCELLED
+
+
+def test_generate_connection_failure_is_reapable(running_ollama_server):
+    """AC5: an early urlopen failure removes the connection entry but keeps a handle."""
+    port = _unused_loopback_port()
+    executor = OllamaExecutor(executor_id="e", base_url=f"http://127.0.0.1:{port}")
+    handle = executor.launch(
+        ExecutionRequest(
+            promise={"spec_version": "1.0.0", "kind": "reasoning"},
+            parameters={"model": "llama3", "prompt": "hi"},
+        )
+    )
+
+    assert _wait_for_terminal(executor, handle) == ExecutorStatus.FAILED
+    assert handle.handle_id not in executor._connections
+    assert handle.handle_id in executor._threads
+    assert handle.handle_id in executor._results
+    executor.forget(handle)
+    assert handle.handle_id not in executor._threads
+    assert handle.handle_id not in executor._results
+    assert handle.handle_id not in executor._cancelled
+    assert handle.handle_id not in executor._connections
+
+
+def test_launch_rolls_back_entries_when_thread_start_fails(monkeypatch, running_ollama_server):
+    """AC7: a failed Thread.start must not leave an unreachable handle behind."""
+    base_url, _responses, _delays = running_ollama_server
+    executor = OllamaExecutor(executor_id="e", base_url=base_url)
+
+    def fail_start(_thread):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", fail_start)
+    with pytest.raises(RuntimeError, match="can't start new thread"):
+        executor.launch(
+            ExecutionRequest(
+                promise={"spec_version": "1.0.0", "kind": "reasoning"},
+                parameters={"model": "llama3", "prompt": "hi"},
+            )
+        )
+
+    assert executor._threads == {}
+    assert executor._connections == {}
+
+
 def test_cancel_closes_in_flight_request(running_ollama_server):
     base_url, responses, delays = running_ollama_server
     delays["/api/generate"] = 2.0

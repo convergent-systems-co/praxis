@@ -317,7 +317,7 @@ pytest
 
 ### Quickstart: drive a graph to completion
 
-`praxis --version` exists today as an install smoke-check. The way to drive a graph to completion is still as a library: build or load a graph, construct a `TransitionEngine` over it, and drive it with an executor (this bundle adds no graph-driving subcommands to the CLI — that's separate, later work). `src/overlays/trivial/` is a minimal (two-node, non-software-development-shaped) worked example built for exactly this purpose. Run this from the repo root after installing:
+`praxis run` is the shipped command that drives a graph to completion — see "Driving a graph" below. The library walkthrough here shows what that command does on your behalf: build or load a graph, construct a `TransitionEngine` over it, and drive it with an executor. `src/overlays/trivial/` is a minimal (two-node, non-software-development-shaped) worked example built for exactly this purpose. Run this from the repo root after installing:
 
 ```python
 from pathlib import Path
@@ -406,13 +406,58 @@ praxis executors discover
 praxis executors match --capability coding --capability reasoning --explain
 ```
 
-An adapter whose backing CLI or service is absent degrades its own row (`capabilities: unavailable (<reason>)`) rather than failing the command, so all four commands work on a machine with no `claude` binary and no Ollama service. `--explain` adds one line per candidate giving its eligibility and either its rank among the ranked candidates or the reason it was excluded, including whether the exclusion came from `AuthTransportPolicy`. `--json` applies to the bare `praxis executors` status table only. Version reporting is a known gap: no adapter exposes a version on the public `Executor` interface yet, so every row reads `version: unknown`.
+An adapter whose backing CLI or service is absent degrades its own row (`capabilities: unavailable (<reason>)`) rather than failing the command, so all four commands work on a machine with no `claude` binary and no Ollama service. `--explain` adds one line per candidate giving its eligibility and either its rank among the ranked candidates or the reason it was excluded, including whether the exclusion came from `AuthTransportPolicy`. `--json` applies to the bare `praxis executors` status table only — neither `doctor` nor `run` accepts it. Version reporting is a known gap: no adapter exposes a version on the public `Executor` interface yet, so every row reads `version: unknown`.
 
 The `status` field reports the adapter's own availability verdict: `available`, `degraded`, or `unavailable`. A `status` of `unknown` is the fourth possibility, and means the health probe itself raised rather than returning any verdict — that adapter's state was never established, which is not the same as `degraded`.
 
 Every `--json` object carries exactly those same four fields, and a degraded row states its failure in them rather than in an extra error field. Two of the fields are therefore unions. A consumer must check the type of `capabilities` before treating it as a list: an adapter that answered reports a list of capability kinds, while one that could not be asked reports the string `unavailable (<reason>)`. On that same row, `auth_transport` carries the bare string `unavailable` in the slot that otherwise holds a transport name such as `local`.
 
-`praxis` with no arguments, or with anything other than `executors` as its first argument, prints the package version and exits 0.
+`praxis` recognizes exactly three first arguments — `executors`, `doctor` and `run` — and with no arguments, or with any other first argument, it prints the package version and exits 0.
+
+### Checking an install: `praxis doctor`
+
+`praxis doctor` reports on the health of a Praxis install and, when asked, on the documents you hand it. Every check is read-only.
+
+```bash
+# the install alone
+praxis doctor
+
+# also validate documents you name (both flags are repeatable)
+praxis doctor --graph examples/sample-graph.json --overlay-manifest path/to/overlay-manifest.json
+```
+
+Doctor prints one block per check, always in this order:
+
+1. **Prerequisites** — Python 3.10 or newer, `praxis-contracts` installed with a readable version, and both runtime dependencies (`jsonschema>=4.18`, `referencing>=0.28.4`) present at or above their declared minimums.
+2. **Configuration** — that the installed `schemas/v1/` package data resolves to a real directory and that every schema file in it loads and is itself a valid JSON Schema. Praxis reads no user configuration file today, so there is nothing else here to validate; doctor states that gap in its output rather than inventing a config format to check against.
+3. **Graph/overlay validity** — each `--graph` is loaded through the runtime's own loader, which enforces the structural invariants the schema cannot express (edges reference existing nodes, the entry node exists, every node is reachable, terminal nodes exist), and each `--overlay-manifest` through the overlay manifest loader. With neither flag supplied the check reports the single field `status: skipped (no document supplied)` and a verdict of `ok`, so it never moves the exit code; `skipped` is a field value, not a fourth verdict. Doctor validates what you hand it and never scans the working tree for documents.
+4. **Executor discovery** — the same per-adapter rows `praxis executors discover` prints, unchanged: installed, version, authenticated, auth transport, capabilities.
+5. **Policy** — confirms the deny-by-default posture is active by probing the default `AuthTransportPolicy`, which must refuse the `metered_api` and `api_key` transports and admit `local`. A discovered executor that advertises a denied transport is reported too: it exists, but every match will exclude it.
+
+Every block ends with a verdict of `ok`, `warn` or `fail`. Doctor exits 0 when no check is `fail` and exits 1 when at least one is; warnings never move the exit code. A machine with no `claude` binary and no Ollama service therefore gets `warn` and still exits 0, because an absent adapter degrades its own row rather than the command. A check that cannot complete reports `fail` with its reason and the remaining checks still run.
+
+### Driving a graph: `praxis run`
+
+`praxis run` drives a graph to completion from the command line: it walks the runnable cursors, dispatches each node to an executor, converts the returned evidence into proof records, and applies the resulting transition.
+
+```bash
+# auto-selected executor per node, against a shipped overlay
+praxis run trivial --run-dir /path/to/run-dir
+
+# a graph document on disk, with a graph-level capability requirement
+praxis run examples/sample-graph.json --capability coding --run-dir /path/to/run-dir
+
+# explicit executor and explicit run id
+praxis run development --executor executor-claude-cli-1 --run-id my-run --run-dir /path/to/run-dir
+```
+
+`<target>` is either a path to a JSON graph document — the same document `python -m praxis_dashboard --graph` takes — or the id of an overlay this repository ships, which is `trivial` or `development`. The shipped overlays are Python graph builders rather than files on disk, which is why they are named by id rather than by path. A target that is neither an existing path nor a known overlay id is refused before anything is written.
+
+`--executor` defaults to `auto`, which selects an executor per node through the same registry matching `praxis executors match` reports on. An explicit `--executor <id>` skips matching but not the constraints around it: the choice is still subject to `AuthTransportPolicy`, so an executor whose auth transport is denied is refused rather than silently overridden, and it must still satisfy the node's declared requirement or that node is refused as well. A node takes its requirement from its own `metadata["requirement"]`, and otherwise from the one synthesized out of the repeatable `--capability KIND` flags; a node with neither dispatches no executor at all and is completed with no evidence, which the engine's evidence gate still judges on its own terms.
+
+The command exits 0 once every node has reached a terminal state, and nonzero as soon as one node fails closed — a requirement no discovered executor satisfies, an explicit executor that policy or the node's requirement rules out, or an executor that errors. A node that fails closed stops the run rather than skipping ahead, and the state and events already written stay on disk and stay valid.
+
+`--run-dir` is required, because a command that writes a durable checkpoint and event log must never pick its destination implicitly. It receives a `run-state.json` and an `events/` directory, which is exactly the layout the Quickstart above builds by hand and exactly what `python -m praxis_dashboard --run-dir` reads. `--run-id` defaults to a fresh hex uuid. A `--run-dir` that already holds a `run-state.json` is refused, with nothing written and nothing launched. Resuming or replaying an existing run is out of scope for this command, so there is no resume flag and a populated directory is never reused.
 
 ### Running the test suite
 

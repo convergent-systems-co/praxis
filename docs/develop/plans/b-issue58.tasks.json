@@ -1,0 +1,9 @@
+{"bundle": "b-issue58",
+ "tasks": [
+   {"id": "T1", "title": "Bootstrap the worktree virtualenv", "depends_on": [], "kind": "code",
+    "files": [".venv/**"]},
+   {"id": "T2", "title": "Correct every citation in ADR 0001", "depends_on": [], "kind": "docs",
+    "files": ["docs/adr/0001-capacity-tiering-boundary.md"]},
+   {"id": "T3", "title": "Regression test guarding the corrected citations", "depends_on": ["T1", "T2"], "kind": "code",
+    "files": ["tests/test_repair_findings_b_issue58.py"]}
+ ]}

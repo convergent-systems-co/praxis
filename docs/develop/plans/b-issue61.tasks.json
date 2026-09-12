@@ -1,0 +1,33 @@
+{
+  "bundle": "b-issue61",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Remove the dead \"filesystem\" disjunct in _lease_conflict_fn",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_runtime/transitions.py"]
+    },
+    {
+      "id": "T2",
+      "title": "Strengthen the module-docstring test with positive assertions",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["tests/test_transitions.py"]
+    },
+    {
+      "id": "T3",
+      "title": "Verify item 3 (AuthTransportPolicy capabilities guard) already landed",
+      "depends_on": [],
+      "kind": "code",
+      "files": ["src/praxis_executors/policy.py", "tests/test_executor_policy.py"]
+    },
+    {
+      "id": "T4",
+      "title": "Bundle gate: full suite and per-item PR description material",
+      "depends_on": ["T1", "T2", "T3"],
+      "kind": "docs",
+      "files": ["docs/develop/plans/b-issue61.outcomes.md"]
+    }
+  ]
+}

@@ -713,6 +713,33 @@ def test_module_docstring_edge_consultation_sentence_covers_both_terminal_status
         "sentence must cover both terminal statuses, not just success"
     )
 
+    assert (
+        "consulted only afterward, once a transition to TERMINAL_SUCCESS or "
+        "TERMINAL_FAILED is committed" in normalized
+    ), (
+        "the docstring must state positively that edges are consulted only "
+        "afterward, once a transition to either terminal status is committed -- "
+        "_advance_successors runs on TERMINAL_FAILED as well as on "
+        "TERMINAL_SUCCESS, so naming only one of them understates when successor "
+        "cursors get created"
+    )
+
+    assert (
+        'An "on-failure" edge fires only when its source reaches TERMINAL_FAILED'
+        in normalized
+    ), (
+        'the docstring must say that an "on-failure" edge fires when its source '
+        "reaches TERMINAL_FAILED -- _advance_successors follows exactly the "
+        '"on-failure" edges, and no others, on that status'
+    )
+
+    assert "never firing on TERMINAL_SUCCESS" in normalized, (
+        'the docstring must say that an "on-failure" edge never fires on '
+        "TERMINAL_SUCCESS -- the success branch of _advance_successors skips "
+        'every "on-failure" edge, so a reader must not expect those targets to '
+        "get cursors when the source succeeds"
+    )
+
 
 def test_module_docstring_join_rule_is_kind_qualified():
     import praxis_runtime.transitions as transitions_module

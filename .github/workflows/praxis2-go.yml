@@ -29,12 +29,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Resolve module lock
+      - name: Verify module lock
         run: |
           go mod tidy
-          echo '---BEGIN-GO-SUM---'
-          cat go.sum
-          echo '---END-GO-SUM---'
+          git diff --exit-code -- go.mod go.sum
       - name: Format working copy
         run: |
           gofmt -w $(find . -type f -name '*.go' -not -path './.git/*')

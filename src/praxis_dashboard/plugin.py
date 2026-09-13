@@ -1,14 +1,15 @@
 """Dashboard observability surface exposed as a Praxis plugin.
 
 The dashboard remains read-only with respect to authoritative runtime state.
-Its primary Praxis 2 visualization is the live node-and-edge graph view.
+Its primary Praxis 2 visualizations are the live node-and-edge graph view,
+generalized team/agent view, and time-oriented event log.
 """
 
 from __future__ import annotations
 
 from praxis_plugins import PluginActivation, PluginContext, PluginManifest, PluginService
 
-from .server import main as dashboard_main
+from .cli import main as dashboard_main
 
 
 class DashboardPlugin:
@@ -18,7 +19,7 @@ class DashboardPlugin:
             plugin_id="praxis.observability.dashboard",
             version="1.0.0",
             kind="observability",
-            description="Read-only live node-and-edge graph observability dashboard",
+            description="Read-only live graph, team, and timeline observability dashboard",
             provides=("observability/dashboard",),
         )
 

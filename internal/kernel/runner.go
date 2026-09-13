@@ -16,13 +16,13 @@ type NodeExecutor interface {
 }
 
 type RunExecution struct {
-	RunID            string
-	GraphID          string
-	GraphVersion     string
-	CurrentNode      string
-	State            RunState
-	TransitionCount  int
-	Evidence         []string
+	RunID           string
+	GraphID         string
+	GraphVersion    string
+	CurrentNode     string
+	State           RunState
+	TransitionCount int
+	Evidence        []string
 }
 
 // Run executes canonical graph transitions. It is intentionally agnostic to
@@ -70,11 +70,7 @@ func Run(ctx context.Context, graph GraphDef, run *RunExecution, executor NodeEx
 			return fmt.Errorf("current node %q does not exist", run.CurrentNode)
 		}
 		if node.Class == NodeTerminal {
-			if node.ID == "failed" {
-				run.State = RunFailed
-			} else {
-				run.State = RunSucceeded
-			}
+			run.State = node.TerminalState
 			return nil
 		}
 		if graph.MaxTransitions > 0 && run.TransitionCount >= graph.MaxTransitions {

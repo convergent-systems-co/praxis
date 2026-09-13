@@ -21,18 +21,18 @@ const (
 type Capability string
 
 const (
-	EventsAppendOptimistic       Capability = "events.append_optimistic"
-	EventsReplay                 Capability = "events.replay"
-	EventsGlobalSequence         Capability = "events.global_sequence"
-	ProjectionsCheckpointed      Capability = "projections.checkpointed"
-	ApprovalAtomicConsume        Capability = "authority.approval_atomic_consume"
-	LeaseAtomicConsume           Capability = "authority.lease_atomic_consume"
-	EffectsOutboxReconciliation  Capability = "effects.outbox_reconciliation"
-	SecureBlobsImmutableEncrypted Capability = "secure_blobs.immutable_encrypted"
-	PackagesAtomicActivation     Capability = "packages.atomic_activation"
-	RunsDurableReplay            Capability = "runs.durable_replay"
-	MigrationsVersioned          Capability = "migrations.versioned"
-	TransactionsMultiRepository  Capability = "transactions.multi_repository_atomic"
+	EventsAppendOptimistic         Capability = "events.append_optimistic"
+	EventsReplay                   Capability = "events.replay"
+	EventsGlobalSequence           Capability = "events.global_sequence"
+	ProjectionsCheckpointed        Capability = "projections.checkpointed"
+	ApprovalAtomicConsume          Capability = "authority.approval_atomic_consume"
+	LeaseAtomicConsume             Capability = "authority.lease_atomic_consume"
+	EffectsOutboxReconciliation    Capability = "effects.outbox_reconciliation"
+	SecureBlobsImmutableEncrypted  Capability = "secure_blobs.immutable_encrypted"
+	PackagesAtomicActivation       Capability = "packages.atomic_activation"
+	RunsDurableReplay              Capability = "runs.durable_replay"
+	MigrationsVersioned            Capability = "migrations.versioned"
+	TransactionsMultiRepository    Capability = "transactions.multi_repository_atomic"
 )
 
 type Profile map[Capability]EnforcementState
@@ -52,6 +52,13 @@ type RegisteredInvocation struct {
 	ContractDigest string
 }
 
+type RegisteredContent struct {
+	PackageID      string
+	PackageVersion string
+	PackageDigest  string
+	Content        packagecatalog.ContentRef
+}
+
 type InstalledPackage struct {
 	Manifest   packagecatalog.Manifest
 	State      string
@@ -64,6 +71,8 @@ type PackageRegistry interface {
 	DeactivatePackage(ctx context.Context, packageID string) error
 	RemovePackage(ctx context.Context, packageID string) error
 	ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error)
+	ActiveContents(ctx context.Context, kind packagecatalog.ContentKind) ([]RegisteredContent, error)
+	ResolveContent(ctx context.Context, kind packagecatalog.ContentKind, id, version string) (RegisteredContent, error)
 	InstalledPackages(ctx context.Context) ([]InstalledPackage, error)
 	ActivePackage(ctx context.Context, packageID string) (InstalledPackage, error)
 }

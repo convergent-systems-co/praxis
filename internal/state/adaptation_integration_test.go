@@ -106,16 +106,22 @@ func TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart(t *testi
 			confidence := adaptation.Score{Value: 0.8, Range: unitRange}
 			declared := mustProfileFact(t, adaptation.ProfileFact{SubjectAgentID: domain.agentID, Dimension: "evidence-style", Score: adaptation.Score{Value: 0.5, Range: unitRange}, EvidenceClass: adaptation.Declared, Confidence: confidence, Provenance: "publisher:" + domain.name, Context: domain.context, RecordedAt: base})
 			inherited := mustProfileFact(t, adaptation.ProfileFact{SubjectAgentID: domain.agentID, Dimension: "evidence-style", Score: adaptation.Score{Value: 0.6, Range: unitRange}, EvidenceClass: adaptation.Inherited, Confidence: confidence, Provenance: "ancestor:" + domain.name, Context: domain.context, RecordedAt: base.Add(time.Second)})
-			observed := mustProfileFact(t, adaptation.ProfileFact{SubjectAgentID: domain.agentID, Dimension: "evidence-style", Score: adaptation.Score{Value: 0.7, Range: unitRange}, EvidenceClass: adaptation.Observed, Confidence: confidence, Provenance: "local-history", Context: domain.context, SourceObservationIDs: sourceIDs, RecordedAt: base.Add(2 * time.Second)})
+			observed, observedDerivation, err := adaptation.DeriveObservedProfile(ctx, observations, "evidence-style", "local-history/v1", packageProfileEvaluator{id: "local-history", score: 0.7}, base.Add(2*time.Second))
+			if err != nil {
+				t.Fatal(err)
+			}
 			measured, err := adaptation.ProfileFactFromNormalizedMeasurement(score, "evidence-style", confidence, "profile-evaluator", base.Add(3*time.Second))
 			if err != nil {
 				t.Fatal(err)
 			}
 			confirmed := mustProfileFact(t, adaptation.ProfileFact{SubjectAgentID: domain.agentID, Dimension: "evidence-style", Score: adaptation.Score{Value: 0.9, Range: unitRange}, EvidenceClass: adaptation.Confirmed, Confidence: adaptation.Score{Value: 1, Range: unitRange}, Provenance: "user:owner", ConfirmationAuthorityID: "owner", ConfirmationEvidenceRef: "approval:profile-" + domain.name, Context: domain.context, RecordedAt: base.Add(4 * time.Second)})
-			for _, fact := range []adaptation.ProfileFact{declared, inherited, observed, measured, confirmed} {
+			for _, fact := range []adaptation.ProfileFact{declared, inherited, measured, confirmed} {
 				if err := ledger.RecordProfileFact(ctx, fact); err != nil {
 					t.Fatal(err)
 				}
+			}
+			if err := ledger.RecordObservedProfile(ctx, observed, observedDerivation); err != nil {
+				t.Fatal(err)
 			}
 
 			policy, err := adaptation.FreezeAnalysisPolicy(adaptation.AnalysisPolicy{Rules: []adaptation.ThresholdRule{{ID: "duration-budget", Diagnosis: domain.diagnosis, MeasureName: domain.derivedName, MeasureKind: adaptation.DerivedMeasure, Unit: domain.derivedUnit, Operator: adaptation.GreaterThan, Threshold: domain.threshold, MinimumIndependentRoots: 2}, {ID: "score-use", Diagnosis: "package-score-threshold-met", MeasureName: domain.scoreName, MeasureKind: adaptation.NormalizedScore, Operator: adaptation.GreaterThan, Threshold: 0.2, MinimumIndependentRoots: 2}}})
@@ -161,8 +167,17 @@ func TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart(t *testi
 				t.Fatalf("derived measurements changed across restart: %#v err=%v", replayedMeasurements, err)
 			}
 			history, err := restarted.ProfileHistory(ctx, domain.agentID)
-			if err != nil || len(history) != 5 {
-				t.Fatalf("profile evidence classes lost across restart: %d err=%v", len(history), err)
+			if err != nil {
+				t.Fatal(err)
+			}
+			byClass := map[adaptation.EvidenceClass]string{}
+			for _, fact := range history {
+				byClass[fact.EvidenceClass] = fact.ID
+			}
+			for class, expected := range map[adaptation.EvidenceClass]string{adaptation.Declared: declared.ID, adaptation.Inherited: inherited.ID, adaptation.Observed: observed.ID, adaptation.Measured: measured.ID, adaptation.Confirmed: confirmed.ID} {
+				if byClass[class] != expected {
+					t.Fatalf("profile evidence class %s lost across restart", class)
+				}
 			}
 			analysisHistory, err := restarted.AnalysisHistory(ctx, domain.agentID)
 			if err != nil || len(analysisHistory) != 1 || !reflect.DeepEqual(analysisHistory[0], adaptation.AnalysisRecord{Policy: policy, Report: report}) {

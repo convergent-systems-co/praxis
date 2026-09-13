@@ -11,10 +11,12 @@ import (
 )
 
 const (
-	observationEvent = "adaptive.observation.recorded"
-	measurementEvent = "adaptive.measurement.recorded"
-	profileFactEvent = "adaptive.profile_fact.recorded"
-	analysisEvent    = "adaptive.analysis.recorded"
+	observationEvent       = "adaptive.observation.recorded"
+	measurementEvent       = "adaptive.measurement.recorded"
+	profileFactEvent       = "adaptive.profile_fact.recorded"
+	analysisEvent          = "adaptive.analysis.recorded"
+	profileDerivationEvent = "adaptive.profile_derivation.recorded"
+	profileDivergenceEvent = "adaptive.profile_divergence.recorded"
 )
 
 type ConfirmationAuthorizer interface {
@@ -107,6 +109,9 @@ func (l *Ledger) RecordProfileFact(ctx context.Context, fact ProfileFact) error 
 	if err := VerifyProfileFact(fact); err != nil {
 		return err
 	}
+	if fact.EvidenceClass == Observed {
+		return errors.New("observed profile fact requires atomic evaluator-bound derivation")
+	}
 	if fact.EvidenceClass == Confirmed {
 		if l.authorizer == nil {
 			return errors.New("confirmed profile fact requires deterministic confirmation authorizer")
@@ -168,6 +173,85 @@ func (l *Ledger) RecordAnalysis(ctx context.Context, record AnalysisRecord) erro
 	return l.append(ctx, record.Report.SubjectAgentID, events, eventstore.Event{ID: "event:" + record.Report.ID, AggregateType: "adaptive_behavior", Type: analysisEvent, Version: analysisEventContract.CurrentVersion(), Actor: contracts.PrincipalRef{ID: record.Report.SubjectAgentID, Kind: "agent"}, CommandID: "record:" + record.Report.ID, CorrelationID: record.Report.ID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: record.Report.EvaluatedAt})
 }
 
+func (l *Ledger) RecordObservedProfile(ctx context.Context, fact ProfileFact, derivation ProfileDerivation) error {
+	if err := VerifyProfileFact(fact); err != nil {
+		return err
+	}
+	if err := VerifyProfileDerivation(derivation); err != nil {
+		return err
+	}
+	if fact.EvidenceClass != Observed || derivation.FactID != fact.ID || derivation.SourceObservationIDs == nil || !equalStringSlices(derivation.SourceObservationIDs, fact.SourceObservationIDs) || !derivation.DerivedAt.Equal(fact.RecordedAt) {
+		return errors.New("profile derivation does not bind observed fact")
+	}
+	events, err := l.load(ctx, fact.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	factExists, derivationExists := eventIdentityExists(events, fact.ID), eventIdentityExists(events, derivation.ID)
+	if factExists && derivationExists {
+		return nil
+	}
+	if factExists || derivationExists {
+		return errors.New("observed profile fact/derivation atomicity is violated")
+	}
+	if err := verifyProfileSources(events, fact); err != nil {
+		return err
+	}
+	observations, err := observationsFromEvents(events, fact.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	available := map[string]bool{}
+	for _, observation := range observations {
+		available[observation.ID] = true
+	}
+	for _, source := range derivation.SourceObservationIDs {
+		if !available[source] {
+			return errors.New("profile derivation source observation is unavailable")
+		}
+	}
+	factPayload, err := json.Marshal(fact)
+	if err != nil {
+		return err
+	}
+	derivationPayload, err := json.Marshal(derivation)
+	if err != nil {
+		return err
+	}
+	actor := contracts.PrincipalRef{ID: fact.SubjectAgentID, Kind: "agent"}
+	_, err = l.store.Append(ctx, ledgerAggregate(fact.SubjectAgentID), int64(len(events)), []eventstore.Event{
+		{ID: "event:" + fact.ID, AggregateType: "adaptive_behavior", Type: profileFactEvent, Version: profileFactEventContract.CurrentVersion(), Actor: actor, CommandID: "record:" + fact.ID, CorrelationID: fact.ID, Trust: contracts.TrustDerived, Payload: factPayload, CreatedAt: fact.RecordedAt},
+		{ID: "event:" + derivation.ID, AggregateType: "adaptive_behavior", Type: profileDerivationEvent, Version: profileDerivationEventContract.CurrentVersion(), Actor: actor, CommandID: "record:" + derivation.ID, CorrelationID: fact.ID, CausationID: derivation.SourceObservationIDs[0], Trust: contracts.TrustDerived, Payload: derivationPayload, CreatedAt: derivation.DerivedAt},
+	})
+	return err
+}
+
+func (l *Ledger) RecordProfileDivergence(ctx context.Context, report ProfileDivergence) error {
+	if err := VerifyProfileDivergence(report); err != nil {
+		return err
+	}
+	events, err := l.load(ctx, report.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	history, err := profileFactsFromEvents(events, report.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	recomputed, err := EvaluateProfileDivergence(history, report.Policy, report.EvaluatedAt)
+	if err != nil || recomputed.ID != report.ID {
+		return errors.New("profile divergence is not derived from durable history and policy")
+	}
+	if eventIdentityExists(events, report.ID) {
+		return nil
+	}
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	return l.append(ctx, report.SubjectAgentID, events, eventstore.Event{ID: "event:" + report.ID, AggregateType: "adaptive_behavior", Type: profileDivergenceEvent, Version: profileDivergenceEventContract.CurrentVersion(), Actor: contracts.PrincipalRef{ID: report.SubjectAgentID, Kind: "agent"}, CommandID: "record:" + report.ID, CorrelationID: report.Policy.ID, CausationID: report.CurrentFactID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: report.EvaluatedAt})
+}
+
 func (l *Ledger) Observations(ctx context.Context, subjectAgentID string) ([]Observation, error) {
 	events, err := l.load(ctx, subjectAgentID)
 	if err != nil {
@@ -198,6 +282,21 @@ func (l *Ledger) AnalysisHistory(ctx context.Context, subjectAgentID string) ([]
 		return nil, err
 	}
 	return analysisRecordsFromEvents(events, subjectAgentID)
+}
+
+func (l *Ledger) ProfileDerivations(ctx context.Context, subjectAgentID string) ([]ProfileDerivation, error) {
+	events, err := l.load(ctx, subjectAgentID)
+	if err != nil {
+		return nil, err
+	}
+	return profileDerivationsFromEvents(events, subjectAgentID)
+}
+func (l *Ledger) ProfileDivergences(ctx context.Context, subjectAgentID string) ([]ProfileDivergence, error) {
+	events, err := l.load(ctx, subjectAgentID)
+	if err != nil {
+		return nil, err
+	}
+	return profileDivergencesFromEvents(events, subjectAgentID)
 }
 
 func (l *Ledger) load(ctx context.Context, subjectAgentID string) ([]eventstore.Event, error) {
@@ -435,4 +534,101 @@ func profileFactActor(fact ProfileFact) contracts.PrincipalRef {
 		return contracts.PrincipalRef{ID: fact.ConfirmationAuthorityID, Kind: "human"}
 	}
 	return contracts.PrincipalRef{ID: fact.SubjectAgentID, Kind: "agent"}
+}
+
+func profileDerivationsFromEvents(events []eventstore.Event, subject string) ([]ProfileDerivation, error) {
+	facts, err := profileFactsFromEvents(events, subject)
+	if err != nil {
+		return nil, err
+	}
+	factByID := map[string]ProfileFact{}
+	for _, fact := range facts {
+		factByID[fact.ID] = fact
+	}
+	observations, err := observationsFromEvents(events, subject)
+	if err != nil {
+		return nil, err
+	}
+	observationIDs := map[string]bool{}
+	for _, observation := range observations {
+		observationIDs[observation.ID] = true
+	}
+	out, seen := []ProfileDerivation{}, map[string]bool{}
+	for _, event := range events {
+		if event.Type != profileDerivationEvent {
+			continue
+		}
+		payload, _, err := profileDerivationEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var derivation ProfileDerivation
+		if err := json.Unmarshal(payload, &derivation); err != nil {
+			return nil, err
+		}
+		if err := VerifyProfileDerivation(derivation); err != nil {
+			return nil, err
+		}
+		fact := factByID[derivation.FactID]
+		if fact.ID == "" || fact.EvidenceClass != Observed || !equalStringSlices(fact.SourceObservationIDs, derivation.SourceObservationIDs) || !fact.RecordedAt.Equal(derivation.DerivedAt) || event.ID != "event:"+derivation.ID || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CorrelationID != fact.ID || event.Trust != contracts.TrustDerived {
+			return nil, errors.New("adaptive event metadata does not bind profile derivation")
+		}
+		for _, source := range derivation.SourceObservationIDs {
+			if !observationIDs[source] {
+				return nil, errors.New("profile derivation source unavailable on replay")
+			}
+		}
+		if seen[derivation.ID] {
+			return nil, errors.New("duplicate profile derivation event")
+		}
+		seen[derivation.ID] = true
+		out = append(out, derivation)
+	}
+	return out, nil
+}
+
+func profileDivergencesFromEvents(events []eventstore.Event, subject string) ([]ProfileDivergence, error) {
+	history, err := profileFactsFromEvents(events, subject)
+	if err != nil {
+		return nil, err
+	}
+	out, seen := []ProfileDivergence{}, map[string]bool{}
+	for _, event := range events {
+		if event.Type != profileDivergenceEvent {
+			continue
+		}
+		payload, _, err := profileDivergenceEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var report ProfileDivergence
+		if err := json.Unmarshal(payload, &report); err != nil {
+			return nil, err
+		}
+		if err := VerifyProfileDivergence(report); err != nil {
+			return nil, err
+		}
+		recomputed, err := EvaluateProfileDivergence(history, report.Policy, report.EvaluatedAt)
+		if err != nil || recomputed.ID != report.ID || report.SubjectAgentID != subject || event.ID != "event:"+report.ID || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CorrelationID != report.Policy.ID || event.CausationID != report.CurrentFactID || event.Trust != contracts.TrustDerived {
+			return nil, errors.New("adaptive event metadata does not bind profile divergence")
+		}
+		if seen[report.ID] {
+			return nil, errors.New("duplicate profile divergence event")
+		}
+		seen[report.ID] = true
+		out = append(out, report)
+	}
+	return out, nil
+}
+
+func equalStringSlices(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }

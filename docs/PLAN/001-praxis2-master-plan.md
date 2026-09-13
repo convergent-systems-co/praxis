@@ -131,6 +131,10 @@ Cross-agent transfer closure: successor attestation `cluster-a-runtime-v2.json` 
 
 Contradiction-demotion closure: an external two-domain integration persists native contradiction observations, the versioned derived equivalence measurement, and the exact analysis policy/report in the adaptive SQLite ledger, then restarts before deriving an immutable inference-restoring child. Proposal leaves the deterministic generation active; exact-evaluation approval by a distinct governor precedes activation, and restart/rollback retain both generations and source lineage. Successor `learning-runtime-v13.json` adds semantic source-identity and duplicate-causation checks. Frozen audit `blind-contradiction-demotion-v2.json`, digest `sha256:161889d19de605c2def1ae9c7f28009950c7cacb4fa25c82774506a90f4e13ab`, independently evaluates OI-017 as satisfied. Totals are 18 satisfied, 4 unsupported, and 16 indeterminate; all unrelated claim states are unchanged.
 
+Profile-lifecycle progress: package evaluators now derive `observed` facts atomically with evaluator/version/transform/source lineage; the generic fact path rejects an observed enum without that derivation. A frozen package divergence policy selects opaque dimension/context, reference/current evidence classes, and threshold. Core preserves the five distinct evidence classes, compares only the declared normalized delta, persists the report, and re-evaluates it from authoritative history on restart. Software-delivery validation depth and research source breadth use different native observations, evaluators, dimensions, and policies. This does not close OI-020 until successor execution evidence and a blind re-evaluation are frozen.
+
+Profile-lifecycle closure: comprehensive successor attestation `cluster-a-runtime-v4.json` binds the final atomic evaluator/fact append and every affected Cluster-A observation. Frozen audit `blind-behavioral-profile-v2.json`, digest `sha256:48101fc78022413985534e1b07eead8e7b7217bc4c04ea733502f6268a422645`, independently evaluates OI-020 as satisfied. The initial v1 profile audit remains immutable from before the generic observed-fact bypass was closed. Totals are 19 satisfied, 3 unsupported, and 16 indeterminate; all unrelated claim states remain unchanged.
+
 ## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
 
 1. Export/import canonical state rather than raw SQLite pages.
@@ -205,6 +209,7 @@ Implemented in this reopened wave:
 - content-bound deterministic learning/prompt-retirement result `blind-learning-prompt-retirement-v38-final.json` (OI-004 and OI-005 satisfied)
 - content-bound cross-agent generalization/privacy/publication/adoption result `blind-cross-agent-transfer-v3.json` (OI-015 satisfied)
 - durable contradiction-to-inference fork/demotion result `blind-contradiction-demotion-v2.json` (OI-017 satisfied)
+- evaluator-bound five-class behavioral profile/divergence result `blind-behavioral-profile-v2.json` (OI-020 satisfied)
 
 ## Completion calculation
 

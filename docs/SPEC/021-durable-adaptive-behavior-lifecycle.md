@@ -65,6 +65,10 @@ Behavioral profile facts use exactly these semantic classes:
 
 Profile values and confidence are explicit normalized scores with declared ranges. Observed profile facts cite raw observations. Measured profile facts cite normalized measurement records, which in turn cite raw observations and their evaluator/transform. New evidence appends history; it does not relabel declared/inherited data as measured or silently overwrite divergence.
 
+An `observed` fact SHALL be appended atomically with a content-addressed derivation naming the package evaluator/version, transform, exact source observations, and evaluation time. The generic fact append rejects caller-authored `observed` values that omit this derivation. Declared and inherited values remain assertions, measured values require normalized measurement records, and confirmed values require deterministic human authority; the five classes are not interchangeable.
+
+Profile divergence is an immutable report over durable history and a frozen package policy. The policy selects the dimension/context, reference evidence classes, current evidence classes, and minimum normalized delta. Core deterministically selects the latest eligible facts, verifies compatible explicit ranges, performs only the declared comparison, and persists the fact/policy/report lineage. It does not define the dimension, acceptable delta, calibration, or whether declared, inherited, observed, measured, or confirmed facts should be compared. Replay re-evaluates the exact policy against authoritative history and fails closed on mismatch.
+
 ## Longitudinal analysis
 
 The reference analyzer evaluates a frozen versioned policy containing generic threshold rules. Each rule names a derived or normalized measure, its semantic kind and unit, comparison operator, threshold, minimum independent causation roots, and an opaque diagnosis code. Core performs the declared comparison; it does not embed what constitutes regression, meaningful improvement, variance, portability, cost, quality, or success.
@@ -120,6 +124,8 @@ The built-in deterministic mechanism allowlist is a safe initial compiler provid
 11. versioned package evaluators jointly diagnose regression, repeated inference, path variance, and provider portability from durable execution series;
 12. software-delivery and research packages use different metric names and native observations without core semantic changes;
 13. restart preserves the plan-to-evaluator-to-measurement-to-policy-to-diagnosis trace.
+14. observed profile values cannot bypass their package evaluator/version/transform binding;
+15. two materially different domains preserve all five evidence classes and expose package-defined declared/inherited-to-observed/measured divergence after restart.
 
 ## Scalability note
 

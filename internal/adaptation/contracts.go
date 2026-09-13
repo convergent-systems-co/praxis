@@ -29,4 +29,6 @@ var (
 		CurrentVersion: "v1",
 		Versions:       []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
 	}, nil)
+	profileDerivationEventContract = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "adaptive.profile_derivation", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
+	profileDivergenceEventContract = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "adaptive.profile_divergence", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 )

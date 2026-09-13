@@ -8,6 +8,7 @@ import (
 
 	"github.com/convergent-systems-co/praxis/internal/client"
 	"github.com/convergent-systems-co/praxis/packages/develop"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 type normalizedOutput struct {

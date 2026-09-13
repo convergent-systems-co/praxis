@@ -39,7 +39,10 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			return nil, 0, fmt.Errorf("event %d type/observation mismatch", i)
 		}
 		if run == nil {
-			run = &RunExecution{RunID: observation.RunID, GraphID: observation.GraphID, GraphVersion: observation.GraphVersion}
+			run = &RunExecution{
+				RunID: observation.RunID, GraphID: observation.GraphID, GraphVersion: observation.GraphVersion,
+				AttemptCounts: map[string]int{},
+			}
 		} else if run.RunID != observation.RunID || run.GraphID != observation.GraphID || run.GraphVersion != observation.GraphVersion {
 			return nil, 0, fmt.Errorf("event %d changes run identity", i)
 		}
@@ -49,7 +52,22 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			run.CurrentNode = observation.NodeID
 			run.State = observation.State
 			run.TransitionCount = observation.TransitionCount
+		case ObservationNodeAttemptFailed:
+			if observation.NodeID == "" || observation.Attempt <= 0 || !validFailureClass(observation.FailureClass) {
+				return nil, 0, fmt.Errorf("event %d contains invalid failed attempt", i)
+			}
+			if observation.Attempt <= run.AttemptCounts[observation.NodeID] {
+				return nil, 0, fmt.Errorf("event %d attempt did not advance for node %q", i, observation.NodeID)
+			}
+			run.AttemptCounts[observation.NodeID] = observation.Attempt
 		case ObservationNodeCompleted:
+			if observation.NodeID == "" || observation.Attempt <= 0 {
+				return nil, 0, fmt.Errorf("event %d contains invalid completed attempt", i)
+			}
+			if observation.Attempt < run.AttemptCounts[observation.NodeID] {
+				return nil, 0, fmt.Errorf("event %d completed attempt regressed for node %q", i, observation.NodeID)
+			}
+			run.AttemptCounts[observation.NodeID] = observation.Attempt
 			run.Evidence = append(run.Evidence, observation.Evidence...)
 		case ObservationTransitioned:
 			if observation.ToNode == "" {

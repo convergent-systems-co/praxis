@@ -32,7 +32,11 @@ func run(args []string) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		fmt.Println("usage: praxis <entry-point> [arguments] [options]")
 		fmt.Println("available: goals (alias: design), develop, research")
+		fmt.Println("runtime: status <run-id> [--db <path>]")
 		return nil
+	}
+	if args[0] == "status" {
+		return runStatus(args[1:])
 	}
 
 	input := "praxis " + strings.Join(args, " ")

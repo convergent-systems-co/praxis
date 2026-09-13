@@ -69,3 +69,18 @@ func TestEvidenceInventoryDoesNotTreatTestSourceAsExecutedBehavior(t *testing.T)
 		t.Fatalf("test source self-attested behavior: %#v", evidence[0])
 	}
 }
+
+func TestExecutedObservationRequiresBoundPassingOutput(t *testing.T) {
+	if !goTestObservationPassed("=== RUN   TestExact\n--- PASS: TestExact (0.01s)\n", "TestExact") {
+		t.Fatal("passing observation was not recognized")
+	}
+	for _, output := range []string{
+		"=== RUN   TestExact\n--- SKIP: TestExact (0.01s)\n",
+		"=== RUN   TestExact\n--- FAIL: TestExact (0.01s)\n",
+		"--- PASS: TestExactSuffix (0.01s)\n",
+	} {
+		if goTestObservationPassed(output, "TestExact") {
+			t.Fatalf("non-passing output established behavior: %q", output)
+		}
+	}
+}

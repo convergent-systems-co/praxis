@@ -3,8 +3,9 @@
 - Date: 2026-09-13
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
-- Canonical blind result: `docs/research/conformance/blind-source-qualified.json`
-- Frozen result digest: `sha256:03f7c9a8f07bd222989720f063fa0f354b4e087e578989fac322ab3f8f2f119c`
+- Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
+- Latest accepted remediation result: `docs/research/conformance/blind-attested-recovery-authority.json`
+- Latest frozen result digest: `sha256:0dd89b2f610a1c26f7f1b94fab58df61fb3536b80c478662bfe7a4de6000960f`
 
 ## Method and denominator
 
@@ -106,6 +107,12 @@ The execution is frozen at `docs/research/conformance/attestations/persistent-ag
 The historical oracle is a discovery qualification, not a requirement that a remediated system remain broken. Its successful positive-control evidence remains the immutable initial qualification against `blind-source-qualified.json`. Scoring the remediated result against an oracle that expects the historical gap naturally reports that the gap is no longer present; it does not invalidate the earlier independent rediscovery.
 
 The next immutable result, `docs/research/conformance/blind-agent-lifecycle.json`, digest `sha256:3c0643b7441522688cdbc1e3dc2c8bd0141e42db5f3faa46db1aca1c13d0d3b4`, additionally closes OI-007 and OI-008. Persistent memory is reconstructed without chat history, filtered by agent/context scope, item-bounded, trust-preserving, and supersession-aware. Agent generation promotion and rollback append new lineage rather than rewriting prior generations, and runtime introspection reconstructs all generations after restart. Totals are 7 satisfied, 10 unsupported, and 20 indeterminate.
+
+## Recovery and authority evidence
+
+Content-bound executions now prove authoritative run-control restart, event-projection replay, atomic one-shot approval consumption, and immediate effect-boundary revalidation. The accepted result `docs/research/conformance/blind-attested-recovery-authority.json`, digest `sha256:0dd89b2f610a1c26f7f1b94fab58df61fb3536b80c478662bfe7a4de6000960f`, closes OI-023 and OI-031. Totals are 9 satisfied, 10 unsupported, and 18 indeterminate. The execution attestations bind exact source digests and raw output digests, and the inventory additionally verifies that each claimed observation appears as a passing test in that raw output.
+
+`docs/research/conformance/blind-attested-existing-integrations.json` is retained as an immutable rejected audit result. It incorrectly advanced OI-033 from an execution proving Goals-subgraph composition even though that execution did not prove reusable-baseline applicability, targeted invalidation, or dependency-aware delta planning. The planning execution itself remains valid evidence of its narrower observation, but it is not admitted as support for the compound OI-033 claim. The accepted successor leaves OI-033 indeterminate rather than weakening the claim.
 
 ## Plan input
 

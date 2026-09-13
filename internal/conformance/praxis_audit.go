@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // OriginalIntentSources is deliberately limited to the pre-conformance Praxis 2
@@ -121,14 +122,15 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "canonical-contracts", Kind: "code", Stage: StageContract, Ref: "pkg/contracts", ClaimIDs: []string{"OI-018", "OI-022"}},
 		{ID: "schema-conformance", Kind: "schema_test", Stage: StageContract, Ref: "tests/test_valid_contracts.py", ClaimIDs: []string{"OI-022"}},
 		{ID: "plugin-lifecycle", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/plugin/supervisor_test.go", ClaimIDs: []string{"OI-021"}},
-		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}},
-		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}},
+		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestQualificationRunControlSurvivesSQLiteRestart"},
+		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestRunProjectionRebuildsFromAuthoritativeEvents"},
 		{ID: "scheduler-queue", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/scheduler/queue_test.go", ClaimIDs: []string{"OI-024"}},
-		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025", "OI-031"}},
+		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025"}},
+		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
 		{ID: "client-enforcement", Kind: "security_test", Stage: StageBehavior, Ref: "internal/client/enforcement_test.go", ClaimIDs: []string{"OI-026", "OI-027"}},
 		{ID: "workspace-runtime", Kind: "integration_test", Stage: StageBehavior, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}},
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
-		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}},
+		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
 		{ID: "crypto-profiles", Kind: "security_test", Stage: StageBehavior, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}},
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop/runtime_test.go", ClaimIDs: []string{"OI-033"}},
 		{ID: "goals-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}},
@@ -174,6 +176,13 @@ func LoadEvidence(root string, inventory []InventoryArtifact) ([]Evidence, error
 				if outputErr != nil {
 					return nil, outputErr
 				}
+				outputBytes, outputErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(attestation.OutputRef)))
+				if outputErr != nil {
+					return nil, outputErr
+				}
+				if !goTestObservationPassed(string(outputBytes), a.Observation) {
+					return nil, fmt.Errorf("inventory %s output does not prove passing observation %s", a.ID, a.Observation)
+				}
 				if attestation.SourceDigests[a.Ref] != sourceDigest {
 					return nil, fmt.Errorf("inventory %s attested source digest is stale: got %s want %s", a.ID, attestation.SourceDigests[a.Ref], sourceDigest)
 				}
@@ -193,6 +202,13 @@ func LoadEvidence(root string, inventory []InventoryArtifact) ([]Evidence, error
 		}
 	}
 	return out, nil
+}
+
+func goTestObservationPassed(output, observation string) bool {
+	if observation == "" || strings.ContainsAny(observation, "\r\n") {
+		return false
+	}
+	return strings.Contains(output, "--- PASS: "+observation+" (")
 }
 
 func containsString(values []string, want string) bool {

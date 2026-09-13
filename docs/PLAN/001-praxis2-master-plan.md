@@ -113,7 +113,7 @@ Finding closures: OI-003, OI-004, OI-005, OI-010, OI-013, OI-014, OI-015, OI-016
 
 Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
 
-## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — NOT STARTED
+## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 
 1. Attest event/projection/checkpoint replay and causal observability after restart.
 2. Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
@@ -127,6 +127,8 @@ Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
 10. Attest Workspace Intelligence incremental freshness, path isolation, bounded context, and release authorization.
 
 Finding closures: OI-021, OI-023, OI-024, OI-025, OI-026, OI-027, OI-028, OI-029, OI-030, OI-031, OI-032.
+
+Closure evidence: OI-023 and OI-031 are satisfied in `blind-attested-recovery-authority.json` by content-bound restart/replay and security/integration executions. OI-025 deliberately remains indeterminate because the narrower effect revalidation test does not prove complete mediation of every mutation/effect surface.
 
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — NOT STARTED
 
@@ -163,6 +165,9 @@ Implemented in this reopened wave:
 - whole-system conformance report at `docs/research/praxis2-whole-system-conformance.md`
 - frozen execution-attestation contract and command runner with stale/mutated/failed fail-closed validation
 - self-improvement execution attestation and post-remediation blind result `blind-self-improvement-qualified.json` (OI-010 satisfied)
+- persistent agent/runtime lifecycle result `blind-agent-lifecycle.json` (OI-001, OI-002, OI-007, and OI-008 satisfied)
+- accepted recovery/authority result `blind-attested-recovery-authority.json` (OI-023 and OI-031 satisfied)
+- retained rejected audit `blind-attested-existing-integrations.json`, documenting why graph composition evidence cannot close compound baseline-reuse claim OI-033
 
 ## Completion calculation
 

@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/state",
+    "./internal/projection"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T19:27:58.146942Z",
+  "finished_at": "2026-09-13T19:27:59.863645Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/runtime-state-recovery.log",
+  "output_digest": "sha256:ba0750e5d76ebb9c47742cc734e9e6a05ce3ef5dad30f4e2b15baf1091ede84f",
+  "source_digests": {
+    "internal/projection/run_projection_test.go": "sha256:674adbec66d30a015dd51f0e0271bc3c7e13b06361421077c0076676fd56e8ac",
+    "internal/state/run_control_integration_test.go": "sha256:814d9ab3ebaf6eb8a6c009524f55d7c70693ea266b499625a9a6992549c6132e"
+  },
+  "observations": [
+    "TestQualificationRunControlSurvivesSQLiteRestart",
+    "TestRunProjectionRebuildsFromAuthoritativeEvents"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:2a5f3cfffade2a75f4dd9329166b179fc2c8815c34da41a702797e5894b46fb7"
+}

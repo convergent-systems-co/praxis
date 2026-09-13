@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-attested-recovery-authority.json`
-- Latest frozen result digest: `sha256:0dd89b2f610a1c26f7f1b94fab58df61fb3536b80c478662bfe7a4de6000960f`
+- Latest accepted remediation result: `docs/research/conformance/blind-process-discovery.json`
+- Latest frozen result digest: `sha256:9b0f2d19d644056e64ccfa8e0fb8de23af6d141a13f250052b4499bd473515d8`
 
 ## Method and denominator
 
@@ -113,6 +113,12 @@ The next immutable result, `docs/research/conformance/blind-agent-lifecycle.json
 Content-bound executions now prove authoritative run-control restart, event-projection replay, atomic one-shot approval consumption, and immediate effect-boundary revalidation. The accepted result `docs/research/conformance/blind-attested-recovery-authority.json`, digest `sha256:0dd89b2f610a1c26f7f1b94fab58df61fb3536b80c478662bfe7a4de6000960f`, closes OI-023 and OI-031. Totals are 9 satisfied, 10 unsupported, and 18 indeterminate. The execution attestations bind exact source digests and raw output digests, and the inventory additionally verifies that each claimed observation appears as a passing test in that raw output.
 
 `docs/research/conformance/blind-attested-existing-integrations.json` is retained as an immutable rejected audit result. It incorrectly advanced OI-033 from an execution proving Goals-subgraph composition even though that execution did not prove reusable-baseline applicability, targeted invalidation, or dependency-aware delta planning. The planning execution itself remains valid evidence of its narrower observation, but it is not admitted as support for the compound OI-033 claim. The accepted successor leaves OI-033 indeterminate rather than weakening the claim.
+
+## Goal and process discovery remediation
+
+SPEC-019 and `internal/processresolver` now provide the missing domain-neutral discovery boundary. Deterministic capability and policy eligibility precede any match or advisory proposal. Separate exercised scenarios select an exact eligible graph, derive a content-addressed contextual adaptation, compose exact-version fragments through kernel subgraph execution, create a non-active governed candidate only from independent repeated-success roots, and execute weakly evidenced novel work only as a transition-bounded one-off. Model/advisor output cannot register, activate, promote, or bypass authority.
+
+The content-bound execution is frozen at `docs/research/conformance/attestations/goal-process-discovery.json`. Accepted blind result `docs/research/conformance/blind-process-discovery.json`, digest `sha256:9b0f2d19d644056e64ccfa8e0fb8de23af6d141a13f250052b4499bd473515d8`, closes OI-003. Totals are 10 satisfied, 9 unsupported, and 18 indeterminate.
 
 ## Plan input
 

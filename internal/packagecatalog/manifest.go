@@ -9,22 +9,23 @@ import (
 )
 
 type Dependency struct {
-	PackageID string
-	Version   string
-	Digest    string
+	PackageID string `json:"package_id"`
+	Version   string `json:"version"`
+	Digest    string `json:"digest"`
 }
 
 type Manifest struct {
-	PackageID           string
-	Version             string
-	ContentDigest       string
-	Publisher           string
-	Dependencies        []Dependency
-	Capabilities        []string
-	RequiredEnforcement []string
-	CryptoProfile       contracts.CryptoProfile
-	UpstreamPackageID   string
-	UpstreamDigest      string
+	PackageID           string                         `json:"package_id"`
+	Version             string                         `json:"version"`
+	ContentDigest       string                         `json:"content_digest"`
+	Publisher           string                         `json:"publisher,omitempty"`
+	Dependencies        []Dependency                   `json:"dependencies,omitempty"`
+	Capabilities        []string                       `json:"capabilities,omitempty"`
+	RequiredEnforcement []string                       `json:"required_enforcement,omitempty"`
+	CryptoProfile       contracts.CryptoProfile        `json:"crypto_profile,omitempty"`
+	Invocations         []contracts.InvocationContract `json:"invocations,omitempty"`
+	UpstreamPackageID   string                         `json:"upstream_package_id,omitempty"`
+	UpstreamDigest      string                         `json:"upstream_digest,omitempty"`
 }
 
 func (m Manifest) Validate() error {
@@ -45,6 +46,26 @@ func (m Manifest) Validate() error {
 			return fmt.Errorf("duplicate dependency %q", d.PackageID)
 		}
 		seenDeps[d.PackageID] = struct{}{}
+	}
+	seenEntries := map[string]struct{}{}
+	seenAliases := map[string]struct{}{}
+	for _, inv := range m.Invocations {
+		if err := inv.Validate(); err != nil {
+			return fmt.Errorf("invocation contract: %w", err)
+		}
+		if inv.PackageID != m.PackageID || inv.PackageVersion != m.Version {
+			return fmt.Errorf("invocation %q package identity does not match manifest", inv.EntryPointID)
+		}
+		if _, ok := seenEntries[inv.EntryPointID]; ok {
+			return fmt.Errorf("duplicate invocation entry point %q", inv.EntryPointID)
+		}
+		seenEntries[inv.EntryPointID] = struct{}{}
+		for _, alias := range inv.Aliases {
+			if _, ok := seenAliases[alias]; ok {
+				return fmt.Errorf("duplicate invocation alias %q in package", alias)
+			}
+			seenAliases[alias] = struct{}{}
+		}
 	}
 	return nil
 }

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "google/protobuf/timestamp.proto";
+import "praxis/v1/common.proto";
+
+message DomainEventEnvelope {
+  string event_id = 1;
+  uint64 sequence = 2;
+  string aggregate_id = 3;
+  string aggregate_type = 4;
+  uint64 aggregate_version = 5;
+  string event_type = 6;
+  string event_version = 7;
+  PrincipalRef actor = 8;
+  string command_id = 9;
+  string correlation_id = 10;
+  string causation_id = 11;
+  repeated ProvenanceRef provenance = 12;
+  TrustClass trust_class = 13;
+  bytes payload = 14;
+  google.protobuf.Timestamp created_at = 15;
+  bytes integrity_metadata = 16;
+}

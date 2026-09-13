@@ -117,6 +117,8 @@ Version-policy checkpoint: ADR-052 centralizes current, readable-historical, mig
 
 Reverse-adaptation progress: frozen package demotion policy can map a traceable diagnosis to an immutable child generation that restores bounded inference and removes only the contradicted deterministic rule. The compiled active generation is unchanged until exact-evaluation approval by a distinct authority; demotion, restart verification, rollback, and retained lineage work for software-delivery and research policies. Analysis policy/report pairs are now durable adaptive-ledger events. This remains cluster substrate/integration progress rather than an OI-017 closure until the whole cluster is independently attested and re-evaluated.
 
+Preference-lifecycle progress: package-owned content-addressed contracts now drive required-input discovery, safe default seeding, allowed values/scopes, and learnability. Authority-bound corrections append exact supersession lineage; one-to-one migrations bind source/target contracts and transforms while preserving the original authority class and rejecting incompatible reinterpretation. Attestation `preference-lifecycle-v1.json` records software-delivery and research fixtures replaying full history, migration, precedence, and authority metadata after SQLite restart. This is Cluster-A integration progress, not OI-006/OI-012 closure until graph/runtime use, drift candidates, and independent conformance evidence exist.
+
 ## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
 
 1. Export/import canonical state rather than raw SQLite pages.

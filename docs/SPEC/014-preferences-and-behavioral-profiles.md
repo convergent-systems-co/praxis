@@ -29,6 +29,10 @@ A record SHALL contain slot ID/version, value, scope, source class, provenance, 
 
 Source classes SHALL include at least explicit_user, explicit_org, package_default, preset_seed, learned, and migrated.
 
+Contracts and records SHALL be content-addressed and use contract-owned schema-version metadata under ADR-052. A durable preference record binds its exact package contract ID/version. Package contracts own slot descriptions, native allowed values, applicable scope kinds, defaults, required/setup status, and learnability; core does not infer those semantics from slot names or values.
+
+Preference history is append-only authoritative state. Explicit user/organization records require deterministic authorization bound to the subject, scope, slot, authority, and evidence reference; persisted event actor/trust metadata is replay-verified. A caller cannot mint an explicit preference by selecting a source enum. Corrections append a new record that supersedes an exact active predecessor without deleting it.
+
 ## Resolution precedence
 
 For a requested context, Praxis SHALL:
@@ -49,6 +53,10 @@ Scope inheritance SHALL use canonical Praxis scope semantics. User/global, organ
 Learnable slots MAY accumulate observations/candidates. Drift SHALL be measured against current explicit/default baseline. Promotion of a learned value follows SPEC-012 governance and preserves provenance.
 
 Explicit correction immediately supersedes learned behavior in the corrected scope and may generate negative learning evidence.
+
+The reference one-to-one migration is content-addressed and binds source/target contract identities, transform identity, and explicit slot mappings. It accepts a value only when the target contract independently permits that value and scope. The migrated record preserves its origin record, original source authority/provenance, and supersession lineage; migration does not downgrade an explicit user preference into learned evidence. Split/merge/type transforms require an explicitly versioned package migrator rather than a core guess.
+
+Install-time input discovery returns only required, unresolved, applicable slots without safe defaults. Default seeding produces package-default records only from values declared by the package contract.
 
 ## Behavioral profile
 
@@ -73,7 +81,10 @@ A better profile match cannot compensate for missing enforcement/capability/secu
 7. profile declared/observed/measured values remain distinguishable;
 8. matching rejects security-incompatible package before style score;
 9. preference migration preserves explicit user intent/provenance;
-10. two users install same package and resolve different seeded/local preference states.
+10. two users install same package and resolve different seeded/local preference states;
+11. software-delivery and research packages use incompatible slots/values/scopes through the same ledger;
+12. explicit correction, migration lineage, source precedence, and full history survive SQLite restart;
+13. caller-selected explicit source without authority fails append and actor mismatch fails replay.
 
 ## Deliverables
 

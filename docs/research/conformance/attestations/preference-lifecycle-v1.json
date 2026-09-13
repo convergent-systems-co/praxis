@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/preference"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T21:26:33.976821Z",
+  "finished_at": "2026-09-13T21:26:34.606866Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/preference-lifecycle-v1.log",
+  "output_digest": "sha256:0f2cb19b89c5738c2d9e089db89d2d176aa6917c9ab7974930276d12d99e341f",
+  "source_digests": {
+    "internal/preference": "sha256:854022d9f9f6a53e4c94e2938455fb1b8349ae96e3b9ea74bb91839fe1384c30",
+    "internal/state": "sha256:cc059cd09f224f8ba47684b5417fd92c17bcbbe4b78d00ca3b41e099ee6e952b",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains",
+    "TestPreferenceReplayRejectsAuthorityActorMismatch"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:aaa3528051c0966997739a80986486f4d1e75a543b50b1ab74c73375e9060139"
+}

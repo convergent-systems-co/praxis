@@ -150,6 +150,8 @@ ADR-051 records the adaptive contract-evolution decision from repository evidenc
 
 ADR-052 moves those dispositions out of replay call sites into named contract-version policies. The common registry distinguishes current, readable historical, migratable, unsupported pre-release, revoked/unsafe, and unknown versions; migration binds a named upcaster and input/output digests. The accompanying audit identifies other durable version surfaces without assigning unsupported history or adding migrations absent repository evidence. This clarification changes no claim or frozen finding.
 
+The next Cluster-A slice adds a durable package-owned preference contract/record lifecycle. Core preserves content identity, precedence, provenance, exact supersession, deterministic authority, and replay; packages define slots, native values, scope kinds, defaults, learnability, and explicit migrations. Attestation `docs/research/conformance/attestations/preference-lifecycle-v1.json` binds the software-delivery and research execution to exact preference/state/contract sources. The packages use incompatible contracts through one SQLite-backed ledger, and migration preserves explicit user authority rather than relabeling it as learned. This remains substrate evidence: no OI status changes before graph/runtime integration, drift evaluation, and a fresh independent audit.
+
 ## Plan input
 
 PLAN-001 must use the current, explicitly transitioned 38-claim denominator plus every finding closure, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.

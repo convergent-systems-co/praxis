@@ -63,7 +63,9 @@ func Distance(candidate Profile, desired map[string]float64) (float64, error) {
 			return 0, err
 		}
 		delta := dim.Value - want
-		if delta < 0 { delta = -delta }
+		if delta < 0 {
+			delta = -delta
+		}
 		distance += delta
 	}
 	return distance, nil

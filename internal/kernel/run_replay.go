@@ -50,6 +50,18 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			if observation.State.Terminal() || observation.State == "" {
 				return nil, 0, fmt.Errorf("event %d state-change observation has invalid state %q", i, observation.State)
 			}
+			if observation.Wait != nil {
+				if observation.State != RunSuspended {
+					return nil, 0, fmt.Errorf("event %d wait reference requires suspended state", i)
+				}
+				if err := observation.Wait.Validate(); err != nil {
+					return nil, 0, fmt.Errorf("event %d invalid wait reference: %w", i, err)
+				}
+				copyWait := *observation.Wait
+				run.PendingWait = &copyWait
+			} else if observation.State != RunSuspended {
+				run.PendingWait = nil
+			}
 			run.CurrentNode = observation.NodeID
 			run.State = observation.State
 			run.TransitionCount = observation.TransitionCount
@@ -81,6 +93,7 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			if !observation.State.Terminal() {
 				return nil, 0, fmt.Errorf("event %d terminal observation has non-terminal state %q", i, observation.State)
 			}
+			run.PendingWait = nil
 			run.CurrentNode = observation.NodeID
 			run.State = observation.State
 			run.TransitionCount = observation.TransitionCount

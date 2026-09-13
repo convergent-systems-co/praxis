@@ -14,7 +14,9 @@ type PackageRef struct {
 }
 
 func (r PackageRef) Validate() error {
-	if r.Source == "" || r.Owner == "" || r.Repo == "" { return errors.New("package source, owner, and repo are required") }
+	if r.Source == "" || r.Owner == "" || r.Repo == "" {
+		return errors.New("package source, owner, and repo are required")
+	}
 	return nil
 }
 
@@ -27,12 +29,15 @@ type Candidate struct {
 }
 
 type Release struct {
-	Ref           PackageRef              `json:"ref"`
-	Tag           string                  `json:"tag"`
-	WebURL        string                  `json:"web_url,omitempty"`
-	ManifestURL   string                  `json:"manifest_url"`
-	ArtifactURL   string                  `json:"artifact_url"`
-	Manifest      packagecatalog.Manifest `json:"manifest"`
+	Ref               PackageRef                       `json:"ref"`
+	Tag               string                           `json:"tag"`
+	WebURL            string                           `json:"web_url,omitempty"`
+	ManifestURL       string                           `json:"manifest_url"`
+	ArtifactURL       string                           `json:"artifact_url"`
+	SignatureURL      string                           `json:"signature_url"`
+	ManifestDigest    string                           `json:"manifest_digest"`
+	Manifest          packagecatalog.Manifest          `json:"manifest"`
+	Signature         packagecatalog.SignatureEnvelope `json:"signature"`
 }
 
 type Adapter interface {

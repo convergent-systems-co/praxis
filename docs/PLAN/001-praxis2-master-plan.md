@@ -4,227 +4,156 @@
 - Branch: `redesign/praxis2`
 - Architecture authority: `docs/ADR/*`
 - Implementation authority: `docs/SPEC/*`
+- Review record: `docs/PLAN/002-praxis2-adversarial-and-security-review.md`
 
 ## Purpose
 
 Deliver Praxis 2 as a general platform for persistent, self-improving agents and graphs across domains.
 
-Software development is the first major proving domain and a primary deliverable, but it does not define the core architecture.
-
-This plan converts architecture into dependency-ordered delivery. Work items SHALL be derived from specifications, not directly from ADR prose.
+Software development is the first major proving domain and a primary deliverable, but it does not define the core architecture. Workspace Intelligence is a reusable capability and likewise does not make repository semantics part of Praxis core.
 
 ## Delivery rules
 
 1. ADRs define architectural decisions and rationale.
-2. SPECs define executable contracts, invariants, failure behavior, and acceptance criteria.
+2. SPECs define executable contracts, invariants, failure behavior, security properties, and acceptance criteria.
 3. PLANs define dependency order, integration gates, and work decomposition.
-4. Issues/work bundles are generated from SPEC deliverables and acceptance tests.
+4. Issues/work bundles are generated from SPEC deliverables and acceptance tests, not directly from ADR prose.
 5. Existing Praxis code is salvageable implementation, not architectural authority.
-6. A work bundle is complete only when its governing spec acceptance criteria pass.
-7. Cross-domain behavior must be expressed in core contracts; domain-specific behavior belongs in packages/graphs.
-8. Client skills, hooks, MCP definitions, and instruction files are adapters. Praxis runtime state remains authoritative.
+6. A work bundle is complete only when its governing SPEC acceptance and security criteria pass.
+7. Cross-domain behavior belongs in core contracts; domain-specific behavior belongs in packages/graphs.
+8. Client skills, hooks, MCP definitions, and instruction files are adapters, not authority mechanisms.
+9. If an LLM can choose to ignore a control, the control is advisory rather than enforcement.
+10. Untrusted content is data, not authority. Content may influence proposals but cannot authorize them.
+11. Security guarantees are reported as specific verified capabilities/properties. Unknown means unavailable.
+12. Every side effect must remain within deterministic authority through the final commit boundary.
+
+## Cross-cutting security invariants
+
+The following apply to every wave:
+
+- least privilege and deny by default;
+- explicit principal identity and provenance;
+- capability grants are scoped and revocable;
+- no ambient authority is assumed merely because a process/client can technically perform an action;
+- security-sensitive approvals bind to canonical action intent and are revalidated before commit;
+- one-shot authority is non-replayable;
+- ambiguous external side effects are reconciled rather than blindly retried;
+- derived state, model output, repository content, and tool output cannot self-promote into authority;
+- sensitive data release is destination-aware and policy mediated;
+- quotas bound graph work, plugins, payloads, retries, indexing, context, and inference spend;
+- security-critical state migrations, replay, synchronization, and recovery fail closed on ambiguity.
 
 ## Delivery topology
 
 ### Wave 0: Contract foundation
 
-**Outcome:** stable semantic boundaries exist before parallel implementation expands.
+**Outcome:** stable semantic and security boundaries exist before parallel implementation expands.
 
-Governing specs:
+Governing specs initially include SPEC-001 through SPEC-004 and must be extended for ADR-040 through ADR-042.
 
-- SPEC-001 Canonical Contracts
-- SPEC-002 Command, Query, and Event Boundary
-- SPEC-003 Scheduler and Resource Governance
-- SPEC-004 Client Integration and Invocation
+Deliverables include stable IDs/versioning, command/query/event envelopes, graph/agent/slice/package/preference/profile contracts, provenance/trust-class contracts, invocation/client capability and enforcement contracts, scheduler/resource contracts, plugin principal/isolation contracts, capability leases, `ActionIntent`/approval binding, compatibility fixtures, and the architecture conformance harness.
 
-Deliverables:
-
-- authoritative versioned schema source;
-- stable IDs/versioning rules;
-- command/query/event envelopes;
-- graph/agent/slice/package/preference/profile contracts;
-- invocation/client capability contracts;
-- scheduler/resource contracts;
-- compatibility and migration fixtures;
-- architecture conformance test harness.
-
-**Exit gate:** all public/persisted boundary contracts validate deterministically and have compatibility tests.
+**Exit gate:** all public/persisted boundary contracts validate deterministically; compatibility, authority, anti-replay, and trust-class tests pass.
 
 ### Wave 1: Authoritative kernel and persistence
 
-**Outcome:** Praxis has a deterministic local source of truth independent of any LLM client.
+**Outcome:** deterministic local source of truth independent of any LLM client.
 
-Scope:
+Scope: SQLite authoritative state, append-only events, projections, replay/recovery, migrations, command processing, idempotency/correlation/causation, policy state, approval/lease state, and export primitives.
 
-- SQLite authoritative state store;
-- durable append-only event log;
-- projections/read models;
-- replay and recovery;
-- schema migrations;
-- command processing boundary;
-- idempotency/correlation/causation handling;
-- exportable state primitives.
+Key ADRs: 031, 032, 035, 036, 040, 042.
 
-Key ADRs: 031, 032, 035, 036.
+**Exit gate:** restart/replay produces equivalent authoritative state; malformed/stale/replayed authority cannot create a valid mutation.
 
-**Exit gate:** a run can be reconstructed from durable state/events after process termination with equivalent projections.
+### Wave 2: Graph execution and resource kernel
 
-### Wave 2: Graph execution kernel
+**Outcome:** generic graphs execute without domain assumptions and cannot exhaust the runtime without deterministic limits.
 
-**Outcome:** generic graphs execute correctly without assuming a software-development domain.
-
-Scope:
-
-- graph loading and validation;
-- entry points;
-- slices as externally meaningful work units;
-- internal block/node execution;
-- dependency resolution;
-- cancellation;
-- retry/recovery;
-- checkpoint/resume;
-- resource acquisition and fairness;
-- deterministic transition/event emission.
+Scope: graph validation, slices, node/block execution, dependencies, cancellation, retry/recovery, checkpoint/resume, resource acquisition/fairness, work/depth/retry quotas, and deterministic transitions.
 
 Key ADRs: 002, 004, 022, 034.
 
-**Exit gate:** generic fixture graphs execute, fail, cancel, recover, and resume correctly under resource contention.
+**Exit gate:** fixture graphs execute/fail/cancel/recover/resume under contention and hostile resource-exhaustion cases remain bounded.
 
-### Wave 3: Plugin and capability runtime
+### Wave 3: Plugin, capability, and isolation runtime
 
-**Outcome:** Praxis core remains small while capabilities can be added without language/domain lock-in.
+**Outcome:** Praxis core stays small while plugins are useful without becoming ambient privileged processes.
 
-Scope:
+Scope: Go core/plugin boundary, gRPC/protobuf transport, plugin discovery/lifecycle, authenticated instance identity, capability advertisement and leases, least-privilege isolation profiles, credential brokering, filesystem/network/process restrictions, quotas, supervision, revocation, failure containment, and observability.
 
-- Go core/plugin boundary;
-- gRPC/protobuf transport;
-- plugin discovery and lifecycle;
-- capability advertisement;
-- capability authorization;
-- plugin isolation/failure handling;
-- executor plugin model;
-- observability around plugin calls.
+Key ADRs: 016, 028, 029, 038, 041.
 
-Key ADRs: 016, 028, 029.
+**Exit gate:** a non-core-language plugin can execute a granted capability; attempts to use denied filesystem/network/process authority fail under an enforced profile; unsupported guarantees are reported rather than assumed.
 
-**Exit gate:** an out-of-process plugin in a non-core language can advertise and execute a canonical capability without redefining core contracts.
+### Wave 4: Workspace Intelligence
 
-### Wave 4: Inference and executor routing
+**Outcome:** graphs obtain precise workspace evidence with lower latency/token use without turning derived indexes into authority.
 
-**Outcome:** graphs request capabilities/reasoning rather than hard-code model vendors.
+A dedicated Workspace Intelligence SPEC is required before implementation decomposition.
 
-Scope:
+Scope: incremental deterministic indexing, lexical/path search, symbol/AST/reference/dependency lookup, VCS/change awareness, disposable derived indexes, context packs, optional semantic retrieval, task-scoped working graphs, token/byte budgets, provenance/trust classes, sensitivity labels, path/secret exclusions, symlink/traversal defenses, destination-aware context release, cache invalidation, and retrieval telemetry.
 
-- executor abstraction;
-- authenticated CLI/session reuse where supported;
-- Claude/Codex/Copilot/local model adapters as implementations;
-- reasoning tiers;
-- capability evidence;
-- routing and fallback;
-- cost/latency/quality telemetry;
-- failure escalation.
+Key ADRs: 039, 040, 041, 042.
 
-Key ADRs: 015, 016, 018.
+**Exit gate:** hostile-workspace corpus proves secret exclusions, prompt-injection provenance, stale-index detection, bounded context, deterministic lookup, and materially reduced model exploration/token use.
 
-**Exit gate:** the same graph can execute through multiple eligible inference/executor implementations without changing graph semantics.
+### Wave 5: Inference and executor routing
 
-### Wave 5: Learning and adaptation
+**Outcome:** graphs request capabilities/reasoning rather than model vendors.
 
-**Outcome:** Praxis observes execution, learns candidate improvements, and promotes stable behavior under governance.
+Scope: executor abstraction, authenticated client/session reuse, Claude/Codex/Copilot/local adapters, reasoning tiers, capability evidence, routing/fallback, cost/latency/quality telemetry, trust-class-preserving context delivery, and failure escalation.
 
-Scope:
+Key ADRs: 015, 016, 018, 038, 040.
 
-- observations;
-- evidence aggregation;
-- evaluation records;
-- heuristic/candidate extraction;
-- confidence;
-- promotion/demotion;
-- stabilization;
-- deterministic extraction where possible;
-- separation of execution, learning, and governance.
+**Exit gate:** the same graph executes through multiple eligible executors without semantic changes, and untrusted evidence cannot become authority through an executor adapter.
 
-Key ADRs: 006, 007, 012, 018, 019, 022, 023.
+### Wave 6: Learning and adaptation
 
-**Exit gate:** a controlled fixture demonstrates observation -> candidate -> evaluation -> governed promotion -> rollback/demotion without direct uncontrolled self-modification.
+**Outcome:** Praxis learns useful behavior without learning around governance or security.
 
-### Wave 6: Persistent agent identity and memory
+Scope: observations, evidence aggregation, candidate extraction, confidence, evaluation, promotion/demotion, stabilization, deterministic extraction, provenance ancestry, duplicate-source detection, and non-learnable security/policy boundaries.
 
-**Outcome:** an agent persists across sessions, clients, graph generations, and runtime restarts without being reduced to prompt text.
+Key ADRs: 006, 007, 012, 018, 019, 022, 023, 040.
 
-Scope:
+**Exit gate:** controlled fixture demonstrates observation -> candidate -> evaluation -> governed promotion -> rollback while hostile/repeated evidence cannot weaken policy or fabricate independent corroboration.
 
-- persistent agent identity;
-- generations and lineage;
-- graph binding/version ancestry;
-- memory records and retrieval;
-- introspection;
-- cross-agent knowledge transfer;
-- provenance/confidence;
-- governed self-modification.
+### Wave 7: Persistent agent identity and memory
 
-Key ADRs: 003, 009, 010, 012, 017.
+**Outcome:** agents persist across sessions, clients, generations, and restarts without reducing identity to prompt text.
 
-**Exit gate:** one agent continues coherently across two clients and a graph-version transition while preserving lineage and provenance.
+Scope: identity, generations/lineage, graph binding, memory/retrieval, introspection, cross-agent transfer, provenance/trust classes, governed self-modification, and poisoning-resistant promotion.
 
-### Wave 7: Packaging, catalog, and trust
+Key ADRs: 003, 009, 010, 012, 017, 040.
 
-**Outcome:** graphs/agents/process packages can be distributed and installed safely.
+**Exit gate:** an agent continues across clients and graph versions while provenance survives and untrusted content cannot silently become authoritative memory.
 
-Scope:
+### Wave 8: Packaging, catalog, dependency trust
 
-- package format;
-- immutable versions/digests;
-- dependency resolution;
-- publisher provenance;
-- signatures/integrity;
-- declared permissions/capabilities;
-- installation/update/rollback;
-- GitHub-backed catalog as initial transport;
-- locally modified descendants/forks;
-- package compatibility rules.
+**Outcome:** packages can be distributed and installed without treating provenance as safety.
 
-Key ADRs: 013, 020, 021, 025, 027.
+Scope: package format, immutable digest/version, dependency lock/resolution, publisher provenance/signatures, transitive capability aggregation, permissions, install/update/rollback, GitHub-backed initial catalog transport, local descendants/forks, compatibility, and trust policy.
 
-**Exit gate:** install, verify, run, personalize, upgrade, rollback, and fork a package while preserving lineage and user state.
+Key ADRs: 013, 020, 021, 025, 027, 041.
 
-### Wave 8: Personalization and behavioral matching
+**Exit gate:** install/verify/run/upgrade/rollback/fork succeeds; a validly signed malicious fixture receives no implicit authority; transitive capability expansion requires authorization.
 
-**Outcome:** packages start close to user preferences and continue adapting without confusing defaults, learned behavior, and policy.
+### Wave 9: Personalization and behavioral matching
 
-Scope:
+**Outcome:** packages start near user preferences and adapt without confusing preference with policy.
 
-- preference contracts;
-- install-time seeding;
-- scope inheritance;
-- explicit/learned/default precedence;
-- behavioral profiles;
-- declared versus observed/measured evidence;
-- catalog matching by goal, context, environment, and behavioral fit.
+Scope: preference contracts, install seeding, scope inheritance, explicit/learned/default precedence, behavioral profiles, evidence classes, catalog matching, and policy/preference separation.
 
-Key ADRs: 008, 014, 023, 026, 030.
+Key ADRs: 008, 014, 023, 026, 030, 040.
 
-**Exit gate:** two users can install the same package, seed different preferences, and evolve divergent local descendants without corrupting the upstream package.
+**Exit gate:** users can diverge safely while neither package content nor learned preferences can override deterministic policy.
 
-### Wave 9: Client integration surfaces
+### Wave 10: LLM client integration and enforcement surfaces
 
-**Outcome:** Praxis is naturally usable from LLM clients while remaining client-neutral.
+**Outcome:** Praxis feels native in LLM clients while client UX never becomes the authority layer.
 
 Governing spec: SPEC-004.
 
-Scope:
-
-- canonical `InvocationContract`;
-- `/praxis <entry-point> [options]` UX;
-- native skill/slash-command materialization;
-- structured tool/MCP surface;
-- optional lifecycle hooks;
-- minimal context/instruction projection;
-- CLI compatibility surface;
-- client capability discovery;
-- deterministic install/update/uninstall of generated adapters;
-- shared status/resume/cancel operations across clients;
-- presentation capability model.
+Scope: `InvocationContract`, `/praxis <entry-point> [options]`, native skills/commands, MCP/tool surface, lifecycle hooks, minimal context projection, CLI bridge, client capability/enforcement discovery, generated adapter lifecycle, status/resume/cancel, dashboard presentation, constrained/unconstrained mode reporting, and deterministic action mediation.
 
 Primary proving invocation:
 
@@ -232,182 +161,126 @@ Primary proving invocation:
 /praxis develop <options> --dashboard
 ```
 
-The equivalent structured tool invocation and CLI invocation MUST produce the same normalized Praxis invocation and run semantics.
+**Exit gate:** equivalent invocations across clients create equivalent canonical commands; an unconstrained alternate client tool is detected/reported and packages requiring exclusive mediation fail closed.
 
-**Exit gate:** start a run from one supported client, inspect/resume it from another, and attach the dashboard without client-specific graph behavior.
+### Wave 11: Portable and multi-machine state
 
-### Wave 10: Portable and multi-machine state
+**Outcome:** state can move/reconcile without making cloud mandatory or replaying stale authority.
 
-**Outcome:** Praxis identity/state can move or reconcile across machines without making a cloud service mandatory.
+Scope: export/import, synchronization envelopes, conflict semantics, device identity, encrypted/sensitive state, offline operation, and portability classes for policy, trust, approvals, leases, learning, and memory.
 
-Scope:
+Key ADRs: 011, 024, 040, 042.
 
-- local-first portable state;
-- export/import;
-- synchronization envelopes;
-- reconciliation/conflict semantics;
-- machine/device identity where needed;
-- encrypted/sensitive state handling;
-- offline operation.
+**Exit gate:** machines reconcile supported state deterministically; one-shot approvals/runtime leases are not imported as portable authority; policy/trust conflicts fail closed.
 
-Key ADRs: 011, 024.
+### Wave 12: Proving domain A - software development
 
-**Exit gate:** two machines reconcile supported shared state deterministically while preserving conflicts/provenance rather than silently overwriting them.
+**Outcome:** software development is a first-class Praxis package/graph suite and validates the platform under demanding real work.
 
-### Wave 11: Proving domain A - software development
+This wave SHALL have its own SPEC and SHALL consume Workspace Intelligence rather than implement a competing repository-understanding subsystem.
 
-**Outcome:** software development is delivered as a first-class Praxis package/graph suite and validates the architecture under demanding real work.
-
-This wave SHALL have its own domain specification under `docs/SPEC/` and SHALL NOT redefine core contracts.
-
-Expected user surface:
+Expected surface:
 
 ```text
 /praxis develop <options>
 /praxis develop <options> --dashboard
 ```
 
-Likely package responsibilities include:
+Responsibilities include goal/repository discovery, spec/plan workflows, implementation slices, test/review/repair loops, Git/worktree/branch handling, CI/PR integration, evidence-driven completion, development-specific capabilities, and learned workflow preferences.
 
-- goal/repository discovery;
-- specification/planning workflows;
-- implementation slices;
-- test/review/repair loops;
-- Git/worktree/branch handling;
-- CI/PR integration;
-- evidence-driven completion;
-- development-specific resource/capability extensions;
-- learned user/team workflow preferences.
+**Exit gate:** substantial repository work executes end-to-end with bounded context, persistent learning, client-neutral invocation, and deterministic side-effect enforcement.
 
-**Exit gate:** substantial real repository work can be executed end-to-end through the development package with persistent learning and client-neutral invocation.
+### Wave 13: Proving domain B - non-development
 
-### Wave 12: Proving domain B - non-development
+**Outcome:** falsify accidental development coupling.
 
-**Outcome:** prove Praxis is genuinely domain-neutral.
+Choose a materially different domain such as structured research, operational planning, or document production.
 
-Select a domain whose ontology and workflow differ materially from software development. Candidate examples include structured research, operational planning, document production, or another repeatable multi-step knowledge workflow.
+**Exit gate:** the package runs without adding development terminology or semantics to Praxis core and can reuse generic evidence/provenance/security contracts.
 
-The purpose is architectural falsification: identify any core contract that accidentally encodes development assumptions.
+### Wave 14: Praxis 1 migration and salvage
 
-**Exit gate:** a non-development package runs without adding domain terminology or semantics to Praxis core.
+**Outcome:** retain useful implementation without inheriting obsolete architecture or bypasses.
 
-### Wave 13: Praxis 1 migration and salvage
-
-**Outcome:** retain useful existing implementation without inheriting obsolete architecture.
-
-Scope:
-
-- code salvage matrix;
-- adapt reusable runtime/executor/evidence/dashboard components;
-- state migration where justified;
-- explicit compatibility adapters;
-- removal of temporary compatibility layers;
-- replace tests that encode superseded architecture.
+Scope: salvage matrix, behavioral tests, adapters, state migration, removal of compatibility layers, and explicit rejection of legacy paths that bypass command, capability, provenance, or enforcement boundaries.
 
 Key ADR: 027.
 
-This work can occur opportunistically in earlier waves, but migration compatibility SHALL NOT block correct Praxis 2 contracts.
+**Exit gate:** retained components conform to Praxis 2 contracts or remain isolated behind removable compatibility boundaries.
 
-**Exit gate:** all retained legacy components conform to Praxis 2 contracts or are explicitly isolated behind removable compatibility boundaries.
+### Wave 15: Productization, adversarial qualification, and release
 
-### Wave 14: Productization and release qualification
+**Outcome:** Praxis 2 is installable, diagnosable, documented, supportable, and security claims are demonstrated.
 
-**Outcome:** Praxis 2 is installable, diagnosable, documented, and supportable.
+Scope: installer/update/uninstall, `praxis doctor`, package/graph/client/security docs, user/migration guides, release policy, performance baselines, recovery drills, threat-model review, hostile fixture corpus, fuzz/property tests for parsers/protocol/contracts, and end-to-end security conformance.
 
-Scope:
+Required hostile fixtures include prompt injection in evidence, secret/symlink/path traversal, stale context versus changed workspace, malicious signed packages, transitive dependency expansion, compromised plugins, forged plugin identity, approval replay/argument mutation, ambiguous side-effect retry, unconstrained client bypass, event/projection corruption, stale authority sync, resource exhaustion, and learning attempts to weaken policy.
 
-- installer/update/uninstall;
-- `praxis doctor`/diagnostics;
-- package author documentation;
-- graph author documentation;
-- client adapter documentation;
-- administrator/security documentation;
-- user guide;
-- migration guide;
-- release/version policy;
-- end-to-end qualification suite;
-- performance/resource baselines;
-- security review;
-- failure/recovery drills.
+**Exit gate:** clean install -> client integration -> package install -> hostile and normal real runs -> restart/recovery -> upgrade/rollback passes on supported platforms with claimed enforcement properties verified.
 
-**Exit gate:** clean install -> client integration -> package install -> real run -> restart/recovery -> upgrade/rollback passes on supported platforms.
+## Architecture conformance matrix
 
-## Cross-wave architecture conformance matrix
+Every implementation bundle SHALL map ADR -> SPEC -> implementation surface -> executable evidence. Initial mandatory mappings include:
 
-Every implementation bundle SHALL record the following mapping:
-
-| Architecture decision | Implementation specification | Implementation surface | Required conformance evidence |
-|---|---|---|---|
-| ADR-034 scheduling/concurrency | SPEC-003 | scheduler/resource runtime | deadlock, fairness, cancellation, starvation, contention tests |
-| ADR-035 command/query boundary | SPEC-002 | command handlers, event store, projections | mutation-only-through-command tests; replay/query purity |
-| ADR-036 schema evolution | SPEC-001 | contracts/schema/migrations | compatibility and migration fixture suite |
-| ADR-037 client adapters | SPEC-004 | adapter SDK, skills, MCP/tools, CLI | equivalent normalized invocation across client mechanisms |
-
-As additional specs are created, this matrix SHALL expand so every Accepted or implementation-governing ADR maps to at least one executable spec and conformance test surface.
+| Architecture decision | Specification surface | Required evidence |
+|---|---|---|
+| ADR-034 scheduling/concurrency | scheduler/resource SPEC | deadlock, fairness, cancellation, starvation, quota tests |
+| ADR-035 command/query boundary | command/event SPEC | mutation-only-through-command, replay, query purity |
+| ADR-036 schema evolution | canonical contracts SPEC | compatibility and migration fixtures |
+| ADR-037 client adapters | SPEC-004 | equivalent normalized invocation across mechanisms |
+| ADR-038 enforcement below LLM | SPEC-004 + security contracts | bypass/fail-closed client tests |
+| ADR-039 Workspace Intelligence | Workspace Intelligence SPEC | retrieval quality, token/latency, staleness, exclusion tests |
+| ADR-040 trust/instruction separation | canonical/inference/learning specs | prompt-injection and provenance propagation tests |
+| ADR-041 plugin isolation | plugin runtime SPEC | denied ambient authority and lease/revocation tests |
+| ADR-042 approval binding | command/security SPEC | replay, TOCTOU, stale intent, idempotency tests |
 
 ## Work-bundle derivation
 
-A delivery issue/work bundle SHALL identify:
+Every work item must identify governing SPEC sections and ADRs, concrete deliverables, dependencies, expected implementation surfaces, acceptance/security tests, migration impact, authority implications, and observable completion evidence.
 
-- governing SPEC section(s);
-- governing ADR(s);
-- concrete deliverable(s);
-- dependencies;
-- files/packages expected to change where known;
-- acceptance tests to implement/pass;
-- migration impact;
-- security/authority implications;
-- observable completion evidence.
-
-An issue SHALL NOT be considered adequately specified when it contains only an ADR reference or architectural intent.
-
-## Parallelism policy
-
-Parallel work is encouraged only after shared contracts for that wave are stable enough to prevent incompatible local interpretations.
-
-Safe parallelism generally follows interface boundaries:
-
-- schema/bindings versus independent adapter implementations;
-- state-store implementation versus read-only projections after event contracts stabilize;
-- multiple executor/client adapters against a frozen adapter contract;
-- independent domain packages against stable core contracts.
-
-Do not parallelize competing definitions of the same authoritative contract.
+Parallel work begins only after shared contracts are stable. Do not parallelize competing definitions of an authoritative contract.
 
 ## Master acceptance criteria
 
-Praxis 2 is ready for release when all of the following hold:
+Praxis 2 is release-ready only when:
 
-1. Core runtime contains no required software-development ontology.
-2. Authoritative state survives restarts and replays deterministically.
-3. Generic graphs execute with governed resource concurrency and failure recovery.
-4. Multiple executors/models can satisfy capability requests without graph rewrites.
-5. Learning produces governed, reversible adaptations with provenance.
-6. Persistent agent identity and memory survive client/session changes.
-7. Packages install/update/rollback with integrity, provenance, and permissions enforced.
-8. User preferences and behavioral matching work without conflating policy, defaults, and learned behavior.
-9. The same package can be invoked through multiple LLM-client mechanisms using equivalent canonical semantics.
-10. `/praxis develop <options> --dashboard` works as a complete client-facing proving example without making `develop` or `dashboard` core graph semantics.
-11. State is portable/reconcilable according to the supported multi-machine model.
-12. Both a development and a materially non-development proving package pass end-to-end qualification.
-13. Every implementation-governing ADR is traceable to a SPEC and executable conformance evidence.
-14. Installation, diagnostics, documentation, recovery, upgrade, and rollback are release-qualified.
+1. core runtime contains no required software-development ontology;
+2. authoritative state survives restart/replay deterministically;
+3. generic graphs execute with governed concurrency and bounded resources;
+4. plugins operate through least-privilege enforceable profiles or are accurately marked unconstrained;
+5. Workspace Intelligence reduces unnecessary model exploration while preserving provenance, freshness, exclusions, and context budgets;
+6. multiple executors satisfy capability requests without graph rewrites;
+7. learning is governed/reversible and cannot weaken deterministic controls;
+8. persistent identity/memory survive client/session changes without trust-class loss;
+9. packages install/update/rollback with integrity, transitive capability review, and local authority;
+10. personalization cannot override policy;
+11. multiple LLM clients produce equivalent canonical invocation semantics;
+12. `/praxis develop <options> --dashboard` works without making development/dashboard core semantics;
+13. approvals and side effects are bound, non-replayable where required, and commit-time revalidated;
+14. portable state cannot replay stale runtime authority;
+15. both development and non-development proving packages pass end-to-end qualification;
+16. every implementation-governing ADR maps to a SPEC and executable conformance evidence;
+17. the adversarial corpus passes for every claimed supported security profile;
+18. installation, diagnostics, documentation, recovery, upgrade, and rollback are release-qualified.
 
 ## Immediate next specifications
 
-After SPEC-001 through SPEC-004, create detailed implementation specs in dependency order for:
+Create or update detailed specs in this dependency order:
 
-1. authoritative state/event store and projections;
-2. graph execution/runtime;
-3. plugin/capability runtime;
-4. executor/inference routing;
-5. learning/evaluation/promotion;
-6. persistent identity/memory/lineage;
-7. package/catalog/trust;
-8. preferences/behavioral profiles;
-9. portable state/reconciliation;
-10. software-development proving package;
-11. non-development proving package;
-12. release/distribution/diagnostics.
+1. canonical contracts including provenance/trust class, plugin principal, capability lease, and ActionIntent;
+2. command/query/event store including approval binding, anti-replay, idempotency, and commit revalidation;
+3. scheduler/resource governance including security quotas;
+4. plugin/capability/isolation runtime;
+5. Workspace Intelligence;
+6. client integration/enforcement updates to SPEC-004;
+7. executor/inference routing with evidence separation;
+8. learning/evaluation/promotion with poisoning controls;
+9. persistent identity/memory/lineage;
+10. package/catalog/dependency trust;
+11. preferences/behavioral profiles;
+12. portable state/reconciliation authority classes;
+13. software-development proving package;
+14. non-development proving package;
+15. release/distribution/diagnostics/adversarial qualification.
 
-These detailed specs become the source from which delivery issues are generated.
+These specifications become the source from which delivery issues are generated.

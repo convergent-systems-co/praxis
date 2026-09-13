@@ -14,15 +14,52 @@ type Dependency struct {
 	Digest    string `json:"digest"`
 }
 
+type ContentKind string
+
+const (
+	ContentGraph             ContentKind = "graph"
+	ContentAgentDefinition   ContentKind = "agent_definition"
+	ContentPlugin            ContentKind = "plugin"
+	ContentPreference        ContentKind = "preference_contract"
+	ContentBehavioralProfile ContentKind = "behavioral_profile"
+	ContentTemplate          ContentKind = "template"
+	ContentMigration         ContentKind = "migration"
+	ContentDocumentation     ContentKind = "documentation"
+)
+
+type ContentRef struct {
+	Kind          ContentKind `json:"kind"`
+	ID            string      `json:"id"`
+	Version       string      `json:"version"`
+	Digest        string      `json:"digest"`
+	Artifact      string      `json:"artifact"`
+	Compatibility string      `json:"compatibility,omitempty"`
+}
+
+func (c ContentRef) Validate() error {
+	if c.Kind == "" || c.ID == "" || c.Version == "" || c.Digest == "" || c.Artifact == "" {
+		return errors.New("package content kind, id, version, digest, and artifact are required")
+	}
+	switch c.Kind {
+	case ContentGraph, ContentAgentDefinition, ContentPlugin, ContentPreference, ContentBehavioralProfile, ContentTemplate, ContentMigration, ContentDocumentation:
+		return nil
+	default:
+		return fmt.Errorf("unsupported package content kind %q", c.Kind)
+	}
+}
+
 type Manifest struct {
 	PackageID           string                         `json:"package_id"`
 	Version             string                         `json:"version"`
 	ContentDigest       string                         `json:"content_digest"`
 	Publisher           string                         `json:"publisher,omitempty"`
+	Description         string                         `json:"description,omitempty"`
+	Tags                []string                       `json:"tags,omitempty"`
 	Dependencies        []Dependency                   `json:"dependencies,omitempty"`
 	Capabilities        []string                       `json:"capabilities,omitempty"`
 	RequiredEnforcement []string                       `json:"required_enforcement,omitempty"`
 	CryptoProfile       contracts.CryptoProfile        `json:"crypto_profile,omitempty"`
+	Contents            []ContentRef                   `json:"contents,omitempty"`
 	Invocations         []contracts.InvocationContract `json:"invocations,omitempty"`
 	UpstreamPackageID   string                         `json:"upstream_package_id,omitempty"`
 	UpstreamDigest      string                         `json:"upstream_digest,omitempty"`
@@ -47,6 +84,17 @@ func (m Manifest) Validate() error {
 		}
 		seenDeps[d.PackageID] = struct{}{}
 	}
+	seenContent := map[string]struct{}{}
+	for _, content := range m.Contents {
+		if err := content.Validate(); err != nil {
+			return fmt.Errorf("package content: %w", err)
+		}
+		key := string(content.Kind) + "\x00" + content.ID + "\x00" + content.Version
+		if _, ok := seenContent[key]; ok {
+			return fmt.Errorf("duplicate package content %s/%s@%s", content.Kind, content.ID, content.Version)
+		}
+		seenContent[key] = struct{}{}
+	}
 	seenEntries := map[string]struct{}{}
 	seenAliases := map[string]struct{}{}
 	for _, inv := range m.Invocations {
@@ -68,6 +116,16 @@ func (m Manifest) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (m Manifest) ContentsOf(kind ContentKind) []ContentRef {
+	out := make([]ContentRef, 0)
+	for _, content := range m.Contents {
+		if content.Kind == kind {
+			out = append(out, content)
+		}
+	}
+	return out
 }
 
 // EffectiveCapabilities computes the deterministic transitive capability request.

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "google/protobuf/timestamp.proto";
+
+message PrincipalRef {
+  string id = 1;
+  string kind = 2;
+}
+
+enum TrustClass {
+  TRUST_CLASS_UNSPECIFIED = 0;
+  TRUST_CLASS_UNTRUSTED_CONTENT = 1;
+  TRUST_CLASS_OBSERVED = 2;
+  TRUST_CLASS_DERIVED = 3;
+  TRUST_CLASS_USER_CONFIRMED = 4;
+  TRUST_CLASS_POLICY = 5;
+}
+
+message ProvenanceRef {
+  PrincipalRef source_principal = 1;
+  string source_type = 2;
+  string source_uri = 3;
+  string digest = 4;
+  TrustClass trust = 5;
+  google.protobuf.Timestamp observed_at = 6;
+}

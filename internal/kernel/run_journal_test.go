@@ -16,9 +16,7 @@ func TestRunObservedPersistsAuthoritativeSequence(t *testing.T) {
 		Actor:         contracts.PrincipalRef{ID: "agent-1", Kind: "agent"},
 		CommandID:     "cmd-1",
 		CorrelationID: "corr-1",
-		Now: func() time.Time {
-			return time.Unix(1, 0)
-		},
+		Now: func() time.Time { return time.Unix(1, 0) },
 	}
 	graph := GraphDef{
 		ID: "g", Version: "1", EntryNode: "work", MaxTransitions: 2,
@@ -109,8 +107,8 @@ func TestReplayRunReconstructsTerminalExecution(t *testing.T) {
 	if replayed.State != RunSucceeded || replayed.CurrentNode != "done" || replayed.TransitionCount != 1 {
 		t.Fatalf("unexpected replayed state: %+v", replayed)
 	}
-	if version != 4 || len(replayed.Evidence) != 1 {
-		t.Fatalf("unexpected replay metadata: version=%d evidence=%v", version, replayed.Evidence)
+	if version != 4 || len(replayed.Evidence) != 1 || replayed.AttemptCounts["work"] != 1 {
+		t.Fatalf("unexpected replay metadata: version=%d evidence=%v attempts=%v", version, replayed.Evidence, replayed.AttemptCounts)
 	}
 }
 
@@ -124,7 +122,7 @@ func TestReplayThenResumeDoesNotReexecuteCompletedNode(t *testing.T) {
 	}
 	observations := []RunObservation{
 		{Kind: ObservationRunStarted, RunID: "run-resume", GraphID: "g", GraphVersion: "1", NodeID: "first", State: RunRunning},
-		{Kind: ObservationNodeCompleted, RunID: "run-resume", GraphID: "g", GraphVersion: "1", NodeID: "first", Outcome: "next", State: RunRunning, Evidence: []string{"first-done"}},
+		{Kind: ObservationNodeCompleted, RunID: "run-resume", GraphID: "g", GraphVersion: "1", NodeID: "first", Outcome: "next", State: RunRunning, Attempt: 1, Evidence: []string{"first-done"}},
 		{Kind: ObservationTransitioned, RunID: "run-resume", GraphID: "g", GraphVersion: "1", FromNode: "first", ToNode: "second", Outcome: "next", State: RunRunning, TransitionCount: 1},
 	}
 	for _, observation := range observations {

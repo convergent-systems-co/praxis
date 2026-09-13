@@ -40,8 +40,8 @@ func (c SQLiteCommitter) CommitRunControl(ctx context.Context, actor contracts.P
 			return expectedVersion, errors.New("cancel operation requires cancelled terminal observation")
 		}
 	case kernel.RunControlResume:
-		if observation.Kind != kernel.ObservationRunResumed || observation.State != kernel.RunRunning {
-			return expectedVersion, errors.New("resume operation requires running resumed observation")
+		if observation.Kind != kernel.ObservationRunResumed || (observation.State != kernel.RunRunning && observation.State != kernel.RunRunnable) {
+			return expectedVersion, errors.New("resume operation requires running or runnable resumed observation")
 		}
 	default:
 		return expectedVersion, fmt.Errorf("unsupported run control operation %q", operation)

@@ -27,6 +27,8 @@ Software development is the first major proving domain and a primary deliverable
 11. Security guarantees are reported as specific verified capabilities/properties. Unknown means unavailable.
 12. Every side effect must remain within deterministic authority through the final commit boundary.
 13. Cryptography is profile-driven and algorithm-agile; Praxis-native asymmetric protection prefers standardized post-quantum mechanisms and fails closed when a required cryptographic profile cannot be satisfied.
+14. Expensive discovery and durable uncertainty SHOULD be resolved once into versioned reusable planning artifacts when work justifies it; implementation slices consume that baseline and replan only invalidated/local variance.
+15. Planning rigor is progressive: narrow low-risk work retains a direct fast path; architecturally material work may require ADRs, architecture views, SPECs, conformance mapping, and a master plan before implementation.
 
 ## Cross-cutting security invariants
 
@@ -94,7 +96,7 @@ Key ADRs: 016, 028, 029, 038, 041, 043.
 
 **Outcome:** graphs obtain precise workspace evidence with lower latency/token use without turning derived indexes into authority.
 
-A dedicated Workspace Intelligence SPEC is required before implementation decomposition.
+Governing spec: SPEC-008.
 
 Scope: incremental deterministic indexing, lexical/path search, symbol/AST/reference/dependency lookup, VCS/change awareness, disposable derived indexes, context packs, optional semantic retrieval, task-scoped working graphs, token/byte budgets, provenance/trust classes, sensitivity labels, path/secret exclusions, symlink/traversal defenses, destination-aware context release, cache invalidation, and retrieval telemetry.
 
@@ -182,7 +184,7 @@ Key ADRs: 011, 024, 040, 042, 043.
 
 **Outcome:** software development is a first-class Praxis package/graph suite and validates the platform under demanding real work.
 
-This wave SHALL have its own SPEC and SHALL consume Workspace Intelligence rather than implement a competing repository-understanding subsystem.
+Governing spec: SPEC-013 in addition to the generic runtime/Workspace Intelligence specs.
 
 Expected surface:
 
@@ -191,9 +193,11 @@ Expected surface:
 /praxis develop <options> --dashboard
 ```
 
-Responsibilities include goal/repository discovery, spec/plan workflows, implementation slices, test/review/repair loops, Git/worktree/branch handling, CI/PR integration, evidence-driven completion, development-specific capabilities, and learned workflow preferences.
+Responsibilities include goal/repository discovery, progressive-rigor classification, reusable Planning Baselines, explicit variance registers, ADR and architecture-view workflows, sequence/security views where applicable, SPEC derivation, dependency-ordered master-plan/work-bundle derivation, baseline invalidation/delta planning, implementation slices, test/review/repair loops, Git/worktree/branch handling, CI/PR integration, evidence-driven completion, development-specific capabilities, and learned workflow preferences.
 
-**Exit gate:** substantial repository work executes end-to-end with bounded context, persistent learning, client-neutral invocation, and deterministic side-effect enforcement.
+The package SHALL distinguish project-level uncertainty reduction from slice-level planning. Expensive discovery/architecture is performed once when justified, versioned into a baseline, and reused by subsequent slices. A slice first attempts deterministic baseline reuse and delta planning before invoking project-level planning again. Direct low-risk work remains able to bypass architected mode.
+
+**Exit gate:** a multi-bundle repository change performs expensive project discovery/architecture once, produces a versioned baseline and conformance-linked master plan, executes at least two slices against it without repeated project planning, selectively replans invalidated portions after a controlled workspace change, and still supports a direct low-risk fast path. End-to-end execution must retain bounded context, persistent learning, client-neutral invocation, and deterministic side-effect enforcement.
 
 ### Wave 13: Proving domain B - non-development
 
@@ -217,11 +221,11 @@ Key ADR: 027.
 
 **Outcome:** Praxis 2 is installable, diagnosable, documented, supportable, and security claims are demonstrated.
 
-Scope: installer/update/uninstall, `praxis doctor`, package/graph/client/security docs, user/migration guides, release policy, performance baselines, recovery drills, threat-model review, hostile fixture corpus, fuzz/property tests for parsers/protocol/contracts, end-to-end security conformance, cryptographic-provider diagnostics, key rotation/revocation drills, algorithm/profile migration tests, and downgrade-resistance testing.
+Scope: installer/update/uninstall, `praxis doctor`, package/graph/client/security docs, user/migration guides, release policy, performance baselines, recovery drills, threat-model review, hostile fixture corpus, fuzz/property tests for parsers/protocol/contracts, end-to-end security conformance, cryptographic-provider diagnostics, key rotation/revocation drills, algorithm/profile migration tests, downgrade-resistance testing, and planning-amortization benchmarks for the development proving package.
 
-Required hostile fixtures include prompt injection in evidence, secret/symlink/path traversal, stale context versus changed workspace, malicious signed packages, signature/key substitution, cryptographic downgrade attempts, transitive dependency expansion, compromised plugins, forged plugin identity, approval replay/argument mutation, ambiguous side-effect retry, unconstrained client bypass, event/projection corruption, stale authority sync, resource exhaustion, and learning attempts to weaken policy.
+Required hostile fixtures include prompt injection in evidence, secret/symlink/path traversal, stale context versus changed workspace, malicious signed packages, signature/key substitution, cryptographic downgrade attempts, transitive dependency expansion, compromised plugins, forged plugin identity, approval replay/argument mutation, ambiguous side-effect retry, unconstrained client bypass, event/projection corruption, stale authority sync, resource exhaustion, learning attempts to weaken policy, and stale/contradictory planning baselines.
 
-**Exit gate:** clean install -> client integration -> package install -> hostile and normal real runs -> restart/recovery -> key rotation/crypto-profile migration -> upgrade/rollback passes on supported platforms with claimed enforcement and cryptographic properties verified.
+**Exit gate:** clean install -> client integration -> package install -> hostile and normal real runs -> restart/recovery -> key rotation/crypto-profile migration -> upgrade/rollback passes on supported platforms with claimed enforcement and cryptographic properties verified. Development qualification additionally demonstrates that reusable project planning materially reduces repeated planning/token/latency across multi-slice work without increasing conformance failures.
 
 ## Architecture conformance matrix
 
@@ -234,61 +238,17 @@ Every implementation bundle SHALL map ADR -> SPEC -> implementation surface -> e
 | ADR-036 schema evolution | canonical contracts SPEC | compatibility and migration fixtures |
 | ADR-037 client adapters | SPEC-004 | equivalent normalized invocation across mechanisms |
 | ADR-038 enforcement below LLM | SPEC-004 + security contracts | bypass/fail-closed client tests |
-| ADR-039 Workspace Intelligence | Workspace Intelligence SPEC | retrieval quality, token/latency, staleness, exclusion tests |
+| ADR-039 Workspace Intelligence | SPEC-008 | retrieval quality, token/latency, staleness, exclusion tests |
 | ADR-040 trust/instruction separation | canonical/inference/learning specs | prompt-injection and provenance propagation tests |
-| ADR-041 plugin isolation | plugin runtime SPEC | denied ambient authority and lease/revocation tests |
+| ADR-041 plugin isolation | SPEC-007 | denied ambient authority and lease/revocation tests |
 | ADR-042 approval binding | command/security SPEC | replay, TOCTOU, stale intent, idempotency tests |
-| ADR-043 cryptographic agility/PQC | crypto/security/package/state specs | ML-KEM, ML-DSA, rotation, migration, hybrid semantics, downgrade-resistance tests |
+| ADR-043 cryptographic agility/PQC | SPEC-005 + crypto/security/package/state specs | ML-KEM, ML-DSA, rotation, migration, hybrid semantics, downgrade-resistance tests |
+| ADR-044 front-loaded uncertainty | SPEC-013 | baseline reuse, selective invalidation, planning-amortization, direct-fast-path tests |
 
 ## Work-bundle derivation
 
 Every work item must identify governing SPEC sections and ADRs, concrete deliverables, dependencies, expected implementation surfaces, acceptance/security tests, migration impact, authority implications, and observable completion evidence.
 
-Parallel work begins only after shared contracts are stable. Do not parallelize competing definitions of an authoritative contract.
+For work covered by a Planning Baseline, bundles SHALL reference the baseline/version and applicable ADR/SPEC/architecture-view dependencies. Slice planners resolve local implementation variance and SHALL NOT regenerate project architecture unless baseline validity fails.
 
-## Master acceptance criteria
-
-Praxis 2 is release-ready only when:
-
-1. core runtime contains no required software-development ontology;
-2. authoritative state survives restart/replay deterministically;
-3. generic graphs execute with governed concurrency and bounded resources;
-4. plugins operate through least-privilege enforceable profiles or are accurately marked unconstrained;
-5. Workspace Intelligence reduces unnecessary model exploration while preserving provenance, freshness, exclusions, and context budgets;
-6. multiple executors satisfy capability requests without graph rewrites;
-7. learning is governed/reversible and cannot weaken deterministic controls;
-8. persistent identity/memory survive client/session changes without trust-class loss;
-9. packages install/update/rollback with integrity, transitive capability review, local authority, and algorithm-agile signature verification;
-10. personalization cannot override policy;
-11. multiple LLM clients produce equivalent canonical invocation semantics;
-12. `/praxis develop <options> --dashboard` works without making development/dashboard core semantics;
-13. approvals and side effects are bound, non-replayable where required, and commit-time revalidated;
-14. portable state cannot replay stale runtime authority;
-15. Praxis-native asymmetric cryptography supports standardized PQC with ML-KEM/ML-DSA preferred, key rotation and algorithm migration, and no silent downgrade of `pq-required` or hybrid profiles;
-16. both development and non-development proving packages pass end-to-end qualification;
-17. every implementation-governing ADR maps to a SPEC and executable conformance evidence;
-18. the adversarial corpus passes for every claimed supported security profile;
-19. installation, diagnostics, documentation, recovery, upgrade, and rollback are release-qualified.
-
-## Immediate next specifications
-
-Create or update detailed specs in this dependency order:
-
-1. canonical contracts including provenance/trust class, plugin principal, capability lease, ActionIntent, cryptographic profile, key identity/version, signature, and encrypted-envelope contracts;
-2. command/query/event store including approval binding, anti-replay, idempotency, commit revalidation, and cryptographic metadata persistence;
-3. scheduler/resource governance including security quotas;
-4. plugin/capability/isolation runtime including cryptographic-provider capability resolution;
-5. cryptographic provider, key lifecycle, PQ/hybrid/classical profiles, signing, envelope encryption, downgrade resistance, and migration;
-6. Workspace Intelligence;
-7. client integration/enforcement updates to SPEC-004;
-8. executor/inference routing with evidence separation;
-9. learning/evaluation/promotion with poisoning controls;
-10. persistent identity/memory/lineage including long-lived encryption policy;
-11. package/catalog/dependency trust including signature rotation/revocation;
-12. preferences/behavioral profiles;
-13. portable state/reconciliation authority and cryptographic protection classes;
-14. software-development proving package;
-15. non-development proving package;
-16. release/distribution/diagnostics/adversarial/cryptographic qualification.
-
-These specifications become the source from which delivery issues are generated.
+Parallel work begins only after shared contracts are stable. Do not parallel

@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/convergent-systems-co/praxis/internal/eventstore"
@@ -17,6 +18,12 @@ func (runControlExecutor) ExecuteNode(_ context.Context, _ GraphDef, node NodeDe
 	return NodeResult{Outcome: "done"}, nil
 }
 
+type testRunControlAuthorizer struct{ err error }
+
+func (a testRunControlAuthorizer) AuthorizeRunControl(_ context.Context, _ contracts.PrincipalRef, _ RunExecution, _ RunControlOperation) error {
+	return a.err
+}
+
 func TestRunControlStatusAndCancelReplayAuthoritativeState(t *testing.T) {
 	ctx := context.Background()
 	store := eventstore.NewMemoryStore()
@@ -27,7 +34,7 @@ func TestRunControlStatusAndCancelReplayAuthoritativeState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	control := RunControl{Store: store, Actor: actor}
+	control := RunControl{Store: store, Actor: actor, Authorizer: testRunControlAuthorizer{}}
 	status, err := control.Status(ctx, "run-1")
 	if err != nil {
 		t.Fatal(err)
@@ -56,6 +63,31 @@ func TestRunControlStatusAndCancelReplayAuthoritativeState(t *testing.T) {
 	}
 }
 
+func TestRunControlMutationFailsClosedWithoutAuthorization(t *testing.T) {
+	ctx := context.Background()
+	store := eventstore.NewMemoryStore()
+	actor := contracts.PrincipalRef{ID: "user-1", Kind: "user"}
+	journal := &EventJournal{Store: store, Actor: actor, CommandID: "seed", CorrelationID: "corr"}
+	run := &RunExecution{RunID: "run-auth", GraphID: "graph-1", GraphVersion: "1", CurrentNode: "work", State: RunRunning, AttemptCounts: map[string]int{}}
+	if err := journal.ObserveRun(ctx, baseObservation(run, ObservationRunStarted, "work")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (RunControl{Store: store, Actor: actor}).Cancel(ctx, run.RunID, "cancel-no-auth", "corr"); err == nil {
+		t.Fatal("expected missing authorizer to fail closed")
+	}
+	denied := RunControl{Store: store, Actor: actor, Authorizer: testRunControlAuthorizer{err: errors.New("policy denied")}}
+	if _, err := denied.Cancel(ctx, run.RunID, "cancel-denied", "corr"); err == nil {
+		t.Fatal("expected denied authorization to block cancellation")
+	}
+	status, err := (RunControl{Store: store}).Status(ctx, run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Run.State != RunRunning || status.AggregateVersion != 1 {
+		t.Fatalf("unauthorized mutation changed run: state=%s version=%d", status.Run.State, status.AggregateVersion)
+	}
+}
+
 func TestRunControlResumeRequiresExactPersistedWaitAndContinues(t *testing.T) {
 	ctx := context.Background()
 	store := eventstore.NewMemoryStore()
@@ -79,7 +111,7 @@ func TestRunControlResumeRequiresExactPersistedWaitAndContinues(t *testing.T) {
 		Nodes: []NodeDef{{ID: "work", Class: NodeDeterministic}, {ID: "complete", Class: NodeTerminal, TerminalState: RunSucceeded}},
 		Transitions: []TransitionDef{{From: "work", Outcome: "done", To: "complete"}},
 	}
-	control := RunControl{Store: store, Actor: actor}
+	control := RunControl{Store: store, Actor: actor, Authorizer: testRunControlAuthorizer{}}
 	if _, err := control.Resume(ctx, graph, "run-2", WaitApproval, "wrong", "resume-bad", "corr", runControlExecutor{}); err == nil {
 		t.Fatal("expected mismatched wait reference to fail")
 	}

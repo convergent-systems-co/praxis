@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "praxis/v1/common.proto";
+
+message WorkspaceSnapshotRef {
+  string workspace_id = 1;
+  string revision = 2;
+  string dirty_fingerprint = 3;
+  string index_version = 4;
+}
+
+message EvidenceResult {
+  string result_id = 1;
+  WorkspaceSnapshotRef snapshot = 2;
+  string source_uri = 3;
+  string range = 4;
+  string digest = 5;
+  string evidence_class = 6;
+  repeated ProvenanceRef provenance = 7;
+  string sensitivity = 8;
+  string freshness = 9;
+  double score = 10;
+  string score_type = 11;
+}
+
+message ContextPack {
+  string pack_id = 1;
+  string version = 2;
+  WorkspaceSnapshotRef snapshot = 3;
+  string task_ref = 4;
+  PrincipalRef destination = 5;
+  uint64 max_bytes = 6;
+  uint64 max_tokens = 7;
+  repeated EvidenceResult evidence = 8;
+  repeated string omitted_reasons = 9;
+  string digest = 10;
+}

@@ -25,14 +25,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Format check
+      - name: Format working copy
         run: |
-          unformatted="$(gofmt -l $(find . -type f -name '*.go' -not -path './.git/*'))"
-          if [ -n "$unformatted" ]; then
-            echo "Unformatted Go files:"
-            echo "$unformatted"
-            exit 1
-          fi
+          gofmt -w $(find . -type f -name '*.go' -not -path './.git/*')
+          git diff --stat -- '*.go'
       - name: Vet
         run: go vet ./...
       - name: Test

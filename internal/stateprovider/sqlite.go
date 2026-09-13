@@ -36,18 +36,18 @@ func (p *SQLiteProvider) Close() error {
 
 func (p *SQLiteProvider) Profile() Profile {
 	return Profile{
-		EventsAppendOptimistic:        Enforced,
-		EventsReplay:                  Enforced,
-		EventsGlobalSequence:          Enforced,
-		ProjectionsCheckpointed:       Enforced,
-		ApprovalAtomicConsume:         Enforced,
-		LeaseAtomicConsume:            Enforced,
-		EffectsOutboxReconciliation:   Enforced,
-		SecureBlobsImmutableEncrypted: Enforced,
-		PackagesAtomicActivation:      Enforced,
-		RunsDurableReplay:             Enforced,
-		MigrationsVersioned:           Enforced,
-		TransactionsMultiRepository:   Enforced,
+		EventsAppendOptimistic:         Enforced,
+		EventsReplay:                   Enforced,
+		EventsGlobalSequence:           Enforced,
+		ProjectionsCheckpointed:        Enforced,
+		ApprovalAtomicConsume:          Enforced,
+		LeaseAtomicConsume:             Enforced,
+		EffectsOutboxReconciliation:    Enforced,
+		SecureBlobsImmutableEncrypted:  Enforced,
+		PackagesAtomicActivation:       Enforced,
+		RunsDurableReplay:              Enforced,
+		MigrationsVersioned:            Enforced,
+		TransactionsMultiRepository:    Enforced,
 	}
 }
 
@@ -78,6 +78,24 @@ func (r sqlitePackageRegistry) ActiveInvocations(ctx context.Context) ([]Registe
 		out = append(out, RegisteredInvocation{Contract: item.Contract, ContentDigest: item.ContentDigest, ContractDigest: item.ContractDigest})
 	}
 	return out, nil
+}
+func (r sqlitePackageRegistry) ActiveContents(ctx context.Context, kind packagecatalog.ContentKind) ([]RegisteredContent, error) {
+	items, err := r.store.ActiveContents(ctx, kind)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RegisteredContent, 0, len(items))
+	for _, item := range items {
+		out = append(out, RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content})
+	}
+	return out, nil
+}
+func (r sqlitePackageRegistry) ResolveContent(ctx context.Context, kind packagecatalog.ContentKind, id, version string) (RegisteredContent, error) {
+	item, err := r.store.ResolveContent(ctx, kind, id, version)
+	if err != nil {
+		return RegisteredContent{}, err
+	}
+	return RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content}, nil
 }
 func (r sqlitePackageRegistry) InstalledPackages(ctx context.Context) ([]InstalledPackage, error) {
 	items, err := r.store.InstalledPackages(ctx)

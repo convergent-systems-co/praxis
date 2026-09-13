@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/learning"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T19:15:14.003231Z",
+  "finished_at": "2026-09-13T19:15:14.440848Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/self-improvement.log",
+  "output_digest": "sha256:402a40c64dfdd989a92cc9d79a87d1d47293198c3dbcc1a81fb16711d2065878",
+  "source_digests": {
+    "internal/learning": "sha256:eb9b28d2fd49e5180fc51941f53cf6a5cd57dcc6dd26ebd86167644207388187"
+  },
+  "observations": [
+    "TestFailedCandidateRemainsRegisteredEvidence",
+    "TestGenerationPromotionAndRollbackSurviveRestart",
+    "TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer",
+    "TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:8e1a1897b614f2a6449ac9e900007540fe8df023a5f06ac1c8cfbf97439e5241"
+}

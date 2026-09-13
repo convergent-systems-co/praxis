@@ -66,7 +66,7 @@ The corrected initial blind result is `docs/research/conformance/blind-source-qu
 
 The denominator below is now fixed. New evidence may change finding states, but may not silently delete, weaken, or redefine a claim. A genuinely superseded original goal requires a new governed architectural decision and an explicit denominator transition.
 
-## Wave 17: Executed Evidence and Reproducible Attestation — NOT STARTED
+## Wave 17: Executed Evidence and Reproducible Attestation — IN PROGRESS
 
 1. Define content-addressed execution attestations distinct from test source.
 2. Bind command, exact source/evidence digests, environment/profile, exit state, and produced observations.
@@ -86,7 +86,7 @@ Primary finding closures: all indeterminate claims; prerequisite for every later
 
 Finding closures: OI-001, OI-002, OI-007, OI-008.
 
-## Wave 19: Goal Discovery and Actual Learning Loop — NOT STARTED
+## Wave 19: Goal Discovery and Actual Learning Loop — IN PROGRESS
 
 1. Integrate process selection, adaptation, composition, novel candidate creation, and bounded one-off execution.
 2. Observe repeated inference and outcomes; diagnose scope and repeated process behavior.
@@ -159,6 +159,8 @@ Implemented in this reopened wave:
 - immutable corrected blind report plus post-freeze semantic oracle score
 - generic planning-process candidate generation, replay/regression comparison, independent-evidence/security/policy gates, governed promotion, failed-candidate retention, and rollback demonstration
 - whole-system conformance report at `docs/research/praxis2-whole-system-conformance.md`
+- frozen execution-attestation contract and command runner with stale/mutated/failed fail-closed validation
+- self-improvement execution attestation and post-remediation blind result `blind-self-improvement-qualified.json` (OI-010 satisfied)
 
 ## Completion calculation
 

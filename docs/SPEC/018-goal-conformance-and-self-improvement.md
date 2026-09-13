@@ -32,6 +32,8 @@ Each goal claim has:
 
 Behavioral claims cannot be satisfied solely by ADR/SPEC/PLAN prose. They require executable evidence such as tests, runtime observations, conformance fixtures, or authoritative state proving the behavior.
 
+Test source is contract evidence, not execution evidence. Behavior/integration/lifecycle maturity requires a frozen execution attestation binding the exact command, source digests, raw output digest, exit state, observations, platform, and timestamps. A missing, failed, mutated, or stale attestation fails closed. Failed attestations remain evidence and are not rewritten as passing runs.
+
 ## Finding states
 
 - `satisfied`: admissible evidence directly supports the claim;
@@ -66,6 +68,12 @@ Required sequence:
 9. governed promotion or rejection;
 10. retain rollback reference and evaluation evidence.
 
+Planning-process candidates are content-addressed immutable generations. The generic transformation consumes frozen critical findings and adds original-intent denominator derivation, independent evidence inventory, blind freeze, and plan reconciliation; it does not inspect the qualification oracle or encode a particular missing component.
+
+Replay compares the active and candidate generations on the original planning scenario plus an independent regression corpus. Promotion requires improved original-goal gap detection, no correctness regression, no security or policy violation, and at least two independent causal evidence roots. The promoting authority identity must differ from the proposing learner identity and the decision must bind the exact evaluation digest.
+
+The generation registry persists all candidate generations, including failed candidates, plus active and rollback identities. Reopening the registry must preserve promotion and rollback behavior. Existing generation content is verified against its content-derived identity before use.
+
 ## Acceptance criteria
 
 - deterministic evaluator can classify claims from admissible evidence;
@@ -78,3 +86,8 @@ Required sequence:
 - promotion requires independent evidence and regression/policy gates;
 - rollback reference is mandatory;
 - a whole-system blind audit can produce a machine-readable conformance report and revised plan inputs.
+- source-only tests cannot self-attest behavioral maturity;
+- the Praxis planning replay consumes the actual frozen whole-system finding set;
+- an unrelated omission regression is detected without encoding the positive-control answer;
+- promotion and rollback identities survive registry restart;
+- failed candidates remain queryable evidence after rejection.

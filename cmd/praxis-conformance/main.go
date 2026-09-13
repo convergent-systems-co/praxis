@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -28,9 +29,79 @@ func run(args []string) error {
 		return runBlind(args[1:])
 	case "qualify":
 		return runQualify(args[1:])
+	case "attest":
+		return runAttest(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+type stringList []string
+
+func (s *stringList) String() string         { return fmt.Sprint([]string(*s)) }
+func (s *stringList) Set(value string) error { *s = append(*s, value); return nil }
+
+func runAttest(args []string) error {
+	flags := flag.NewFlagSet("attest", flag.ContinueOnError)
+	root := flags.String("root", ".", "repository root")
+	out := flags.String("out", "", "attestation path")
+	output := flags.String("output", "", "raw command output path")
+	var sources, observations stringList
+	flags.Var(&sources, "source", "content source to bind; repeatable")
+	flags.Var(&observations, "observation", "expected observation label; repeatable")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	command := flags.Args()
+	if *out == "" || *output == "" || len(sources) == 0 || len(command) == 0 {
+		return errors.New("attest requires -out, -output, at least one -source, and a command after --")
+	}
+	started := time.Now().UTC()
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Dir = *root
+	raw, runErr := cmd.CombinedOutput()
+	finished := time.Now().UTC()
+	if err := os.MkdirAll(filepath.Dir(*output), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(*output, raw, 0o644); err != nil {
+		return err
+	}
+	sourceDigests := map[string]string{}
+	for _, source := range sources {
+		d, err := conformance.SourceSetDigest(*root, []string{source})
+		if err != nil {
+			return err
+		}
+		sourceDigests[filepath.ToSlash(source)] = d
+	}
+	outputRel, err := filepath.Rel(*root, *output)
+	if err != nil {
+		return err
+	}
+	outputDigest, err := conformance.SourceSetDigest(*root, []string{filepath.ToSlash(outputRel)})
+	if err != nil {
+		return err
+	}
+	exitCode := 0
+	if runErr != nil {
+		exitCode = -1
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
+	}
+	attestation, err := conformance.FreezeExecutionAttestation(conformance.ExecutionAttestation{Command: command, WorkingDirectory: ".", StartedAt: started, FinishedAt: finished, ExitCode: exitCode, OutputRef: filepath.ToSlash(outputRel), OutputDigest: outputDigest, SourceDigests: sourceDigests, Observations: observations})
+	if err != nil {
+		return err
+	}
+	if err := writeJSON(*out, attestation); err != nil {
+		return err
+	}
+	if runErr != nil {
+		return fmt.Errorf("command failed with exit %d; failed attestation preserved", exitCode)
+	}
+	return nil
 }
 
 func runBlind(args []string) error {

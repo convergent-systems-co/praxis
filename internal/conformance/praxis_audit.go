@@ -3,6 +3,7 @@ package conformance
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -94,11 +95,13 @@ func claim(id, statement, source string, behavioral bool, stage EvidenceStage, k
 }
 
 type InventoryArtifact struct {
-	ID       string
-	Kind     string
-	Stage    EvidenceStage
-	Ref      string
-	ClaimIDs []string
+	ID             string
+	Kind           string
+	Stage          EvidenceStage
+	Ref            string
+	ClaimIDs       []string
+	AttestationRef string
+	Observation    string
 }
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -107,7 +110,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 	return []InventoryArtifact{
 		{ID: "agent-definition", Kind: "runtime_test", Stage: StageBehavior, Ref: "internal/agent/definition_test.go", ClaimIDs: []string{"OI-001"}},
 		{ID: "agent-memory", Kind: "security_test", Stage: StageBehavior, Ref: "internal/agent/memory_test.go", ClaimIDs: []string{"OI-007", "OI-029"}},
-		{ID: "learning-promotion", Kind: "integration_test", Stage: StageBehavior, Ref: "tests/test_promotion_end_to_end.py", ClaimIDs: []string{"OI-010"}},
+		{ID: "learning-promotion", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-010"}, AttestationRef: "docs/research/conformance/attestations/self-improvement.json", Observation: "TestGenerationPromotionAndRollbackSurviveRestart"},
+		{ID: "learning-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-010"}, AttestationRef: "docs/research/conformance/attestations/self-improvement.json", Observation: "TestGenerationPromotionAndRollbackSurviveRestart"},
 		{ID: "preference-resolution", Kind: "runtime_test", Stage: StageBehavior, Ref: "internal/preference/resolver_test.go", ClaimIDs: []string{"OI-006", "OI-012"}},
 		{ID: "executor-routing", Kind: "integration_test", Stage: StageBehavior, Ref: "tests/test_executor_registry.py", ClaimIDs: []string{"OI-013", "OI-014"}},
 		{ID: "canonical-contracts", Kind: "code", Stage: StageContract, Ref: "pkg/contracts", ClaimIDs: []string{"OI-018", "OI-022"}},
@@ -139,14 +143,61 @@ func LoadEvidence(root string, inventory []InventoryArtifact) ([]Evidence, error
 		if err != nil {
 			return nil, fmt.Errorf("inventory %s: %w", a.ID, err)
 		}
+		stage := StageContract
+		ref := a.Ref
+		evidenceDigest := "sha256:" + d
+		if a.AttestationRef != "" {
+			attestationBytes, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(a.AttestationRef)))
+			if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+				return nil, fmt.Errorf("inventory %s attestation: %w", a.ID, readErr)
+			}
+			if readErr == nil {
+				var attestation ExecutionAttestation
+				if err := json.Unmarshal(attestationBytes, &attestation); err != nil {
+					return nil, fmt.Errorf("inventory %s decode attestation: %w", a.ID, err)
+				}
+				if err := VerifyExecutionAttestation(attestation); err != nil {
+					return nil, fmt.Errorf("inventory %s verify attestation: %w", a.ID, err)
+				}
+				if !containsString(attestation.Observations, a.Observation) {
+					return nil, fmt.Errorf("inventory %s attestation lacks observation %s", a.ID, a.Observation)
+				}
+				sourceDigest, digestErr := SourceSetDigest(root, []string{a.Ref})
+				if digestErr != nil {
+					return nil, digestErr
+				}
+				outputDigest, outputErr := SourceSetDigest(root, []string{attestation.OutputRef})
+				if outputErr != nil {
+					return nil, outputErr
+				}
+				if attestation.SourceDigests[a.Ref] != sourceDigest {
+					return nil, fmt.Errorf("inventory %s attested source digest is stale: got %s want %s", a.ID, attestation.SourceDigests[a.Ref], sourceDigest)
+				}
+				if attestation.OutputDigest != outputDigest {
+					return nil, fmt.Errorf("inventory %s attested output digest is stale", a.ID)
+				}
+				stage = a.Stage
+				ref = a.AttestationRef
+				evidenceDigest = attestation.Digest
+			}
+		}
 		for _, claimID := range a.ClaimIDs {
 			// Source bytes establish only that an implementation/test contract exists.
 			// Runtime, integration, security, and lifecycle maturity require a
 			// separate execution attestation; file names cannot self-attest behavior.
-			out = append(out, Evidence{ID: a.ID + "#" + claimID, ClaimID: claimID, Kind: a.Kind, Ref: a.Ref, Digest: "sha256:" + d, Stage: StageContract, Supports: true})
+			out = append(out, Evidence{ID: a.ID + "#" + claimID, ClaimID: claimID, Kind: a.Kind, Subject: a.Ref, Ref: ref, Digest: evidenceDigest, Stage: stage, Supports: true})
 		}
 	}
 	return out, nil
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func SourceSetDigest(root string, sources []string) (string, error) {

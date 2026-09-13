@@ -93,7 +93,9 @@ The audit found more than one product omission:
 
 The responsible process failure is denominator closure: the active planning process derived completion from plan coverage alone. A generic candidate-generation mechanism now consumes frozen conformance findings and creates a distinct immutable planning generation that adds original-intent denominator derivation, independent evidence inventory, blind freeze, and plan reconciliation. Replay uses opaque claim IDs and an unrelated omission regression scenario; it does not encode the positive-control answer. Promotion requires two independent causal evidence roots, zero security/policy violations, a passing regression comparison, and a distinct governance authority. Rollback identity is retained, and failed candidate generations remain registered evidence.
 
-This is focused executable qualification of the learning mechanism, not yet lifecycle evidence for OI-010. Durable generation/decision persistence and restart replay remain required before that original-goal claim can become satisfied.
+The mechanism now consumes the actual frozen Praxis finding set as well as opaque and unrelated regression scenarios. Candidate generations, active identity, rollback identity, and failed-candidate evidence are persisted and validated by content identity across registry reopen. The exact Go test execution is frozen at `docs/research/conformance/attestations/self-improvement.json` with its raw output retained alongside it.
+
+The post-remediation blind result `docs/research/conformance/blind-self-improvement-qualified.json` is frozen at `sha256:1aff780f79d6401de75202724062937c5ae25ed1ea6e872cfe03106e9b518e10`. OI-010 advanced from `indeterminate` to `satisfied`; the whole system remains non-conformant with 3 satisfied, 12 unsupported, and 22 indeterminate claims. Its withheld-oracle score remains one true positive and zero false negatives. This newer result does not mutate or replace either initial frozen result.
 
 ## Plan input
 

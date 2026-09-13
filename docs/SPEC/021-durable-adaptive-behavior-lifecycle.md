@@ -99,6 +99,8 @@ Longitudinal reports may supply evidence to:
 
 Every downstream change creates a new immutable candidate generation and retains the active generation until separately authorized. Candidate evaluation, security/policy regression gates, independent authority, restart verification, and rollback remain mandatory.
 
+Cross-agent artifacts use SPEC-012's frozen transfer policy and lifecycle. Raw private episodes remain in their original scoped memory/evidence authority. Transfer events contain source identities and content digests only; package generalizers and sanitizers emit a distinct content-addressed artifact plus privacy evidence. Core verifies exact provenance, policy identity, causal roots, invariant gates, distinct publication/adoption authority, and restart replay without interpreting domain content or deciding which fields are sensitive. Package policy decides scope transitions, sanitization controls, evaluator meaning, and artifact kinds.
+
 ## Compiler extensibility
 
 The built-in deterministic mechanism allowlist is a safe initial compiler provider. It is not an exhaustive ontology of learnable behavior. Additional compiler providers may be installed only through versioned, content-addressed, capability-reviewed packages and cannot activate their own candidates. Their output must satisfy the same equivalence, regression, governance, persistence, and rollback contracts as built-in candidates.

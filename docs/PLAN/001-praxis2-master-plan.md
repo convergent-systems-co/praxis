@@ -125,6 +125,10 @@ Accepted routing results: immutable blind audit `blind-adaptive-routing-v1.json`
 
 Longitudinal-evaluation closure: a content-addressed plan binds exact package evaluator versions and frozen policy to an adaptive scope. Core loads durable observations, validates evaluator provenance/source scope, persists derived measurements, evaluates declared thresholds, and retains the full trace across restart without defining regression, repeated inference, variance, or provider-portability semantics. Software-delivery and research packages use distinct metric names and native raw units while jointly diagnosing those four architectural dimensions. Attestation `longitudinal-evaluation-v1.json` and frozen blind result `blind-longitudinal-evaluation-v1.json`, digest `sha256:5a472b7cd0948429c3e02a739842d1fd58e5ecf4fdfc766e55c200b4bc767528`, independently close OI-016. Totals are 16 satisfied, 6 unsupported, and 16 indeterminate; all other finding states are unchanged.
 
+Cross-agent transfer progress: a content-addressed lifecycle now freezes the complete package scope/privacy/evaluator policy with exact source agent, generation, memory, content-digest, and causation lineage. Package processors generalize and sanitize domain material; core stores references rather than episodic payloads, rejects raw-content identity reuse or invented causation, treats privacy/security/policy failures as non-compensable, and requires distinct deterministic authority for publication and target-generation adoption. Software-delivery and research fixtures use different artifact kinds, source/target scopes, and sanitization controls; rejected privacy candidates remain durable and successful receiving-agent records replay after SQLite restart. This is not an OI-015 closure until successor execution evidence is frozen and the blind evaluator independently re-evaluates it.
+
+Cross-agent transfer closure: successor attestation `cluster-a-runtime-v2.json` rebinds every affected state-directory observation and explicitly proves self-adoption and unauthorized adoption fail closed. Frozen audit `blind-cross-agent-transfer-v3.json`, digest `sha256:807e9fbed50c1aab74e16e07960b7da86e21f07bcea437fa18884cd1be7216bc`, independently evaluates OI-015 as satisfied with both lifecycle and security evidence. The v1/v2 audits remain immutable across the inventory-subject correction and final security extension. Totals are 17 satisfied, 5 unsupported, and 16 indeterminate; all unrelated claim states are unchanged.
+
 ## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
 
 1. Export/import canonical state rather than raw SQLite pages.
@@ -197,6 +201,7 @@ Implemented in this reopened wave:
 - SPEC-019 plus content-bound goal/process discovery result `blind-process-discovery.json` (OI-003 satisfied)
 - ADR-050/SPEC-020 plus two-domain, SQLite-restart resource continuation result `blind-resource-continuation.json` (OI-038 satisfied)
 - content-bound deterministic learning/prompt-retirement result `blind-learning-prompt-retirement-v38-final.json` (OI-004 and OI-005 satisfied)
+- content-bound cross-agent generalization/privacy/publication/adoption result `blind-cross-agent-transfer-v3.json` (OI-015 satisfied)
 
 ## Completion calculation
 

@@ -70,6 +70,16 @@ User preferences MAY be learned according to preference contracts, but learned p
 
 Learning SHALL preserve source trust/provenance, limit contribution from one causal source, detect duplicated/correlated evidence where practical, prevent untrusted text from proposing itself as policy/authority, and support quarantining suspicious candidate streams.
 
+## Governed cross-agent transfer
+
+Cross-agent learning SHALL use a content-addressed `generalize -> sanitize -> evaluate -> publish -> adopt` lifecycle. The transfer request binds the exact source agent, generation, memory/evidence reference, content digest, causation root, source scope, target scope, and a complete frozen package policy. Transfer authority records contain references, not source episodic content.
+
+Packages own artifact kinds, generalization and sanitization transforms, privacy-control vocabulary, target-scope policy, evaluator semantics, and independent-evidence thresholds. Core owns immutable identity, exact source lineage, causal deduplication, event replay, non-compensable privacy/security/policy results, and authority binding. Core SHALL reject an artifact that reuses a source content identity as its transfer unit, loses a source reference, invents evaluation causation roots, or lacks policy-required privacy evidence.
+
+Evaluation failure is retained as evidence and blocks publication. Publication requires deterministic authority distinct from the proposing agent. Adoption requires a separate authorized action bound to the published artifact and target agent generation; neither the candidate/proposer nor the receiving agent can authorize its own adoption. The receiving record remains `derived`, cites every source agent/generation/memory identity and the transfer mechanism, and SHALL NOT count as an independent observation.
+
+Restart SHALL reconstruct the frozen package policy, generalized artifact, sanitization evidence, evaluation, publication authority, and every receiving-agent adoption record without source transcript bytes. A richer implementation may add observations or internal events without invalidating this contract; tests assert these semantic identities and forbidden flows rather than incidental event counts.
+
 ## Demotion and rollback
 
 Regression, drift, changed context, policy change, or degraded metrics MAY demote promoted behavior. Demotion SHALL preserve lineage and historical evaluation rather than deleting evidence.
@@ -92,6 +102,8 @@ Activation requires a distinct authority bound to the exact demotion-evaluation 
 8. rollback restores prior behavior generation without deleting lineage/evidence;
 9. candidate promotion survives restart through authoritative state/events;
 10. security control cannot be optimized away by performance metric alone.
+11. two materially different domains generalize private source episodes into scoped reusable artifacts, publish through distinct authority, and retain attributable receiving-agent records after restart;
+12. raw source content identity, failed privacy evaluation, self-publication, self-adoption, and unauthorized publication/adoption fail closed while rejected candidates remain inspectable.
 
 ## Deliverables
 

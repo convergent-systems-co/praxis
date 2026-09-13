@@ -1,0 +1,38 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/agent",
+    "./internal/state",
+    "./internal/transfer"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T22:21:19.587323Z",
+  "finished_at": "2026-09-13T22:21:20.359431Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/cluster-a-runtime-v1.log",
+  "output_digest": "sha256:69c1e69b95b4abe1eee8f0ea3275c25ee1bb9fccbfe21380485a6243d14a9dfe",
+  "source_digests": {
+    "internal/adaptation": "sha256:784dac87d17bc471500b727770113556585773844515ed3c624a6d7dcc4f85ec",
+    "internal/agent": "sha256:edf346092a4727330bc5a38e34bc4ca4e552e3c17b2772d702289cd97c0ef998",
+    "internal/inference": "sha256:b8c52e88de818294968b7c0cfdfe9ae20392beedf9c7ae738e45ed83af4eb53a",
+    "internal/state": "sha256:cd08f11862cb0db4651bc551b8a992148da6c9e93c9030d1cca4cbea6336ad8c",
+    "internal/transfer": "sha256:c51fa1f4a7b45bbf49b6f741853ed19a991a22529df74a144eecd586873de29a",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart",
+    "TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains",
+    "TestCrossAgentTransferRetainsRejectedPrivacyCandidate",
+    "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains",
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement",
+    "TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware",
+    "TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:15c2281d2a4acb65ad1f7644f110bb02309609373eb9e2d4193c4d065f96d12f"
+}

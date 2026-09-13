@@ -68,6 +68,8 @@ A narrow context correction SHOULD outrank broader learned defaults for that con
 
 Transfer SHALL produce a receiving-agent record referencing source agent/generation/memory IDs, transfer mechanism, transformation/evaluation, and resulting trust/confidence. The receiver SHALL not represent transferred derived knowledge as independently observed.
 
+The receiving record MAY reference a content-addressed generalized artifact for retrieval; it SHALL NOT embed or copy the source agent's raw episodic payload. Its target generation is explicit, adoption is governed separately from publication, and replay verifies the publication/artifact/source lineage before exposing the record as adopted.
+
 ## Forget/supersede/expiry
 
 Records MAY expire, be superseded, revoked, or become non-retrievable by policy. Historical lineage/audit needs are separate from active retrieval eligibility.

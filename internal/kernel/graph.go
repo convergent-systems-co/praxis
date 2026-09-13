@@ -19,10 +19,50 @@ const (
 	NodeTerminal      NodeClass = "terminal"
 )
 
+type RetryPolicy struct {
+	MaxAttempts     int
+	BackoffMillis   int64
+	Retryable       []FailureClass
+}
+
+func (r RetryPolicy) Validate() error {
+	if r.MaxAttempts < 0 || r.BackoffMillis < 0 {
+		return errors.New("retry attempts and backoff cannot be negative")
+	}
+	if r.MaxAttempts == 0 {
+		if r.BackoffMillis != 0 || len(r.Retryable) != 0 {
+			return errors.New("retry policy options require max attempts")
+		}
+		return nil
+	}
+	for _, class := range r.Retryable {
+		if !validFailureClass(class) {
+			return fmt.Errorf("unknown retryable failure class %q", class)
+		}
+		if class == FailurePolicyInvariant || class == FailureCapabilityDenied || class == FailureCancellation || class == FailureExternalEffectUnknown {
+			return fmt.Errorf("failure class %q cannot be automatically retried", class)
+		}
+	}
+	return nil
+}
+
+func (r RetryPolicy) Allows(class FailureClass, attempt int) bool {
+	if r.MaxAttempts <= 0 || attempt >= r.MaxAttempts {
+		return false
+	}
+	for _, allowed := range r.Retryable {
+		if allowed == class {
+			return true
+		}
+	}
+	return false
+}
+
 type NodeDef struct {
 	ID            string
 	Class         NodeClass
 	TerminalState RunState
+	Retry         RetryPolicy
 }
 
 type TransitionDef struct {
@@ -55,9 +95,15 @@ func (g GraphDef) Validate() error {
 		if !validNodeClass(n.Class) {
 			return fmt.Errorf("unknown node class %q", n.Class)
 		}
+		if err := n.Retry.Validate(); err != nil {
+			return fmt.Errorf("node %q retry policy: %w", n.ID, err)
+		}
 		if n.Class == NodeTerminal {
 			if n.TerminalState != RunSucceeded && n.TerminalState != RunFailed && n.TerminalState != RunCancelled {
 				return fmt.Errorf("terminal node %q requires explicit terminal state", n.ID)
+			}
+			if n.Retry.MaxAttempts != 0 {
+				return fmt.Errorf("terminal node %q cannot declare retry policy", n.ID)
 			}
 		} else if n.TerminalState != "" {
 			return fmt.Errorf("non-terminal node %q cannot declare terminal state", n.ID)

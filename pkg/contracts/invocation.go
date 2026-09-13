@@ -3,31 +3,34 @@ package contracts
 import "errors"
 
 type InvocationOption struct {
-	Name        string
-	Type        string
-	Required    bool
-	Default     string
-	Description string
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required,omitempty"`
+	Default     string `json:"default,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type InvocationContract struct {
-	Version                     string
-	PackageID                   string
-	PackageVersion              string
-	GraphID                     string
-	GraphVersion                string
-	EntryPointID                string
-	Aliases                     []string
-	Options                     []InvocationOption
-	RequiredCapabilities        []string
-	OptionalCapabilities        []string
-	RequiredEnforcement         []string
-	RequireExclusiveMediation   bool
+	Version                   string             `json:"version"`
+	PackageID                 string             `json:"package_id"`
+	PackageVersion            string             `json:"package_version"`
+	GraphID                   string             `json:"graph_id"`
+	GraphVersion              string             `json:"graph_version"`
+	EntryPointID              string             `json:"entry_point_id"`
+	Aliases                   []string           `json:"aliases"`
+	Options                   []InvocationOption `json:"options,omitempty"`
+	RequiredCapabilities      []string           `json:"required_capabilities,omitempty"`
+	OptionalCapabilities      []string           `json:"optional_capabilities,omitempty"`
+	RequiredEnforcement       []string           `json:"required_enforcement,omitempty"`
+	RequireExclusiveMediation bool               `json:"require_exclusive_mediation,omitempty"`
 }
 
 func (c InvocationContract) Validate() error {
 	if c.Version == "" || c.PackageID == "" || c.PackageVersion == "" || c.GraphID == "" || c.GraphVersion == "" || c.EntryPointID == "" {
 		return errors.New("invocation contract identity/version fields are required")
+	}
+	if len(c.Aliases) == 0 {
+		return errors.New("at least one invocation alias is required")
 	}
 	aliases := map[string]struct{}{}
 	for _, alias := range c.Aliases {

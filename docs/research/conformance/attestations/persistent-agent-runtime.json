@@ -1,0 +1,24 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/agent"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T19:20:05.439111Z",
+  "finished_at": "2026-09-13T19:20:06.192692Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/persistent-agent-runtime.log",
+  "output_digest": "sha256:ac4237e6ad285948cce71d43db5ec03fb5af44093aa08bd5e1722feca7e4eec4",
+  "source_digests": {
+    "internal/agent": "sha256:8a6a66c18e3dcdaa60af7e908c8726ebb45aa50768772931e81a5965d90639d1"
+  },
+  "observations": [
+    "TestOperationalGraphFailsClosedWhenAgentRoleIsMissing",
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:f2264837cde10485b20b1e856cfcab4cd0dc89af9c4217cad92a7c308fdd5667"
+}

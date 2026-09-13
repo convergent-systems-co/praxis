@@ -97,6 +97,14 @@ The mechanism now consumes the actual frozen Praxis finding set as well as opaqu
 
 The post-remediation blind result `docs/research/conformance/blind-self-improvement-qualified.json` is frozen at `sha256:1aff780f79d6401de75202724062937c5ae25ed1ea6e872cfe03106e9b518e10`. OI-010 advanced from `indeterminate` to `satisfied`; the whole system remains non-conformant with 3 satisfied, 12 unsupported, and 22 indeterminate claims. Its withheld-oracle score remains one true positive and zero false negatives. This newer result does not mutate or replace either initial frozen result.
 
+## Persistent-agent remediation
+
+The persistent-agent runtime now reconstructs agent identity and its immutable generation from authoritative events after SQLite restart, resolves the exact generation-bound operational graph version, retrieves bounded agent memory, and executes explicit goal, memory, context, action, evidence, reflection, and learning roles through the kernel. A second run uses a different provider executor without changing agent or generation identity. Missing operational roles and graph identity/version mismatch fail closed.
+
+The execution is frozen at `docs/research/conformance/attestations/persistent-agent-runtime.json`. Blind result `docs/research/conformance/blind-agent-runtime.json`, digest `sha256:28c0a633e54a4b7aa5669d35a168c70fcb4e54fb87d5ebbc887b18c0b64cdb1c`, advances OI-001 and OI-002 to `satisfied`; totals are now 5 satisfied, 11 unsupported, and 21 indeterminate.
+
+The historical oracle is a discovery qualification, not a requirement that a remediated system remain broken. Its successful positive-control evidence remains the immutable initial qualification against `blind-source-qualified.json`. Scoring the remediated result against an oracle that expects the historical gap naturally reports that the gap is no longer present; it does not invalidate the earlier independent rediscovery.
+
 ## Plan input
 
 PLAN-001 must use the fixed 37-claim denominator plus the 35 finding closures, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.

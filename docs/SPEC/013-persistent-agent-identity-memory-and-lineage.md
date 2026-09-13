@@ -30,6 +30,14 @@ A new generation is required when active executable behavior, graph binding, or 
 
 Generation history is immutable lineage. Rollback creates/activates a lineage transition; it does not delete later generations.
 
+## Operational graph execution
+
+Each active generation SHALL bind at least one exact `graph_id@version` operational graph. Resolution of a different graph identity/version fails closed.
+
+An executable agent operational graph binds nodes for receiving the goal, retrieving bounded memory, resolving context, acting, evaluating evidence, reflecting, and proposing learning. All roles must resolve to real nodes before execution. The roles may share implementation only when the graph retains explicit inspectable bindings.
+
+The persistent agent runtime reconstructs identity and generation from the authoritative event store, resolves the bound operational graph, retrieves agent-owned memory under an item limit, and executes through the kernel runtime. The selected executor/provider is per-run state and is not persisted as agent identity. Run observations are written to the same authoritative event substrate and retain agent, graph, generation, executor, goal, and evidence correlation.
+
 ## Memory record
 
 A memory record SHALL include stable memory ID, agent/context scope, memory type, canonical content or protected content reference, provenance/trust/evidence class, sensitivity, source observation/evidence IDs, creation time, validity window where applicable, supersession links, confidence, and retrieval metadata.
@@ -82,6 +90,9 @@ Sensitive memory SHALL use SPEC-005 encryption/key references. Private/secret me
 8. retrieval budget bounds returned context;
 9. expired/superseded memory is excluded according to policy;
 10. memory reconstruction/retrieval requires no original chat transcript.
+11. every required operational role executes in graph order and produces attributable evidence;
+12. missing role or resolved graph identity/version mismatch fails before execution;
+13. closing and reopening the authoritative store preserves the agent/generation while a different executor/provider can run the same graph.
 
 ## Deliverables
 

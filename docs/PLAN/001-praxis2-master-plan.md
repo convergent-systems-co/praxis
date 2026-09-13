@@ -76,7 +76,7 @@ The denominator below is now fixed. New evidence may change finding states, but 
 
 Primary finding closures: all indeterminate claims; prerequisite for every later closure.
 
-## Wave 18: Persistent Agent Runtime Composition — NOT STARTED
+## Wave 18: Persistent Agent Runtime Composition — IN PROGRESS
 
 1. Persist agent identity and immutable generations independently of executor/model identity.
 2. Bind active operational graph versions, memory retrieval, preferences, capability history, policies, evaluation history, and lineage.
@@ -85,6 +85,8 @@ Primary finding closures: all indeterminate claims; prerequisite for every later
 5. Prove provider replacement, process restart, rollback, and bounded-context retrieval.
 
 Finding closures: OI-001, OI-002, OI-007, OI-008.
+
+Current closure: OI-001 and OI-002 are satisfied in frozen result `blind-agent-runtime.json` through authoritative restart, provider replacement, exact graph-version binding, full operational-role execution, and passing content-bound attestation. OI-007 and OI-008 remain open.
 
 ## Wave 19: Goal Discovery and Actual Learning Loop — IN PROGRESS
 

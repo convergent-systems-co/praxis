@@ -109,6 +109,8 @@ type InventoryArtifact struct {
 func PraxisEvidenceInventory() []InventoryArtifact {
 	return []InventoryArtifact{
 		{ID: "agent-definition", Kind: "runtime_test", Stage: StageBehavior, Ref: "internal/agent/definition_test.go", ClaimIDs: []string{"OI-001"}},
+		{ID: "agent-runtime-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-001"}, AttestationRef: "docs/research/conformance/attestations/persistent-agent-runtime.json", Observation: "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement"},
+		{ID: "agent-operational-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-002"}, AttestationRef: "docs/research/conformance/attestations/persistent-agent-runtime.json", Observation: "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement"},
 		{ID: "agent-memory", Kind: "security_test", Stage: StageBehavior, Ref: "internal/agent/memory_test.go", ClaimIDs: []string{"OI-007", "OI-029"}},
 		{ID: "learning-promotion", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-010"}, AttestationRef: "docs/research/conformance/attestations/self-improvement.json", Observation: "TestGenerationPromotionAndRollbackSurviveRestart"},
 		{ID: "learning-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-010"}, AttestationRef: "docs/research/conformance/attestations/self-improvement.json", Observation: "TestGenerationPromotionAndRollbackSurviveRestart"},

@@ -10,9 +10,11 @@ Define the shared domain-neutral lifecycle by which Praxis records execution beh
 
 ## Responsibility boundary
 
-Praxis core owns immutable observation identity, provenance/trust preservation, causal independence, durable append/replay, evidence-class semantics, generation lineage, candidate/evaluation identity, deterministic authority checks, promotion/demotion transitions, and rollback.
+Praxis core owns immutable observation and measurement identity, provenance/trust preservation, causal independence, durable append/replay, evidence-class semantics, generation lineage, candidate/evaluation identity, deterministic authority checks, promotion/demotion transitions, and rollback. Core enforces integrity and declared semantic shape; it does not invent domain meaning from a convenient storage type.
 
-Graph/package/profile policy owns which measures and dimensions matter, thresholds, confidence calibration, acceptable variance, goal/domain scopes, evaluator selection, routing objectives, transfer eligibility, and the action proposed for a diagnosis. Core treats domain names, behavior keys, path identities, provider identities, and measure names as opaque values.
+Graph/package/profile policy owns which measures and dimensions matter, units, formulas/transforms, normalization, thresholds, confidence calibration, acceptable variance, optimization tradeoffs, goal/domain scopes, evaluator selection, routing objectives, transfer eligibility, and the action proposed for a diagnosis. Core treats domain names, behavior keys, context/scope identifiers, path identities, provider identities, outcome labels, measure names, units, and diagnosis codes as opaque values.
+
+Reasoning tiers remain platform semantics because they select whether deterministic or bounded/open inference executes. Trust classes remain platform security semantics because they limit how evidence can be used. Policy/security invariant result classes remain core semantics and are non-compensable, while their control identifiers and evidence references are supplied by the governing policy/package.
 
 ## Execution observations
 
@@ -22,11 +24,28 @@ Every adaptive observation SHALL bind:
 - subject agent, run, goal class, domain, behavior key, and context;
 - causation root and source trust;
 - reasoning tier and executor/provider identity where applicable;
-- success, quality, inference usage, path identity, and policy/security outcomes;
-- package-defined numeric measures;
+- opaque outcome and path identity;
+- raw package-defined measures with value, semantic kind, optional unit, instrumentation provenance, and observation time;
+- explicit policy/security invariant results with control and evidence references;
 - event time and authoritative event provenance.
 
 Observation append is immutable and idempotent by content identity. Conflicting reuse of an identity fails closed. Restart replay SHALL reconstruct the same ordered observation series without conversation history.
+
+Raw observation trust may be `untrusted_content`, `observed`, or `user_confirmed`; it may not claim `derived` or `policy` authority. Provider identity identifies the executor boundary but proves no capability. Path identity identifies an execution path but carries no built-in quality meaning. Timestamps, causation roots, and scope identifiers preserve provenance and ordering but do not silently assign domain interpretation.
+
+`user_confirmed` observations and `confirmed` profile facts bind the confirming authority and confirmation evidence. Append requires a deterministic confirmation authorizer, and replay verifies that the authoritative event actor matches the binding. A caller cannot upgrade evidence merely by selecting a trust/evidence-class enum value.
+
+## Measurement layers
+
+Numeric representation does not imply numeric semantics. Praxis SHALL preserve these layers separately:
+
+1. `raw`: an instrumentation fact recorded without normalization, such as milliseconds, tokens, item counts, currency, retries, or a package-defined unit;
+2. `derived`: a value calculated by an identified/versioned evaluator using an identified transform and cited source observations;
+3. `normalized_score`: a derived dimensionless value whose explicit range contains the value.
+
+Raw values are not restricted to `[0,1]` and may be negative when their declared meaning permits it. A raw measure cannot carry evaluator/transform/source or normalized-range metadata. A derived measure must carry evaluator ID/version, transform identity, provenance, source-observation IDs, scope, and timestamp. A normalized score additionally declares its range; bounded semantics are never inferred merely from a floating-point representation.
+
+Derived measurements are separately content-addressed events. They do not replace raw observations. Their cited observations must exist in the same subject/goal/domain/behavior/context scope. Core verifies this provenance graph and canonical identity, while the evaluator/package is responsible for the declared formula's domain meaning and must supply independent executable evidence of correct calculation.
 
 ## Evidence classes and profile history
 
@@ -38,18 +57,24 @@ Behavioral profile facts use exactly these semantic classes:
 4. `measured`: produced by an identified versioned evaluator;
 5. `confirmed`: explicitly confirmed by a human with authority over the scope.
 
-Derived profile facts record confidence, sample size, evaluator/version, context, provenance, source observations, and time. New evidence appends history; it does not relabel declared/inherited data as measured or silently overwrite divergence.
+Profile values and confidence are explicit normalized scores with declared ranges. Observed profile facts cite raw observations. Measured profile facts cite normalized measurement records, which in turn cite raw observations and their evaluator/transform. New evidence appends history; it does not relabel declared/inherited data as measured or silently overwrite divergence.
 
 ## Longitudinal analysis
 
-For a supplied versioned policy, the reference analyzer SHALL be able to report, by scoped behavior key:
+The reference analyzer evaluates a frozen versioned policy containing generic threshold rules. Each rule names a derived or normalized measure, its semantic kind and unit, comparison operator, threshold, minimum independent causation roots, and an opaque diagnosis code. Core performs the declared comparison; it does not embed what constitutes regression, meaningful improvement, variance, portability, cost, quality, or success.
 
-- repeated non-D0 inference across independent causation roots;
-- quality regression relative to prior accepted observations;
-- execution-path variance beyond the package-defined bound;
-- provider/model portability failure when behavior succeeds with one eligible provider and fails to preserve the required outcome with another.
+The report is content-addressed. Every diagnosis cites the exact policy rule, measurement records, and original observations, preserving this chain:
 
-The report is content-addressed and cites all source observations. A report proposes no authoritative change by itself. Security or policy failure is never exchangeable for latency, token, or variance improvement.
+```text
+raw observations
+    -> evaluator/version + transform
+    -> derived or normalized measurement
+    -> policy/version + threshold rule
+    -> diagnosis
+    -> candidate evidence
+```
+
+A report proposes no authoritative change by itself. Each policy/security failure is retained as a separate invariant failure. Favorable latency, token, cost, or other measurements cannot average away or compensate for one; downstream candidate gates must fail closed.
 
 ## Downstream adaptation
 
@@ -71,11 +96,16 @@ The built-in deterministic mechanism allowlist is a safe initial compiler provid
 ## Acceptance tests
 
 1. software-delivery and research graphs record different package-defined measures through the same core ledger;
-2. close/reopen reconstructs exact subject, run, agent, provider, measure, trust, and causation evidence;
-3. correlated copies count once for repeated-inference analysis;
-4. a supplied policy detects quality regression and path variance without domain-specific core keys;
-5. provider replacement that changes required behavior is reported as portability failure;
-6. declared/inherited/observed/measured/confirmed profile facts retain distinct provenance and history;
-7. an observation/report cannot promote, demote, route, transfer, or mutate preferences without its downstream governed boundary;
-8. security/policy violations remain visible and cannot be averaged away by performance improvements.
+2. raw, non-normalized measures with incompatible native units survive append/replay unchanged;
+3. derived measurements cite evaluator/version, transform, provenance, and exact source observations;
+4. normalized scores retain explicit bounded-range semantics while raw/derived values do not inherit that bound;
+5. frozen package policies interpret measures through declared unit/kind/operator/threshold rules rather than core thresholds;
+6. close/reopen reconstructs exact raw observations, derived/normalized measurements, and five-class profile history;
+7. every diagnosis traces to policy, measurements, and original observations;
+8. correlated copies cannot satisfy a rule's independent-root threshold;
+9. an observation/report cannot promote, demote, route, transfer, or mutate preferences without its downstream governed boundary;
+10. security/policy violations remain visible and cannot be averaged away by performance improvements.
 
+## Scalability note
+
+The reference ledger currently replays the subject aggregate to detect duplicate content before append. This preserves append-only authority and deterministic replay but is not the target large-history query plan. A future content-addressed projection/index, bounded snapshot, or provider existence lookup may optimize duplicate detection. Process-local cache state SHALL NOT become authoritative, and projection loss must remain recoverable from the event log.

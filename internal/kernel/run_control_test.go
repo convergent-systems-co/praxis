@@ -76,7 +76,7 @@ func TestRunControlResumeRequiresExactPersistedWaitAndContinues(t *testing.T) {
 
 	graph := GraphDef{
 		ID: "graph-2", Version: "1", EntryNode: "work", MaxTransitions: 4,
-		Nodes: []NodeDef{{ID: "work", Class: NodeAction}, {ID: "complete", Class: NodeTerminal, TerminalState: RunSucceeded}},
+		Nodes: []NodeDef{{ID: "work", Class: NodeDeterministic}, {ID: "complete", Class: NodeTerminal, TerminalState: RunSucceeded}},
 		Transitions: []TransitionDef{{From: "work", Outcome: "done", To: "complete"}},
 	}
 	control := RunControl{Store: store, Actor: actor}

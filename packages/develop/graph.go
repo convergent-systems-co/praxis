@@ -1,10 +1,14 @@
 package develop
 
-import "github.com/convergent-systems-co/praxis/internal/kernel"
+import (
+	"github.com/convergent-systems-co/praxis/internal/kernel"
+	"github.com/convergent-systems-co/praxis/packages/goals"
+)
 
 // Graph returns the software-development proving graph. Generic outcome shaping
 // is composed through the Goals subgraph; software-specific planning remains here.
 func Graph() kernel.GraphDef {
+	goalsGraph := goals.Graph()
 	return kernel.GraphDef{
 		ID:             "praxis.package.develop.default",
 		Version:        "0.2.0",
@@ -13,7 +17,7 @@ func Graph() kernel.GraphDef {
 		Nodes: []kernel.NodeDef{
 			{ID: "discover", Class: kernel.NodeCapability},
 			{ID: "classify", Class: kernel.NodeCondition},
-			{ID: "goals", Class: kernel.NodeSubgraph},
+			{ID: "goals", Class: kernel.NodeSubgraph, Subgraph: &kernel.SubgraphRef{GraphID: goalsGraph.ID, GraphVersion: goalsGraph.Version, EntryPointID: "goals"}},
 			{ID: "materialize", Class: kernel.NodeInference},
 			{ID: "plan", Class: kernel.NodeInference},
 			{ID: "prepare", Class: kernel.NodeCapability},

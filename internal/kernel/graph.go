@@ -20,9 +20,9 @@ const (
 )
 
 type RetryPolicy struct {
-	MaxAttempts     int
-	BackoffMillis   int64
-	Retryable       []FailureClass
+	MaxAttempts   int
+	BackoffMillis int64
+	Retryable     []FailureClass
 }
 
 func (r RetryPolicy) Validate() error {
@@ -58,11 +58,25 @@ func (r RetryPolicy) Allows(class FailureClass, attempt int) bool {
 	return false
 }
 
+type SubgraphRef struct {
+	GraphID      string
+	GraphVersion string
+	EntryPointID string
+}
+
+func (r SubgraphRef) Validate() error {
+	if r.GraphID == "" || r.GraphVersion == "" {
+		return errors.New("subgraph graph id and version are required")
+	}
+	return nil
+}
+
 type NodeDef struct {
 	ID            string
 	Class         NodeClass
 	TerminalState RunState
 	Retry         RetryPolicy
+	Subgraph      *SubgraphRef
 }
 
 type TransitionDef struct {
@@ -107,6 +121,16 @@ func (g GraphDef) Validate() error {
 			}
 		} else if n.TerminalState != "" {
 			return fmt.Errorf("non-terminal node %q cannot declare terminal state", n.ID)
+		}
+		if n.Class == NodeSubgraph {
+			if n.Subgraph == nil {
+				return fmt.Errorf("subgraph node %q requires explicit graph reference", n.ID)
+			}
+			if err := n.Subgraph.Validate(); err != nil {
+				return fmt.Errorf("subgraph node %q: %w", n.ID, err)
+			}
+		} else if n.Subgraph != nil {
+			return fmt.Errorf("non-subgraph node %q cannot declare subgraph reference", n.ID)
 		}
 		nodes[n.ID] = n
 	}

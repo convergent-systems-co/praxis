@@ -129,6 +129,8 @@ Cross-agent transfer progress: a content-addressed lifecycle now freezes the com
 
 Cross-agent transfer closure: successor attestation `cluster-a-runtime-v2.json` rebinds every affected state-directory observation and explicitly proves self-adoption and unauthorized adoption fail closed. Frozen audit `blind-cross-agent-transfer-v3.json`, digest `sha256:807e9fbed50c1aab74e16e07960b7da86e21f07bcea437fa18884cd1be7216bc`, independently evaluates OI-015 as satisfied with both lifecycle and security evidence. The v1/v2 audits remain immutable across the inventory-subject correction and final security extension. Totals are 17 satisfied, 5 unsupported, and 16 indeterminate; all unrelated claim states are unchanged.
 
+Contradiction-demotion closure: an external two-domain integration persists native contradiction observations, the versioned derived equivalence measurement, and the exact analysis policy/report in the adaptive SQLite ledger, then restarts before deriving an immutable inference-restoring child. Proposal leaves the deterministic generation active; exact-evaluation approval by a distinct governor precedes activation, and restart/rollback retain both generations and source lineage. Successor `learning-runtime-v13.json` adds semantic source-identity and duplicate-causation checks. Frozen audit `blind-contradiction-demotion-v2.json`, digest `sha256:161889d19de605c2def1ae9c7f28009950c7cacb4fa25c82774506a90f4e13ab`, independently evaluates OI-017 as satisfied. Totals are 18 satisfied, 4 unsupported, and 16 indeterminate; all unrelated claim states are unchanged.
+
 ## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
 
 1. Export/import canonical state rather than raw SQLite pages.
@@ -202,6 +204,7 @@ Implemented in this reopened wave:
 - ADR-050/SPEC-020 plus two-domain, SQLite-restart resource continuation result `blind-resource-continuation.json` (OI-038 satisfied)
 - content-bound deterministic learning/prompt-retirement result `blind-learning-prompt-retirement-v38-final.json` (OI-004 and OI-005 satisfied)
 - content-bound cross-agent generalization/privacy/publication/adoption result `blind-cross-agent-transfer-v3.json` (OI-015 satisfied)
+- durable contradiction-to-inference fork/demotion result `blind-contradiction-demotion-v2.json` (OI-017 satisfied)
 
 ## Completion calculation
 

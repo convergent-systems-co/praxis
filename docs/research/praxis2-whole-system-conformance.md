@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-cross-agent-transfer-v3.json`
-- Latest frozen result digest: `sha256:807e9fbed50c1aab74e16e07960b7da86e21f07bcea437fa18884cd1be7216bc`
+- Latest accepted remediation result: `docs/research/conformance/blind-contradiction-demotion-v2.json`
+- Latest frozen result digest: `sha256:161889d19de605c2def1ae9c7f28009950c7cacb4fa25c82774506a90f4e13ab`
 
 ## Method and denominator
 
@@ -163,6 +163,8 @@ The next Cluster-A dependency adds content-addressed longitudinal evaluation pla
 The cross-agent transfer slice implements a content-addressed `generalize -> sanitize -> evaluate -> publish -> adopt` aggregate. Its durable request contains the complete frozen package policy and exact source agent/generation/memory/content/causation references; authoritative events never contain source episodic payloads. Package processors own distinct delivery and research artifact semantics, scope transitions, transforms, privacy controls, and evaluators. Core rejects source-content identity reuse, missing provenance, invented causation, compensating privacy/security/policy failures, self-publication, self-adoption, and unauthorized authority. Rejected candidates remain replayable; accepted publication and receiving-agent derivation records preserve exact lineage after SQLite restart.
 
 Adding the state integration test made earlier attestations that bound the whole `internal/state` tree stale without changing their immutable historical bytes. Successor Cluster-A attestations re-execute and bind the affected agent, routing, longitudinal, and transfer observations. `blind-cross-agent-transfer-v1.json` is retained as the first frozen evaluation, but its security evidence subject named the mechanism directory rather than the directory containing the executed security test; v2 corrected that inventory reference. A final security-test extension then added explicit self-adoption and unauthorized-adoption rejection, producing immutable `cluster-a-runtime-v2.json` and accepted `blind-cross-agent-transfer-v3.json`, digest `sha256:807e9fbed50c1aab74e16e07960b7da86e21f07bcea437fa18884cd1be7216bc`. OI-015 is satisfied with both integration and security evidence. Totals are 17 satisfied, 5 unsupported, and 16 indeterminate; no unrelated finding changed, and the withheld oracle was not loaded.
+
+The contradiction/demotion integration now begins from two independent, authoritative adaptive observations in each of software-delivery and research, preserves their different native fact names/units, persists the derived equivalence measurement and exact analysis policy/report, and closes/reopens SQLite before deriving the candidate. The candidate is an immutable child that removes only the contradicted deterministic rule and restores the exact bounded-inference instruction; the active generation remains unchanged until a distinct authority approves the exact evaluation. Registry restart and rollback retain both generations and all evidence references. `learning-runtime-v12.json` and `blind-contradiction-demotion-v1.json` are retained as the first execution/freeze; the successor semantic source-identity/uniqueness check is bound by `learning-runtime-v13.json`. Accepted `blind-contradiction-demotion-v2.json`, digest `sha256:161889d19de605c2def1ae9c7f28009950c7cacb4fa25c82774506a90f4e13ab`, evaluates OI-017 as satisfied. Totals are 18 satisfied, 4 unsupported, and 16 indeterminate, with no unrelated regression and no oracle access.
 
 ## Plan input
 

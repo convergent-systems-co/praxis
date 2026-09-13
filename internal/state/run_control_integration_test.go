@@ -9,6 +9,12 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
+type qualificationRunAuthorizer struct{}
+
+func (qualificationRunAuthorizer) AuthorizeRunControl(_ context.Context, _ contracts.PrincipalRef, _ kernel.RunExecution, _ kernel.RunControlOperation) error {
+	return nil
+}
+
 func TestQualificationRunControlSurvivesSQLiteRestart(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "praxis.db")
@@ -25,7 +31,7 @@ func TestQualificationRunControlSurvivesSQLiteRestart(t *testing.T) {
 	if err := journal.ObserveRun(ctx, start); err != nil {
 		t.Fatal(err)
 	}
-	control := kernel.RunControl{Store: store, Actor: actor}
+	control := kernel.RunControl{Store: store, Actor: actor, Authorizer: qualificationRunAuthorizer{}}
 	if _, err := control.Cancel(ctx, run.RunID, "cancel-command", "qualification"); err != nil {
 		t.Fatal(err)
 	}

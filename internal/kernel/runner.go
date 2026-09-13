@@ -7,9 +7,37 @@ import (
 	"time"
 )
 
+var ErrRunSuspended = errors.New("run suspended awaiting external input")
+
+type WaitKind string
+
+const (
+	WaitHumanDecision WaitKind = "human_decision"
+	WaitApproval      WaitKind = "approval"
+	WaitDependency    WaitKind = "dependency"
+)
+
+type Suspension struct {
+	Kind WaitKind `json:"kind"`
+	Ref  string   `json:"ref"`
+}
+
+func (s Suspension) Validate() error {
+	if s.Ref == "" {
+		return errors.New("suspension reference is required")
+	}
+	switch s.Kind {
+	case WaitHumanDecision, WaitApproval, WaitDependency:
+		return nil
+	default:
+		return fmt.Errorf("unknown suspension kind %q", s.Kind)
+	}
+}
+
 type NodeResult struct {
-	Outcome  string
-	Evidence []string
+	Outcome    string
+	Evidence   []string
+	Suspension *Suspension
 }
 
 type NodeExecutor interface {
@@ -25,6 +53,7 @@ type RunExecution struct {
 	TransitionCount int
 	Evidence        []string
 	AttemptCounts   map[string]int
+	PendingWait     *Suspension
 }
 
 type RunObservationKind string
@@ -53,6 +82,7 @@ type RunObservation struct {
 	Attempt         int                `json:"attempt,omitempty"`
 	FailureClass    FailureClass       `json:"failure_class,omitempty"`
 	Evidence        []string           `json:"evidence,omitempty"`
+	Wait            *Suspension        `json:"wait,omitempty"`
 }
 
 type RunObserver interface {
@@ -92,6 +122,11 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 	}
 	if run.CurrentNode == "" {
 		run.CurrentNode = graph.EntryNode
+	}
+	if run.State == RunSuspended && run.PendingWait != nil {
+		// The external caller must clear the durable wait only after satisfying
+		// its referenced decision/approval/dependency contract.
+		return ErrRunSuspended
 	}
 	if run.State == "" || run.State == RunQueued || run.State == RunRunnable || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling {
 		run.State = RunRunning
@@ -157,6 +192,26 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 			}
 			return fmt.Errorf("execute node %s attempt %d: %w", node.ID, attempt, err)
 		}
+		if result.Suspension != nil {
+			if err := result.Suspension.Validate(); err != nil {
+				if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureValidation); recordErr != nil {
+					return fmt.Errorf("invalid suspension: %v; record failure: %w", err, recordErr)
+				}
+				return fmt.Errorf("invalid suspension: %w", err)
+			}
+			if result.Outcome != "" || len(result.Evidence) != 0 {
+				return errors.New("suspended node cannot simultaneously complete with outcome/evidence")
+			}
+			run.PendingWait = &Suspension{Kind: result.Suspension.Kind, Ref: result.Suspension.Ref}
+			run.State = RunSuspended
+			observation := baseObservation(run, ObservationRunStateChanged, node.ID)
+			observation.Wait = run.PendingWait
+			if err := observeRun(ctx, observer, observation); err != nil {
+				run.State = RunFailed
+				return fmt.Errorf("record suspension: %w", err)
+			}
+			return ErrRunSuspended
+		}
 		if result.Outcome == "" {
 			err := &ExecutionError{Class: FailureValidation, Err: fmt.Errorf("node %s returned empty outcome", node.ID)}
 			if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureValidation); recordErr != nil {
@@ -193,6 +248,22 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 			return fmt.Errorf("record transition: %w", err)
 		}
 	}
+}
+
+// SatisfyWait clears a previously persisted wait reference. Callers must first
+// validate the referenced approval/human/dependency artifact at its governing
+// deterministic boundary. This method only advances runtime liveness; it grants
+// no authority by itself.
+func SatisfyWait(run *RunExecution, kind WaitKind, ref string) error {
+	if run == nil || run.State != RunSuspended || run.PendingWait == nil {
+		return errors.New("run has no active suspension")
+	}
+	if run.PendingWait.Kind != kind || run.PendingWait.Ref != ref {
+		return errors.New("wait reference mismatch")
+	}
+	run.PendingWait = nil
+	run.State = RunWaiting
+	return nil
 }
 
 func executeNodeWithRetry(ctx context.Context, graph GraphDef, node NodeDef, run *RunExecution, executor NodeExecutor, observer RunObserver) (NodeResult, int, error) {
@@ -234,15 +305,7 @@ func waitRetry(ctx context.Context, duration time.Duration) error {
 }
 
 func baseObservation(run *RunExecution, kind RunObservationKind, nodeID string) RunObservation {
-	return RunObservation{
-		Kind:            kind,
-		RunID:           run.RunID,
-		GraphID:         run.GraphID,
-		GraphVersion:    run.GraphVersion,
-		NodeID:          nodeID,
-		State:           run.State,
-		TransitionCount: run.TransitionCount,
-	}
+	return RunObservation{Kind: kind, RunID: run.RunID, GraphID: run.GraphID, GraphVersion: run.GraphVersion, NodeID: nodeID, State: run.State, TransitionCount: run.TransitionCount}
 }
 
 func recordStateChange(ctx context.Context, observer RunObserver, run *RunExecution, state RunState, class FailureClass) error {

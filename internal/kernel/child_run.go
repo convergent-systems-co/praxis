@@ -81,9 +81,9 @@ func DeriveChildAuthority(parent RunAuthority, child ChildRequirements) (RunAuth
 	}, nil
 }
 
-// RunTree owns cancellation lineage for active nested runs. Cancellation is
-// propagated through context cancellation, so executors that honor context are
-// interrupted without requiring cooperation from the LLM or client.
+// RunTree owns cancellation lineage for active nested runs. Child contexts are
+// always derived from the registered parent context; callers cannot supply an
+// alternate context that would bypass parent cancellation.
 type RunTree struct {
 	mu      sync.Mutex
 	entries map[string]runTreeEntry
@@ -91,6 +91,7 @@ type RunTree struct {
 
 type runTreeEntry struct {
 	parent string
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
@@ -100,17 +101,17 @@ func (t *RunTree) RegisterRoot(parent context.Context, runID string) (context.Co
 	return t.register(parent, runID, "")
 }
 
-func (t *RunTree) RegisterChild(parentCtx context.Context, parentRunID, childRunID string) (context.Context, error) {
-	if parentRunID == "" {
-		return nil, errors.New("parent run id is required")
+func (t *RunTree) RegisterChild(parentRunID, childRunID string) (context.Context, error) {
+	if t == nil || parentRunID == "" || childRunID == "" {
+		return nil, errors.New("run tree, parent run id, and child run id are required")
 	}
 	t.mu.Lock()
-	_, parentExists := t.entries[parentRunID]
+	parent, ok := t.entries[parentRunID]
 	t.mu.Unlock()
-	if !parentExists {
+	if !ok {
 		return nil, fmt.Errorf("parent run %q is not registered", parentRunID)
 	}
-	return t.register(parentCtx, childRunID, parentRunID)
+	return t.register(parent.ctx, childRunID, parentRunID)
 }
 
 func (t *RunTree) register(parent context.Context, runID, parentRunID string) (context.Context, error) {
@@ -123,7 +124,7 @@ func (t *RunTree) register(parent context.Context, runID, parentRunID string) (c
 		return nil, fmt.Errorf("run %q is already registered", runID)
 	}
 	ctx, cancel := context.WithCancel(parent)
-	t.entries[runID] = runTreeEntry{parent: parentRunID, cancel: cancel}
+	t.entries[runID] = runTreeEntry{parent: parentRunID, ctx: ctx, cancel: cancel}
 	return ctx, nil
 }
 
@@ -138,9 +139,6 @@ func (t *RunTree) Cancel(runID string) error {
 		return fmt.Errorf("run %q is not registered", runID)
 	}
 	entry.cancel()
-	// Child contexts are derived from the parent context, so cancelling the
-	// parent automatically propagates. Explicit descendant iteration is not
-	// required and would create a second cancellation truth source.
 	t.mu.Unlock()
 	return nil
 }

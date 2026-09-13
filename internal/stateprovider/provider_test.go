@@ -2,7 +2,9 @@ package stateprovider
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -86,5 +88,50 @@ func TestSQLiteProviderPackageRegistryIsProviderNeutral(t *testing.T) {
 	}
 	if active.Manifest.PackageID != manifest.PackageID || active.State != "active" {
 		t.Fatalf("unexpected active package: %#v", active)
+	}
+}
+
+func TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 9, 14, 6, 0, 0, 0, time.UTC)
+	sqlite, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlite.Close()
+	providers := map[string]Provider{"memory": NewMemory(), "sqlite": sqlite}
+	results := map[string][]eventstore.Event{}
+	for name, provider := range providers {
+		store, err := RequireEvents(provider, EventsAppendOptimistic, EventsReplay, EventsGlobalSequence)
+		if err != nil {
+			t.Fatalf("%s provider rejected required semantics: %v", name, err)
+		}
+		proposed := eventstore.Event{ID: "event:portable", AggregateType: "portable_fixture", Type: "portable.recorded", Version: "v1", Actor: contracts.PrincipalRef{ID: "agent:one", Kind: "agent"}, CommandID: "command:portable", CorrelationID: "portable:one", CausationID: "root:one", Trust: contracts.TrustObserved, Payload: []byte(`{"fact":"same"}`), CreatedAt: now}
+		if _, err := store.Append(ctx, "portable:one", 0, []eventstore.Event{proposed}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Append(ctx, "portable:one", 0, []eventstore.Event{proposed}); !errors.Is(err, eventstore.ErrVersionConflict) {
+			t.Fatalf("%s provider weakened optimistic concurrency: %v", name, err)
+		}
+		replayed, err := store.LoadAggregate(ctx, "portable:one", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range replayed {
+			replayed[i].Sequence = 0
+		}
+		results[name] = replayed
+	}
+	if !reflect.DeepEqual(results["memory"], results["sqlite"]) {
+		t.Fatalf("provider substitution changed canonical event semantics: memory=%#v sqlite=%#v", results["memory"], results["sqlite"])
+	}
+
+	deficient := &MemoryProvider{events: eventstore.NewMemoryStore(), profile: Profile{EventsReplay: Enforced, EventsGlobalSequence: Enforced}}
+	if _, err := RequireEvents(deficient, EventsAppendOptimistic, EventsReplay, EventsGlobalSequence); err == nil {
+		t.Fatal("runtime accepted provider without optimistic append capability")
+	}
+	loaded, err := deficient.Events().LoadAggregate(ctx, "portable:one", 0)
+	if err != nil || len(loaded) != 0 {
+		t.Fatalf("capability mismatch mutated deficient provider: %#v %v", loaded, err)
 	}
 }

@@ -36,18 +36,18 @@ func (p *SQLiteProvider) Close() error {
 
 func (p *SQLiteProvider) Profile() Profile {
 	return Profile{
-		EventsAppendOptimistic:         Enforced,
-		EventsReplay:                   Enforced,
-		EventsGlobalSequence:           Enforced,
-		ProjectionsCheckpointed:        Enforced,
-		ApprovalAtomicConsume:          Enforced,
-		LeaseAtomicConsume:             Enforced,
-		EffectsOutboxReconciliation:    Enforced,
-		SecureBlobsImmutableEncrypted:  Enforced,
-		PackagesAtomicActivation:       Enforced,
-		RunsDurableReplay:              Enforced,
-		MigrationsVersioned:            Enforced,
-		TransactionsMultiRepository:    Enforced,
+		EventsAppendOptimistic:        Enforced,
+		EventsReplay:                  Enforced,
+		EventsGlobalSequence:          Enforced,
+		ProjectionsCheckpointed:       Enforced,
+		ApprovalAtomicConsume:         Enforced,
+		LeaseAtomicConsume:            Enforced,
+		EffectsOutboxReconciliation:   Enforced,
+		SecureBlobsImmutableEncrypted: Enforced,
+		PackagesAtomicActivation:      Enforced,
+		RunsDurableReplay:             Enforced,
+		MigrationsVersioned:           Enforced,
+		TransactionsMultiRepository:   Enforced,
 	}
 }
 

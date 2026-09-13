@@ -143,11 +143,13 @@ Profile-lifecycle closure: comprehensive successor attestation `cluster-a-runtim
 4. Prove private personalized state does not enter generalized/catalog artifacts.
 5. Clean-install pure graph, agent-definition, and mixed packages; instantiate independent agents; update, disable, roll back, uninstall, and restart.
 6. Prove dynamic CLI/client entry points follow active package generation atomically without rebuilding core.
-7. Prove provider substitution retains semantics and capability mismatch fails closed.
+7. COMPLETE — Prove provider substitution retains semantics and capability mismatch fails closed.
 
 Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
 
 Closure evidence: OI-009 is satisfied in `blind-portable-state-v1.json`. Content-addressed records and envelopes preserve source installation/agent/generation/session provenance, scope, evidence, trust, native payload, and immutable lineage. Two SQLite installations exchange semantic envelopes, union commutative learning, preserve context-separated preferences, retain divergent generation heads and policy conflicts without selection, reject duplicate/stale sequence misuse and portable runtime authority, preserve tombstones, and reconstruct the same state/conflicts after restart. Remaining Wave 20 package/catalog/provider claims are unresolved.
+
+OI-036 is satisfied in `blind-provider-substitution-v1.json`. The same canonical optimistic append/replay fixture runs through the semantic provider boundary against SQLite and the bounded in-memory provider; a provider missing required optimistic mutation capability fails before state changes. Successor attestations preserve prior evidence after the provider source changed.
 
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 

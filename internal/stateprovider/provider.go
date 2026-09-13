@@ -21,18 +21,18 @@ const (
 type Capability string
 
 const (
-	EventsAppendOptimistic         Capability = "events.append_optimistic"
-	EventsReplay                   Capability = "events.replay"
-	EventsGlobalSequence           Capability = "events.global_sequence"
-	ProjectionsCheckpointed        Capability = "projections.checkpointed"
-	ApprovalAtomicConsume          Capability = "authority.approval_atomic_consume"
-	LeaseAtomicConsume             Capability = "authority.lease_atomic_consume"
-	EffectsOutboxReconciliation    Capability = "effects.outbox_reconciliation"
-	SecureBlobsImmutableEncrypted  Capability = "secure_blobs.immutable_encrypted"
-	PackagesAtomicActivation       Capability = "packages.atomic_activation"
-	RunsDurableReplay              Capability = "runs.durable_replay"
-	MigrationsVersioned            Capability = "migrations.versioned"
-	TransactionsMultiRepository    Capability = "transactions.multi_repository_atomic"
+	EventsAppendOptimistic        Capability = "events.append_optimistic"
+	EventsReplay                  Capability = "events.replay"
+	EventsGlobalSequence          Capability = "events.global_sequence"
+	ProjectionsCheckpointed       Capability = "projections.checkpointed"
+	ApprovalAtomicConsume         Capability = "authority.approval_atomic_consume"
+	LeaseAtomicConsume            Capability = "authority.lease_atomic_consume"
+	EffectsOutboxReconciliation   Capability = "effects.outbox_reconciliation"
+	SecureBlobsImmutableEncrypted Capability = "secure_blobs.immutable_encrypted"
+	PackagesAtomicActivation      Capability = "packages.atomic_activation"
+	RunsDurableReplay             Capability = "runs.durable_replay"
+	MigrationsVersioned           Capability = "migrations.versioned"
+	TransactionsMultiRepository   Capability = "transactions.multi_repository_atomic"
 )
 
 type Profile map[Capability]EnforcementState

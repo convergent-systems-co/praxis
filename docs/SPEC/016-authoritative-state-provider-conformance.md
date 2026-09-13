@@ -102,6 +102,8 @@ SQLite-specific pragmas/schema/migrations remain implementation details of this 
 
 A deterministic in-memory provider MAY implement a declared subset for unit tests. Tests requiring omitted semantics SHALL fail setup rather than accidentally pass with weaker behavior.
 
+The reference in-memory provider advertises only optimistic event append, replay, and global sequence. Package operations remain explicitly unsupported. Runtime code SHALL acquire an event store through a capability gate before mutation; advertising a capability without returning its semantic service is an error.
+
 ## Provider selection
 
 Provider selection is deployment configuration. Domain graphs/packages SHALL NOT encode provider identity.

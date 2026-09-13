@@ -23,11 +23,16 @@ func signedFixtureRelease(t *testing.T, profile contracts.CryptoProfile) (distri
 	artifactDigest := "sha256:" + hex.EncodeToString(sum[:])
 	manifestDigest := "sha256:manifest"
 	envelope := packagecatalog.SignatureEnvelope{
-		Version: packagecatalog.SignatureEnvelopeVersion, Profile: profile,
-		Algorithm: packagecatalog.SignatureAlgorithmEd25519, KeyID: "publisher-1",
-		ManifestDigest: manifestDigest, ArtifactDigest: artifactDigest,
+		Version: packagecatalog.SignatureEnvelopeVersion,
+		Profile: profile,
+		ManifestDigest: manifestDigest,
+		ArtifactDigest: artifactDigest,
+		Proofs: []packagecatalog.SignatureProof{{
+			Algorithm: packagecatalog.SignatureAlgorithmEd25519,
+			KeyID: "publisher-1",
+		}},
 	}
-	envelope.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, envelope.Statement()))
+	envelope.Proofs[0].Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, envelope.Statement()))
 	keysJSON, err := json.Marshal(map[string]string{"publisher-1": base64.StdEncoding.EncodeToString(pub)})
 	if err != nil { t.Fatal(err) }
 	return distribution.Release{

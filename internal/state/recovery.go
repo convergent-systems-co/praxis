@@ -26,10 +26,11 @@ const (
 )
 
 type RecoverableEffect struct {
-	ID              string
-	State           EffectState
-	IdempotencyKey  string
-	ReconcileCapable bool
+	ID                  string
+	State               EffectState
+	IdempotencyKey      string
+	IdempotencyVerified bool
+	ReconcileCapable    bool
 }
 
 // ClassifyEffectRecovery decides what startup may do without guessing whether
@@ -47,13 +48,10 @@ func ClassifyEffectRecovery(e RecoverableEffect) (RecoveryAction, error) {
 		if e.ReconcileCapable {
 			return RecoveryReconcile, nil
 		}
-		if e.IdempotencyKey != "" {
-			// Even with an idempotency key, the runtime should reconcile if possible;
-			// absent reconciliation support it may safely re-dispatch only through a
-			// later effect executor that verifies target idempotency semantics.
+		if e.IdempotencyKey != "" && e.IdempotencyVerified {
 			return RecoveryDispatch, nil
 		}
-		return RecoveryFailClosed, fmt.Errorf("effect %s has ambiguous outcome and no reconciliation/idempotency support", e.ID)
+		return RecoveryFailClosed, fmt.Errorf("effect %s has ambiguous outcome without reconciliation or verified idempotency", e.ID)
 	default:
 		return RecoveryFailClosed, fmt.Errorf("unknown effect state %q", e.State)
 	}

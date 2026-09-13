@@ -1,67 +1,80 @@
-# SPEC-006: Authoritative State, Event Store, and Projections
+# SPEC-006: Authoritative State Provider, Event Store, and Projections
 
 - Status: Draft
-- Governing ADRs: 011, 024, 031, 032, 035, 036, 038, 040, 041, 042, 043
+- Governing ADRs: 011, 024, 031, 032, 035, 036, 038, 040, 041, 042, 043, 047
 - Depends on: SPEC-001, SPEC-002, SPEC-005
 
 ## Purpose
 
-Define the local authoritative persistence model for Praxis 2: SQLite-backed durable state, immutable event history, projections/read models, migration, recovery, and integrity rules.
+Define the authoritative persistence semantics for Praxis 2 independently of a specific database product: durable state, immutable event history, projections/read models, migrations, recovery, integrity, transactional authority consumption, and provider conformance.
+
+SQLite SHALL be the initial/reference local implementation, not the architectural contract.
 
 The persistence layer SHALL preserve enough authority and provenance state to restart safely without relying on an LLM, client session, plugin memory, or model-generated reconstruction.
 
-## Authority model
+## AuthoritativeStateProvider
 
-SQLite SHALL be the initial local authoritative store for Praxis 2.
+Praxis SHALL expose semantic state-provider capabilities rather than raw database primitives. Runtime/domain code SHALL depend on the smallest semantic interface it consumes.
 
-The database SHALL persist canonical authoritative state required to determine:
+Provider capability groups SHALL include at least:
 
-- graph/agent/run/slice lifecycle;
-- package/version/lineage state;
-- principals and trusted identity references;
-- policy references and policy versions;
-- capability leases and revocation state;
-- approvals and anti-replay/consumption state;
-- ActionIntent/effect lifecycle;
-- provenance/trust metadata;
-- cryptographic profile/suite/key references;
-- synchronization/export metadata;
-- event sequence and projection checkpoints.
+- command/event append with optimistic aggregate versions;
+- aggregate/global replay;
+- projection checkpoints;
+- approval/capability-lease lookup and atomic consumption;
+- effect intent/outbox/reconciliation state;
+- secure encrypted-object storage;
+- installed package generation and invocation-registry activation;
+- run/control state derived from authoritative events;
+- provider/schema/migration version metadata;
+- transactional execution for invariants spanning multiple authoritative records.
 
-Derived workspace indexes, caches, embeddings, context packs, dashboards, and other reproducible projections SHALL NOT become authoritative merely because they are stored in SQLite or another local database.
+The provider SHALL publish deterministic capability/consistency properties. Unknown or insufficient semantics fail closed for operations requiring stronger guarantees.
 
-## Storage topology
+A provider is compatible only when it passes the authoritative-provider conformance suite. Implementing CRUD methods is insufficient.
 
-The implementation SHOULD use one local SQLite database per Praxis installation/profile unless isolation policy requires separate stores.
+## Reference provider
 
-The logical schema SHALL separate at least:
+SQLite SHALL be the initial local provider because it supplies strong transactions, WAL/crash recovery, optimistic version enforcement, portability, and low operational overhead.
 
-1. authoritative entity/state tables;
+One local SQLite database per Praxis installation/profile is the default reference topology unless isolation policy requires separation.
+
+SQLite-specific schema, WAL, locking, and migration details SHALL remain implementation concerns behind the provider boundary.
+
+Derived workspace indexes, caches, embeddings, context packs, dashboards, and reproducible projections SHALL NOT become authoritative merely because a provider stores them.
+
+## Logical storage topology
+
+Every compatible provider SHALL preserve these logical responsibilities, even if physical layout differs:
+
+1. authoritative entity/state records;
 2. append-only domain event log;
-3. projection/read-model tables;
+3. projection/read-model state;
 4. effect/outbox/reconciliation state;
-5. migration/schema metadata;
+5. migration/provider metadata;
 6. security authority state;
 7. synchronization/export metadata;
-8. optional encrypted sensitive-object storage or references.
-
-Physical table layout may evolve, but the logical responsibilities SHALL remain distinct.
+8. encrypted sensitive-object storage/references;
+9. installed package generations and invocation registry.
 
 ## Transaction boundary
 
-A local authoritative transition SHALL execute inside one SQLite transaction when all mutated authoritative records are local.
+A local authoritative transition SHALL execute inside one atomic provider transaction when all participating authoritative records are local.
 
 The transaction SHALL atomically include, where applicable:
 
 - command idempotency claim/result metadata;
 - entity state/version transition;
 - approval consumption/change;
-- capability-lease state change when part of the same local action;
+- capability-lease consumption/change;
 - effect intent creation;
 - immutable event append;
+- package generation and invocation-registry activation/deactivation;
 - projection checkpoint/update only when projection coupling is intentionally transactional.
 
-External side effects SHALL NOT occur inside a database transaction in a way that assumes distributed atomicity.
+External side effects SHALL NOT occur inside a local transaction in a way that assumes distributed atomicity.
+
+If a provider cannot satisfy an operation's required atomicity, that operation/mode is unsupported rather than weakened.
 
 ## Optimistic concurrency
 
@@ -73,196 +86,134 @@ A mismatched expected version SHALL fail deterministically rather than silently 
 
 ## Domain event log
 
-The event log SHALL be append-only at the application contract level.
+The authoritative event log SHALL be append-only at the application contract level.
 
 Each event SHALL contain at minimum:
 
 - event ID;
-- global/local monotonic sequence;
+- monotonic sequence;
 - aggregate/entity identity;
 - aggregate version where applicable;
-- event type and schema version;
+- event type/schema version;
 - canonical payload;
 - actor/principal identity;
 - command ID;
-- correlation ID;
-- causation ID where applicable;
-- provenance reference(s);
+- correlation/causation IDs;
+- provenance references;
 - trust/evidence classification where material;
-- timestamp generated/accepted by deterministic runtime boundary;
-- policy/approval/lease references for security-sensitive transitions where applicable;
+- deterministic-runtime timestamp;
+- policy/approval/lease references where applicable;
 - cryptographic/integrity metadata where policy requires.
 
-Events SHALL NOT be edited to correct history. Corrections SHALL append compensating/corrective events.
+Events SHALL NOT be edited to correct history. Corrections append compensating/corrective events.
 
 ## Event integrity
 
-The persistence layer SHALL detect accidental corruption and SHOULD support tamper-evident integrity for security-relevant installations.
+The provider SHALL preserve canonical event bytes/metadata needed for integrity verification and SHOULD support tamper-evident protection for security-relevant installations.
 
-The initial design SHALL support an integrity chain or equivalent mechanism over canonical event records without making one specific cryptographic construction part of event semantics.
-
-When enabled, integrity protection SHALL use SPEC-005 profiles/suites and record verification status.
-
-Failure to validate required integrity SHALL place affected authoritative state in a fail-closed/recovery-required condition.
+Integrity protection SHALL use SPEC-005 profiles/suites when required. Verification failure on protected authoritative state places affected state in fail-closed/recovery-required condition.
 
 ## Command idempotency
 
 Accepted or terminally rejected commands SHALL be recordable by stable command ID/idempotency key according to SPEC-002.
 
-Concurrent delivery of the same idempotent command SHALL result in one authoritative transition.
-
-The idempotency record SHALL permit safe recovery after a crash between command acceptance and caller response.
+Concurrent delivery of the same idempotent command SHALL result in one authoritative transition. Recovery after commit-before-response SHALL not duplicate the command.
 
 ## Approval and anti-replay persistence
 
-One-shot approval consumption SHALL be represented by authoritative state protected by compare-and-set/transaction semantics.
+One-shot approval consumption SHALL be represented by authoritative compare-and-set/transaction semantics. Two concurrent consumers SHALL NOT both consume the same approval.
 
-Two concurrent consumers SHALL NOT both successfully consume the same one-shot approval.
-
-Approval expiry, revocation, remaining-use count, intent/policy binding, and principal identity SHALL survive restart.
-
-Imported/synchronized approvals SHALL follow the portability classification defined by the portable-state specification; runtime-local one-shot authority SHALL not become portable by accident.
+Expiry, revocation, remaining uses, intent/policy binding, and principal identity SHALL survive restart.
 
 ## Capability-lease persistence
 
-Durable capability leases SHALL retain issuance authority, principal, scope, operation, expiry, revocation, delegation, and enforcement requirements.
+Durable capability leases SHALL retain issuance authority, principal, scope, operation, expiry, revocation, delegation, enforcement requirements, and any exact plugin instance/session binding.
 
-Ephemeral client/runtime capability leases MAY be stored separately or reconstructed only when their governing contract explicitly marks them non-portable and non-durable.
+Finite-use lease consumption that protects a mutation/effect SHALL be atomic with the protected authoritative boundary whenever replay would be unsafe.
 
-After restart, Praxis SHALL NOT assume that an external/client enforcement condition still exists merely because a prior lease record exists. Required external conditions SHALL be revalidated.
+After restart, external/client enforcement conditions SHALL be revalidated rather than inferred from prior lease existence.
 
 ## Effect/outbox state
 
-The database SHALL persist `EffectIntent` before dispatch when an external effect requires crash-safe reconciliation.
+The provider SHALL persist `EffectIntent` before dispatch when an external effect requires crash-safe reconciliation.
 
-Effect state transitions SHALL follow SPEC-002 and preserve:
+Effect state SHALL preserve ActionIntent digest, target, capability/approval refs, idempotency, preconditions, attempts, observed result, unknown-outcome state, reconciliation evidence, and terminal disposition.
 
-- ActionIntent digest;
-- target adapter/principal;
-- capability/approval references;
-- idempotency key;
-- target preconditions;
-- dispatch attempts;
-- observed response/result;
-- unknown-outcome state;
-- reconciliation evidence;
-- terminal disposition.
-
-A restart SHALL resume/reconcile pending or unknown effects without blindly reissuing non-idempotent operations.
+Restart SHALL reconcile ambiguous effects instead of blindly retrying non-idempotent operations.
 
 ## Projections
 
 Projections are disposable/read-optimized representations derived from authoritative records/events.
 
-Every projection SHALL declare:
+Every projection SHALL declare version, source checkpoint, rebuild strategy, freshness semantics, and whether it is safe for security-sensitive reads.
 
-- projection type/version;
-- source event/entity sequence/checkpoint;
-- rebuild strategy;
-- freshness semantics;
-- whether it is safe for security-sensitive reads.
+Supported consistency classes SHALL include:
 
-A security-sensitive decision SHALL NOT use a projection whose checkpoint/integrity cannot be proven sufficiently current for that decision.
+- `authoritative-inline`;
+- `strong-checkpointed`;
+- `eventual`.
 
-Projection corruption or deletion SHALL be recoverable by rebuilding from authoritative source.
-
-## Projection consistency classes
-
-Praxis SHALL support at least:
-
-- `authoritative-inline`: updated in the same transaction as the authoritative transition;
-- `strong-checkpointed`: projection proves it has processed through a required authoritative sequence;
-- `eventual`: suitable for dashboards/search/analytics but not authority decisions unless policy explicitly tolerates staleness.
-
-The required class SHALL be explicit at each consuming boundary.
+A security-sensitive decision SHALL NOT use a projection whose checkpoint/integrity is insufficiently current.
 
 ## Sensitive state encryption
 
-Sensitive persisted objects SHALL support application-level encryption envelopes defined by SPEC-005.
+Sensitive persisted objects SHALL support application-level encryption envelopes from SPEC-005.
 
-The database SHALL store ciphertext plus `EncryptionEnvelope` metadata/key references rather than raw private keys/DEKs.
+The provider stores ciphertext plus encryption metadata/key references rather than raw private keys/DEKs. Search/index requirements over encrypted fields require explicit designs and SHALL NOT silently duplicate sensitive plaintext.
 
-Fields requiring indexing/search while encrypted SHALL use an explicit design; the implementation SHALL NOT silently duplicate sensitive plaintext into an index for convenience.
+## Package/invocation registry semantics
 
-## Secrets and credentials
+Installed immutable package generations and active invocation contracts are authoritative state.
 
-Credentials and private keys SHOULD remain in dedicated secure stores/providers and be referenced by opaque IDs.
+Activation/update/deactivation SHALL be atomic from the user/runtime perspective. Alias collision checks, generation activation, prior-generation deactivation, and invocation-registry publication SHALL either commit together or leave the prior active generation intact.
 
-If sensitive secret material must be stored by Praxis, it SHALL use an approved encryption profile and be excluded from events, generic logs, projections, model context, and export by default.
+Historical package generations/contracts required for rollback/audit SHALL remain addressable according to retention policy.
 
-## Migration
+## Provider-specific migrations
 
-Schema migrations SHALL be explicit, ordered, versioned, and transactional where possible.
+Physical schema migrations are provider-specific. Canonical contract migrations and migration intent remain provider-neutral.
 
-A migration SHALL define:
+A provider migration SHALL define source/target provider schema versions, preflight validation, transformation, postconditions, restore strategy, protected-record handling, and compatibility constraints.
 
-- source schema version(s);
-- target schema version;
-- preflight validation;
-- transformation;
-- post-migration invariants;
-- rollback/restore strategy;
-- handling of encrypted/cryptographically protected records;
-- compatibility with older binaries where relevant.
-
-Security semantics SHALL NOT be changed by a migration through silent reinterpretation.
-
-Before irreversible migration, Praxis SHOULD create a recoverable backup/snapshot according to local policy.
+Security semantics SHALL NOT change through silent reinterpretation.
 
 ## Backup and restore
 
-Backup SHALL capture a transactionally consistent authoritative state.
+Backup SHALL capture a provider-consistent authoritative snapshot. Sensitive backup content SHALL use an appropriate SPEC-005 profile.
 
-Sensitive backups SHALL use an appropriate SPEC-005 encryption profile.
+Restore SHALL validate provider/schema/integrity metadata and revalidate runtime-local authority before execution.
 
-Restore SHALL validate database/schema/integrity metadata before permitting authoritative execution.
+## Writer/concurrency model
 
-Restored runtime-local leases/approvals/effects SHALL undergo revalidation/reconciliation before use.
+Each provider SHALL declare its supported writer/concurrency model. The SQLite reference provider initially uses one authoritative-writer model with deterministic locking/serialization.
 
-## Multi-process ownership
-
-The first implementation SHALL define one authoritative writer model unless/until a stronger concurrent-writer design is specified.
-
-If multiple local processes access the store, writer ownership/locking SHALL be deterministic and crash-recoverable.
-
-SQLite locking behavior SHALL NOT be treated as business-level authority or capability enforcement.
+Database locking primitives SHALL NOT themselves be treated as business-level authority.
 
 ## Crash recovery
 
 On startup Praxis SHALL:
 
-1. validate schema/migration state;
-2. validate required database/integrity metadata;
-3. establish authoritative writer ownership;
-4. recover/revalidate resource/security leases as applicable;
-5. locate nonterminal effects and classify for resume/reconciliation;
+1. validate provider/schema/migration state;
+2. validate required integrity metadata;
+3. establish provider writer ownership/concurrency guarantees;
+4. recover/revalidate security/resource leases;
+5. locate nonterminal effects and classify resume/reconciliation;
 6. validate projection checkpoints or mark stale;
-7. resume eligible graph/run state according to runtime policy.
+7. resume eligible runs according to runtime policy.
 
 No LLM is required for startup recovery.
 
-## Synchronization boundary
+## Synchronization and portability boundary
 
-Local database rows SHALL NOT be copied directly between machines as the synchronization contract.
+Provider rows/pages/files SHALL NOT be the canonical synchronization/export format.
 
-Portable/multi-machine state SHALL export canonical versioned envelopes with explicit authority/portability classes.
+Portable/multi-machine state SHALL use canonical versioned envelopes with explicit authority/portability classes. Runtime-local locks, transient sessions, and one-shot authority remain non-portable unless explicitly specified otherwise.
 
-Runtime-local locks, ephemeral leases, transient client sessions, and one-shot approvals SHALL be excluded unless a later specification explicitly defines safe portability semantics.
+This allows future providers to coexist without making raw SQLite copies the architecture.
 
 ## Observability
 
-Persistence telemetry SHALL include:
-
-- command transaction latency;
-- event append latency;
-- projection lag;
-- migration status;
-- database size/growth;
-- WAL/checkpoint health where applicable;
-- pending/unknown effects;
-- integrity verification failures;
-- stale security projection attempts;
-- encryption/provider failures.
+Provider telemetry SHALL include command/event latency, projection lag, migration status, provider health/capabilities, storage growth, pending/unknown effects, integrity failures, stale security projection attempts, encryption/provider failures, and provider-specific health metrics.
 
 Telemetry SHALL avoid plaintext sensitive data.
 
@@ -270,41 +221,47 @@ Telemetry SHALL avoid plaintext sensitive data.
 
 The implementation SHALL prove:
 
-1. process crash after authoritative commit but before response does not duplicate an idempotent command;
+1. process crash after commit but before response does not duplicate an idempotent command;
 2. process crash after effect intent but before dispatch recovers correctly;
-3. process crash after ambiguous external dispatch enters reconciliation without blind retry;
-4. projection deletion/corruption can be rebuilt without changing authoritative state;
-5. stale security projection cannot authorize an action;
+3. ambiguous external dispatch enters reconciliation without blind retry;
+4. projection deletion/corruption can rebuild without changing authority;
+5. stale security projection cannot authorize;
 6. concurrent consumers cannot both consume one-shot approval;
 7. optimistic concurrency rejects stale writes;
-8. schema migration preserves event/entity invariants;
-9. migration failure does not leave partially reinterpreted authority state;
-10. encrypted sensitive fixture never appears as plaintext in generic event/projection tables;
-11. revoked/expired lease remains revoked/expired after restart;
-12. restored backup revalidates runtime-local authority before execution;
+8. provider migration preserves event/entity invariants;
+9. migration failure leaves no partially reinterpreted authority;
+10. encrypted sensitive fixture never appears as plaintext in generic state/event/projection storage;
+11. revoked/expired lease remains so after restart;
+12. restored backup revalidates runtime-local authority;
 13. required event-integrity failure blocks protected execution;
 14. unknown future security-relevant schema value fails safely;
-15. database/replay recovery completes without invoking an LLM.
+15. recovery completes without invoking an LLM;
+16. runtime/domain package tests can execute against a semantic provider interface without importing SQLite;
+17. SQLite passes the full AuthoritativeStateProvider conformance suite;
+18. a provider declaring insufficient atomicity/consistency is rejected for the affected operation;
+19. canonical export/import does not require raw SQLite pages/files;
+20. package generation plus invocation-registry activation is atomic and rollback-safe.
 
 ## Deliverables
 
-- SQLite schema v1;
-- migration runner and initial migration set;
-- transactional command persistence interface;
-- append-only event-store interface;
-- entity/version concurrency interface;
-- approval/lease authority repositories;
-- effect/outbox/reconciliation repository;
-- projection framework/checkpoint metadata;
+- AuthoritativeStateProvider capability contracts;
+- narrow semantic repository interfaces;
+- provider capability/consistency profile;
+- SQLite reference provider and schema/migrations;
+- provider conformance suite;
+- transactional command/event persistence;
+- approval/lease/effect repositories;
+- projection framework/checkpoints;
 - encrypted-object persistence integration;
+- package/invocation registry persistence;
 - startup recovery procedure;
-- backup/restore procedure;
-- corruption/recovery/adversarial fixture corpus.
+- canonical backup/export integration;
+- corruption/recovery/adversarial fixtures.
 
 ## Exit criteria
 
-SPEC-006 is implementation-ready when the schema topology, transaction boundaries, event fields, approval/lease/effect persistence state machines, projection consistency classes, migration contract, and startup recovery sequence can be implemented and tested without architectural interpretation.
+SPEC-006 is complete when authoritative runtime semantics can be exercised through provider-neutral interfaces, SQLite passes the provider conformance suite, and replacing the persistence implementation does not require changes to graph/domain/package semantics.
 
 ## Non-goals
 
-This specification does not define distributed consensus, a cloud database requirement, arbitrary multi-writer synchronization, or workspace-intelligence index storage.
+This specification does not require distributed consensus, a cloud database, arbitrary multi-writer synchronization, or any particular future state provider beyond the SQLite reference implementation.

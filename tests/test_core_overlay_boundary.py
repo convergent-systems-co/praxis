@@ -1,28 +1,8 @@
-"""Core/overlay vocabulary boundary guard.
+"""Core/domain-extension vocabulary boundary guard.
 
-The nine core packages (`praxis_runtime`, `praxis_contracts`, `praxis_evidence`,
-`praxis_executors`, `praxis_policy`, `praxis_eval`, `praxis_overlay`,
-`praxis_dashboard`, `praxis_learning` -- the exact list the epic spec names as
-"Praxis core packages") and the core ontology schemas (plus
-`overlay-manifest.schema.json`) must stay domain-neutral: no
-software-development/VCS-specific vocabulary (GitHub, pull requests, commits,
-branches, TDD, code review, ...) may leak into them. That vocabulary belongs
-in `src/overlays/development/`, the one concrete overlay that models the
-software-delivery domain -- core has no idea any particular overlay exists.
-
-This is a plain-text scan (source, docstrings, and comments), not an
-AST/identifier-only check, because a leaked term in a comment is just as much
-a boundary violation as one in an identifier.
-
-Each forbidden pattern below was checked against the current tree before
-being added, specifically to avoid colliding with legitimate core vocabulary
-that merely looks similar -- e.g. bare "branch" is graph fan-out/fan-in
-language in `praxis_runtime.transitions` (see `docs/runtime.md`), bare
-"review" is generic evidence/policy language ("human review"), bare "release"
-is `LeaseStore.release`, and bare "repository" appears in a self-referential
-docstring aside. Those bare words are deliberately excluded or narrowed to a
-more specific multi-word phrase (mirroring how "merge" itself -- unlike
-"branch" -- turned out to have zero collisions and needed no narrowing).
+Praxis kernel packages must stay domain-neutral: no software-delivery or
+version-control vocabulary may leak into them. Domain-specific behavior belongs
+in installable plugins such as ``src/overlays/development``.
 """
 
 from __future__ import annotations
@@ -43,24 +23,12 @@ CORE_PACKAGE_DIRS = (
     REPO_ROOT / "src" / "praxis_policy",
     REPO_ROOT / "src" / "praxis_eval",
     REPO_ROOT / "src" / "praxis_overlay",
+    REPO_ROOT / "src" / "praxis_plugins",
     REPO_ROOT / "src" / "praxis_dashboard",
     REPO_ROOT / "src" / "praxis_learning",
 )
 
-# name -> compiled, case-insensitive regex. Word-boundaried or multi-word
-# where the bare term collides with legitimate core vocabulary (see module
-# docstring); left as a plain substring where a current-tree sweep found no
-# such collision.
 FORBIDDEN_TERMS = {
-    # Narrowed to exempt one literal: `github_pat_`, the prefix of a
-    # fine-grained personal-access token. A core adapter that redacts
-    # credentials out of a subprocess transcript has to match that prefix
-    # exactly -- a placeholder would match nothing, and spelling it another way
-    # to slip past this plain-text scan would be worse than the leak. A
-    # credential format is not the domain vocabulary this boundary exists to
-    # keep out of core, and the exemption is that prefix and nothing else:
-    # every prose mention of the forge still fails, as does the bare vendor
-    # name anywhere else on the same line.
     "github": r"github(?!_pat_)",
     "gitlab": r"gitlab",
     "bitbucket": r"bitbucket",
@@ -125,8 +93,8 @@ def test_core_packages_contain_no_forbidden_development_vocabulary():
         violations.extend(_scan_text_for_violations(py_file, lines))
 
     assert not violations, (
-        "core packages must stay domain-neutral -- found software-development/"
-        "VCS vocabulary that belongs in an overlay, not core:\n" + "\n".join(violations)
+        "core packages must stay domain-neutral -- found domain vocabulary that "
+        "belongs in a plugin, not core:\n" + "\n".join(violations)
     )
 
 
@@ -160,36 +128,28 @@ def test_core_schema_descriptions_contain_no_forbidden_development_vocabulary():
                     )
 
     assert not violations, (
-        "core schema descriptions must stay domain-neutral -- found "
-        "software-development/VCS vocabulary that belongs in an overlay, not "
-        "core:\n" + "\n".join(violations)
+        "core schema descriptions must stay domain-neutral -- found domain "
+        "vocabulary that belongs in a plugin:\n" + "\n".join(violations)
     )
 
 
 def test_the_credential_prefix_exemption_stays_narrow():
-    """The `github_pat_` exemption must not become a hole for the vendor name."""
     pattern = _COMPILED_TERMS["github"]
-
     assert pattern.search('(re.compile(r"github_pat_[A-Za-z0-9_]{20,}"), _REDACTED),') is None
-
     for still_forbidden in (
         "# GitHub is where the pull requests live",
         "url = 'https://github.com/example/example'",
         "GITHUB_TOKEN",
-        # The exemption is the prefix, not a licence to name the vendor
-        # elsewhere on a line that happens to contain it.
         "# github_pat_ tokens come from GitHub",
     ):
         assert pattern.search(still_forbidden), still_forbidden
 
 
 def test_forbidden_term_list_is_nonempty():
-    """Guards against the scan silently checking nothing."""
     assert len(FORBIDDEN_TERMS) > 10
 
 
 def test_core_package_dirs_exist():
-    """Guards against a typo'd path silently scanning zero files."""
     for package_dir in CORE_PACKAGE_DIRS:
         assert package_dir.is_dir(), f"expected core package dir {package_dir} to exist"
     assert SCHEMAS_DIR.is_dir()

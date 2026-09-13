@@ -1,54 +1,41 @@
-"""Shared adapter construction path for praxis_cli commands.
+"""Shared executor composition path for Praxis CLI commands.
 
-Builds the fixed set of Executor instances the CLI operates over. Construction
-alone must never probe the environment -- only each adapter's `.health()` /
-`.capabilities()` does that.
+Concrete executor construction now flows through the generic Praxis plugin
+registry. The current built-in set is preserved exactly, while externally
+installed plugins may contribute additional ``executor/`` services through the
+``praxis.plugins`` entry-point group.
+
+Construction alone must never probe the environment; only each executor's
+``health()`` / ``capabilities()`` methods do that.
 """
 
 from __future__ import annotations
 
-import copy
-
-from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
-from praxis_executors.adapters.fake import FakeCapabilityExecutor
-from praxis_executors.adapters.ollama import OllamaExecutor
-from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import Executor
-
-_FAKE_CAPABILITIES = [
-    {
-        "spec_version": "1.0.0",
-        "id": "cap-primary",
-        "satisfies": [{"kind": "text-generation"}],
-        "auth_transport": "local",
-    }
-]
-
-# Keyed by the executor id each adapter is constructed with, so the id is
-# spelled once and stays available to a caller even when the adapter's own
-# `.capabilities()` -- otherwise the only public source of `executor_id` --
-# raises.
-_ADAPTER_FACTORIES = {
-    "executor-subprocess-1": lambda executor_id: SubprocessExecutor(
-        executor_id=executor_id, satisfies_kinds=["code-execution"]
-    ),
-    # Deep-copied per call: `FakeCapabilityExecutor.__init__` copies the outer
-    # list and nothing inside it, so passing the constant itself would hand
-    # every instance the process ever builds the same capability dicts. A caller
-    # editing a returned advertisement would be editing this module's constant,
-    # against the independently-constructed-objects property `build_adapters()`
-    # otherwise holds.
-    "executor-fake-1": lambda executor_id: FakeCapabilityExecutor(
-        executor_id=executor_id, capabilities=copy.deepcopy(_FAKE_CAPABILITIES), script={}
-    ),
-    "executor-claude-cli-1": lambda executor_id: ClaudeCliExecutor(executor_id=executor_id),
-    "executor-ollama-1": lambda executor_id: OllamaExecutor(executor_id=executor_id),
-}
+from praxis_executors.plugins import EXECUTOR_SERVICE_PREFIX, default_executor_plugins
+from praxis_plugins import PluginRegistry, discover_entrypoint_plugins
 
 
 def build_adapters() -> dict[str, Executor]:
-    """Return a fresh `{executor_id: instance}` mapping, in declaration order."""
-    return {
-        executor_id: factory(executor_id)
-        for executor_id, factory in _ADAPTER_FACTORIES.items()
-    }
+    """Return a fresh ``{executor_id: instance}`` mapping.
+
+    Built-in executors and third-party executor plugins share the same plugin
+    lifecycle. Non-executor plugins may also be discovered and activated when
+    they are installed; only services under ``executor/`` are returned here.
+    """
+
+    plugins = PluginRegistry()
+    plugins.register_many(default_executor_plugins())
+    plugins.register_many(discover_entrypoint_plugins())
+    plugins.activate_all()
+
+    adapters: dict[str, Executor] = {}
+    for service_name, value in plugins.services(prefix=EXECUTOR_SERVICE_PREFIX).items():
+        if not isinstance(value, Executor):
+            raise TypeError(
+                f"plugin service {service_name!r} uses the executor namespace "
+                f"but does not implement Executor"
+            )
+        executor_id = service_name[len(EXECUTOR_SERVICE_PREFIX) :]
+        adapters[executor_id] = value
+    return adapters

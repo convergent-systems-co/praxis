@@ -7,7 +7,7 @@ func InvocationContract() contracts.InvocationContract {
 	return contracts.InvocationContract{
 		Version:        "v1",
 		PackageID:      "praxis/develop",
-		PackageVersion: "0.1.0",
+		PackageVersion: "0.2.0",
 		GraphID:        g.ID,
 		GraphVersion:   g.Version,
 		EntryPointID:   "praxis.package.develop.default",
@@ -16,6 +16,7 @@ func InvocationContract() contracts.InvocationContract {
 			{Name: "dashboard", Type: "bool", Required: false, Default: "false", Description: "attach the dashboard presentation capability"},
 			{Name: "mode", Type: "enum:auto|fast|deep", Required: false, Default: "auto", Description: "reasoning/latency posture"},
 			{Name: "workspace", Type: "string", Required: false, Description: "workspace/repository path or configured workspace identity"},
+			{Name: "goal-baseline", Type: "string", Required: false, Description: "optional exact Goal Baseline id/version/digest reference"},
 			{Name: "approval", Type: "enum:policy|interactive", Required: false, Default: "policy", Description: "approval posture within local policy"},
 		},
 		RequiredCapabilities: []string{"workspace.search.path", "workspace.search.text", "workspace.context.pack"},

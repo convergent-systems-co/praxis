@@ -32,6 +32,7 @@ type RunObservationKind string
 const (
 	ObservationRunStarted        RunObservationKind = "started"
 	ObservationRunResumed        RunObservationKind = "resumed"
+	ObservationRunStateChanged   RunObservationKind = "state_changed"
 	ObservationNodeAttemptFailed RunObservationKind = "node_attempt_failed"
 	ObservationNodeCompleted     RunObservationKind = "node_completed"
 	ObservationTransitioned      RunObservationKind = "transitioned"
@@ -58,14 +59,10 @@ type RunObserver interface {
 	ObserveRun(ctx context.Context, observation RunObservation) error
 }
 
-// Run executes canonical graph transitions without persistence concerns.
 func Run(ctx context.Context, graph GraphDef, run *RunExecution, executor NodeExecutor) error {
 	return RunObserved(ctx, graph, run, executor, nil)
 }
 
-// RunObserved executes canonical graph semantics while exposing deterministic
-// observations to an optional journal/projection boundary. Observer failure is
-// fail-closed: execution stops rather than advancing unverifiable state.
 func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executor NodeExecutor, observer RunObserver) error {
 	if err := graph.Validate(); err != nil {
 		return fmt.Errorf("validate graph: %w", err)
@@ -146,11 +143,13 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 		if err != nil {
 			class := FailureOf(err)
 			state := RunFailed
-			if class == FailureCancellation || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil {
+			if class == FailureCancellation || errors.Is(err, context.Canceled) || (errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil) {
 				state = RunCancelled
 				class = FailureCancellation
 			} else if class == FailureExternalEffectUnknown {
-				run.State = RunReconciling
+				if recordErr := recordStateChange(ctx, observer, run, RunReconciling, class); recordErr != nil {
+					return fmt.Errorf("%v; record reconciliation state: %w", err, recordErr)
+				}
 				return err
 			}
 			if recordErr := recordTerminal(ctx, observer, run, state, class); recordErr != nil {
@@ -244,6 +243,13 @@ func baseObservation(run *RunExecution, kind RunObservationKind, nodeID string) 
 		State:           run.State,
 		TransitionCount: run.TransitionCount,
 	}
+}
+
+func recordStateChange(ctx context.Context, observer RunObserver, run *RunExecution, state RunState, class FailureClass) error {
+	run.State = state
+	observation := baseObservation(run, ObservationRunStateChanged, run.CurrentNode)
+	observation.FailureClass = class
+	return observeRun(ctx, observer, observation)
 }
 
 func recordTerminal(ctx context.Context, observer RunObserver, run *RunExecution, state RunState, class FailureClass) error {

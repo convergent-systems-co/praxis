@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/internal/stateprovider"
 )
 
@@ -31,14 +32,15 @@ func runDoctor(args []string) error {
 	}
 	path := os.Getenv("PRAXIS_DB")
 	if path != "" {
-		provider, err := stateprovider.OpenSQLite(context.Background(), path)
+		db, err := state.OpenSQLiteReadOnly(context.Background(), path)
 		if err != nil {
 			result["state"] = "failed"
 			result["state_error"] = err.Error()
 			_ = printJSON(result)
 			return fmt.Errorf("state provider: %w", err)
 		}
-		defer provider.Close()
+		defer db.Close()
+		provider := stateprovider.NewSQLite(db)
 		if err := provider.Profile().Require(
 			stateprovider.EventsAppendOptimistic,
 			stateprovider.EventsReplay,

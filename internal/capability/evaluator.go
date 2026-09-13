@@ -28,8 +28,8 @@ type Request struct {
 }
 
 // Evaluate verifies that a lease authorizes the exact principal/capability/
-// operation/scope request. Scope inheritance here is deliberately conservative:
-// exact match or an explicit hierarchical prefix ending in ':' only.
+// operation/scope request. Scope inheritance is deliberately conservative:
+// exact match or an explicit hierarchical prefix ending in ':*' only.
 func Evaluate(lease contracts.CapabilityLease, req Request) error {
 	if err := lease.Validate(req.Now); err != nil {
 		return err
@@ -43,13 +43,16 @@ func Evaluate(lease contracts.CapabilityLease, req Request) error {
 	if !slices.Contains(lease.Operations, req.Operation) {
 		return ErrOperationDenied
 	}
-	if !scopeAllows(lease.Scope, req.Scope) {
+	if !ScopeAllows(lease.Scope, req.Scope) {
 		return fmt.Errorf("%w: lease=%q request=%q", ErrScopeDenied, lease.Scope, req.Scope)
 	}
 	return nil
 }
 
-func scopeAllows(granted, requested string) bool {
+// ScopeAllows reports whether requested is equal to or strictly contained by
+// the granted scope. Wildcards are only recognized as an explicit trailing
+// ':*'; arbitrary globbing is intentionally unsupported.
+func ScopeAllows(granted, requested string) bool {
 	if granted == requested {
 		return true
 	}

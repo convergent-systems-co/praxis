@@ -9,6 +9,7 @@ import (
 	"github.com/convergent-systems-co/praxis/internal/client"
 	"github.com/convergent-systems-co/praxis/packages/develop"
 	"github.com/convergent-systems-co/praxis/packages/goals"
+	"github.com/convergent-systems-co/praxis/packages/research"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -30,7 +31,7 @@ func main() {
 func run(args []string) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		fmt.Println("usage: praxis <entry-point> [arguments] [options]")
-		fmt.Println("available: goals (alias: design), develop")
+		fmt.Println("available: goals (alias: design), develop, research")
 		return nil
 	}
 
@@ -39,7 +40,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	registry, err := client.NewRegistry([]contracts.InvocationContract{goals.Invocation(), develop.InvocationContract()})
+	registry, err := client.NewRegistry([]contracts.InvocationContract{goals.Invocation(), develop.InvocationContract(), research.Invocation()})
 	if err != nil {
 		return err
 	}

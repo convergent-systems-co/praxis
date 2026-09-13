@@ -1,4 +1,9 @@
-"""Executor adapters exposed through the generic Praxis plugin subsystem."""
+"""Executor adapters exposed through the generic Praxis plugin subsystem.
+
+Concrete provider modules are imported lazily by their factories. Importing the
+plugin substrate therefore does not make Claude, Ollama, or any future provider
+an architectural dependency of the Praxis composition layer.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +12,6 @@ from collections.abc import Callable
 
 from praxis_plugins import PluginActivation, PluginContext, PluginManifest, PluginService
 
-from .adapters.claude_cli import ClaudeCliExecutor
-from .adapters.fake import FakeCapabilityExecutor
-from .adapters.ollama import OllamaExecutor
-from .adapters.subprocess_executor import SubprocessExecutor
 from .interface import Executor
 
 EXECUTOR_SERVICE_PREFIX = "executor/"
@@ -26,7 +27,7 @@ _FAKE_CAPABILITIES = [
 
 
 class ExecutorAdapterPlugin:
-    """Small adapter that exposes one Executor instance as a Praxis service."""
+    """Expose one Executor factory as a Praxis plugin service."""
 
     def __init__(
         self,
@@ -61,38 +62,62 @@ class ExecutorAdapterPlugin:
         del context
 
 
+def _subprocess_executor(executor_id: str) -> Executor:
+    from .adapters.subprocess_executor import SubprocessExecutor
+
+    return SubprocessExecutor(executor_id=executor_id, satisfies_kinds=["code-execution"])
+
+
+def _fake_executor(executor_id: str) -> Executor:
+    from .adapters.fake import FakeCapabilityExecutor
+
+    return FakeCapabilityExecutor(
+        executor_id=executor_id,
+        capabilities=copy.deepcopy(_FAKE_CAPABILITIES),
+        script={},
+    )
+
+
+def _claude_cli_executor(executor_id: str) -> Executor:
+    from .adapters.claude_cli import ClaudeCliExecutor
+
+    return ClaudeCliExecutor(executor_id=executor_id)
+
+
+def _ollama_executor(executor_id: str) -> Executor:
+    from .adapters.ollama import OllamaExecutor
+
+    return OllamaExecutor(executor_id=executor_id)
+
+
 def default_executor_plugins() -> tuple[ExecutorAdapterPlugin, ...]:
     """Return the current default CLI executor set as independent plugins.
 
-    This deliberately preserves the pre-plugin composition exactly. Additional
-    adapters can migrate to opt-in plugins without changing default behavior.
+    This preserves the pre-plugin default set while keeping provider imports out
+    of the generic plugin/composition import path. Additional adapters such as
+    Codex, Copilot, and MLX remain reusable and can be exposed as opt-in or
+    separately packaged plugins without changing the Executor contract.
     """
 
     return (
         ExecutorAdapterPlugin(
             plugin_id="praxis.executor.subprocess",
             executor_id="executor-subprocess-1",
-            factory=lambda executor_id: SubprocessExecutor(
-                executor_id=executor_id, satisfies_kinds=["code-execution"]
-            ),
+            factory=_subprocess_executor,
         ),
         ExecutorAdapterPlugin(
             plugin_id="praxis.executor.fake",
             executor_id="executor-fake-1",
-            factory=lambda executor_id: FakeCapabilityExecutor(
-                executor_id=executor_id,
-                capabilities=copy.deepcopy(_FAKE_CAPABILITIES),
-                script={},
-            ),
+            factory=_fake_executor,
         ),
         ExecutorAdapterPlugin(
             plugin_id="praxis.executor.claude-cli",
             executor_id="executor-claude-cli-1",
-            factory=lambda executor_id: ClaudeCliExecutor(executor_id=executor_id),
+            factory=_claude_cli_executor,
         ),
         ExecutorAdapterPlugin(
             plugin_id="praxis.executor.ollama",
             executor_id="executor-ollama-1",
-            factory=lambda executor_id: OllamaExecutor(executor_id=executor_id),
+            factory=_ollama_executor,
         ),
     )

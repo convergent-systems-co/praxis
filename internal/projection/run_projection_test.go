@@ -32,7 +32,16 @@ func TestRunProjectionRebuildsFromAuthoritativeEvents(t *testing.T) {
 	}
 
 	views := NewRunViews()
-	runner := Runner{Events: store, Handler: views, Checkpoint: Checkpoint{Name: "runs"}, BatchSize: 2}
+	runner := Runner{
+		Events:  store,
+		Handler: views,
+		Checkpoint: Checkpoint{
+			Name:        "runs",
+			Version:     "1",
+			Consistency: StrongCheckpointed,
+		},
+		BatchSize: 2,
+	}
 	if err := runner.CatchUp(context.Background()); err != nil {
 		t.Fatal(err)
 	}

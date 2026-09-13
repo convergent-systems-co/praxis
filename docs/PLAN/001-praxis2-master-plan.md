@@ -135,10 +135,10 @@ Profile-lifecycle progress: package evaluators now derive `observed` facts atomi
 
 Profile-lifecycle closure: comprehensive successor attestation `cluster-a-runtime-v4.json` binds the final atomic evaluator/fact append and every affected Cluster-A observation. Frozen audit `blind-behavioral-profile-v2.json`, digest `sha256:48101fc78022413985534e1b07eead8e7b7217bc4c04ea733502f6268a422645`, independently evaluates OI-020 as satisfied. The initial v1 profile audit remains immutable from before the generic observed-fact bypass was closed. Totals are 19 satisfied, 3 unsupported, and 16 indeterminate; all unrelated claim states remain unchanged.
 
-## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
+## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — IN PROGRESS
 
-1. Export/import canonical state rather than raw SQLite pages.
-2. Reconcile concurrent compatible, context-separated, conflicting, and stale-descendant state by lineage/provenance.
+1. COMPLETE — Export/import canonical state rather than raw SQLite pages.
+2. COMPLETE — Reconcile concurrent compatible, context-separated, conflicting, and stale-descendant state by lineage/provenance.
 3. Prove package discovery, immutable resolution, provenance/signature verification, transitive capability review, and local authorization as one lifecycle.
 4. Prove private personalized state does not enter generalized/catalog artifacts.
 5. Clean-install pure graph, agent-definition, and mixed packages; instantiate independent agents; update, disable, roll back, uninstall, and restart.
@@ -146,6 +146,8 @@ Profile-lifecycle closure: comprehensive successor attestation `cluster-a-runtim
 7. Prove provider substitution retains semantics and capability mismatch fails closed.
 
 Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
+
+Closure evidence: OI-009 is satisfied in `blind-portable-state-v1.json`. Content-addressed records and envelopes preserve source installation/agent/generation/session provenance, scope, evidence, trust, native payload, and immutable lineage. Two SQLite installations exchange semantic envelopes, union commutative learning, preserve context-separated preferences, retain divergent generation heads and policy conflicts without selection, reject duplicate/stale sequence misuse and portable runtime authority, preserve tombstones, and reconstruct the same state/conflicts after restart. Remaining Wave 20 package/catalog/provider claims are unresolved.
 
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 
@@ -213,6 +215,7 @@ Implemented in this reopened wave:
 - durable contradiction-to-inference fork/demotion result `blind-contradiction-demotion-v2.json` (OI-017 satisfied)
 - evaluator-bound five-class behavioral profile/divergence result `blind-behavioral-profile-v2.json` (OI-020 satisfied)
 - governed preference drift/correction/graph-consumption and contract-migration result `blind-preference-lifecycle-v2.json` (OI-006 and OI-012 satisfied)
+- canonical multi-machine export/import/reconciliation result `blind-portable-state-v1.json` (OI-009 satisfied)
 
 ## Completion calculation
 

@@ -32,6 +32,8 @@ Every synchronizable record type SHALL declare one of:
 
 A `StateEnvelope` SHALL include envelope/version ID, source installation/device principal, creation sequence/time, included record families and schema versions, portability class per record, provenance/lineage, conflict/vector/version metadata, sensitivity classification, cryptographic envelope/signatures, and integrity digest.
 
+Portable records and envelopes are content-addressed canonical contracts governed by first-class version policy under ADR-052. A record preserves its family/entity/scope, source installation, agent/generation/session provenance where applicable, parent/supersession lineage, supporting evidence, mutation type, trust, sensitivity, native canonical payload, and time. Core validates identity and declared reconciliation shape without interpreting the domain payload.
+
 ## Authority exclusions
 
 At minimum, the following SHALL NOT become portable reusable authority merely through export/import:
@@ -49,6 +51,8 @@ Historical records about those items MAY be portable as non-authoritative audit 
 ## Merge semantics
 
 Merge behavior SHALL be declared by record family. Immutable lineage records union by identity/digest. Preferences use scoped/source precedence while preserving conflicts/history. Memory preserves records and supersession/tombstone semantics. Agent generations union lineage and require explicit active-generation resolution on divergent heads. Policy/trust configuration conflicts require fail-closed/manual or higher-authority resolution unless deterministic policy says otherwise.
+
+The portable ledger SHALL apply only explicit generic merge semantics: commutative immutable union, versioned ancestry, or exclusive/single-writer competition. Scope remains an explicit identity dimension; core does not infer context hierarchy from string topology. Incomparable versioned heads and competing exclusive records become first-class conflicts. Core SHALL NOT select an active head through an unresolved conflict.
 
 ## Conflict representation
 
@@ -70,6 +74,8 @@ Import SHALL validate envelope integrity/signature, sender/source identity/prove
 
 Import is a command through the canonical mutation boundary.
 
+The reference ledger appends the exact envelope, deterministic reconciliation result, and distinct destination import authority as one authoritative event. Replay reconstructs prior state, recomputes reconciliation, and rejects any changed result or actor/authority binding. Duplicate envelope identity is idempotent; a different envelope at an accepted or older source sequence fails closed.
+
 ## Replay resistance
 
 Envelope IDs and source sequence/version metadata SHALL detect duplicate/replayed imports. Older envelopes cannot overwrite newer revocation/tombstone/security state without an explicit reconciliation rule.
@@ -86,6 +92,9 @@ Envelope IDs and source sequence/version metadata SHALL detect duplicate/replaye
 8. sensitive export fails when `pq-required` recipient support is unavailable;
 9. offline local work does not imply remote authority freshness;
 10. synchronization works without direct SQLite row copying.
+11. commutative records coexist, context-separated records remain distinct, divergent generation heads remain unresolved, and policy/single-writer conflicts fail closed;
+12. reconciliation, conflicts, tombstone/supersession state, source sequence, and authority binding reconstruct exactly after SQLite restart;
+13. unknown portable contract versions fail through contract-owned compatibility metadata.
 
 ## Deliverables
 

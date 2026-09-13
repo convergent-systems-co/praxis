@@ -5,26 +5,26 @@ import "fmt"
 type PortabilityClass string
 
 const (
-	PortableMergeable      PortabilityClass = "portable_mergeable"
-	PortableVersioned      PortabilityClass = "portable_versioned"
-	PortableSingleWriter   PortabilityClass = "portable_single_writer"
-	LocalEphemeral         PortabilityClass = "local_ephemeral"
+	PortableMergeable       PortabilityClass = "portable_mergeable"
+	PortableVersioned       PortabilityClass = "portable_versioned"
+	PortableSingleWriter    PortabilityClass = "portable_single_writer"
+	LocalEphemeral          PortabilityClass = "local_ephemeral"
 	LocalSensitiveReference PortabilityClass = "local_sensitive_reference"
-	Nonportable            PortabilityClass = "nonportable"
+	Nonportable             PortabilityClass = "nonportable"
 )
 
 type RecordKind string
 
 const (
-	RecordMemory           RecordKind = "memory"
-	RecordPreference       RecordKind = "preference"
-	RecordAgentGeneration  RecordKind = "agent_generation"
-	RecordApproval         RecordKind = "approval"
-	RecordCapabilityLease  RecordKind = "capability_lease"
-	RecordClientSession    RecordKind = "client_session"
-	RecordResourceLease    RecordKind = "resource_lease"
-	RecordKeyReference     RecordKind = "key_reference"
-	RecordPolicy           RecordKind = "policy"
+	RecordMemory          RecordKind = "memory"
+	RecordPreference      RecordKind = "preference"
+	RecordAgentGeneration RecordKind = "agent_generation"
+	RecordApproval        RecordKind = "approval"
+	RecordCapabilityLease RecordKind = "capability_lease"
+	RecordClientSession   RecordKind = "client_session"
+	RecordResourceLease   RecordKind = "resource_lease"
+	RecordKeyReference    RecordKind = "key_reference"
+	RecordPolicy          RecordKind = "policy"
 )
 
 func Classify(kind RecordKind) (PortabilityClass, error) {

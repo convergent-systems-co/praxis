@@ -20,8 +20,8 @@ func Graph() kernel.GraphDef {
 			{ID: "review", Class: kernel.NodeInference},
 			{ID: "repair", Class: kernel.NodeInference},
 			{ID: "integrate", Class: kernel.NodeCapability},
-			{ID: "complete", Class: kernel.NodeTerminal},
-			{ID: "failed", Class: kernel.NodeTerminal},
+			{ID: "complete", Class: kernel.NodeTerminal, TerminalState: kernel.RunSucceeded},
+			{ID: "failed", Class: kernel.NodeTerminal, TerminalState: kernel.RunFailed},
 		},
 		Transitions: []kernel.TransitionDef{
 			{From: "discover", Outcome: "ready", To: "classify"},

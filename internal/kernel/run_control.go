@@ -16,11 +16,19 @@ const (
 	RunControlResume RunControlOperation = "resume"
 )
 
-// RunControlAuthorizer is the mandatory authority boundary for mutating run
-// control operations. Implementations must make deterministic decisions from
-// policy/capability state; absence of an authorizer fails closed.
+// RunControlAuthorizer is the deterministic decision boundary for mutation
+// stores that do not support an atomic authority+event commit. Durable
+// production stores SHOULD use RunControlCommitter instead.
 type RunControlAuthorizer interface {
 	AuthorizeRunControl(ctx context.Context, actor contracts.PrincipalRef, run RunExecution, operation RunControlOperation) error
+}
+
+// RunControlCommitter atomically validates/consumes mutation authority and
+// commits the supplied run observation at expectedVersion+1. It is the
+// preferred durable mutation boundary because authority remains valid through
+// the final event commit.
+type RunControlCommitter interface {
+	CommitRunControl(ctx context.Context, actor contracts.PrincipalRef, operation RunControlOperation, expectedVersion int64, observation RunObservation, commandID, correlationID string) (int64, error)
 }
 
 // RunControl reconstructs authoritative run state from the append-only event
@@ -30,6 +38,7 @@ type RunControl struct {
 	Store      eventstore.Store
 	Actor      contracts.PrincipalRef
 	Authorizer RunControlAuthorizer
+	Committer  RunControlCommitter
 }
 
 type RunStatus struct {
@@ -65,29 +74,41 @@ func (c RunControl) Cancel(ctx context.Context, runID, commandID, correlationID 
 	if status.Run.State.Terminal() {
 		return RunStatus{}, fmt.Errorf("run %q is already terminal in state %q", runID, status.Run.State)
 	}
-	if err := c.authorize(ctx, *status.Run, RunControlCancel); err != nil {
-		return RunStatus{}, err
-	}
-	journal, err := c.journal(commandID, correlationID, status.AggregateVersion)
-	if err != nil {
-		return RunStatus{}, err
-	}
 	observation := baseObservation(status.Run, ObservationRunTerminal, status.Run.CurrentNode)
 	observation.State = RunCancelled
 	observation.FailureClass = FailureCancellation
-	if err := journal.ObserveRun(ctx, observation); err != nil {
-		return RunStatus{}, fmt.Errorf("cancel run %q: %w", runID, err)
+
+	if c.Committer != nil {
+		if err := c.Actor.Validate(); err != nil {
+			return RunStatus{}, fmt.Errorf("run control actor: %w", err)
+		}
+		version, err := c.Committer.CommitRunControl(ctx, c.Actor, RunControlCancel, status.AggregateVersion, observation, commandID, correlationID)
+		if err != nil {
+			return RunStatus{}, fmt.Errorf("cancel run %q: %w", runID, err)
+		}
+		status.AggregateVersion = version
+	} else {
+		if err := c.authorize(ctx, *status.Run, RunControlCancel); err != nil {
+			return RunStatus{}, err
+		}
+		journal, err := c.journal(commandID, correlationID, status.AggregateVersion)
+		if err != nil {
+			return RunStatus{}, err
+		}
+		if err := journal.ObserveRun(ctx, observation); err != nil {
+			return RunStatus{}, fmt.Errorf("cancel run %q: %w", runID, err)
+		}
+		status.AggregateVersion = journal.ExpectedVersion
 	}
 	status.Run.State = RunCancelled
 	status.Run.PendingWait = nil
-	status.AggregateVersion = journal.ExpectedVersion
 	return status, nil
 }
 
 // Resume satisfies the exact persisted wait reference and continues execution
-// through the normal kernel. The authorizer governs the resume operation, while
-// callers remain responsible for validating the referenced approval/human/
-// dependency artifact at its own deterministic boundary before invoking Resume.
+// through the normal kernel. With an atomic committer, the resume observation
+// and capability consumption are committed together before execution resumes,
+// so a crash cannot resurrect the old wait or reuse one-shot authority.
 func (c RunControl) Resume(ctx context.Context, graph GraphDef, runID string, kind WaitKind, ref, commandID, correlationID string, executor NodeExecutor) (RunStatus, error) {
 	if executor == nil {
 		return RunStatus{}, errors.New("resume node executor is required")
@@ -99,12 +120,28 @@ func (c RunControl) Resume(ctx context.Context, graph GraphDef, runID string, ki
 	if status.Run.State.Terminal() {
 		return RunStatus{}, fmt.Errorf("terminal run %q cannot be resumed", runID)
 	}
-	if err := c.authorize(ctx, *status.Run, RunControlResume); err != nil {
-		return RunStatus{}, err
-	}
 	if err := SatisfyWait(status.Run, kind, ref); err != nil {
 		return RunStatus{}, err
 	}
+
+	if c.Committer != nil {
+		if err := c.Actor.Validate(); err != nil {
+			return RunStatus{}, fmt.Errorf("run control actor: %w", err)
+		}
+		observation := baseObservation(status.Run, ObservationRunResumed, status.Run.CurrentNode)
+		observation.State = RunRunning
+		version, err := c.Committer.CommitRunControl(ctx, c.Actor, RunControlResume, status.AggregateVersion, observation, commandID, correlationID)
+		if err != nil {
+			return RunStatus{}, fmt.Errorf("resume run %q: %w", runID, err)
+		}
+		status.AggregateVersion = version
+		status.Run.State = RunRunning
+	} else {
+		if err := c.authorize(ctx, *status.Run, RunControlResume); err != nil {
+			return RunStatus{}, err
+		}
+	}
+
 	journal, err := c.journal(commandID, correlationID, status.AggregateVersion)
 	if err != nil {
 		return RunStatus{}, err
@@ -118,7 +155,7 @@ func (c RunControl) Resume(ctx context.Context, graph GraphDef, runID string, ki
 
 func (c RunControl) authorize(ctx context.Context, run RunExecution, operation RunControlOperation) error {
 	if c.Authorizer == nil {
-		return errors.New("run control mutation requires an explicit authorizer")
+		return errors.New("run control mutation requires an explicit authorizer or atomic committer")
 	}
 	if err := c.Actor.Validate(); err != nil {
 		return fmt.Errorf("run control actor: %w", err)

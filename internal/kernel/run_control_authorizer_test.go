@@ -45,3 +45,17 @@ func TestLeaseRunControlAuthorizerSupportsExplicitHierarchicalScope(t *testing.T
 		t.Fatal(err)
 	}
 }
+
+func TestLeaseRunControlAuthorizerRejectsFiniteUseLeaseWithoutAtomicConsumption(t *testing.T) {
+	now := time.Date(2026, 9, 13, 14, 0, 0, 0, time.UTC)
+	actor := contracts.PrincipalRef{ID: "operator-1", Kind: "user"}
+	uses := uint64(1)
+	lease := contracts.CapabilityLease{
+		ID: "lease-once", Principal: actor, Capability: RunControlCapability,
+		Operations: []string{string(RunControlCancel)}, Scope: "run:run-1", IssuedAt: now.Add(-time.Minute), RemainingUses: &uses,
+	}
+	authorizer := LeaseRunControlAuthorizer{Leases: staticRunControlLeases{lease}, Now: func() time.Time { return now }}
+	if err := authorizer.AuthorizeRunControl(context.Background(), actor, RunExecution{RunID: "run-1"}, RunControlCancel); err == nil {
+		t.Fatal("expected finite-use lease to fail closed without atomic consumption")
+	}
+}

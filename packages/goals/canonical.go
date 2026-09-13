@@ -4,8 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"sort"
 )
+
+var ErrBaselineDigestMismatch = errors.New("goal baseline digest mismatch")
 
 type canonicalDecision struct {
 	ID string `json:"id"`

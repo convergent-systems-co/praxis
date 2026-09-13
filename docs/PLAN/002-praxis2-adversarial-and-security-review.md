@@ -1,163 +1,175 @@
-# PLAN-002: Praxis 2 Adversarial and Security Architecture Review
+# PLAN-002: Praxis 2 Final Adversarial and Security Review
 
-- Status: Draft review record
+- Status: Final review record
 - Date: 2026-09-13
-- Scope: ADR-001 through ADR-039, SPEC-001 through SPEC-004, PLAN-001
+- Scope: current `redesign/praxis2` architecture, ADR-001 through ADR-048, SPEC-001 through SPEC-017, PLAN-001, and implemented Go runtime/tests
 
 ## Review method
 
-The design was reviewed from four hostile perspectives:
+The completed redesign was challenged from these hostile perspectives:
 
-1. malicious or compromised LLM/executor;
-2. malicious repository/document/package content;
-3. malicious or compromised plugin/catalog artifact;
-4. concurrency/replay/state-corruption failures that create security effects without a malicious model.
+1. malicious/compromised LLM or executor;
+2. malicious repository/document/tool output and prompt injection;
+3. malicious or compromised package/plugin/publisher;
+4. plugin escaping declared authority through ambient host privileges;
+5. replay/TOCTOU/concurrency/state-corruption failures;
+6. malicious or stale client integration bypassing deterministic mediation;
+7. cryptographic downgrade/key substitution/profile confusion;
+8. malicious/stale learned state or user-preference drift;
+9. resource exhaustion and recursive graph/subgraph abuse;
+10. storage-provider substitution weakening authority semantics;
+11. package/update lifecycle introducing undeclared command/content surfaces;
+12. accidental reintroduction of software-development assumptions into core.
 
-The review also challenged the architecture for accidental software-development coupling, hidden nondeterministic authority, token/performance regressions, and trust claims stronger than the implementation can enforce.
+## Findings closed by architecture and implementation
 
-## Architectural strengths retained
+### Plugin ambient-authority bypass
 
-The following decisions survived review and should remain foundational:
+**Threat:** a plugin declares narrow capabilities but directly accesses filesystem/network/process credentials outside Praxis.
 
-- general graph/agent ontology rather than development-specific core semantics;
-- execution/learning/governance separation;
-- human authority precedence;
-- deterministic command/query/event boundary;
-- append-only durable events with projections;
-- local authoritative state;
-- capability-based plugin/executor routing;
-- package provenance/signing separated from safety judgment;
-- client adapters separated from graph semantics;
-- enforcement below the LLM;
-- workspace intelligence as disposable derived state rather than repository authority.
+**Controls:** authenticated plugin instance/session identity, explicit isolation profile, capability leases bound to exact instance/runtime session, supervisor/quarantine, protocol handshake, and atomic lease consumption immediately before dispatch. Unknown enforcement is not represented as enforced.
 
-## Findings and disposition
+**Disposition:** closed at Praxis boundary. Host isolation still depends on the selected enforcement provider actually supplying the claimed OS controls; unsupported guarantees fail closed for packages requiring them.
 
-### Critical: process isolation was not yet a security boundary
+### Approval/lease replay and TOCTOU
 
-**Attack:** install or compromise a plugin that declares only narrow capabilities but inherits the user's filesystem, network, environment, SSH agent, cloud credentials, or process authority. The plugin bypasses Praxis protocol checks directly.
+**Threat:** reuse authority, mutate target/arguments after approval, or consume authority separately from protected mutation.
 
-**Disposition:** ADR-041 created. Plugin principals, capability leases, credential brokering, OS/resource isolation, authenticated local transport, and accurate `unconstrained` reporting are now architectural requirements.
+**Controls:** canonical action intent, bounded/revocable leases, optimistic versions, atomic authorization+event/transition boundaries where security requires it, exact run scope, one-use consumption tests.
 
-### Critical: approvals could be replayed or applied to changed actions
+**Disposition:** closed for implemented local SQLite authority paths.
 
-**Attack:** obtain approval for one command, mutate arguments/target after approval, reuse an old approval, or exploit repository/external-state changes between check and execution.
+### Prompt injection and untrusted-content promotion
 
-**Disposition:** ADR-042 created. Security-sensitive approvals bind to canonical `ActionIntent`; commit-time revalidation, anti-replay, idempotency, and unknown-outcome reconciliation are required.
+**Threat:** repository/docs/tool output causes the model to reinterpret policy, create false authority, or poison durable preferences/memory.
 
-### High: prompt injection could poison reasoning and learning despite deterministic side-effect gates
+**Controls:** trust/provenance classes; untrusted content can influence proposals/evidence but cannot authorize; learning promotion requires governed evidence; policy/security invariants are non-learnable; workspace evidence remains derived.
 
-**Attack:** malicious repository comments, docs, tool output, package metadata, or retrieved text instruct the model to reinterpret policy, create false memory, promote preferences, or request a permitted but unintended action.
+**Disposition:** closed architecturally. Model reasoning can still be misled, but side effects remain deterministically mediated.
 
-**Disposition:** ADR-040 created. Content/data and authority are separate trust classes. Provenance survives context/retrieval. Content can influence proposals but cannot authorize them or self-promote into policy/memory/preferences.
+### Secret/context exfiltration
 
-### High: Workspace Intelligence can become a secret-exfiltration amplifier
+**Threat:** Workspace Intelligence efficiently discovers secrets and sends them to remote inference.
 
-**Attack:** context packing finds credentials, private keys, `.env` content, generated secrets, or sensitive files and efficiently sends them to a remote model.
+**Controls:** root confinement, traversal/symlink defenses, sensitivity labels, destination-aware release, exclusions, bounded context packs, crypto/profile requirements.
 
-**Disposition:** ADR-039's exclusion and local-first rules are retained, but its implementation spec must require deny-first secret/path classification, symlink/path traversal controls, sensitivity labels on evidence, destination-aware context release, and tests proving excluded content never enters embeddings, caches, context packs, telemetry, or remote inference.
+**Disposition:** closed at workspace release boundary; deployment-specific exclusion policy still matters.
 
-### High: derived indexes can become stale/confused evidence
+### Stale evidence/indexes
 
-**Attack:** race source changes against an index/context pack so a model reasons or obtains approval against old content and executes against new content.
+**Threat:** approval/reasoning occurs against stale workspace evidence then executes against changed state.
 
-**Disposition:** ADR-039 version/digest binding plus ADR-042 commit-time preconditions. Workspace evidence used for effectful decisions must expose freshness identity; stale evidence causes refresh/re-evaluation when material.
+**Controls:** evidence provenance/freshness identity, disposable derived indexes, baseline/applicability invalidation, deterministic revalidation at authoritative effect boundaries.
 
-### High: package signing can be mistaken for trust
+**Disposition:** closed conceptually and covered by freshness/invalidation fixtures.
 
-**Attack:** a correctly signed malicious package requests dangerous capabilities or later expands them.
+### Signed malicious package
 
-**Disposition:** ADR-025 already separates integrity/provenance from capability risk and local authorization. Retain. Add conformance tests that valid signatures never bypass capability review and capability expansion requires new authorization.
+**Threat:** signature is mistaken for safety/authorization.
 
-### High: client enforcement can be overstated
+**Controls:** signature/integrity is separate from capability authorization; transitive capabilities are aggregated; capability/enforcement/crypto expansion requires explicit update review; install does not grant plugin leases.
 
-**Attack:** Praxis claims a session is controlled while the model has alternate shell/filesystem/network tools outside Praxis.
+**Disposition:** closed.
 
-**Disposition:** ADR-038 already requires `client-unconstrained` classification and fail-closed behavior for exclusive-mediation packages. Retain and make this a release security test, not documentation only.
+### Dynamic CLI command injection
 
-### Medium: resource exhaustion is an authority bypass by availability
+**Threat:** package shadows `status`, `install`, or another control-plane command; alias update hijacks another package; stale command survives uninstall.
 
-**Attack:** plugin, graph, catalog package, or hostile workspace causes unbounded indexing, event generation, recursion, context expansion, process spawning, memory growth, or retry storms.
+**Controls:** reserved core command set, atomic invocation registration, immutable package-generation binding, cross-package alias collision rejection, active-generation filtering, uninstall/deactivate removal.
 
-**Disposition:** existing scheduler/resource governance is directionally correct. SPECs must include quotas for graph depth/work, plugin requests, payload size, event rate, index size, context budgets, retries, and inference spend. Resource limits must be deterministic and enforced below the model.
+**Disposition:** closed by ADR-046/SPEC-015 and package registry tests.
 
-### Medium: event/projection corruption can produce false authority views
+### Universal package content confusion
 
-**Attack:** malformed plugin/event payload or migration bug creates a projection that appears to grant authority not present in source events.
+**Threat:** graph/agent/plugin semantics are conflated, pure declarative content gains executable authority, or agent package updates overwrite persistent identities.
 
-**Disposition:** authoritative authorization must be evaluated from validated canonical state/policy, never a convenience projection whose consistency is unknown. Replay/migration tests must include security-critical projections and corruption recovery.
+**Controls:** typed immutable content references; package is distribution unit, plugin only executable content class; graph/agent definitions register without code; agent instantiation creates separate local identities/generations; plugin capability remains separately lease-gated.
 
-### Medium: cross-machine synchronization can import stale or hostile authority
+**Disposition:** closed by ADR-048/SPEC-017 and graph/agent/mixed package fixtures.
 
-**Attack:** another machine replays old approvals, capability grants, learned state, or package trust decisions.
+### Storage backend semantic downgrade
 
-**Disposition:** portable state specs must classify which authority artifacts are synchronizable, machine-local, expiring, or non-transferable. One-shot approvals and runtime leases are not portable authority. Conflicts involving policy/trust fail closed.
+**Threat:** replacing SQLite with a backend that lacks optimistic concurrency or atomic authority consumption silently weakens the runtime.
 
-### Medium: learning can optimize against security boundaries
+**Controls:** provider-neutral semantic capability profile, fail-closed `Require`, SQLite reference provider, provider conformance fixtures. Storage abstraction is semantic rather than CRUD-shaped.
 
-**Attack:** repeated successful work causes adaptation to suppress checks, broaden retrieval, reduce approvals, or select a faster but less constrained client/plugin.
+**Disposition:** closed architecturally; every future provider must pass conformance before authoritative use.
 
-**Disposition:** ADR-022/023/038/040 jointly prohibit learned behavior from weakening deterministic controls. Security policy and enforcement properties are non-learnable authority unless changed through explicit governance.
+### Cryptographic downgrade
 
-### Medium: dependency and parser attack surface
+**Threat:** relabel encrypted data, substitute key/profile metadata, or silently downgrade PQ-required protection.
 
-**Attack:** malformed source triggers parser/indexer vulnerabilities; package dependency resolution introduces compromised transitive plugins.
+**Controls:** algorithm-agile crypto profiles; PQ-required/PQ-preferred/hybrid/classical-compatible modes; envelope metadata authenticated as AAD; explicit key/suite/profile identifiers; provider capability resolution; no claim that unavailable PQ primitives are present.
 
-**Disposition:** workspace parsers execute under ADR-041 isolation. Package lock/digest resolution and transitive capability aggregation must be specified. Install UI/policy evaluates the effective dependency capability set, not only the top-level package.
+**Disposition:** closed at profile/envelope layer. Actual PQ implementation remains provider-dependent and must truthfully advertise support.
 
-## Adversarial architecture conclusions
+### Run-control authority bypass
 
-### No new core ontology is required
+**Threat:** CLI/client cancels or resumes runs merely because it can access the local database.
 
-The review did not find a need to add development, repository, client, security-product, or provider-specific entities to Praxis core. Security requirements fit the existing principal/capability/command/event/package/plugin architecture.
+**Controls:** read-only status path; mutation requires explicit authorizer or preferred atomic committer; SQLite committer consumes scoped `run.control` authority in the same transaction as the event transition.
 
-### Determinism must extend through the commit point
+**Disposition:** closed in runtime service; CLI mutation exposure must use this path only.
 
-The largest architectural risk was a false sense of determinism: validating a model request deterministically but then allowing ambient plugin/client authority, stale approvals, or changed targets to bypass the validated decision. ADR-038, ADR-041, and ADR-042 together close this conceptual gap.
+### Resource exhaustion
 
-### Provenance is now a cross-cutting primitive
+**Threat:** graphs/plugins/indexers consume unbounded work, nesting, retries or context.
 
-Provenance is required not only for catalog packages and learning, but for repository evidence, model output, approvals, plugin identity, synchronization, context packs, and authority decisions. SPEC-001 should treat provenance/trust class as a reusable canonical contract family rather than duplicating ad hoc fields.
+**Controls:** graph/resource quotas, bounded retries, nesting limits, supervisor restart ceilings, context/token budgets.
 
-### Security claims must be capability claims
+**Disposition:** bounded at implemented runtime surfaces. Deployment resource limits remain defense in depth.
 
-Praxis should never say an environment is `safe`, `sandboxed`, or `enforced` as a global boolean. It should report specific verified properties. Unknown means unavailable. This matches the demonstrated-capability philosophy already used for executors.
+### Goals/recommendation authority confusion
 
-## Required specification changes
+**Threat:** user delegates recommendation acceptance and the model interprets that as authority to execute effects.
 
-Before implementation decomposition, the specification set must add or update contracts for:
+**Controls:** recommendation delegation only changes interaction/question surfacing; capability/policy/approval remain independent deterministic boundaries; Goal Baseline digest and selective invalidation detect mutation.
 
-- trust class and provenance envelopes;
-- plugin principal and effective isolation profile;
-- capability leases and revocation;
-- `ActionIntent`, approval binding, anti-replay, idempotency, and commit revalidation;
-- workspace evidence sensitivity/exclusion and destination-aware context release;
-- transitive package capability aggregation;
-- security-critical resource quotas;
-- sync portability classes for authority artifacts;
-- security conformance fixtures.
+**Disposition:** closed.
 
-## Required adversarial test corpus
+## Remaining operational risks, not architecture blockers
 
-At minimum, release qualification must include hostile fixtures for:
+1. **Host enforcement quality:** an OS/container/sandbox provider can only enforce what its platform actually supports. Praxis must report unsupported/unknown properties accurately.
+2. **Third-party dependency vulnerabilities:** standard dependency/SBOM/update hygiene remains required.
+3. **Publisher key compromise:** revocation/rotation policy mitigates but cannot prevent malicious releases signed by a stolen key before revocation.
+4. **Model quality:** deterministic authority constrains damage but does not guarantee model reasoning correctness.
+5. **User-granted authority:** Praxis cannot make an intentionally broad capability grant narrow; UX should keep scope and consequences explicit.
+6. **Physical/local database compromise:** an attacker with arbitrary local process/root access can tamper with state or binaries. OS/user account security remains outside the cryptographic/application trust boundary unless an external attestation system is added.
 
-- prompt injection in source comments/docs/issues/tool output;
-- secret files and symlink/path traversal;
-- stale index/context pack versus changed repository;
-- malicious signed package;
-- transitive dependency capability expansion;
-- compromised plugin attempting direct filesystem/network access;
-- forged plugin identity/protocol request;
-- approval replay and changed arguments;
-- ambiguous external side-effect timeout/retry;
-- unconstrained client alternate-tool bypass;
-- event/projection corruption;
-- cross-machine stale authority import;
-- graph/retry/index/resource exhaustion;
-- learning attempting to weaken security policy.
+None of these require a new core ontology or architectural redesign.
 
-## Review result
+## Final adversarial checks required for release closure
 
-**Architecture disposition: proceed to detailed specifications after incorporating ADR-040 through ADR-042 and the PLAN-001 changes from this review.**
+The branch qualification suite SHALL include evidence for:
 
-No unresolved design fork from this review requires immediate human decision. The remaining work is specification precision and implementation/conformance evidence.
+- optimistic version conflict/replay;
+- restart/recovery equivalence;
+- run cancellation durability;
+- one-use plugin lease replay rejection;
+- plugin instance/session mismatch;
+- supervisor quarantine/restart ceiling;
+- protocol/handshake mismatch;
+- workspace traversal/sensitive-context rejection;
+- crypto envelope tamper/profile-header mutation rejection;
+- PQ-required downgrade failure;
+- signed package without authority;
+- transitive capability expansion review;
+- dynamic alias collision/core-command shadow rejection;
+- graph-only, agent-only and mixed package activation;
+- independent agents from one installed definition;
+- provider capability `unknown` fail-closed behavior;
+- Goals recommendation delegation not granting execution authority;
+- Goal Baseline canonical digest/selective invalidation;
+- development fast path and architected Goals path;
+- non-development research proving graph;
+- read-only status and authorized run-control mutation boundaries.
+
+## Final conclusion
+
+**Architecture disposition: ACCEPT.**
+
+No unresolved architectural/security fork requires a human decision before the Praxis 2 redesign branch can be treated as complete. Remaining work is release closure: user-facing CLI/documentation alignment, final full-head CI, and conformance reporting.
+
+The central security claim remains intentionally narrow and defensible:
+
+> Models may propose and perform bounded work, but authoritative state, capability, transition, effect, persistence, and package activation decisions are owned by deterministic runtime boundaries whose supported guarantees are explicitly represented and fail closed when required guarantees are unavailable.

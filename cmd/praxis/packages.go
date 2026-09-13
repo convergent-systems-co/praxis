@@ -47,7 +47,7 @@ func runPackageCommand(command string, args []string) error {
 		if err := verifyReleasePackage(release, artifact, os.Getenv, allowFallback); err != nil { return err }
 		db, err := openPackageDB(ctx); if err != nil { return err }; defer db.Close()
 		if err := state.New(db).ActivatePackage(ctx, release.Manifest, "github-release", release.Ref.String()+"@"+release.Tag, time.Now().UTC()); err != nil { return err }
-		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_key": release.Signature.KeyID, "signature_profile": release.Signature.Profile, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
+		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_keys": signatureKeyIDs(release.Signature), "signature_profile": release.Signature.Profile, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
 	case "update":
 		packageID, acceptChanges, allowFallback, err := parseUpdateArgs(args)
 		if err != nil { return err }
@@ -61,7 +61,7 @@ func runPackageCommand(command string, args []string) error {
 		artifact, err := adapter.FetchArtifact(ctx, latest); if err != nil { return err }
 		if err := verifyReleasePackage(latest, artifact, os.Getenv, allowFallback); err != nil { return err }
 		if err := store.ActivatePackage(ctx, latest.Manifest, "github-release", latest.Ref.String()+"@"+latest.Tag, time.Now().UTC()); err != nil { return err }
-		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_key": latest.Signature.KeyID, "signature_profile": latest.Signature.Profile, "review": review})
+		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "review": review})
 	case "uninstall":
 		if len(args) != 1 { return errors.New("usage: praxis uninstall <package-id>") }
 		db, err := openPackageDB(ctx); if err != nil { return err }; defer db.Close()
@@ -119,8 +119,15 @@ func verifyReleasePackage(release distribution.Release, artifact []byte, getenv 
 	if release.Signature.ManifestDigest != release.ManifestDigest || release.Signature.ArtifactDigest != actual { return errors.New("package signature envelope does not bind downloaded manifest and artifact") }
 	keys, err := loadTrustedPublisherKeys(getenv)
 	if err != nil { return err }
-	if err := packagecatalog.VerifySignature(release.Signature, keys, allowPQPreferredFallback); err != nil { return fmt.Errorf("verify package signature: %w", err) }
+	verifiers := []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: keys}}
+	if err := packagecatalog.VerifySignature(release.Signature, verifiers, allowPQPreferredFallback); err != nil { return fmt.Errorf("verify package signature: %w", err) }
 	return nil
+}
+
+func signatureKeyIDs(envelope packagecatalog.SignatureEnvelope) []string {
+	ids := make([]string, 0, len(envelope.Proofs))
+	for _, proof := range envelope.Proofs { ids = append(ids, proof.KeyID) }
+	return ids
 }
 
 func loadTrustedPublisherKeys(getenv func(string) string) (map[string]ed25519.PublicKey, error) {

@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -29,9 +30,8 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	}
 	defer tx.Rollback()
 
-	// Revalidate persisted binding and authority at the consumption boundary.
-	// The in-memory binding is evidence for the request, not the final authority.
-	var principalID, principalKind, capabilityName, operationsJSON, scope string
+	var principalID, principalKind, capabilityName, scope string
+	var operationsJSON []byte
 	var instanceID, sessionID sql.NullString
 	var expiresAt, revokedAt sql.NullString
 	var remainingUses sql.NullInt64
@@ -53,31 +53,27 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	if revokedAt.Valid {
 		return ErrLeaseUnavailable
 	}
+	if remainingUses.Valid && remainingUses.Int64 <= 0 {
+		return ErrLeaseUnavailable
+	}
+
+	var operations []string
+	if err := json.Unmarshal(operationsJSON, &operations); err != nil || len(operations) == 0 {
+		return errors.New("persisted plugin lease operations are invalid")
+	}
+	persisted := contracts.CapabilityLease{
+		ID: binding.Lease.ID,
+		Principal: contracts.PrincipalRef{ID: principalID, Kind: principalKind},
+		Capability: capabilityName,
+		Operations: operations,
+		Scope: scope,
+	}
 	if expiresAt.Valid {
 		expiry, err := time.Parse(time.RFC3339Nano, expiresAt.String)
 		if err != nil {
 			return fmt.Errorf("parse plugin lease expiry: %w", err)
 		}
-		if !now.Before(expiry) {
-			return ErrLeaseUnavailable
-		}
-	}
-	if remainingUses.Valid && remainingUses.Int64 <= 0 {
-		return ErrLeaseUnavailable
-	}
-
-	// Reuse the canonical evaluator against the persisted security-sensitive
-	// fields. Operations are validated below from the persisted JSON representation.
-	persisted := contracts.CapabilityLease{
-		ID: binding.Lease.ID,
-		Principal: contracts.PrincipalRef{ID: principalID, Kind: principalKind},
-		Capability: capabilityName,
-		Operations: binding.Lease.Operations,
-		Scope: scope,
-	}
-	if expiresAt.Valid {
-		t, _ := time.Parse(time.RFC3339Nano, expiresAt.String)
-		persisted.ExpiresAt = &t
+		persisted.ExpiresAt = &expiry
 	}
 	if remainingUses.Valid {
 		u := uint64(remainingUses.Int64)
@@ -85,13 +81,6 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	}
 	if err := capability.Evaluate(persisted, req); err != nil {
 		return err
-	}
-
-	// Fail closed if the serialized persisted operation set differs from the
-	// binding used by the dispatcher. A later schema codec can replace this
-	// exact comparison without weakening the invariant.
-	if operationsJSON == "" {
-		return errors.New("persisted plugin lease operations are missing")
 	}
 
 	res, err := tx.ExecContext(ctx, `UPDATE capability_leases SET remaining_uses=CASE WHEN remaining_uses IS NULL THEN NULL ELSE remaining_uses-1 END, version=version+1 WHERE lease_id=? AND plugin_instance_id=? AND plugin_session_id=? AND revoked_at IS NULL AND (remaining_uses IS NULL OR remaining_uses>0) AND (expires_at IS NULL OR expires_at>?)`,

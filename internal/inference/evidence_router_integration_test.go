@@ -1,0 +1,164 @@
+package inference
+
+import (
+	"context"
+	"encoding/json"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/adaptation"
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
+	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+type routeAuthority struct {
+	evidence map[string]EligibilityEvidence
+}
+
+func TestRouteReplayRejectsAuthorityMetadataMismatch(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 9, 13, 23, 30, 0, 0, time.UTC)
+	request, err := FreezeRouteRequest(RouteRequest{SubjectAgentID: "agent-research", RunID: "run-research", GoalClass: "research", Domain: "research", BehaviorKey: "search", Context: "literature", Tier: D1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := FreezeRoutingPolicy(RoutingPolicy{Tier: D1, RequiredMetrics: []MetricRule{{ID: "sources", Name: "verified_sources", Kind: adaptation.DerivedMeasure, Unit: "sources", Operator: adaptation.GreaterThanOrEqual, Threshold: 5}}, ObjectiveMetric: "verified_sources", MinimumIndependentRoots: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	eligibility, err := FreezeEligibility(EligibilityEvidence{RequestID: request.ID, ExecutorID: "research-executor", ProviderID: "research-provider", Tier: D1, AuthorityID: "runtime-governor", CapabilityEvidenceRef: "capability:research", PolicyEvidenceRef: "policy:research", Authorized: true, CapabilityGranted: true, PolicyAllowed: true, Available: true, EvaluatedAt: base})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := EvidenceDecision{RequestID: request.ID, PolicyID: policy.ID, ExecutorID: eligibility.ExecutorID, ProviderID: eligibility.ProviderID, Tier: D1, EligibilityID: eligibility.ID, MeasurementIDs: []string{"measurement"}, ObservationIDs: []string{"observation"}, IndependentRoots: []string{"root"}, ObjectiveMeasureID: "measurement"}
+	decision.ID = inferenceDigest(decision)
+	record, err := FreezeRouteRecord(RouteRecord{Request: request, Policy: policy, Eligibility: eligibility, Decision: decision, DecidedAt: base.Add(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := state.OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := state.NewSQLiteEventStore(db)
+	payload, _ := json.Marshal(record)
+	_, err = store.Append(ctx, routeAggregate(request.SubjectAgentID), 0, []eventstore.Event{{ID: "event:" + record.ID, AggregateType: "inference_routes", Type: routeDecisionEvent, Version: routeEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: "different-authority", Kind: "authority"}, CommandID: "route:" + record.ID, CorrelationID: request.RunID, Trust: contracts.TrustPolicy, Payload: payload, CreatedAt: record.DecidedAt}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, _ := NewRouteLedger(store)
+	if _, err := ledger.Records(ctx, request.SubjectAgentID); err == nil {
+		t.Fatal("replay accepted route event whose actor did not match eligibility authority")
+	}
+}
+
+func (a routeAuthority) EvaluateRouteEligibility(_ context.Context, _ RouteRequest, candidate RouteCandidate) (EligibilityEvidence, error) {
+	return a.evidence[candidate.ExecutorID], nil
+}
+
+func TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains(t *testing.T) {
+	domains := []struct {
+		name, metric, unit string
+		threshold          float64
+		preferLower        bool
+		values             map[string]float64
+		want               string
+	}{
+		{name: "software-delivery", metric: "average_latency", unit: "ms", threshold: 1000, preferLower: true, values: map[string]float64{"executor-fast": 420, "executor-steady": 700, "executor-denied": 100}, want: "executor-fast"},
+		{name: "research", metric: "verified_source_count", unit: "sources", threshold: 5, preferLower: false, values: map[string]float64{"executor-fast": 7, "executor-steady": 12, "executor-denied": 30}, want: "executor-steady"},
+	}
+	for _, domain := range domains {
+		t.Run(domain.name, func(t *testing.T) {
+			ctx := context.Background()
+			base := time.Date(2026, 9, 13, 23, 0, 0, 0, time.UTC)
+			request, err := FreezeRouteRequest(RouteRequest{SubjectAgentID: "agent-" + domain.name, RunID: "selected-run", GoalClass: "routed-work", Domain: domain.name, BehaviorKey: "execute", Context: "scope", Tier: D1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			observations := []adaptation.Observation{}
+			measurements := []adaptation.Measurement{}
+			candidates := []RouteCandidate{}
+			eligibility := map[string]EligibilityEvidence{}
+			index := 0
+			for executor, value := range domain.values {
+				provider := "provider:" + executor
+				sourceIDs := []string{}
+				for root := 0; root < 2; root++ {
+					observation, err := adaptation.FreezeObservation(adaptation.Observation{SubjectAgentID: "agent-" + domain.name, RunID: executor + "-run-" + string(rune('a'+root)), GoalClass: "routed-work", Domain: domain.name, BehaviorKey: "execute", Context: "scope", CausationRoot: executor + "-root-" + string(rune('a'+root)), Trust: contracts.TrustObserved, ReasoningTier: "D1", ProviderID: provider, Outcome: "complete", PathID: "inference", ObservedAt: base.Add(time.Duration(index+root) * time.Minute)})
+					if err != nil {
+						t.Fatal(err)
+					}
+					observations, sourceIDs = append(observations, observation), append(sourceIDs, observation.ID)
+				}
+				measurement, err := adaptation.FreezeMeasurement(adaptation.Measurement{SubjectAgentID: "agent-" + domain.name, GoalClass: "routed-work", Domain: domain.name, BehaviorKey: "execute", Context: "scope", Measure: adaptation.Measure{Name: domain.metric, Value: value, Kind: adaptation.DerivedMeasure, Unit: domain.unit, Evaluator: &adaptation.EvaluatorRef{ID: "package-evaluator", Version: "1"}, TransformID: domain.metric + "/v1", Provenance: "package:" + domain.name, SourceObservationIDs: sourceIDs, MeasuredAt: base.Add(10 * time.Minute)}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				measurements = append(measurements, measurement)
+				candidates = append(candidates, RouteCandidate{ExecutorID: executor, ProviderID: provider, MeasurementIDs: []string{measurement.ID}})
+				allowed := executor != "executor-denied"
+				entry, err := FreezeEligibility(EligibilityEvidence{RequestID: request.ID, ExecutorID: executor, ProviderID: provider, Tier: D1, AuthorityID: "runtime-governor", CapabilityEvidenceRef: "capability:" + executor, PolicyEvidenceRef: "policy:" + domain.name, Authorized: allowed, CapabilityGranted: allowed, PolicyAllowed: allowed, Available: true, EvaluatedAt: base.Add(11 * time.Minute)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				eligibility[executor] = entry
+				index += 2
+			}
+			operator := adaptation.GreaterThanOrEqual
+			if domain.preferLower {
+				operator = adaptation.LessThanOrEqual
+			}
+			policy, err := FreezeRoutingPolicy(RoutingPolicy{Tier: D1, RequiredMetrics: []MetricRule{{ID: "package-objective", Name: domain.metric, Kind: adaptation.DerivedMeasure, Unit: domain.unit, Operator: operator, Threshold: domain.threshold}}, ObjectiveMetric: domain.metric, PreferLowerObjective: domain.preferLower, MinimumIndependentRoots: 2})
+			if err != nil {
+				t.Fatal(err)
+			}
+			mismatched := make(map[string]EligibilityEvidence, len(eligibility))
+			for executor, entry := range eligibility {
+				entry.RequestID = "sha256:another-request"
+				entry.ID = ""
+				entry, err = FreezeEligibility(entry)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mismatched[executor] = entry
+			}
+			if _, err := RouteFromEvidence(ctx, request, policy, candidates, observations, measurements, routeAuthority{evidence: mismatched}); err == nil {
+				t.Fatal("routing accepted eligibility evidence issued for another request")
+			}
+			decision, err := RouteFromEvidence(ctx, request, policy, candidates, observations, measurements, routeAuthority{evidence: eligibility})
+			if err != nil || decision.ExecutorID != domain.want || decision.ExecutorID == "executor-denied" || decision.RequestID != request.ID {
+				t.Fatalf("routing ignored package objective or hard eligibility: %#v %v", decision, err)
+			}
+
+			path := filepath.Join(t.TempDir(), "praxis.db")
+			db, err := state.OpenSQLite(ctx, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ledger, _ := NewRouteLedger(state.NewSQLiteEventStore(db))
+			record, err := FreezeRouteRecord(RouteRecord{Request: request, Policy: policy, Eligibility: eligibility[domain.want], Decision: decision, DecidedAt: base.Add(12 * time.Minute)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ledger.Record(ctx, record); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.Close(); err != nil {
+				t.Fatal(err)
+			}
+			db, err = state.OpenSQLite(ctx, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			restarted, _ := NewRouteLedger(state.NewSQLiteEventStore(db))
+			replayed, err := restarted.Records(ctx, record.Request.SubjectAgentID)
+			if err != nil || len(replayed) != 1 || replayed[0].ID != record.ID || replayed[0].Decision.ProviderID != "provider:"+domain.want {
+				t.Fatalf("route authority/provider evidence did not survive restart: %#v %v", replayed, err)
+			}
+		})
+	}
+}

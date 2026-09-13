@@ -1,7 +1,7 @@
 # SPEC-009: Inference Routing and Reasoning Budgets
 
 - Status: Draft
-- Governing ADRs: 015, 016, 018, 038, 040, 043
+- Governing ADRs: 015, 016, 018, 038, 040, 043, 052
 - Depends on: SPEC-001, SPEC-003, SPEC-004, SPEC-007
 
 ## Purpose
@@ -68,6 +68,18 @@ Routing SHALL use demonstrated capability evidence where available: task class, 
 
 Provider/model identity MAY be part of evidence but SHALL NOT itself prove capability.
 
+### Governed evidence-routing contract
+
+A D1/D2 route request SHALL be immutable and content-addressed over agent, run, goal class, domain, behavior, context, and requested tier. Deterministic eligibility evidence SHALL bind that exact request, executor, provider, tier, authority, capability evidence, policy evidence, and evaluation time. Reusing eligibility from another request, provider, or tier fails closed.
+
+Package policy SHALL select typed adaptive measurements by name, semantic kind, native unit, comparison, threshold, objective direction, and minimum independent causation roots. Core validates identity, provenance, scope, source observations, provider binding, and the declared comparison; it does not assign meaning to measure names or units. A software-delivery package may therefore minimize milliseconds while a research package maximizes verified-source counts without changing the router.
+
+Authorization, capability grant, policy allowance, and availability are non-compensable eligibility conditions. No favorable quality, latency, token, cost, or other measurement may outweigh a failed condition. Among eligible candidates satisfying all declared metric rules, selection is deterministic, with stable executor identity as the final tie breaker.
+
+The selected decision SHALL bind the request, frozen policy, exact eligibility evidence, executor/provider, cited measurements, their source observations, independent causation roots, and objective measurement. The durable route record SHALL preserve these bindings in the authoritative event store and re-verify event actor, trust, request/run correlation, contract version, and content digest during restart replay.
+
+Routing-policy and route-event schema compatibility are owned by named version-contract registries under ADR-052. Callers consume the current contract and do not carry historical-version lists.
+
 ## Latency optimization
 
 Praxis SHALL measure:
@@ -114,6 +126,11 @@ When inference is provided by an LLM client rather than a direct provider adapte
 8. repeated successful fixture can be nominated for lower tier but not auto-promoted without governance;
 9. executor self-reported confidence cannot substitute for acceptance evidence;
 10. speculative inference cannot duplicate external side effects.
+11. materially different domain packages route using incompatible native measures and units without core changes;
+12. eligibility evidence from another request, provider, or tier fails closed;
+13. policy or capability denial cannot be compensated by a superior performance metric;
+14. a durable route record survives restart with exact request, authority, provider, metric, and causation bindings;
+15. replay rejects an event whose actor does not match the eligibility authority.
 
 ## Deliverables
 
@@ -125,3 +142,5 @@ When inference is provided by an LLM client rather than a direct provider adapte
 - cancellation/deadline integration;
 - routing benchmark corpus;
 - conformance tests for D0/D1/D2 behavior.
+
+The evidence router and durable record establish the selection contract. OI-013/OI-014 additionally require graph/runtime dispatch and observed outcome to be bound into the same execution lifecycle; the selection substrate alone is not closure evidence.

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Praxis 2 System Context and Architectural Planes</title>
+  <desc id="desc">High-level diagram showing the human, interaction plane, execution plane, learning plane, governance plane, local-first state, executors, and optional catalog.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+    <style>
+      .title{font:700 28px system-ui,sans-serif;fill:#0f172a}.sub{font:500 15px system-ui,sans-serif;fill:#475569}.h{font:700 18px system-ui,sans-serif;fill:#0f172a}.t{font:14px system-ui,sans-serif;fill:#334155}.small{font:12px system-ui,sans-serif;fill:#475569}.box{fill:#fff;stroke:#334155;stroke-width:2;rx:14}.plane{fill:#f8fafc;stroke:#64748b;stroke-width:2;rx:18}.state{fill:#f1f5f9;stroke:#0f172a;stroke-width:2;rx:14}.external{fill:#fff;stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 5;rx:14}.arrow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}.feedback{stroke:#64748b;stroke-width:2;fill:none;stroke-dasharray:6 4;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="#ffffff"/>
+  <text x="60" y="55" class="title">Praxis 2 — System Context and Architectural Planes</text>
+  <text x="60" y="82" class="sub">Local-first adaptive agent system; development is one proving domain, not the product boundary.</text>
+
+  <rect x="55" y="125" width="180" height="110" class="box"/>
+  <text x="145" y="163" text-anchor="middle" class="h">Human</text>
+  <text x="145" y="190" text-anchor="middle" class="t">goals • corrections</text>
+  <text x="145" y="212" text-anchor="middle" class="t">preferences • authority</text>
+
+  <rect x="300" y="115" width="1040" height="125" class="plane"/>
+  <text x="325" y="145" class="h">Interaction &amp; Intent Plane</text>
+  <rect x="330" y="165" width="210" height="50" class="box"/><text x="435" y="196" text-anchor="middle" class="t">Intent Gateway</text>
+  <rect x="565" y="165" width="220" height="50" class="box"/><text x="675" y="196" text-anchor="middle" class="t">Context Resolver</text>
+  <rect x="810" y="165" width="230" height="50" class="box"/><text x="925" y="196" text-anchor="middle" class="t">Preference Resolver</text>
+  <rect x="1065" y="165" width="240" height="50" class="box"/><text x="1185" y="196" text-anchor="middle" class="t">Explainability / Control</text>
+
+  <rect x="300" y="275" width="1040" height="190" class="plane"/>
+  <text x="325" y="307" class="h">Execution Plane</text>
+  <rect x="330" y="330" width="225" height="55" class="box"/><text x="442" y="363" text-anchor="middle" class="t">Goal / Process Resolver</text>
+  <rect x="585" y="330" width="210" height="55" class="box"/><text x="690" y="363" text-anchor="middle" class="t">Graph Runtime</text>
+  <rect x="825" y="330" width="210" height="55" class="box"/><text x="930" y="363" text-anchor="middle" class="t">Agent Runtime</text>
+  <rect x="1065" y="330" width="240" height="55" class="box"/><text x="1185" y="363" text-anchor="middle" class="t">Executor Registry</text>
+  <text x="330" y="420" class="small">Known deterministic nodes execute directly. Inference is bounded to nodes that require judgment, novelty, or ambiguity.</text>
+  <text x="330" y="443" class="small">Execution emits durable evidence: outcomes, validations, failures, overrides, latency, cost, token usage, and exceptions.</text>
+
+  <rect x="300" y="500" width="500" height="230" class="plane"/>
+  <text x="325" y="533" class="h">Learning Plane</text>
+  <rect x="330" y="555" width="200" height="52" class="box"/><text x="430" y="586" text-anchor="middle" class="t">Learning Engine</text>
+  <rect x="555" y="555" width="215" height="52" class="box"/><text x="662" y="586" text-anchor="middle" class="t">Drift Detector</text>
+  <rect x="330" y="630" width="200" height="52" class="box"/><text x="430" y="661" text-anchor="middle" class="t">Pattern Discovery</text>
+  <rect x="555" y="630" width="215" height="52" class="box"/><text x="662" y="661" text-anchor="middle" class="t">Determinism Extractor</text>
+  <text x="330" y="710" class="small">Produces candidates; does not silently mutate trusted active generations.</text>
+
+  <rect x="840" y="500" width="500" height="230" class="plane"/>
+  <text x="865" y="533" class="h">Governance Plane</text>
+  <rect x="870" y="555" width="200" height="52" class="box"/><text x="970" y="586" text-anchor="middle" class="t">Candidate Evaluation</text>
+  <rect x="1095" y="555" width="215" height="52" class="box"/><text x="1202" y="586" text-anchor="middle" class="t">Promotion / Rollback</text>
+  <rect x="870" y="630" width="200" height="52" class="box"/><text x="970" y="661" text-anchor="middle" class="t">Policy / Invariants</text>
+  <rect x="1095" y="630" width="215" height="52" class="box"/><text x="1202" y="661" text-anchor="middle" class="t">Lineage / Versions</text>
+  <text x="870" y="710" class="small">Human authority, privacy scope, trust, staged promotion, demotion, and explainability.</text>
+
+  <rect x="300" y="765" width="650" height="90" class="state"/>
+  <text x="325" y="797" class="h">Praxis-Owned Local-First Durable State</text>
+  <text x="325" y="825" class="t">contexts • preferences • agents • graphs • evidence • lineage • learning • governance • catalog ancestry</text>
+  <text x="325" y="847" class="small">Portable state is independent of transport; machine-local secrets/capabilities remain separately scoped.</text>
+
+  <rect x="1000" y="765" width="340" height="90" class="external"/>
+  <text x="1025" y="797" class="h">Optional External Catalog / Transport</text>
+  <text x="1025" y="825" class="t">GitHub, encrypted archive, P2P, SSH, object store…</text>
+  <text x="1025" y="847" class="small">Accelerator and transport, never mandatory runtime state.</text>
+
+  <path d="M235 180 L300 180" class="arrow"/>
+  <path d="M820 240 L820 275" class="arrow"/>
+  <path d="M690 465 L690 500" class="feedback"/>
+  <path d="M1030 465 L1030 500" class="feedback"/>
+  <path d="M800 615 L840 615" class="arrow"/>
+  <path d="M550 730 L550 765" class="arrow"/>
+  <path d="M1090 730 L1090 765" class="arrow"/>
+  <path d="M1000 810 L950 810" class="feedback"/>
+  <path d="M840 535 C760 485 740 485 700 465" class="feedback"/>
+</svg>

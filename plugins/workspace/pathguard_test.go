@@ -33,7 +33,15 @@ func TestResolveAuthorizedPathAllowsContainedFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved != file {
-		t.Fatalf("expected %s got %s", file, resolved)
+	want, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err = filepath.Abs(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != want {
+		t.Fatalf("expected canonical path %s got %s", want, resolved)
 	}
 }

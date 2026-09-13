@@ -11,11 +11,11 @@ import (
 )
 
 type FileRecord struct {
-	Path       string
-	Digest     string
-	Size       int64
-	ModTime    time.Time
-	IndexedAt  time.Time
+	Path      string
+	Digest    string
+	Size      int64
+	ModTime   time.Time
+	IndexedAt time.Time
 }
 
 type Index struct {
@@ -28,6 +28,14 @@ func NewIndex() *Index {
 }
 
 func (i *Index) UpdateFile(root, requested string, now time.Time) (FileRecord, bool, error) {
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return FileRecord{}, false, err
+	}
+	resolvedRoot, err = filepath.Abs(resolvedRoot)
+	if err != nil {
+		return FileRecord{}, false, err
+	}
 	resolved, err := ResolveAuthorizedPath(root, requested)
 	if err != nil {
 		return FileRecord{}, false, err
@@ -45,7 +53,7 @@ func (i *Index) UpdateFile(root, requested string, now time.Time) (FileRecord, b
 	}
 	sum := sha256.Sum256(data)
 	digest := "sha256:" + hex.EncodeToString(sum[:])
-	rel, err := filepath.Rel(root, resolved)
+	rel, err := filepath.Rel(resolvedRoot, resolved)
 	if err != nil {
 		return FileRecord{}, false, err
 	}

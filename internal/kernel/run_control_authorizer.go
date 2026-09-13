@@ -18,6 +18,11 @@ type RunControlLeaseSource interface {
 
 // LeaseRunControlAuthorizer authorizes run mutation only when at least one
 // current capability lease grants the exact operation for run:<run-id>.
+//
+// This authorizer is decision-only; it cannot atomically consume a finite-use
+// lease in the same transaction as the run event. Finite-use leases therefore
+// fail closed here to avoid a check/use race. A future transactional mutation
+// gate may safely support consumable run-control leases.
 type LeaseRunControlAuthorizer struct {
 	Leases RunControlLeaseSource
 	Now    func() time.Time
@@ -42,14 +47,18 @@ func (a LeaseRunControlAuthorizer) AuthorizeRunControl(ctx context.Context, acto
 		now = a.Now().UTC()
 	}
 	request := capability.Request{
-		Principal: actor,
+		Principal:  actor,
 		Capability: RunControlCapability,
-		Operation: string(operation),
-		Scope: "run:" + run.RunID,
-		Now: now,
+		Operation:  string(operation),
+		Scope:      "run:" + run.RunID,
+		Now:        now,
 	}
 	var lastErr error
 	for _, lease := range leases {
+		if lease.RemainingUses != nil {
+			lastErr = errors.New("finite-use run control lease requires atomic consumption")
+			continue
+		}
 		if err := capability.Evaluate(lease, request); err == nil {
 			return nil
 		} else {

@@ -20,10 +20,12 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "5" {
-		t.Fatalf("expected schema version 5, got %s", version)
+	if version != "6" {
+		t.Fatalf("expected schema version 6, got %s", version)
 	}
-	assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations`, 5)
+	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql"} {
+		assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='`+migration+`'`, 1)
+	}
 
 	assertPragmaInt(t, db, "foreign_keys", 1)
 	assertPragmaInt(t, db, "busy_timeout", 5000)
@@ -53,7 +55,7 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations`, 5)
+	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0006_governed_package_activation.sql'`, 1)
 	var boundInstanceColumns int
 	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('capability_leases') WHERE name='bound_instance_id'`).Scan(&boundInstanceColumns); err != nil {
 		t.Fatal(err)
@@ -81,6 +83,13 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 	}
 	if contentTables != 1 {
 		t.Fatalf("expected package_contents table exactly once, got %d", contentTables)
+	}
+	var activationReceiptTables int
+	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='package_activation_receipts'`).Scan(&activationReceiptTables); err != nil {
+		t.Fatal(err)
+	}
+	if activationReceiptTables != 1 {
+		t.Fatalf("expected governed package activation receipt table, got %d", activationReceiptTables)
 	}
 }
 

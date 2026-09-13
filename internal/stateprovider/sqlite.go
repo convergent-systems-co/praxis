@@ -59,8 +59,8 @@ func (p *SQLiteProvider) Packages() PackageRegistry { return sqlitePackageRegist
 
 type sqlitePackageRegistry struct{ store *state.Store }
 
-func (r sqlitePackageRegistry) ActivatePackage(ctx context.Context, manifest packagecatalog.Manifest, sourceKind, sourceRef string, now time.Time) error {
-	return r.store.ActivatePackage(ctx, manifest, sourceKind, sourceRef, now)
+func (r sqlitePackageRegistry) ActivatePackage(ctx context.Context, request packagecatalog.ActivationRequest, now time.Time) error {
+	return r.store.ActivatePackage(ctx, request, now)
 }
 func (r sqlitePackageRegistry) DeactivatePackage(ctx context.Context, packageID string) error {
 	return r.store.DeactivatePackage(ctx, packageID)

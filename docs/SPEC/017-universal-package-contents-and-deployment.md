@@ -78,6 +78,8 @@ After artifact verification and authorization review, activation SHALL atomicall
 - plugin definitions as inactive/available providers;
 - package dependency lock.
 
+The same transaction SHALL consume the exact intent-bound local approval and persist a content-addressed activation receipt. A bare manifest, signature-valid package, caller-selected trust enum, or command-line acceptance flag is not activation authority.
+
 If any required content fails validation or registration collision checks, the previous active generation remains unchanged.
 
 ## Update

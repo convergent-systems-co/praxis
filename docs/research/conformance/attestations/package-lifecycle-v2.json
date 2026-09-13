@@ -1,0 +1,46 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./cmd/praxis",
+    "./internal/distribution",
+    "./internal/packagecatalog",
+    "./internal/state",
+    "./internal/stateprovider"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T23:55:53.645149Z",
+  "finished_at": "2026-09-13T23:55:55.362045Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-lifecycle-v2.log",
+  "output_digest": "sha256:cea0ac0fe0179cf7c4dda6f9c3b2c2a618d51899726e6f855b2c541bc944dc0c",
+  "source_digests": {
+    "cmd/praxis": "sha256:a7928752a16aac74b7a33ee5980053701906b45c5560254f74b18c31c8a01689",
+    "internal/distribution": "sha256:c853653ea764091d24f62976d9ea57bb7d3b0b13672a7299dd10df9398132012",
+    "internal/packagecatalog": "sha256:3749b18ec966d4d0725741e7608e70c08d37a856fc25cd7e6b23be1fd87af712",
+    "internal/state": "sha256:1377c7908a9ad1db324078e1a3345832d91c252afc8b55c3ab7ba4d49f560bbd",
+    "internal/stateprovider": "sha256:947d0c2adb30986cc533f3448cf19bf3136837cb22eb0f83cf61661dcabe45a6",
+    "migrations/sqlite": "sha256:c65737975c771b533e4fd13a98d72605ad99f8d8c69a7338786cc3d3bc962a46",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestBarePackageCannotMintVerificationAndTamperingFails",
+    "TestGitHubReleasesResolveLoadsCanonicalSignedAssets",
+    "TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic",
+    "TestPackageAliasCollisionFailsWithoutChangingExistingOwner",
+    "TestPackageContractVersionsAreRegistryGovernedAndFailClosed",
+    "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface",
+    "TestPackageVerificationAuthorityAndRegistrationsSurviveRestart",
+    "TestSQLiteProviderPackageRegistryIsProviderNeutral",
+    "TestUnverifiedDependencyCannotSatisfyImmutableLock",
+    "TestVerificationCannotMintActivationAuthority",
+    "TestVerifiedPackageAccessorsCannotMutateSealedEvidence",
+    "TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:8ac4fcec2816f47cf51d644747792604f9f0bf1b28d540f726e3e2b2aeff952f"
+}

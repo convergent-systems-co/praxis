@@ -2,6 +2,12 @@ package stateprovider
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -78,8 +84,40 @@ func TestSQLiteProviderPackageRegistryIsProviderNeutral(t *testing.T) {
 	}
 	defer provider.Close()
 
-	manifest := packagecatalog.Manifest{PackageID: "fixture/pkg", Version: "1.0.0", ContentDigest: "sha256:fixture"}
-	if err := provider.Packages().ActivatePackage(ctx, manifest, "test", "fixture", time.Now().UTC()); err != nil {
+	now := time.Now().UTC()
+	artifact := []byte("fixture-package")
+	artifactSum := sha256.Sum256(artifact)
+	manifest := packagecatalog.Manifest{PackageID: "fixture/pkg", Version: "1.0.0", ContentDigest: "sha256:" + hex.EncodeToString(artifactSum[:])}
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestSum := sha256.Sum256(manifestBytes)
+	pub, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope := packagecatalog.SignatureEnvelope{Version: packagecatalog.SignatureEnvelopeCurrentVersion(), Profile: contracts.CryptoClassicalCompatible, ManifestDigest: "sha256:" + hex.EncodeToString(manifestSum[:]), ArtifactDigest: manifest.ContentDigest}
+	proof := packagecatalog.SignatureProof{Algorithm: packagecatalog.SignatureAlgorithmEd25519, KeyID: "publisher"}
+	proof.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(private, envelope.Statement()))
+	envelope.Proofs = []packagecatalog.SignatureProof{proof}
+	verified, err := packagecatalog.VerifyPackage(packagecatalog.VerificationInput{ManifestBytes: manifestBytes, ArtifactBytes: artifact, Signature: envelope, SourceKind: "fixture", SourceRef: "fixture/pkg@1.0.0", VerifiedAt: now}, []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"publisher": pub}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := contracts.PrincipalRef{ID: "operator", Kind: "user"}
+	intent, err := packagecatalog.NewActivationIntent(verified, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentDigest, err := intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, "package-approval", actor.ID, actor.Kind, intentDigest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Packages().ActivatePackage(ctx, packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: "package-approval"}, now); err != nil {
 		t.Fatal(err)
 	}
 	active, err := provider.Packages().ActivePackage(ctx, manifest.PackageID)

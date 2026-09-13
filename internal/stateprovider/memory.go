@@ -38,7 +38,7 @@ func (p *MemoryProvider) Packages() PackageRegistry { return unsupportedPackageR
 
 type unsupportedPackageRegistry struct{}
 
-func (unsupportedPackageRegistry) ActivatePackage(context.Context, packagecatalog.Manifest, string, string, time.Time) error {
+func (unsupportedPackageRegistry) ActivatePackage(context.Context, packagecatalog.ActivationRequest, time.Time) error {
 	return errors.New("provider does not support atomic package activation")
 }
 func (unsupportedPackageRegistry) DeactivatePackage(context.Context, string) error {

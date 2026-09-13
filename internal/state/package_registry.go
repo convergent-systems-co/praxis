@@ -42,24 +42,25 @@ type RegisteredInvocation struct {
 }
 
 type RegisteredContent struct {
-	PackageID     string
+	PackageID      string
 	PackageVersion string
-	PackageDigest string
-	Content       packagecatalog.ContentRef
+	PackageDigest  string
+	Content        packagecatalog.ContentRef
 }
 
-// ActivatePackage atomically installs/activates one immutable package generation
-// and publishes its invocation and typed-content registrations.
-func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Manifest, sourceKind, sourceRef string, now time.Time) error {
+// ActivatePackage atomically consumes exact local authority, records immutable
+// verification evidence, activates one package generation, and publishes its
+// invocation and typed-content registrations.
+func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.ActivationRequest, now time.Time) error {
 	if s == nil || s.db == nil {
 		return errors.New("state store is required")
 	}
-	if err := manifest.Validate(); err != nil {
+	if err := request.Validate(); err != nil {
 		return err
 	}
-	if sourceKind == "" || sourceRef == "" {
-		return errors.New("package source kind and ref are required")
-	}
+	manifest := request.Package.Manifest()
+	verification := request.Package.Evidence()
+	sourceKind, sourceRef := verification.SourceKind, verification.SourceRef
 	for _, inv := range manifest.Invocations {
 		for _, alias := range inv.Aliases {
 			if IsReservedCoreCommand(alias) {
@@ -77,6 +78,13 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 		return fmt.Errorf("begin package activation: %w", err)
 	}
 	defer tx.Rollback()
+	intentDigest, err := request.Intent.Digest()
+	if err != nil {
+		return err
+	}
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+		return err
+	}
 
 	for _, inv := range manifest.Invocations {
 		for _, alias := range inv.Aliases {
@@ -120,6 +128,24 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 		manifest.PackageID, manifest.Version, manifest.ContentDigest, "active", sourceKind, sourceRef, manifestJSON, stamp, stamp); err != nil {
 		return fmt.Errorf("persist package generation: %w", err)
 	}
+	verificationJSON, err := json.Marshal(verification)
+	if err != nil {
+		return fmt.Errorf("marshal package verification: %w", err)
+	}
+	signatureJSON, err := json.Marshal(request.Package.Signature())
+	if err != nil {
+		return fmt.Errorf("marshal package signature: %w", err)
+	}
+	intentJSON, err := json.Marshal(request.Intent)
+	if err != nil {
+		return fmt.Errorf("marshal package activation intent: %w", err)
+	}
+	activationSum := sha256.Sum256([]byte(verification.ID + "\x00" + request.ApprovalID))
+	activationID := "package-activation:sha256:" + hex.EncodeToString(activationSum[:])
+	if _, err := tx.ExecContext(ctx, `INSERT INTO package_activation_receipts(activation_id,package_id,package_version,content_digest,verification_id,verification_json,manifest_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		activationID, manifest.PackageID, manifest.Version, manifest.ContentDigest, verification.ID, verificationJSON, request.Package.ManifestBytes(), signatureJSON, intentJSON, intentDigest, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, stamp); err != nil {
+		return fmt.Errorf("persist package activation receipt: %w", err)
+	}
 
 	for _, content := range manifest.Contents {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO package_contents(package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,compatibility,active,registered_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)
@@ -148,6 +174,44 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 		}
 	}
 	return tx.Commit()
+}
+
+func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor contracts.PrincipalRef, intentDigest string, now time.Time) error {
+	var approverID, approverKind string
+	var persistedDigest sql.NullString
+	var issued string
+	var expires, revoked sql.NullString
+	var remaining, version int64
+	if err := tx.QueryRowContext(ctx, `SELECT approver_id,approver_kind,intent_digest,issued_at,expires_at,revoked_at,remaining_uses,version FROM approvals WHERE approval_id=?`, id).Scan(&approverID, &approverKind, &persistedDigest, &issued, &expires, &revoked, &remaining, &version); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrApprovalUnavailable
+		}
+		return fmt.Errorf("load package activation approval: %w", err)
+	}
+	if approverID != actor.ID || approverKind != actor.Kind || !persistedDigest.Valid || persistedDigest.String != intentDigest || revoked.Valid || remaining < 1 {
+		return ErrApprovalUnavailable
+	}
+	if _, err := time.Parse(time.RFC3339Nano, issued); err != nil {
+		return fmt.Errorf("parse package approval issue time: %w", err)
+	}
+	if expires.Valid {
+		expiresAt, err := time.Parse(time.RFC3339Nano, expires.String)
+		if err != nil {
+			return fmt.Errorf("parse package approval expiry: %w", err)
+		}
+		if !now.UTC().Before(expiresAt.UTC()) {
+			return ErrApprovalUnavailable
+		}
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE approvals SET remaining_uses=remaining_uses-1,version=version+1 WHERE approval_id=? AND version=? AND remaining_uses>0 AND revoked_at IS NULL`, id, version)
+	if err != nil {
+		return fmt.Errorf("consume package activation approval: %w", err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil || changed != 1 {
+		return ErrApprovalUnavailable
+	}
+	return nil
 }
 
 func (s *Store) DeactivatePackage(ctx context.Context, packageID string) error {

@@ -11,10 +11,7 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
-const (
-	SignatureEnvelopeVersion = "v1"
-	SignatureAlgorithmEd25519 = "ed25519"
-)
+const SignatureAlgorithmEd25519 = "ed25519"
 
 type SignatureClass string
 
@@ -41,8 +38,8 @@ type SignatureEnvelope struct {
 }
 
 func (e SignatureEnvelope) Validate() error {
-	if e.Version != SignatureEnvelopeVersion {
-		return fmt.Errorf("unsupported package signature envelope version %q", e.Version)
+	if err := requirePackageContractVersion(signatureEnvelopeVersions, e.Version); err != nil {
+		return err
 	}
 	if err := e.Profile.Validate(); err != nil {
 		return err
@@ -68,7 +65,7 @@ func (e SignatureEnvelope) Validate() error {
 }
 
 func (e SignatureEnvelope) Statement() []byte {
-	return []byte("praxis-package-signature-v1\n" + e.ManifestDigest + "\n" + e.ArtifactDigest + "\n")
+	return []byte("praxis-package-signature-" + e.Version + "\n" + e.ManifestDigest + "\n" + e.ArtifactDigest + "\n")
 }
 
 // SignatureVerifier is implemented by cryptographic providers. A provider
@@ -84,7 +81,7 @@ type Ed25519Verifier struct {
 	TrustedKeys map[string]ed25519.PublicKey
 }
 
-func (Ed25519Verifier) Algorithm() string   { return SignatureAlgorithmEd25519 }
+func (Ed25519Verifier) Algorithm() string     { return SignatureAlgorithmEd25519 }
 func (Ed25519Verifier) Class() SignatureClass { return SignatureClassClassical }
 func (v Ed25519Verifier) Verify(proof SignatureProof, statement []byte) error {
 	key, ok := v.TrustedKeys[proof.KeyID]
@@ -147,11 +144,17 @@ func VerifySignature(envelope SignatureEnvelope, verifiers []SignatureVerifier, 
 
 	switch resolution.Selected {
 	case contracts.CryptoClassicalCompatible:
-		if valid[SignatureClassClassical] { return nil }
+		if valid[SignatureClassClassical] {
+			return nil
+		}
 	case contracts.CryptoPQPreferred, contracts.CryptoPQRequired:
-		if valid[SignatureClassPQ] { return nil }
+		if valid[SignatureClassPQ] {
+			return nil
+		}
 	case contracts.CryptoHybridHighAssurance:
-		if valid[SignatureClassClassical] && valid[SignatureClassPQ] { return nil }
+		if valid[SignatureClassClassical] && valid[SignatureClassPQ] {
+			return nil
+		}
 	}
 	if len(proofErrors) != 0 {
 		return errors.Join(append([]error{errors.New("no valid package signature proof satisfies resolved crypto profile")}, proofErrors...)...)

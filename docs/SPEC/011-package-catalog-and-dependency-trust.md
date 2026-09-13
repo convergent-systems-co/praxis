@@ -22,6 +22,8 @@ Distribution location or signature validity SHALL NOT be treated as execution au
 8. Graphs and agent definitions are first-class package contents and SHALL NOT require executable plugin code.
 9. Plugins are executable provider contents carried by packages, not the package/distribution architecture itself.
 10. Active CLI/client entry points derive from installed package `InvocationContract`s under SPEC-015.
+11. Verification evidence is content-addressed and binds the exact downloaded manifest bytes, artifact bytes, signature envelope, verified dependency evidence, transitive capability request, enforcement request, source, and time. A caller-authored `verified` field cannot mint it.
+12. Local activation authority binds the exact verification evidence and reviewed capability/enforcement surface. The authority is consumed in the same transaction that records the durable activation receipt and publishes registries.
 
 ## Package content model
 
@@ -102,7 +104,11 @@ Install states SHOULD distinguish discovered, downloaded, verified, inspected, a
 
 Verification alone SHALL NOT transition to authorized/active.
 
+The runtime activation boundary SHALL accept a verifier-minted package capability plus an exact intent-bound approval. It SHALL NOT accept a bare manifest. Replay SHALL retain the original manifest bytes, signature envelope, verification evidence, activation intent, authority identity, and approval identity so the decision remains auditable after restart.
+
 Activation SHALL publish all typed registries required by the package (graph, agent-definition, plugin definition, invocation) atomically from the runtime/user perspective.
+
+Package signature, verification-evidence, and activation-intent formats are durable versioned contracts governed by first-class version registries. Compatibility behavior belongs to that metadata; unknown or rejected versions fail closed and consumers do not carry historical-version lists.
 
 ## Update and rollback
 

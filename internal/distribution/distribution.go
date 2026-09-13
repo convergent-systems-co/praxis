@@ -29,15 +29,16 @@ type Candidate struct {
 }
 
 type Release struct {
-	Ref               PackageRef                       `json:"ref"`
-	Tag               string                           `json:"tag"`
-	WebURL            string                           `json:"web_url,omitempty"`
-	ManifestURL       string                           `json:"manifest_url"`
-	ArtifactURL       string                           `json:"artifact_url"`
-	SignatureURL      string                           `json:"signature_url"`
-	ManifestDigest    string                           `json:"manifest_digest"`
-	Manifest          packagecatalog.Manifest          `json:"manifest"`
-	Signature         packagecatalog.SignatureEnvelope `json:"signature"`
+	Ref            PackageRef                       `json:"ref"`
+	Tag            string                           `json:"tag"`
+	WebURL         string                           `json:"web_url,omitempty"`
+	ManifestURL    string                           `json:"manifest_url"`
+	ArtifactURL    string                           `json:"artifact_url"`
+	SignatureURL   string                           `json:"signature_url"`
+	ManifestDigest string                           `json:"manifest_digest"`
+	Manifest       packagecatalog.Manifest          `json:"manifest"`
+	ManifestBytes  []byte                           `json:"-"`
+	Signature      packagecatalog.SignatureEnvelope `json:"signature"`
 }
 
 type Adapter interface {

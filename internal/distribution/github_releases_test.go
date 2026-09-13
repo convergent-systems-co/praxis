@@ -40,7 +40,7 @@ func TestGitHubReleasesResolveLoadsCanonicalSignedAssets(t *testing.T) {
 	})
 	mux.HandleFunc("/manifest", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(manifest) })
 	mux.HandleFunc("/signature", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"version":"v1","profile":"classical-compatible","algorithm":"ed25519","key_id":"publisher","manifest_digest":%q,"artifact_digest":"sha256:abc","signature":"AA=="}`, manifestDigest)
+		fmt.Fprintf(w, `{"version":"v1","profile":"classical-compatible","manifest_digest":%q,"artifact_digest":"sha256:abc","proofs":[{"algorithm":"ed25519","key_id":"publisher","signature":"AA=="}]}`, manifestDigest)
 	})
 	mux.HandleFunc("/artifact", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "payload") })
 	adapter := GitHubReleases{APIBase: server.URL, Client: server.Client()}

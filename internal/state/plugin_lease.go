@@ -35,7 +35,7 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	var instanceID, sessionID sql.NullString
 	var expiresAt, revokedAt sql.NullString
 	var remainingUses sql.NullInt64
-	if err := tx.QueryRowContext(ctx, `SELECT principal_id,principal_kind,capability,operations_json,scope,expires_at,revoked_at,remaining_uses,plugin_instance_id,plugin_session_id FROM capability_leases WHERE lease_id=?`, binding.Lease.ID).Scan(
+	if err := tx.QueryRowContext(ctx, `SELECT principal_id,principal_kind,capability,operations_json,scope,expires_at,revoked_at,remaining_uses,bound_instance_id,bound_session_id FROM capability_leases WHERE lease_id=?`, binding.Lease.ID).Scan(
 		&principalID, &principalKind, &capabilityName, &operationsJSON, &scope, &expiresAt, &revokedAt, &remainingUses, &instanceID, &sessionID,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -50,10 +50,7 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	if !instanceID.Valid || !sessionID.Valid || instanceID.String != instance.InstanceID || sessionID.String != instance.RuntimeSession {
 		return errors.New("persisted capability lease is not bound to this plugin instance/session")
 	}
-	if revokedAt.Valid {
-		return ErrLeaseUnavailable
-	}
-	if remainingUses.Valid && remainingUses.Int64 <= 0 {
+	if revokedAt.Valid || (remainingUses.Valid && remainingUses.Int64 <= 0) {
 		return ErrLeaseUnavailable
 	}
 
@@ -61,42 +58,20 @@ func (s *Store) ConsumePluginLease(ctx context.Context, binding plugin.LeaseBind
 	if err := json.Unmarshal(operationsJSON, &operations); err != nil || len(operations) == 0 {
 		return errors.New("persisted plugin lease operations are invalid")
 	}
-	persisted := contracts.CapabilityLease{
-		ID: binding.Lease.ID,
-		Principal: contracts.PrincipalRef{ID: principalID, Kind: principalKind},
-		Capability: capabilityName,
-		Operations: operations,
-		Scope: scope,
-	}
+	persisted := contracts.CapabilityLease{ID: binding.Lease.ID, Principal: contracts.PrincipalRef{ID: principalID, Kind: principalKind}, Capability: capabilityName, Operations: operations, Scope: scope}
 	if expiresAt.Valid {
 		expiry, err := time.Parse(time.RFC3339Nano, expiresAt.String)
-		if err != nil {
-			return fmt.Errorf("parse plugin lease expiry: %w", err)
-		}
+		if err != nil { return fmt.Errorf("parse plugin lease expiry: %w", err) }
 		persisted.ExpiresAt = &expiry
 	}
-	if remainingUses.Valid {
-		u := uint64(remainingUses.Int64)
-		persisted.RemainingUses = &u
-	}
-	if err := capability.Evaluate(persisted, req); err != nil {
-		return err
-	}
+	if remainingUses.Valid { u := uint64(remainingUses.Int64); persisted.RemainingUses = &u }
+	if err := capability.Evaluate(persisted, req); err != nil { return err }
 
-	res, err := tx.ExecContext(ctx, `UPDATE capability_leases SET remaining_uses=CASE WHEN remaining_uses IS NULL THEN NULL ELSE remaining_uses-1 END, version=version+1 WHERE lease_id=? AND plugin_instance_id=? AND plugin_session_id=? AND revoked_at IS NULL AND (remaining_uses IS NULL OR remaining_uses>0) AND (expires_at IS NULL OR expires_at>?)`,
-		binding.Lease.ID, instance.InstanceID, instance.RuntimeSession, now.UTC().Format(time.RFC3339Nano))
-	if err != nil {
-		return fmt.Errorf("consume plugin lease: %w", err)
-	}
+	res, err := tx.ExecContext(ctx, `UPDATE capability_leases SET remaining_uses=CASE WHEN remaining_uses IS NULL THEN NULL ELSE remaining_uses-1 END, version=version+1 WHERE lease_id=? AND bound_instance_id=? AND bound_session_id=? AND revoked_at IS NULL AND (remaining_uses IS NULL OR remaining_uses>0) AND (expires_at IS NULL OR expires_at>?)`, binding.Lease.ID, instance.InstanceID, instance.RuntimeSession, now.UTC().Format(time.RFC3339Nano))
+	if err != nil { return fmt.Errorf("consume plugin lease: %w", err) }
 	changed, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("inspect plugin lease consumption: %w", err)
-	}
-	if changed != 1 {
-		return ErrLeaseUnavailable
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit plugin lease consumption: %w", err)
-	}
+	if err != nil { return fmt.Errorf("inspect plugin lease consumption: %w", err) }
+	if changed != 1 { return ErrLeaseUnavailable }
+	if err := tx.Commit(); err != nil { return fmt.Errorf("commit plugin lease consumption: %w", err) }
 	return nil
 }

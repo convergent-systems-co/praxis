@@ -53,7 +53,7 @@ Namespaces are intentionally open so new plugin classes do not require a kernel 
 
 The dashboard should be the first user-facing reference plugin and should be built early enough to aid implementation and testing, even if final visual polish belongs later in the redesign.
 
-It should have two primary views.
+It should have three tightly linked views over the same authoritative observation state.
 
 ### Graph view
 
@@ -99,11 +99,50 @@ For every active agent, worker, or delegated subsystem it should show:
 - lineage to the catalog seed or prior agent generation;
 - learned adaptations that distinguish this agent from its original seed.
 
-The team view should support selecting an agent and pivoting directly to the corresponding node/subgraph in the graph view. Selecting a node in the graph view should identify the responsible agent or subsystem in the team view. These are two projections over the same authoritative execution/observation state, not separate state models.
+The team view should support selecting an agent and pivoting directly to the corresponding node/subgraph in the graph view. Selecting a node in the graph view should identify the responsible agent or subsystem in the team view.
+
+### Timeline / log view
+
+A time-oriented event view is required for debugging and performance analysis. It should combine an ordered event log with duration-aware visualization so the user can answer **what happened, in what order, and where time was spent**.
+
+At minimum it should show:
+
+- absolute timestamp and elapsed run time for every event;
+- node enter/exit times and total node residency duration;
+- edge traversal times;
+- agent active, reasoning, executing, waiting, blocked, and idle durations;
+- executor/model/tool invocation start/end and latency;
+- inference latency separately from deterministic execution latency;
+- retries and repair-loop duration;
+- escalation and human-wait duration;
+- handoff time between agents/subsystems;
+- evidence production and verification latency;
+- queue/wait time versus actual execution time;
+- parallel branch overlap and critical-path duration;
+- graph/subgraph total duration;
+- plugin activation/deactivation time where relevant;
+- learning observation, candidate creation, promotion, rollback, and drift timestamps;
+- context/preference changes that altered routing or behavior.
+
+The log should support filtering by graph, subgraph, node, agent, plugin, executor, event type, status, and time range. Selecting a log event should highlight the corresponding node and responsible agent. Selecting a node or agent should filter the timeline to the relevant events.
+
+For each completed run, the dashboard should derive a concise timing summary:
+
+- wall-clock duration;
+- critical path;
+- total inference time;
+- total deterministic execution time;
+- total waiting/blocked time;
+- total human-wait time;
+- retry/repair overhead;
+- avoidable repeated-work estimate where measurable;
+- top time-consuming nodes/agents/executors.
+
+This timing data is also input to Praxis learning: repeated high-latency inference, repeated retries, or stable expensive decision paths are candidates for deterministic extraction or graph redesign.
 
 ### Debugging value
 
-These views should not wait until the final product phase. Together they expose incorrect transitions, unexpected loops, excessive inference, hidden retries, blocked joins, poor delegation, stale state, authority mistakes, and learning changes that would otherwise require reconstructing behavior from logs.
+These views should not wait until the final product phase. Together they expose incorrect transitions, unexpected loops, excessive inference, hidden retries, blocked joins, poor delegation, stale state, authority mistakes, performance bottlenecks, and learning changes that would otherwise require reconstructing behavior from logs.
 
 The dashboard must remain read-only with respect to authoritative runtime state. It observes and explains; mutation belongs to governed APIs and workflows.
 

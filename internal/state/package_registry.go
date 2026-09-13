@@ -41,9 +41,15 @@ type RegisteredInvocation struct {
 	ContractDigest string
 }
 
+type RegisteredContent struct {
+	PackageID     string
+	PackageVersion string
+	PackageDigest string
+	Content       packagecatalog.ContentRef
+}
+
 // ActivatePackage atomically installs/activates one immutable package generation
-// and publishes its complete InvocationContract set. No alias becomes visible if
-// any contract or collision check fails.
+// and publishes its invocation and typed-content registrations.
 func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Manifest, sourceKind, sourceRef string, now time.Time) error {
 	if s == nil || s.db == nil {
 		return errors.New("state store is required")
@@ -84,6 +90,16 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 			}
 		}
 	}
+	for _, content := range manifest.Contents {
+		var existingPackage string
+		err := tx.QueryRowContext(ctx, `SELECT package_id FROM package_contents WHERE kind=? AND content_id=? AND content_version=? AND active=1`, content.Kind, content.ID, content.Version).Scan(&existingPackage)
+		if err == nil && existingPackage != manifest.PackageID {
+			return fmt.Errorf("package content %s/%s@%s already active from package %q", content.Kind, content.ID, content.Version, existingPackage)
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("check package content collision: %w", err)
+		}
+	}
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM invocation_aliases WHERE (entry_point_id,package_version,content_digest) IN (SELECT entry_point_id,package_version,content_digest FROM invocation_registry WHERE package_id=? AND active=1)`, manifest.PackageID); err != nil {
 		return fmt.Errorf("remove previous invocation aliases: %w", err)
@@ -91,14 +107,26 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 	if _, err := tx.ExecContext(ctx, `UPDATE invocation_registry SET active=0 WHERE package_id=? AND active=1`, manifest.PackageID); err != nil {
 		return fmt.Errorf("deactivate previous invocations: %w", err)
 	}
+	if _, err := tx.ExecContext(ctx, `UPDATE package_contents SET active=0 WHERE package_id=? AND active=1`, manifest.PackageID); err != nil {
+		return fmt.Errorf("deactivate previous package contents: %w", err)
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE installed_packages SET state='installed' WHERE package_id=? AND state='active'`, manifest.PackageID); err != nil {
 		return fmt.Errorf("deactivate previous package generation: %w", err)
 	}
 
+	stamp := now.UTC().Format(time.RFC3339Nano)
 	if _, err := tx.ExecContext(ctx, `INSERT INTO installed_packages(package_id,package_version,content_digest,state,source_kind,source_ref,manifest_json,installed_at,activated_at) VALUES(?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(package_id,package_version,content_digest) DO UPDATE SET state=excluded.state,source_kind=excluded.source_kind,source_ref=excluded.source_ref,manifest_json=excluded.manifest_json,activated_at=excluded.activated_at`,
-		manifest.PackageID, manifest.Version, manifest.ContentDigest, "active", sourceKind, sourceRef, manifestJSON, now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano)); err != nil {
+		manifest.PackageID, manifest.Version, manifest.ContentDigest, "active", sourceKind, sourceRef, manifestJSON, stamp, stamp); err != nil {
 		return fmt.Errorf("persist package generation: %w", err)
+	}
+
+	for _, content := range manifest.Contents {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO package_contents(package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,compatibility,active,registered_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)
+			ON CONFLICT(package_id,package_version,content_digest,kind,content_id,content_version) DO UPDATE SET artifact_digest=excluded.artifact_digest,artifact_ref=excluded.artifact_ref,compatibility=excluded.compatibility,active=1,registered_at=excluded.registered_at`,
+			manifest.PackageID, manifest.Version, manifest.ContentDigest, content.Kind, content.ID, content.Version, content.Digest, content.Artifact, nullable(content.Compatibility), stamp); err != nil {
+			return fmt.Errorf("register package content %s/%s@%s: %w", content.Kind, content.ID, content.Version, err)
+		}
 	}
 
 	for _, inv := range manifest.Invocations {
@@ -110,7 +138,7 @@ func (s *Store) ActivatePackage(ctx context.Context, manifest packagecatalog.Man
 		digest := "sha256:" + hex.EncodeToString(sum[:])
 		if _, err := tx.ExecContext(ctx, `INSERT INTO invocation_registry(entry_point_id,package_id,package_version,content_digest,graph_id,graph_version,contract_json,contract_digest,active,registered_at) VALUES(?,?,?,?,?,?,?,?,1,?)
 			ON CONFLICT(entry_point_id,package_version,content_digest) DO UPDATE SET package_id=excluded.package_id,graph_id=excluded.graph_id,graph_version=excluded.graph_version,contract_json=excluded.contract_json,contract_digest=excluded.contract_digest,active=1,registered_at=excluded.registered_at`,
-			inv.EntryPointID, manifest.PackageID, manifest.Version, manifest.ContentDigest, inv.GraphID, inv.GraphVersion, body, digest, now.UTC().Format(time.RFC3339Nano)); err != nil {
+			inv.EntryPointID, manifest.PackageID, manifest.Version, manifest.ContentDigest, inv.GraphID, inv.GraphVersion, body, digest, stamp); err != nil {
 			return fmt.Errorf("register invocation %q: %w", inv.EntryPointID, err)
 		}
 		for _, alias := range inv.Aliases {
@@ -135,6 +163,9 @@ func (s *Store) DeactivatePackage(ctx context.Context, packageID string) error {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE invocation_registry SET active=0 WHERE package_id=?`, packageID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE package_contents SET active=0 WHERE package_id=?`, packageID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE installed_packages SET state='disabled' WHERE package_id=? AND state='active'`, packageID); err != nil {
@@ -173,6 +204,35 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 		out = append(out, item)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) ActiveContents(ctx context.Context, kind packagecatalog.ContentKind) ([]RegisteredContent, error) {
+	if kind == "" {
+		return nil, errors.New("content kind is required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,'') FROM package_contents WHERE active=1 AND kind=? ORDER BY content_id,content_version`, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RegisteredContent
+	for rows.Next() {
+		var item RegisteredContent
+		if err := rows.Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ResolveContent(ctx context.Context, kind packagecatalog.ContentKind, id, version string) (RegisteredContent, error) {
+	if kind == "" || id == "" || version == "" {
+		return RegisteredContent{}, errors.New("content kind, id, and version are required")
+	}
+	var item RegisteredContent
+	err := s.db.QueryRowContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,'') FROM package_contents WHERE active=1 AND kind=? AND content_id=? AND content_version=?`, kind, id, version).Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility)
+	return item, err
 }
 
 func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (RegisteredInvocation, error) {

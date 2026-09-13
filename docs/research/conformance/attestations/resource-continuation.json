@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/kernel",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T19:54:51.964723Z",
+  "finished_at": "2026-09-13T19:54:53.061188Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/resource-continuation.log",
+  "output_digest": "sha256:d5dff39b5be7f38627750d9f66b6e7b0bb53a1cfa11471309ea5e4bf860423cc",
+  "source_digests": {
+    "internal/kernel": "sha256:c65e6b6a68689db1ea38e203a40864da95112b2b7b811d8aa9aa3a350e0b576a",
+    "internal/state/continuation_integration_test.go": "sha256:d4ff1b8118416aa231234f9ca15d8ca8b920263e9b2d249632ac9e7281641d8e"
+  },
+  "observations": [
+    "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart",
+    "TestResourceHandoffDenialDoesNotMutateRun"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:02ca6f7ff17ff64fa7602af0e77fbf57458807e5e32fe85bfccd14b9cf194529"
+}

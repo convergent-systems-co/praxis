@@ -58,13 +58,15 @@ Required gates:
 14. All newly discovered critical gaps are implemented and re-audited until the blind audit is conformant.
 15. Full branch CI is green at the final reconciled head.
 
-### Frozen Wave 16 denominator
+### Versioned Wave 16 denominator
 
-The original-intent denominator is frozen at 37 claims in `internal/conformance.PraxisOriginalIntentClaims` with claim-set digest `sha256:40162f681aa56bc3091ab4dd188d6857330bc8d495b11eea20e701c49bef2717`. It is derived from ADR-001 through ADR-048 and excludes ADR-049, SPEC-018, this plan, implementation structure, existing tests, and the withheld oracle.
+The initial original-intent denominator was frozen at 37 claims with claim-set digest `sha256:40162f681aa56bc3091ab4dd188d6857330bc8d495b11eea20e701c49bef2717`. Review of the capacity/handoff ownership decision exposed another incomplete original-goal decomposition: recovery and scheduler-lease claims did not explicitly require a domain-neutral resource-pressure-to-continuation lifecycle. The old denominator and every result produced from it remain immutable.
+
+The controlled denominator transition adds OI-038, derived only from ADR-001, ADR-003, ADR-004, ADR-020, ADR-031, and ADR-034. ADR-050, SPEC-020, implementation, tests, and the reviewer's proposed API names are excluded as claim sources. The current denominator is frozen at 38 claims with claim-set digest `sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0`.
 
 The corrected initial blind result is `docs/research/conformance/blind-source-qualified.json`, digest `sha256:03f7c9a8f07bd222989720f063fa0f354b4e087e578989fac322ab3f8f2f119c`. It found 2 satisfied, 12 unsupported, and 23 indeterminate critical claims. The post-freeze oracle qualification independently matched its positive control with one true positive and no false negative.
 
-The denominator below is now fixed. New evidence may change finding states, but may not silently delete, weaken, or redefine a claim. A genuinely superseded original goal requires a new governed architectural decision and an explicit denominator transition.
+The denominator below is now fixed at version 38. New evidence may change finding states, but may not silently delete, weaken, or redefine a claim. Any later decomposition correction or genuinely superseded original goal requires another explicit, immutable denominator transition.
 
 ## Wave 17: Executed Evidence and Reproducible Attestation — IN PROGRESS
 
@@ -128,9 +130,11 @@ Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
 9. Attest required PQ/classical/hybrid cryptographic profiles, downgrade resistance, durable algorithm identifiers, rotation, revocation, and authorization separation.
 10. Attest Workspace Intelligence incremental freshness, path isolation, bounded context, and release authorization.
 
-Finding closures: OI-021, OI-023, OI-024, OI-025, OI-026, OI-027, OI-028, OI-029, OI-030, OI-031, OI-032.
+Finding closures: OI-021, OI-023, OI-024, OI-025, OI-026, OI-027, OI-028, OI-029, OI-030, OI-031, OI-032, OI-038.
 
 Closure evidence: OI-023 and OI-031 are satisfied in `blind-attested-recovery-authority.json` by content-bound restart/replay and security/integration executions. OI-025 deliberately remains indeterminate because the narrower effect revalidation test does not prove complete mediation of every mutation/effect surface.
+
+OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-delivery and research profiles use different opaque pressure signals and thresholds while the same core mechanism governs event-led checkpoint, handoff, SQLite restart, exact-reference resume, and run/agent/evidence identity preservation. Calibration remains package/profile policy.
 
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — NOT STARTED
 
@@ -144,8 +148,8 @@ Finding closures: OI-006, OI-012, OI-033, OI-034.
 ## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY WAVES 17-22
 
 1. Re-inventory implementation evidence without reading the oracle.
-2. Freeze a new content-addressed blind result against the unchanged 37-claim denominator.
-3. Require every critical claim OI-001 through OI-037 to be `satisfied` by admissible evidence.
+2. Freeze a new content-addressed blind result against the current 38-claim denominator.
+3. Require every critical claim OI-001 through OI-038 to be `satisfied` by admissible evidence.
 4. Load and score the withheld oracle only after freeze; require no false negative.
 5. Run regression, adversarial/security, clean-install, restart/recovery, cross-provider, and full branch CI qualifications.
 6. Reconcile ADR/SPEC/PLAN/report links to exact evidence and frozen digests.
@@ -161,7 +165,7 @@ Implemented in this reopened wave:
 - `internal/conformance/oracle.go`
 - conformance boundary tests including behavioral prose rejection and order-stable freeze digests
 - blind Praxis audit fixture derived from original ADR intent without oracle input
-- comprehensive 37-claim pre-remediation denominator and content-digested evidence inventory
+- immutable 37-claim initial denominator plus explicit 38-claim resource-continuation transition and content-digested evidence inventory
 - immutable corrected blind report plus post-freeze semantic oracle score
 - generic planning-process candidate generation, replay/regression comparison, independent-evidence/security/policy gates, governed promotion, failed-candidate retention, and rollback demonstration
 - whole-system conformance report at `docs/research/praxis2-whole-system-conformance.md`
@@ -171,6 +175,7 @@ Implemented in this reopened wave:
 - accepted recovery/authority result `blind-attested-recovery-authority.json` (OI-023 and OI-031 satisfied)
 - retained rejected audit `blind-attested-existing-integrations.json`, documenting why graph composition evidence cannot close compound baseline-reuse claim OI-033
 - SPEC-019 plus content-bound goal/process discovery result `blind-process-discovery.json` (OI-003 satisfied)
+- ADR-050/SPEC-020 plus two-domain, SQLite-restart resource continuation result `blind-resource-continuation.json` (OI-038 satisfied)
 
 ## Completion calculation
 

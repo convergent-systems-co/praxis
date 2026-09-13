@@ -4,12 +4,12 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-process-discovery.json`
-- Latest frozen result digest: `sha256:9b0f2d19d644056e64ccfa8e0fb8de23af6d141a13f250052b4499bd473515d8`
+- Latest accepted remediation result: `docs/research/conformance/blind-resource-continuation.json`
+- Latest frozen result digest: `sha256:416c317ddef1f8d0f4125d02e5e14ecded6949e01ef50d920c285776a142cd28`
 
 ## Method and denominator
 
-The denominator contains 37 stable claims derived from ADR-001 through ADR-048. ADR-049, SPEC-018, PLAN-001, existing tests, current package structure, and the historical qualification omission were excluded as denominator sources. Every claim records its original source, statement, behavioral/structural class, criticality, required evidence classes, and required lifecycle maturity.
+The qualified discovery baseline contains 37 stable claims derived from ADR-001 through ADR-048. ADR-049, SPEC-018, PLAN-001, existing tests, current package structure, and the historical qualification omission were excluded as denominator sources. Every claim records its original source, statement, behavioral/structural class, criticality, required evidence classes, and required lifecycle maturity.
 
 The implementation inventory was assembled separately from observable source, test, package, and runtime artifacts. Artifact bytes are content-digested. Test source is capped at `contract` maturity: the presence of a test cannot self-attest that it ran or that the tested behavior is integrated. Higher maturity requires a separate execution attestation.
 
@@ -120,6 +120,16 @@ SPEC-019 and `internal/processresolver` now provide the missing domain-neutral d
 
 The content-bound execution is frozen at `docs/research/conformance/attestations/goal-process-discovery.json`. Accepted blind result `docs/research/conformance/blind-process-discovery.json`, digest `sha256:9b0f2d19d644056e64ccfa8e0fb8de23af6d141a13f250052b4499bd473515d8`, closes OI-003. Totals are 10 satisfied, 9 unsupported, and 18 indeterminate.
 
+## Resource continuation denominator transition and remediation
+
+Review of the archived capacity-tiering decision found that it inferred architectural ownership from the legacy implementation location. Re-reading the original Praxis 2 laws showed that observation-driven durable continuation is common platform behavior, while signal selection and threshold calibration are package/profile policy. The 37-claim decomposition had also failed to state that behavior explicitly.
+
+The first 38-claim result, `docs/research/conformance/blind-denominator-transition-resource-continuation.json`, is frozen at `sha256:c972b30374b240440ac201a53bd235eff604b37b8432f9c86b5c045c813708de`. It adds OI-038 solely from ADR-001, ADR-003, ADR-004, ADR-020, ADR-031, and ADR-034; ADR-050 and remediation artifacts do not define the new claim. That transition result left OI-038 indeterminate because source existence could not attest execution.
+
+ADR-050 and SPEC-020 now assign generic observation, deterministic profile evaluation, checkpoint, handoff, event replay, and governed exact-reference resume to the runtime. Opaque signal names, measurements, thresholds, and action calibration remain outside core. A software-delivery profile and a research profile use different signals while the same runtime preserves run, graph, agent, checkpoint, and evidence identity across SQLite close/reopen and subsequent completion. Denial leaves in-memory state unchanged.
+
+The execution attestation binds both `internal/kernel` and the two-domain integration test and is frozen at `docs/research/conformance/attestations/resource-continuation.json`. Accepted result `docs/research/conformance/blind-resource-continuation.json`, digest `sha256:416c317ddef1f8d0f4125d02e5e14ecded6949e01ef50d920c285776a142cd28`, closes OI-038 against the 38-claim digest `sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0`. Totals are 11 satisfied, 9 unsupported, and 18 indeterminate.
+
 ## Plan input
 
-PLAN-001 must use the fixed 37-claim denominator plus the 35 finding closures, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.
+PLAN-001 must use the current, explicitly transitioned 38-claim denominator plus every finding closure, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.

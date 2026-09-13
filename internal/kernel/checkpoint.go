@@ -9,6 +9,7 @@ import (
 // Model conversation history is intentionally not authoritative runtime state.
 type Checkpoint struct {
 	RunID              string
+	AgentID            string
 	GraphID            string
 	GraphVersion       string
 	CurrentNode        string

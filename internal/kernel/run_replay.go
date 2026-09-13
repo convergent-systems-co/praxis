@@ -36,8 +36,8 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			return nil, 0, fmt.Errorf("event %d type/observation mismatch", i)
 		}
 		if run == nil {
-			run = &RunExecution{RunID: observation.RunID, GraphID: observation.GraphID, GraphVersion: observation.GraphVersion, AttemptCounts: map[string]int{}}
-		} else if run.RunID != observation.RunID || run.GraphID != observation.GraphID || run.GraphVersion != observation.GraphVersion {
+			run = &RunExecution{RunID: observation.RunID, AgentID: observation.AgentID, GraphID: observation.GraphID, GraphVersion: observation.GraphVersion, AttemptCounts: map[string]int{}}
+		} else if run.RunID != observation.RunID || run.GraphID != observation.GraphID || run.GraphVersion != observation.GraphVersion || (observation.AgentID != "" && run.AgentID != observation.AgentID) {
 			return nil, 0, fmt.Errorf("event %d changes run identity", i)
 		}
 
@@ -102,6 +102,43 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 			run.CurrentNode = observation.NodeID
 			run.State = observation.State
 			run.TransitionCount = observation.TransitionCount
+		case ObservationContinuationDecided:
+			if observation.Resource == nil || observation.Continuation == nil {
+				return nil, 0, fmt.Errorf("event %d continuation observation is incomplete", i)
+			}
+			if err := observation.Resource.Validate(); err != nil {
+				return nil, 0, fmt.Errorf("event %d invalid resource observation: %w", i, err)
+			}
+			if err := observation.Continuation.Verify(); err != nil {
+				return nil, 0, fmt.Errorf("event %d invalid continuation decision: %w", i, err)
+			}
+			resourceDigest, digestErr := continuationDigest(*observation.Resource)
+			if digestErr != nil || observation.Continuation.ObservationDigest != "sha256:"+resourceDigest {
+				return nil, 0, fmt.Errorf("event %d continuation does not bind resource observation", i)
+			}
+			if observation.Resource.RunID != run.RunID || observation.Resource.AgentID != run.AgentID {
+				return nil, 0, fmt.Errorf("event %d resource identity mismatch", i)
+			}
+			if observation.Checkpoint != nil && (observation.Checkpoint.RunID != run.RunID || observation.Checkpoint.AgentID != run.AgentID || observation.Checkpoint.GraphID != run.GraphID || observation.Checkpoint.GraphVersion != run.GraphVersion) {
+				return nil, 0, fmt.Errorf("event %d checkpoint identity mismatch", i)
+			}
+			if observation.Continuation.Action == ContinuationHandoff {
+				if observation.State != RunSuspended || observation.Wait == nil || observation.Wait.Kind != WaitHandoff || observation.Wait.Ref != observation.Continuation.HandoffRef || observation.Checkpoint == nil {
+					return nil, 0, fmt.Errorf("event %d handoff state is incomplete", i)
+				}
+				copyWait := *observation.Wait
+				run.PendingWait = &copyWait
+			}
+			run.State = observation.State
+			run.CurrentNode = observation.NodeID
+			run.TransitionCount = observation.TransitionCount
+			run.Evidence = append(run.Evidence, observation.Evidence...)
+			run.ResourceObservations = append(run.ResourceObservations, *observation.Resource)
+			run.ContinuationHistory = append(run.ContinuationHistory, *observation.Continuation)
+			if observation.Checkpoint != nil {
+				copyCheckpoint := *observation.Checkpoint
+				run.LastCheckpoint = &copyCheckpoint
+			}
 		default:
 			return nil, 0, fmt.Errorf("event %d has unknown run observation kind %q", i, observation.Kind)
 		}

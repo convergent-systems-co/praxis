@@ -42,9 +42,11 @@ var OriginalIntentSources = []string{
 	"docs/ADR/047-authoritative-state-provider-abstraction.md", "docs/ADR/048-packages-as-universal-distribution-unit.md",
 }
 
-// PraxisOriginalIntentClaims is the stable denominator derived from the source
-// corpus above. It contains no implementation plans, tests, code layout, ADR-049,
-// or qualification expectations.
+// PraxisOriginalIntentClaims is the versioned denominator derived from the
+// source corpus above. OI-038 is an explicit denominator transition after an
+// ownership review exposed an incomplete decomposition in the initial 37
+// claims. It contains no implementation plans, tests, code layout, remediation
+// ADRs, or qualification expectations.
 func PraxisOriginalIntentClaims() []Claim {
 	return []Claim{
 		claim("OI-001", "persistent agents retain identity and lineage across model or provider replacement", "ADR-001:4-5;ADR-003;ADR-010", true, StageLifecycle, "restart_test"),
@@ -84,6 +86,7 @@ func PraxisOriginalIntentClaims() []Claim {
 		claim("OI-035", "installed packages atomically add and remove validated client-visible commands without rebuilding the core", "ADR-046", true, StageIntegration, "integration_test"),
 		claim("OI-036", "runtime services use semantic authoritative-state provider contracts and fail closed on provider capability mismatch", "ADR-047", true, StageIntegration, "integration_test"),
 		claim("OI-037", "pure graph, agent, and mixed packages install, activate, update, and roll back as universal distribution units", "ADR-048", true, StageLifecycle, "integration_test", "restart_test"),
+		claim("OI-038", "domain-configured resource pressure can govern durable graph handoff and resume while preserving run, agent, and evidence identity", "ADR-001:3-5,11;ADR-003;ADR-004;ADR-020;ADR-031;ADR-034", true, StageLifecycle, "restart_test"),
 	}
 }
 
@@ -137,6 +140,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "goals-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}},
 		{ID: "dynamic-package-cli", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-035", "OI-037"}},
 		{ID: "state-provider", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/stateprovider", ClaimIDs: []string{"OI-036"}},
+		{ID: "resource-continuation-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/continuation_integration_test.go", ClaimIDs: []string{"OI-038"}, AttestationRef: "docs/research/conformance/attestations/resource-continuation.json", Observation: "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart"},
 	}
 }
 
@@ -169,9 +173,14 @@ func LoadEvidence(root string, inventory []InventoryArtifact) ([]Evidence, error
 				if !containsString(attestation.Observations, a.Observation) {
 					return nil, fmt.Errorf("inventory %s attestation lacks observation %s", a.ID, a.Observation)
 				}
-				sourceDigest, digestErr := SourceSetDigest(root, []string{a.Ref})
-				if digestErr != nil {
-					return nil, digestErr
+				for sourceRef, attestedDigest := range attestation.SourceDigests {
+					sourceDigest, digestErr := SourceSetDigest(root, []string{sourceRef})
+					if digestErr != nil {
+						return nil, digestErr
+					}
+					if attestedDigest != sourceDigest {
+						return nil, fmt.Errorf("inventory %s attested source %s is stale: got %s want %s", a.ID, sourceRef, attestedDigest, sourceDigest)
+					}
 				}
 				outputDigest, outputErr := SourceSetDigest(root, []string{attestation.OutputRef})
 				if outputErr != nil {
@@ -184,8 +193,8 @@ func LoadEvidence(root string, inventory []InventoryArtifact) ([]Evidence, error
 				if !goTestObservationPassed(string(outputBytes), a.Observation) {
 					return nil, fmt.Errorf("inventory %s output does not prove passing observation %s", a.ID, a.Observation)
 				}
-				if attestation.SourceDigests[a.Ref] != sourceDigest {
-					return nil, fmt.Errorf("inventory %s attested source digest is stale: got %s want %s", a.ID, attestation.SourceDigests[a.Ref], sourceDigest)
+				if attestation.SourceDigests[a.Ref] == "" {
+					return nil, fmt.Errorf("inventory %s attestation does not bind primary source %s", a.ID, a.Ref)
 				}
 				if attestation.OutputDigest != outputDigest {
 					return nil, fmt.Errorf("inventory %s attested output digest is stale", a.ID)

@@ -8,8 +8,12 @@ import (
 
 func TestPraxisBlindGoalAuditHasIndependentComprehensiveDenominator(t *testing.T) {
 	claims := PraxisOriginalIntentClaims()
-	if len(claims) < 30 {
-		t.Fatalf("original-intent denominator is too small: %d", len(claims))
+	if len(claims) != 38 {
+		t.Fatalf("unexpected original-intent denominator version: %d claims", len(claims))
+	}
+	resourceContinuation := claims[len(claims)-1]
+	if resourceContinuation.ID != "OI-038" || strings.Contains(resourceContinuation.SourceRef, "ADR-050") {
+		t.Fatalf("resource-continuation denominator transition is remediation-derived: %#v", resourceContinuation)
 	}
 	wantSources := map[string]bool{"ADR-003": false, "ADR-009": false, "ADR-024": false, "ADR-038": false, "ADR-043": false, "ADR-045": false, "ADR-048": false}
 	for _, c := range claims {

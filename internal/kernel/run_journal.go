@@ -15,14 +15,15 @@ import (
 // store using optimistic aggregate versions. A journal can resume from a
 // known aggregate version after replay/recovery.
 type EventJournal struct {
-	Store           eventstore.Store
-	Actor           contracts.PrincipalRef
-	CommandID       string
-	CorrelationID   string
-	CausationID     string
-	Trust           contracts.TrustClass
-	ExpectedVersion int64
-	Now             func() time.Time
+	Store             eventstore.Store
+	Actor             contracts.PrincipalRef
+	CommandID         string
+	CorrelationID     string
+	CausationID       string
+	Trust             contracts.TrustClass
+	ExpectedVersion   int64
+	LastEventSequence int64
+	Now               func() time.Time
 }
 
 func (j *EventJournal) ObserveRun(ctx context.Context, observation RunObservation) error {
@@ -72,5 +73,6 @@ func (j *EventJournal) ObserveRun(ctx context.Context, observation RunObservatio
 		return errors.New("event journal append returned unexpected event count")
 	}
 	j.ExpectedVersion = appended[0].AggregateVersion
+	j.LastEventSequence = appended[0].Sequence
 	return nil
 }

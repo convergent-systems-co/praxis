@@ -15,6 +15,7 @@ const (
 	WaitHumanDecision WaitKind = "human_decision"
 	WaitApproval      WaitKind = "approval"
 	WaitDependency    WaitKind = "dependency"
+	WaitHandoff       WaitKind = "handoff"
 )
 
 type Suspension struct {
@@ -27,7 +28,7 @@ func (s Suspension) Validate() error {
 		return errors.New("suspension reference is required")
 	}
 	switch s.Kind {
-	case WaitHumanDecision, WaitApproval, WaitDependency:
+	case WaitHumanDecision, WaitApproval, WaitDependency, WaitHandoff:
 		return nil
 	default:
 		return fmt.Errorf("unknown suspension kind %q", s.Kind)
@@ -45,44 +46,53 @@ type NodeExecutor interface {
 }
 
 type RunExecution struct {
-	RunID           string
-	GraphID         string
-	GraphVersion    string
-	CurrentNode     string
-	State           RunState
-	TransitionCount int
-	Evidence        []string
-	AttemptCounts   map[string]int
-	PendingWait     *Suspension
+	RunID                string
+	AgentID              string
+	GraphID              string
+	GraphVersion         string
+	CurrentNode          string
+	State                RunState
+	TransitionCount      int
+	Evidence             []string
+	AttemptCounts        map[string]int
+	PendingWait          *Suspension
+	ResourceObservations []ResourceObservation
+	ContinuationHistory  []ContinuationDecision
+	LastCheckpoint       *Checkpoint
 }
 
 type RunObservationKind string
 
 const (
-	ObservationRunStarted        RunObservationKind = "started"
-	ObservationRunResumed        RunObservationKind = "resumed"
-	ObservationRunStateChanged   RunObservationKind = "state_changed"
-	ObservationNodeAttemptFailed RunObservationKind = "node_attempt_failed"
-	ObservationNodeCompleted     RunObservationKind = "node_completed"
-	ObservationTransitioned      RunObservationKind = "transitioned"
-	ObservationRunTerminal       RunObservationKind = "terminal"
+	ObservationRunStarted          RunObservationKind = "started"
+	ObservationRunResumed          RunObservationKind = "resumed"
+	ObservationRunStateChanged     RunObservationKind = "state_changed"
+	ObservationNodeAttemptFailed   RunObservationKind = "node_attempt_failed"
+	ObservationNodeCompleted       RunObservationKind = "node_completed"
+	ObservationTransitioned        RunObservationKind = "transitioned"
+	ObservationRunTerminal         RunObservationKind = "terminal"
+	ObservationContinuationDecided RunObservationKind = "continuation_decided"
 )
 
 type RunObservation struct {
-	Kind            RunObservationKind `json:"kind"`
-	RunID           string             `json:"run_id"`
-	GraphID         string             `json:"graph_id"`
-	GraphVersion    string             `json:"graph_version"`
-	NodeID          string             `json:"node_id,omitempty"`
-	Outcome         string             `json:"outcome,omitempty"`
-	FromNode        string             `json:"from_node,omitempty"`
-	ToNode          string             `json:"to_node,omitempty"`
-	State           RunState           `json:"state"`
-	TransitionCount int                `json:"transition_count"`
-	Attempt         int                `json:"attempt,omitempty"`
-	FailureClass    FailureClass       `json:"failure_class,omitempty"`
-	Evidence        []string           `json:"evidence,omitempty"`
-	Wait            *Suspension        `json:"wait,omitempty"`
+	Kind            RunObservationKind    `json:"kind"`
+	RunID           string                `json:"run_id"`
+	AgentID         string                `json:"agent_id,omitempty"`
+	GraphID         string                `json:"graph_id"`
+	GraphVersion    string                `json:"graph_version"`
+	NodeID          string                `json:"node_id,omitempty"`
+	Outcome         string                `json:"outcome,omitempty"`
+	FromNode        string                `json:"from_node,omitempty"`
+	ToNode          string                `json:"to_node,omitempty"`
+	State           RunState              `json:"state"`
+	TransitionCount int                   `json:"transition_count"`
+	Attempt         int                   `json:"attempt,omitempty"`
+	FailureClass    FailureClass          `json:"failure_class,omitempty"`
+	Evidence        []string              `json:"evidence,omitempty"`
+	Wait            *Suspension           `json:"wait,omitempty"`
+	Resource        *ResourceObservation  `json:"resource,omitempty"`
+	Continuation    *ContinuationDecision `json:"continuation,omitempty"`
+	Checkpoint      *Checkpoint           `json:"checkpoint,omitempty"`
 }
 
 type RunObserver interface {
@@ -110,7 +120,7 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 		run.AttemptCounts = map[string]int{}
 	}
 
-	resuming := run.TransitionCount > 0 || len(run.AttemptCounts) > 0 || run.State == RunRunning || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling || run.State == RunCancelling
+	resuming := run.TransitionCount > 0 || len(run.AttemptCounts) > 0 || run.State == RunRunnable || run.State == RunRunning || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling || run.State == RunCancelling
 	if run.GraphID == "" {
 		run.GraphID = graph.ID
 	}
@@ -305,7 +315,7 @@ func waitRetry(ctx context.Context, duration time.Duration) error {
 }
 
 func baseObservation(run *RunExecution, kind RunObservationKind, nodeID string) RunObservation {
-	return RunObservation{Kind: kind, RunID: run.RunID, GraphID: run.GraphID, GraphVersion: run.GraphVersion, NodeID: nodeID, State: run.State, TransitionCount: run.TransitionCount}
+	return RunObservation{Kind: kind, RunID: run.RunID, AgentID: run.AgentID, GraphID: run.GraphID, GraphVersion: run.GraphVersion, NodeID: nodeID, State: run.State, TransitionCount: run.TransitionCount}
 }
 
 func recordStateChange(ctx context.Context, observer RunObserver, run *RunExecution, state RunState, class FailureClass) error {

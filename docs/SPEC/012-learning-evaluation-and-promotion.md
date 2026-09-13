@@ -74,6 +74,12 @@ Learning SHALL preserve source trust/provenance, limit contribution from one cau
 
 Regression, drift, changed context, policy change, or degraded metrics MAY demote promoted behavior. Demotion SHALL preserve lineage and historical evaluation rather than deleting evidence.
 
+The reference reverse-adaptation path consumes a content-addressed SPEC-021 analysis record containing the exact interpretation policy and its longitudinal report. Package policy first derives and interprets a typed measurement, then a separately frozen demotion policy maps one or more opaque diagnosis codes to the `demote to inference` action and sets its independent-causation threshold. Candidate derivation re-runs the analysis against its supplied evidence and binds both policy identities; core does not interpret a generic quality/success number as contradiction.
+
+A qualifying demotion creates a new child generation that restores the exact superseded advisory instruction and removes only its contradicted deterministic rule. The active compiled generation remains unchanged during proposal. Any policy/security invariant failure in the source report blocks the candidate. The separately frozen package demotion policy declares the required number of independent causal roots; core does not assign an implicit shortcut to a trust label.
+
+Activation requires a distinct authority bound to the exact demotion-evaluation digest. The registry persists report, policy, diagnosis, measurement, raw-observation, generation, and rollback references; restart verifies the immutable generation/evaluation relationship. Rollback can reactivate the prior deterministic generation without deleting the inference-bearing descendant or its evidence.
+
 ## Acceptance tests
 
 1. repeated copies of one hostile source do not satisfy independent-evidence threshold;

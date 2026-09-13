@@ -49,7 +49,7 @@ type ProfileFact struct {
 }
 
 func FreezeProfileFact(fact ProfileFact) (ProfileFact, error) {
-	fact.Version = "v2"
+	fact.Version = profileFactEventContract.CurrentVersion()
 	fact.ID = ""
 	fact.SourceObservationIDs = append([]string(nil), fact.SourceObservationIDs...)
 	fact.SourceMeasurementIDs = append([]string(nil), fact.SourceMeasurementIDs...)
@@ -86,7 +86,7 @@ func validateProfileFact(fact ProfileFact, requireID bool) error {
 	if requireID && fact.ID == "" {
 		return errors.New("behavioral profile fact identity is required")
 	}
-	if fact.Version != "v2" || fact.SubjectAgentID == "" || fact.Dimension == "" || fact.Provenance == "" || fact.Context == "" || fact.RecordedAt.IsZero() {
+	if fact.Version != profileFactEventContract.CurrentVersion() || fact.SubjectAgentID == "" || fact.Dimension == "" || fact.Provenance == "" || fact.Context == "" || fact.RecordedAt.IsZero() {
 		return errors.New("behavioral profile fact scope, provenance, and time are required")
 	}
 	if err := fact.Score.Validate(); err != nil {

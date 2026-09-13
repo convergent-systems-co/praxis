@@ -122,7 +122,7 @@ func TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
-			report, err := adaptation.EvaluateLongitudinal(observations, []adaptation.Measurement{derived, score}, policy)
+			report, err := adaptation.EvaluateLongitudinal(observations, []adaptation.Measurement{derived, score}, policy, base.Add(6*time.Minute))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,6 +138,9 @@ func TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart(t *testi
 			}
 			if domain.name == "software-delivery" && (len(report.InvariantFailures) != 1 || report.InvariantFailures[0].Class != adaptation.SecurityInvariant) {
 				t.Fatalf("favorable score averaged away security failure: %#v", report)
+			}
+			if err := ledger.RecordAnalysis(ctx, adaptation.AnalysisRecord{Policy: policy, Report: report}); err != nil {
+				t.Fatal(err)
 			}
 
 			if err := db.Close(); err != nil {
@@ -160,6 +163,13 @@ func TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart(t *testi
 			history, err := restarted.ProfileHistory(ctx, domain.agentID)
 			if err != nil || len(history) != 5 {
 				t.Fatalf("profile evidence classes lost across restart: %d err=%v", len(history), err)
+			}
+			analysisHistory, err := restarted.AnalysisHistory(ctx, domain.agentID)
+			if err != nil || len(analysisHistory) != 1 || !reflect.DeepEqual(analysisHistory[0], adaptation.AnalysisRecord{Policy: policy, Report: report}) {
+				t.Fatalf("analysis policy/report changed across restart: %#v err=%v", analysisHistory, err)
+			}
+			if _, traced, err := adaptation.TraceDiagnosis(analysisHistory[0].Report, report.Diagnoses[0].ID); err != nil || !reflect.DeepEqual(traced, derived.Measure.SourceObservationIDs) {
+				t.Fatalf("restarted diagnosis lost raw trace: %v %v", traced, err)
 			}
 		})
 	}

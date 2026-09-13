@@ -1,7 +1,7 @@
 # SPEC-021: Durable Adaptive-Behavior Lifecycle
 
 - Status: Draft
-- Governing ADRs: 006, 008, 012, 014, 015, 016, 017, 018, 019, 021, 022, 023, 026
+- Governing ADRs: 006, 008, 012, 014, 015, 016, 017, 018, 019, 021, 022, 023, 026, 036, 051, 052
 - Depends on: SPEC-006, SPEC-009, SPEC-012, SPEC-013
 
 ## Purpose
@@ -34,6 +34,12 @@ Observation append is immutable and idempotent by content identity. Conflicting 
 Raw observation trust may be `untrusted_content`, `observed`, or `user_confirmed`; it may not claim `derived` or `policy` authority. Provider identity identifies the executor boundary but proves no capability. Path identity identifies an execution path but carries no built-in quality meaning. Timestamps, causation roots, and scope identifiers preserve provenance and ordering but do not silently assign domain interpretation.
 
 `user_confirmed` observations and `confirmed` profile facts bind the confirming authority and confirmation evidence. Append requires a deterministic confirmation authorizer, and replay verifies that the authoritative event actor matches the binding. A caller cannot upgrade evidence merely by selecting a trust/evidence-class enum value.
+
+## Contract evolution
+
+Observation and profile v1 were transient pre-release schemas introduced and replaced on `redesign/praxis2` without a tag, release, published package, or external compatibility promise. Per ADR-051 they are intentionally not upcast: the first supported durable adaptive observation/profile contract is v2. Per ADR-052, named contract-version registries hold current and historical dispositions; freeze, append, and replay consult those registries rather than carrying compatibility lists at call sites. Replay distinguishes an intentionally unsupported pre-release v1 event from revoked/unsafe or unknown/future versions and fails closed in every non-readable case.
+
+Durable versions track semantic meaning rather than source layout. Changed authority/trust meaning, replay interpretation, behaviorally significant required fields, or separation of one persisted record into distinct evidence layers requires a version change. Internal refactoring, file movement, or semantics-preserving optional metadata alone does not.
 
 ## Measurement layers
 
@@ -75,6 +81,8 @@ raw observations
 ```
 
 A report proposes no authoritative change by itself. Each policy/security failure is retained as a separate invariant failure. Favorable latency, token, cost, or other measurements cannot average away or compensate for one; downstream candidate gates must fail closed.
+
+The report and exact frozen policy SHALL be persisted together as an immutable analysis event. Append and restart replay select every cited observation and measurement from the authoritative ledger, deterministically re-run the exact policy at the recorded evaluation time, and require the recomputed report identity to match. Content-addressing alone is not evidence that a diagnosis was actually derived from its claimed inputs.
 
 ## Downstream adaptation
 

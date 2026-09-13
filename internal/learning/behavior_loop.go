@@ -368,6 +368,7 @@ type BehaviorRegistry struct {
 	generations map[string]BehaviorGeneration
 	states      map[string]CandidateState
 	evaluations map[string]BehaviorEvaluation
+	demotions   map[string]DemotionRecord
 	activeID    string
 	rollbackID  string
 	path        string
@@ -377,6 +378,7 @@ type behaviorSnapshot struct {
 	Generations map[string]BehaviorGeneration `json:"generations"`
 	States      map[string]CandidateState     `json:"states"`
 	Evaluations map[string]BehaviorEvaluation `json:"evaluations"`
+	Demotions   map[string]DemotionRecord     `json:"demotions,omitempty"`
 	ActiveID    string                        `json:"active_id"`
 	RollbackID  string                        `json:"rollback_id,omitempty"`
 }
@@ -390,7 +392,7 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 		if err := VerifyBehaviorGeneration(seed); err != nil {
 			return nil, err
 		}
-		registry := &BehaviorRegistry{generations: map[string]BehaviorGeneration{seed.ID: seed}, states: map[string]CandidateState{seed.ID: CandidateStabilized}, evaluations: map[string]BehaviorEvaluation{}, activeID: seed.ID, path: path}
+		registry := &BehaviorRegistry{generations: map[string]BehaviorGeneration{seed.ID: seed}, states: map[string]CandidateState{seed.ID: CandidateStabilized}, evaluations: map[string]BehaviorEvaluation{}, demotions: map[string]DemotionRecord{}, activeID: seed.ID, path: path}
 		if err := registry.persist(); err != nil {
 			return nil, err
 		}
@@ -425,13 +427,32 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 			return nil, errors.New("registry evaluation refers to unavailable generation")
 		}
 	}
+	if snapshot.Demotions == nil {
+		snapshot.Demotions = map[string]DemotionRecord{}
+	}
+	for id, record := range snapshot.Demotions {
+		if id != record.Evaluation.ID {
+			return nil, errors.New("registry demotion evaluation key mismatch")
+		}
+		if err := VerifyDemotionRecord(record); err != nil {
+			return nil, err
+		}
+		evaluation := record.Evaluation
+		active, candidate := snapshot.Generations[evaluation.ActiveGenerationID], snapshot.Generations[evaluation.CandidateGenerationID]
+		if active.ID == "" || candidate.ID == "" {
+			return nil, errors.New("registry demotion evaluation refers to unavailable generation")
+		}
+		if err := validateDemotionPair(active, candidate, evaluation); err != nil {
+			return nil, err
+		}
+	}
 	if snapshot.RollbackID != "" && snapshot.Generations[snapshot.RollbackID].ID == "" {
 		return nil, errors.New("registry rollback generation is unavailable")
 	}
 	if state := snapshot.States[snapshot.ActiveID]; state == CandidateRejected || state == CandidateRevoked || state == CandidateDemoted || state == CandidateProposed || state == CandidateEvaluating {
 		return nil, errors.New("registry active generation has non-active lifecycle state")
 	}
-	return &BehaviorRegistry{generations: snapshot.Generations, states: snapshot.States, evaluations: snapshot.Evaluations, activeID: snapshot.ActiveID, rollbackID: snapshot.RollbackID, path: path}, nil
+	return &BehaviorRegistry{generations: snapshot.Generations, states: snapshot.States, evaluations: snapshot.Evaluations, demotions: snapshot.Demotions, activeID: snapshot.ActiveID, rollbackID: snapshot.RollbackID, path: path}, nil
 }
 
 func (r *BehaviorRegistry) Register(candidate BehaviorGeneration) error {
@@ -492,6 +513,35 @@ func (r *BehaviorRegistry) Promote(candidate BehaviorGeneration, evaluation Beha
 	return r.persist()
 }
 
+func (r *BehaviorRegistry) DemoteTo(candidate BehaviorGeneration, record DemotionRecord, decision GovernanceDecision, proposerID string) error {
+	evaluation := record.Evaluation
+	if decision.AuthorityID == "" || decision.AuthorityID == proposerID {
+		return errors.New("candidate cannot demote itself")
+	}
+	if !decision.Approved || decision.DecidedAt.IsZero() || decision.EvaluationID != evaluation.ID {
+		return errors.New("passing demotion evaluation and independent governed approval are required")
+	}
+	if err := VerifyDemotionRecord(record); err != nil {
+		return err
+	}
+	active := r.generations[r.activeID]
+	if err := VerifyBehaviorGeneration(candidate); err != nil {
+		return err
+	}
+	if err := validateDemotionPair(active, candidate, evaluation); err != nil {
+		return err
+	}
+	if err := r.Register(candidate); err != nil {
+		return err
+	}
+	r.demotions[evaluation.ID] = record
+	r.states[r.activeID] = CandidateDemoted
+	r.states[candidate.ID] = CandidatePromoted
+	r.rollbackID = r.activeID
+	r.activeID = candidate.ID
+	return r.persist()
+}
+
 func (r *BehaviorRegistry) Rollback() error {
 	if r.rollbackID == "" || r.generations[r.rollbackID].ID == "" {
 		return errors.New("rollback generation is unavailable")
@@ -499,6 +549,12 @@ func (r *BehaviorRegistry) Rollback() error {
 	current := r.activeID
 	r.activeID = r.rollbackID
 	r.rollbackID = current
+	if r.states[r.activeID] == CandidateDemoted {
+		r.states[r.activeID] = CandidatePromoted
+	}
+	if r.states[current] == CandidatePromoted {
+		r.states[current] = CandidateDemoted
+	}
 	return r.persist()
 }
 
@@ -507,7 +563,7 @@ func (r *BehaviorRegistry) HasGeneration(id string) bool   { return r.generation
 func (r *BehaviorRegistry) State(id string) CandidateState { return r.states[id] }
 
 func (r *BehaviorRegistry) persist() error {
-	snapshot := behaviorSnapshot{Generations: r.generations, States: r.states, Evaluations: r.evaluations, ActiveID: r.activeID, RollbackID: r.rollbackID}
+	snapshot := behaviorSnapshot{Generations: r.generations, States: r.states, Evaluations: r.evaluations, Demotions: r.demotions, ActiveID: r.activeID, RollbackID: r.rollbackID}
 	bytes, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return err

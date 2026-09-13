@@ -12,9 +12,9 @@ type PromotionMetrics struct {
 }
 
 type PromotionPolicy struct {
-	MinIndependentEvidence int
-	MinSuccessRate          float64
-	MaxRegressionRate       float64
+	MinIndependentEvidence   int
+	MinSuccessRate           float64
+	MaxRegressionRate        float64
 	RequireNoPolicyViolation bool
 }
 

@@ -8,14 +8,14 @@ import (
 type CandidateState string
 
 const (
-	CandidateProposed   CandidateState = "proposed"
-	CandidateEvaluating CandidateState = "evaluating"
-	CandidateRejected   CandidateState = "rejected"
+	CandidateProposed     CandidateState = "proposed"
+	CandidateEvaluating   CandidateState = "evaluating"
+	CandidateRejected     CandidateState = "rejected"
 	CandidateExperimental CandidateState = "experimental"
-	CandidatePromoted   CandidateState = "promoted"
-	CandidateStabilized CandidateState = "stabilized"
-	CandidateDemoted    CandidateState = "demoted"
-	CandidateRevoked    CandidateState = "revoked"
+	CandidatePromoted     CandidateState = "promoted"
+	CandidateStabilized   CandidateState = "stabilized"
+	CandidateDemoted      CandidateState = "demoted"
+	CandidateRevoked      CandidateState = "revoked"
 )
 
 type Candidate struct {

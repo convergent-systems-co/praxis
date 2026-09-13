@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/learning"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T20:42:55.460728Z",
+  "finished_at": "2026-09-13T20:42:55.702428Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/learning-runtime-v5.log",
+  "output_digest": "sha256:18805cb507b4eab076a2a442db3ca7a5e981d628d480c2f99ee5f237b7f0ff0b",
+  "source_digests": {
+    "internal/adaptation": "sha256:ad42f059e0485f682810e0cede6503b3224150a1263b0c926f7805b05d988482",
+    "internal/learning": "sha256:4b263d86f60eb1168eb5ac501249a33e5bd040ea69e9f6b3d8d321366c5904f1"
+  },
+  "observations": [
+    "TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart",
+    "TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart",
+    "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle",
+    "TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate",
+    "TestGenerationPromotionAndRollbackSurviveRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:07214cae6bde432b18e0280de36d8a19a62729c95d0e551b2d0e0c6879ee6313"
+}

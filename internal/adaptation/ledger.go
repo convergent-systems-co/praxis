@@ -14,6 +14,7 @@ const (
 	observationEvent = "adaptive.observation.recorded"
 	measurementEvent = "adaptive.measurement.recorded"
 	profileFactEvent = "adaptive.profile_fact.recorded"
+	analysisEvent    = "adaptive.analysis.recorded"
 )
 
 type ConfirmationAuthorizer interface {
@@ -64,7 +65,7 @@ func (l *Ledger) Record(ctx context.Context, observation Observation) error {
 	if err != nil {
 		return err
 	}
-	return l.append(ctx, observation.SubjectAgentID, events, eventstore.Event{ID: "event:" + observation.ID, AggregateType: "adaptive_behavior", Type: observationEvent, Version: "v2", Actor: observationActor(observation), CommandID: "record:" + observation.ID, CorrelationID: observation.RunID, CausationID: observation.CausationRoot, Trust: observation.Trust, Payload: payload, CreatedAt: observation.ObservedAt})
+	return l.append(ctx, observation.SubjectAgentID, events, eventstore.Event{ID: "event:" + observation.ID, AggregateType: "adaptive_behavior", Type: observationEvent, Version: observationEventContract.CurrentVersion(), Actor: observationActor(observation), CommandID: "record:" + observation.ID, CorrelationID: observation.RunID, CausationID: observation.CausationRoot, Trust: observation.Trust, Payload: payload, CreatedAt: observation.ObservedAt})
 }
 
 func (l *Ledger) RecordMeasurement(ctx context.Context, measurement Measurement) error {
@@ -99,7 +100,7 @@ func (l *Ledger) RecordMeasurement(ctx context.Context, measurement Measurement)
 	if err != nil {
 		return err
 	}
-	return l.append(ctx, measurement.SubjectAgentID, events, eventstore.Event{ID: "event:" + measurement.ID, AggregateType: "adaptive_behavior", Type: measurementEvent, Version: "v1", Actor: contracts.PrincipalRef{ID: measurement.SubjectAgentID, Kind: "agent"}, CommandID: "record:" + measurement.ID, CorrelationID: measurement.ID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: measurement.Measure.MeasuredAt})
+	return l.append(ctx, measurement.SubjectAgentID, events, eventstore.Event{ID: "event:" + measurement.ID, AggregateType: "adaptive_behavior", Type: measurementEvent, Version: measurementEventContract.CurrentVersion(), Actor: contracts.PrincipalRef{ID: measurement.SubjectAgentID, Kind: "agent"}, CommandID: "record:" + measurement.ID, CorrelationID: measurement.ID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: measurement.Measure.MeasuredAt})
 }
 
 func (l *Ledger) RecordProfileFact(ctx context.Context, fact ProfileFact) error {
@@ -128,7 +129,43 @@ func (l *Ledger) RecordProfileFact(ctx context.Context, fact ProfileFact) error 
 	if err != nil {
 		return err
 	}
-	return l.append(ctx, fact.SubjectAgentID, events, eventstore.Event{ID: "event:" + fact.ID, AggregateType: "adaptive_behavior", Type: profileFactEvent, Version: "v2", Actor: profileFactActor(fact), CommandID: "record:" + fact.ID, CorrelationID: fact.ID, Trust: profileFactTrust(fact.EvidenceClass), Payload: payload, CreatedAt: fact.RecordedAt})
+	return l.append(ctx, fact.SubjectAgentID, events, eventstore.Event{ID: "event:" + fact.ID, AggregateType: "adaptive_behavior", Type: profileFactEvent, Version: profileFactEventContract.CurrentVersion(), Actor: profileFactActor(fact), CommandID: "record:" + fact.ID, CorrelationID: fact.ID, Trust: profileFactTrust(fact.EvidenceClass), Payload: payload, CreatedAt: fact.RecordedAt})
+}
+
+func (l *Ledger) RecordAnalysis(ctx context.Context, record AnalysisRecord) error {
+	if err := VerifyAnalysisRecord(record); err != nil {
+		return err
+	}
+	events, err := l.load(ctx, record.Report.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	if eventIdentityExists(events, record.Report.ID) {
+		return nil
+	}
+	observations, err := observationsFromEvents(events, record.Report.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	measurements, err := measurementsFromEvents(events, record.Report.SubjectAgentID)
+	if err != nil {
+		return err
+	}
+	availableObservations, availableMeasurements := map[string]Observation{}, map[string]Measurement{}
+	for _, observation := range observations {
+		availableObservations[observation.ID] = observation
+	}
+	for _, measurement := range measurements {
+		availableMeasurements[measurement.ID] = measurement
+	}
+	if err := verifyAnalysisDerivation(record, availableObservations, availableMeasurements); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	return l.append(ctx, record.Report.SubjectAgentID, events, eventstore.Event{ID: "event:" + record.Report.ID, AggregateType: "adaptive_behavior", Type: analysisEvent, Version: analysisEventContract.CurrentVersion(), Actor: contracts.PrincipalRef{ID: record.Report.SubjectAgentID, Kind: "agent"}, CommandID: "record:" + record.Report.ID, CorrelationID: record.Report.ID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: record.Report.EvaluatedAt})
 }
 
 func (l *Ledger) Observations(ctx context.Context, subjectAgentID string) ([]Observation, error) {
@@ -153,6 +190,14 @@ func (l *Ledger) ProfileHistory(ctx context.Context, subjectAgentID string) ([]P
 		return nil, err
 	}
 	return profileFactsFromEvents(events, subjectAgentID)
+}
+
+func (l *Ledger) AnalysisHistory(ctx context.Context, subjectAgentID string) ([]AnalysisRecord, error) {
+	events, err := l.load(ctx, subjectAgentID)
+	if err != nil {
+		return nil, err
+	}
+	return analysisRecordsFromEvents(events, subjectAgentID)
 }
 
 func (l *Ledger) load(ctx context.Context, subjectAgentID string) ([]eventstore.Event, error) {
@@ -183,11 +228,12 @@ func observationsFromEvents(events []eventstore.Event, subject string) ([]Observ
 		if event.Type != observationEvent {
 			continue
 		}
-		if event.Version != "v2" {
-			return nil, fmt.Errorf("unknown observation event version %s", event.Version)
+		payload, _, err := observationEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
 		}
 		var observation Observation
-		if err := json.Unmarshal(event.Payload, &observation); err != nil {
+		if err := json.Unmarshal(payload, &observation); err != nil {
 			return nil, err
 		}
 		if err := VerifyObservation(observation); err != nil {
@@ -212,11 +258,12 @@ func measurementsFromEvents(events []eventstore.Event, subject string) ([]Measur
 		if event.Type != measurementEvent {
 			continue
 		}
-		if event.Version != "v1" {
-			return nil, fmt.Errorf("unknown measurement event version %s", event.Version)
+		payload, _, err := measurementEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
 		}
 		var measurement Measurement
-		if err := json.Unmarshal(event.Payload, &measurement); err != nil {
+		if err := json.Unmarshal(payload, &measurement); err != nil {
 			return nil, err
 		}
 		if err := VerifyMeasurement(measurement); err != nil {
@@ -241,11 +288,12 @@ func profileFactsFromEvents(events []eventstore.Event, subject string) ([]Profil
 		if event.Type != profileFactEvent {
 			continue
 		}
-		if event.Version != "v2" {
-			return nil, fmt.Errorf("unknown profile fact event version %s", event.Version)
+		payload, _, err := profileFactEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
 		}
 		var fact ProfileFact
-		if err := json.Unmarshal(event.Payload, &fact); err != nil {
+		if err := json.Unmarshal(payload, &fact); err != nil {
 			return nil, err
 		}
 		if err := VerifyProfileFact(fact); err != nil {
@@ -261,6 +309,81 @@ func profileFactsFromEvents(events []eventstore.Event, subject string) ([]Profil
 		out = append(out, fact)
 	}
 	return out, nil
+}
+
+func analysisRecordsFromEvents(events []eventstore.Event, subject string) ([]AnalysisRecord, error) {
+	out := []AnalysisRecord{}
+	seen := map[string]bool{}
+	observations, err := observationsFromEvents(events, subject)
+	if err != nil {
+		return nil, err
+	}
+	measurements, err := measurementsFromEvents(events, subject)
+	if err != nil {
+		return nil, err
+	}
+	availableObservations, availableMeasurements := map[string]Observation{}, map[string]Measurement{}
+	for _, observation := range observations {
+		availableObservations[observation.ID] = observation
+	}
+	for _, measurement := range measurements {
+		availableMeasurements[measurement.ID] = measurement
+	}
+	for _, event := range events {
+		if event.Type != analysisEvent {
+			continue
+		}
+		payload, _, err := analysisEventContract.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var record AnalysisRecord
+		if err := json.Unmarshal(payload, &record); err != nil {
+			return nil, err
+		}
+		if err := VerifyAnalysisRecord(record); err != nil {
+			return nil, err
+		}
+		if record.Report.SubjectAgentID != subject || event.ID != "event:"+record.Report.ID || event.Trust != contracts.TrustDerived || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) {
+			return nil, errors.New("adaptive event metadata does not bind analysis record")
+		}
+		if err := verifyAnalysisDerivation(record, availableObservations, availableMeasurements); err != nil {
+			return nil, err
+		}
+		if seen[record.Report.ID] {
+			return nil, errors.New("duplicate adaptive analysis event")
+		}
+		seen[record.Report.ID] = true
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func verifyAnalysisDerivation(record AnalysisRecord, availableObservations map[string]Observation, availableMeasurements map[string]Measurement) error {
+	observations := make([]Observation, 0, len(record.Report.ObservationIDs))
+	for _, id := range record.Report.ObservationIDs {
+		observation, ok := availableObservations[id]
+		if !ok {
+			return errors.New("analysis report observation is unavailable in subject ledger")
+		}
+		observations = append(observations, observation)
+	}
+	measurements := make([]Measurement, 0, len(record.Report.MeasurementIDs))
+	for _, id := range record.Report.MeasurementIDs {
+		measurement, ok := availableMeasurements[id]
+		if !ok {
+			return errors.New("analysis report measurement is unavailable in subject ledger")
+		}
+		measurements = append(measurements, measurement)
+	}
+	recomputed, err := EvaluateLongitudinal(observations, measurements, record.Policy, record.Report.EvaluatedAt)
+	if err != nil {
+		return fmt.Errorf("recompute analysis report: %w", err)
+	}
+	if recomputed.ID != record.Report.ID {
+		return errors.New("analysis report is not the deterministic result of its cited evidence and policy")
+	}
+	return nil
 }
 
 func verifyProfileSources(events []eventstore.Event, fact ProfileFact) error {

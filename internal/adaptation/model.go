@@ -116,7 +116,7 @@ type Observation struct {
 }
 
 func FreezeObservation(observation Observation) (Observation, error) {
-	observation.Version = "v2"
+	observation.Version = observationEventContract.CurrentVersion()
 	observation.ID = ""
 	observation.RawMeasures = append([]Measure(nil), observation.RawMeasures...)
 	sort.Slice(observation.RawMeasures, func(i, j int) bool { return measureLess(observation.RawMeasures[i], observation.RawMeasures[j]) })
@@ -158,7 +158,7 @@ func validateObservation(observation Observation, requireID bool) error {
 	if requireID && observation.ID == "" {
 		return errors.New("adaptive observation identity is required")
 	}
-	if observation.Version != "v2" || observation.SubjectAgentID == "" || observation.RunID == "" || observation.GoalClass == "" || observation.Domain == "" || observation.BehaviorKey == "" || observation.Context == "" || observation.CausationRoot == "" || observation.Outcome == "" || observation.PathID == "" || observation.ObservedAt.IsZero() {
+	if observation.Version != observationEventContract.CurrentVersion() || observation.SubjectAgentID == "" || observation.RunID == "" || observation.GoalClass == "" || observation.Domain == "" || observation.BehaviorKey == "" || observation.Context == "" || observation.CausationRoot == "" || observation.Outcome == "" || observation.PathID == "" || observation.ObservedAt.IsZero() {
 		return errors.New("adaptive observation identity, scope, outcome, path, and time are required")
 	}
 	switch observation.Trust {
@@ -216,7 +216,7 @@ type Measurement struct {
 }
 
 func FreezeMeasurement(measurement Measurement) (Measurement, error) {
-	measurement.Version = "v1"
+	measurement.Version = measurementEventContract.CurrentVersion()
 	measurement.ID = ""
 	measurement.Measure.SourceObservationIDs = append([]string(nil), measurement.Measure.SourceObservationIDs...)
 	sort.Strings(measurement.Measure.SourceObservationIDs)
@@ -251,7 +251,7 @@ func validateMeasurement(measurement Measurement, requireID bool) error {
 	if requireID && measurement.ID == "" {
 		return errors.New("adaptive measurement identity is required")
 	}
-	if measurement.Version != "v1" || measurement.SubjectAgentID == "" || measurement.GoalClass == "" || measurement.Domain == "" || measurement.BehaviorKey == "" || measurement.Context == "" {
+	if measurement.Version != measurementEventContract.CurrentVersion() || measurement.SubjectAgentID == "" || measurement.GoalClass == "" || measurement.Domain == "" || measurement.BehaviorKey == "" || measurement.Context == "" {
 		return errors.New("adaptive measurement scope is required")
 	}
 	if err := measurement.Measure.Validate(); err != nil {

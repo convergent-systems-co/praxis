@@ -73,11 +73,60 @@ func TestPolicyDiagnosisRequiresIndependentCausationRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := EvaluateLongitudinal(observations, []Measurement{measurement}, policy)
+	report, err := EvaluateLongitudinal(observations, []Measurement{measurement}, policy, now.Add(time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(report.Diagnoses) != 0 {
 		t.Fatal("correlated observation copies satisfied independent evidence policy")
+	}
+}
+
+func TestLedgerRejectsDigestValidAnalysisNotDerivedFromCitedEvidence(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+	observation, err := FreezeObservation(Observation{SubjectAgentID: "agent", RunID: "run", GoalClass: "goal", Domain: "research", BehaviorKey: "search", Context: "scope", CausationRoot: "root", Trust: contracts.TrustObserved, Outcome: "complete", PathID: "path", RawMeasures: []Measure{{Name: "duration", Value: 90, Kind: RawMeasure, Unit: "seconds", Provenance: "clock", MeasuredAt: now}}, ObservedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	measurement, err := FreezeMeasurement(Measurement{SubjectAgentID: "agent", GoalClass: "goal", Domain: "research", BehaviorKey: "search", Context: "scope", Measure: Measure{Name: "average_duration", Value: 90, Kind: DerivedMeasure, Unit: "seconds", Evaluator: &EvaluatorRef{ID: "mean", Version: "1"}, TransformID: "mean/v1", Provenance: "research-package", SourceObservationIDs: []string{observation.ID}, MeasuredAt: now}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := FreezeAnalysisPolicy(AnalysisPolicy{Rules: []ThresholdRule{{ID: "duration", Diagnosis: "slow", MeasureName: "average_duration", MeasureKind: DerivedMeasure, Unit: "seconds", Operator: GreaterThan, Threshold: 60, MinimumIndependentRoots: 1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := EvaluateLongitudinal([]Observation{observation}, []Measurement{measurement}, policy, now.Add(time.Minute))
+	if err != nil || len(report.Diagnoses) != 1 {
+		t.Fatal("expected policy diagnosis", err)
+	}
+
+	// Preserve all identity-bearing fields while replacing the actual policy result.
+	// A content digest alone cannot make this a valid derivation.
+	report.Diagnoses = nil
+	report.ID = ""
+	digest, err := digestValue(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report.ID = "sha256:" + digest
+	record := AnalysisRecord{Policy: policy, Report: report}
+	if err := VerifyAnalysisRecord(record); err != nil {
+		t.Fatal("fixture should remain intrinsically digest-valid:", err)
+	}
+
+	ledger, err := NewLedger(eventstore.NewMemoryStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.Record(ctx, observation); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordMeasurement(ctx, measurement); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordAnalysis(ctx, record); err == nil {
+		t.Fatal("ledger accepted a digest-valid report that was not produced by its cited evidence and policy")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"time"
 )
 
 type ComparisonOperator string
@@ -88,18 +89,19 @@ type LongitudinalReport struct {
 	MeasurementIDs    []string           `json:"measurement_ids"`
 	Diagnoses         []Diagnosis        `json:"diagnoses,omitempty"`
 	InvariantFailures []InvariantFailure `json:"invariant_failures,omitempty"`
+	EvaluatedAt       time.Time          `json:"evaluated_at"`
 }
 
-func EvaluateLongitudinal(observations []Observation, measurements []Measurement, policy AnalysisPolicy) (LongitudinalReport, error) {
+func EvaluateLongitudinal(observations []Observation, measurements []Measurement, policy AnalysisPolicy, evaluatedAt time.Time) (LongitudinalReport, error) {
 	if err := VerifyAnalysisPolicy(policy); err != nil {
 		return LongitudinalReport{}, err
 	}
-	if len(observations) == 0 {
-		return LongitudinalReport{}, errors.New("observations are required")
+	if len(observations) == 0 || evaluatedAt.IsZero() {
+		return LongitudinalReport{}, errors.New("observations and evaluation time are required")
 	}
 	subject := observations[0].SubjectAgentID
 	observationByID := map[string]Observation{}
-	report := LongitudinalReport{PolicyID: policy.ID, PolicyVersion: policy.Version, SubjectAgentID: subject}
+	report := LongitudinalReport{PolicyID: policy.ID, PolicyVersion: policy.Version, SubjectAgentID: subject, EvaluatedAt: evaluatedAt.UTC()}
 	for _, observation := range observations {
 		if err := VerifyObservation(observation); err != nil {
 			return LongitudinalReport{}, err
@@ -203,7 +205,7 @@ func EvaluateLongitudinal(observations []Observation, measurements []Measurement
 }
 
 func VerifyLongitudinalReport(report LongitudinalReport) error {
-	if report.ID == "" || report.PolicyID == "" || report.PolicyVersion == "" || report.SubjectAgentID == "" || len(report.ObservationIDs) == 0 {
+	if report.ID == "" || report.PolicyID == "" || report.PolicyVersion == "" || report.SubjectAgentID == "" || len(report.ObservationIDs) == 0 || report.EvaluatedAt.IsZero() {
 		return errors.New("longitudinal report identity, policy, subject, and observations are required")
 	}
 	for _, diagnosis := range report.Diagnoses {
@@ -228,6 +230,24 @@ func VerifyLongitudinalReport(report LongitudinalReport) error {
 	}
 	if id != "sha256:"+digest {
 		return errors.New("longitudinal report digest mismatch")
+	}
+	return nil
+}
+
+type AnalysisRecord struct {
+	Policy AnalysisPolicy     `json:"policy"`
+	Report LongitudinalReport `json:"report"`
+}
+
+func VerifyAnalysisRecord(record AnalysisRecord) error {
+	if err := VerifyAnalysisPolicy(record.Policy); err != nil {
+		return err
+	}
+	if err := VerifyLongitudinalReport(record.Report); err != nil {
+		return err
+	}
+	if record.Report.PolicyID != record.Policy.ID || record.Report.PolicyVersion != record.Policy.Version {
+		return errors.New("analysis report does not bind supplied policy")
 	}
 	return nil
 }

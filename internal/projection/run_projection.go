@@ -32,9 +32,7 @@ type RunViews struct {
 	views map[string]RunView
 }
 
-func NewRunViews() *RunViews {
-	return &RunViews{views: map[string]RunView{}}
-}
+func NewRunViews() *RunViews { return &RunViews{views: map[string]RunView{}} }
 
 func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 	if event.AggregateType != "run" || !strings.HasPrefix(event.Type, "run.") {
@@ -62,10 +60,13 @@ func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 	}
 
 	switch observation.Kind {
-	case kernel.ObservationRunStarted, kernel.ObservationRunResumed:
+	case kernel.ObservationRunStarted, kernel.ObservationRunResumed, kernel.ObservationRunStateChanged:
 		view.CurrentNode = observation.NodeID
 		view.State = observation.State
 		view.TransitionCount = observation.TransitionCount
+		if observation.FailureClass != "" {
+			view.LastFailure = observation.FailureClass
+		}
 	case kernel.ObservationNodeAttemptFailed:
 		view.FailedAttempts++
 		view.LastFailure = observation.FailureClass

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 type NodeResult struct {
@@ -23,16 +24,18 @@ type RunExecution struct {
 	State           RunState
 	TransitionCount int
 	Evidence        []string
+	AttemptCounts   map[string]int
 }
 
 type RunObservationKind string
 
 const (
-	ObservationRunStarted    RunObservationKind = "started"
-	ObservationRunResumed    RunObservationKind = "resumed"
-	ObservationNodeCompleted RunObservationKind = "node_completed"
-	ObservationTransitioned  RunObservationKind = "transitioned"
-	ObservationRunTerminal   RunObservationKind = "terminal"
+	ObservationRunStarted        RunObservationKind = "started"
+	ObservationRunResumed        RunObservationKind = "resumed"
+	ObservationNodeAttemptFailed RunObservationKind = "node_attempt_failed"
+	ObservationNodeCompleted     RunObservationKind = "node_completed"
+	ObservationTransitioned      RunObservationKind = "transitioned"
+	ObservationRunTerminal       RunObservationKind = "terminal"
 )
 
 type RunObservation struct {
@@ -46,6 +49,8 @@ type RunObservation struct {
 	ToNode          string             `json:"to_node,omitempty"`
 	State           RunState           `json:"state"`
 	TransitionCount int                `json:"transition_count"`
+	Attempt         int                `json:"attempt,omitempty"`
+	FailureClass    FailureClass       `json:"failure_class,omitempty"`
 	Evidence        []string           `json:"evidence,omitempty"`
 }
 
@@ -58,10 +63,9 @@ func Run(ctx context.Context, graph GraphDef, run *RunExecution, executor NodeEx
 	return RunObserved(ctx, graph, run, executor, nil)
 }
 
-// RunObserved executes the same canonical graph semantics while exposing
-// deterministic observations to an optional journal/projection boundary.
-// Observer failure is fail-closed: execution stops rather than advancing
-// authoritative state that could not be durably recorded.
+// RunObserved executes canonical graph semantics while exposing deterministic
+// observations to an optional journal/projection boundary. Observer failure is
+// fail-closed: execution stops rather than advancing unverifiable state.
 func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executor NodeExecutor, observer RunObserver) error {
 	if err := graph.Validate(); err != nil {
 		return fmt.Errorf("validate graph: %w", err)
@@ -75,8 +79,11 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 	if run.State.Terminal() {
 		return errors.New("terminal run cannot be resumed")
 	}
+	if run.AttemptCounts == nil {
+		run.AttemptCounts = map[string]int{}
+	}
 
-	resuming := run.TransitionCount > 0 || run.State == RunRunning || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling || run.State == RunCancelling
+	resuming := run.TransitionCount > 0 || len(run.AttemptCounts) > 0 || run.State == RunRunning || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling || run.State == RunCancelling
 	if run.GraphID == "" {
 		run.GraphID = graph.ID
 	}
@@ -96,15 +103,7 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 	if resuming {
 		observationKind = ObservationRunResumed
 	}
-	if err := observeRun(ctx, observer, RunObservation{
-		Kind:            observationKind,
-		RunID:           run.RunID,
-		GraphID:         run.GraphID,
-		GraphVersion:    run.GraphVersion,
-		NodeID:          run.CurrentNode,
-		State:           run.State,
-		TransitionCount: run.TransitionCount,
-	}); err != nil {
+	if err := observeRun(ctx, observer, baseObservation(run, observationKind, run.CurrentNode)); err != nil {
 		run.State = RunFailed
 		return fmt.Errorf("record run %s: %w", observationKind, err)
 	}
@@ -116,82 +115,142 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 
 	for {
 		if err := ctx.Err(); err != nil {
-			run.State = RunCancelling
+			if recordErr := recordTerminal(ctx, observer, run, RunCancelled, FailureCancellation); recordErr != nil {
+				return fmt.Errorf("record cancellation: %w", recordErr)
+			}
 			return err
 		}
 		node, ok := nodes[run.CurrentNode]
 		if !ok {
-			run.State = RunFailed
-			return fmt.Errorf("current node %q does not exist", run.CurrentNode)
+			err := fmt.Errorf("current node %q does not exist", run.CurrentNode)
+			if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureValidation); recordErr != nil {
+				return fmt.Errorf("%v; record failure: %w", err, recordErr)
+			}
+			return err
 		}
 		if node.Class == NodeTerminal {
-			run.State = node.TerminalState
-			if err := observeRun(ctx, observer, RunObservation{
-				Kind:            ObservationRunTerminal,
-				RunID:           run.RunID,
-				GraphID:         run.GraphID,
-				GraphVersion:    run.GraphVersion,
-				NodeID:          node.ID,
-				State:           run.State,
-				TransitionCount: run.TransitionCount,
-			}); err != nil {
+			if err := recordTerminal(ctx, observer, run, node.TerminalState, ""); err != nil {
 				return fmt.Errorf("record terminal state: %w", err)
 			}
 			return nil
 		}
 		if graph.MaxTransitions > 0 && run.TransitionCount >= graph.MaxTransitions {
-			run.State = RunFailed
-			return errors.New("graph transition bound exhausted")
+			err := errors.New("graph transition bound exhausted")
+			if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureResourceQuota); recordErr != nil {
+				return fmt.Errorf("%v; record failure: %w", err, recordErr)
+			}
+			return err
 		}
 
-		result, err := executor.ExecuteNode(ctx, graph, node, run)
+		result, attempt, err := executeNodeWithRetry(ctx, graph, node, run, executor, observer)
 		if err != nil {
-			run.State = RunFailed
-			return fmt.Errorf("execute node %s: %w", node.ID, err)
+			class := FailureOf(err)
+			state := RunFailed
+			if class == FailureCancellation || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil {
+				state = RunCancelled
+				class = FailureCancellation
+			} else if class == FailureExternalEffectUnknown {
+				run.State = RunReconciling
+				return err
+			}
+			if recordErr := recordTerminal(ctx, observer, run, state, class); recordErr != nil {
+				return fmt.Errorf("%v; record terminal failure: %w", err, recordErr)
+			}
+			return fmt.Errorf("execute node %s attempt %d: %w", node.ID, attempt, err)
 		}
 		if result.Outcome == "" {
-			run.State = RunFailed
-			return fmt.Errorf("node %s returned empty outcome", node.ID)
+			err := &ExecutionError{Class: FailureValidation, Err: fmt.Errorf("node %s returned empty outcome", node.ID)}
+			if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureValidation); recordErr != nil {
+				return fmt.Errorf("%v; record failure: %w", err, recordErr)
+			}
+			return err
 		}
 		run.Evidence = append(run.Evidence, result.Evidence...)
-		if err := observeRun(ctx, observer, RunObservation{
-			Kind:            ObservationNodeCompleted,
-			RunID:           run.RunID,
-			GraphID:         run.GraphID,
-			GraphVersion:    run.GraphVersion,
-			NodeID:          node.ID,
-			Outcome:         result.Outcome,
-			State:           run.State,
-			TransitionCount: run.TransitionCount,
-			Evidence:        append([]string(nil), result.Evidence...),
-		}); err != nil {
+		observation := baseObservation(run, ObservationNodeCompleted, node.ID)
+		observation.Outcome = result.Outcome
+		observation.Attempt = attempt
+		observation.Evidence = append([]string(nil), result.Evidence...)
+		if err := observeRun(ctx, observer, observation); err != nil {
 			run.State = RunFailed
 			return fmt.Errorf("record node completion: %w", err)
 		}
 
 		next, err := ResolveTransition(graph, node.ID, result.Outcome)
 		if err != nil {
-			run.State = RunFailed
+			if recordErr := recordTerminal(ctx, observer, run, RunFailed, FailureValidation); recordErr != nil {
+				return fmt.Errorf("%v; record failure: %w", err, recordErr)
+			}
 			return err
 		}
 		from := run.CurrentNode
 		run.CurrentNode = next
 		run.TransitionCount++
-		if err := observeRun(ctx, observer, RunObservation{
-			Kind:            ObservationTransitioned,
-			RunID:           run.RunID,
-			GraphID:         run.GraphID,
-			GraphVersion:    run.GraphVersion,
-			FromNode:        from,
-			ToNode:          next,
-			Outcome:         result.Outcome,
-			State:           run.State,
-			TransitionCount: run.TransitionCount,
-		}); err != nil {
+		observation = baseObservation(run, ObservationTransitioned, "")
+		observation.FromNode = from
+		observation.ToNode = next
+		observation.Outcome = result.Outcome
+		if err := observeRun(ctx, observer, observation); err != nil {
 			run.State = RunFailed
 			return fmt.Errorf("record transition: %w", err)
 		}
 	}
+}
+
+func executeNodeWithRetry(ctx context.Context, graph GraphDef, node NodeDef, run *RunExecution, executor NodeExecutor, observer RunObserver) (NodeResult, int, error) {
+	for {
+		attempt := run.AttemptCounts[node.ID] + 1
+		run.AttemptCounts[node.ID] = attempt
+		result, err := executor.ExecuteNode(ctx, graph, node, run)
+		if err == nil {
+			return result, attempt, nil
+		}
+		class := FailureOf(err)
+		observation := baseObservation(run, ObservationNodeAttemptFailed, node.ID)
+		observation.Attempt = attempt
+		observation.FailureClass = class
+		if observeErr := observeRun(ctx, observer, observation); observeErr != nil {
+			return NodeResult{}, attempt, fmt.Errorf("record failed attempt: %w", observeErr)
+		}
+		if !node.Retry.Allows(class, attempt) {
+			return NodeResult{}, attempt, err
+		}
+		if err := waitRetry(ctx, time.Duration(node.Retry.BackoffMillis)*time.Millisecond); err != nil {
+			return NodeResult{}, attempt, &ExecutionError{Class: FailureCancellation, Err: err}
+		}
+	}
+}
+
+func waitRetry(ctx context.Context, duration time.Duration) error {
+	if duration <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func baseObservation(run *RunExecution, kind RunObservationKind, nodeID string) RunObservation {
+	return RunObservation{
+		Kind:            kind,
+		RunID:           run.RunID,
+		GraphID:         run.GraphID,
+		GraphVersion:    run.GraphVersion,
+		NodeID:          nodeID,
+		State:           run.State,
+		TransitionCount: run.TransitionCount,
+	}
+}
+
+func recordTerminal(ctx context.Context, observer RunObserver, run *RunExecution, state RunState, class FailureClass) error {
+	run.State = state
+	observation := baseObservation(run, ObservationRunTerminal, run.CurrentNode)
+	observation.FailureClass = class
+	return observeRun(ctx, observer, observation)
 }
 
 func observeRun(ctx context.Context, observer RunObserver, observation RunObservation) error {

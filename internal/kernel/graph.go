@@ -20,8 +20,9 @@ const (
 )
 
 type NodeDef struct {
-	ID    string
-	Class NodeClass
+	ID            string
+	Class         NodeClass
+	TerminalState RunState
 }
 
 type TransitionDef struct {
@@ -54,6 +55,13 @@ func (g GraphDef) Validate() error {
 		if !validNodeClass(n.Class) {
 			return fmt.Errorf("unknown node class %q", n.Class)
 		}
+		if n.Class == NodeTerminal {
+			if n.TerminalState != RunSucceeded && n.TerminalState != RunFailed && n.TerminalState != RunCancelled {
+				return fmt.Errorf("terminal node %q requires explicit terminal state", n.ID)
+			}
+		} else if n.TerminalState != "" {
+			return fmt.Errorf("non-terminal node %q cannot declare terminal state", n.ID)
+		}
 		nodes[n.ID] = n
 	}
 	if _, ok := nodes[g.EntryNode]; !ok {
@@ -66,8 +74,12 @@ func (g GraphDef) Validate() error {
 		if tr.From == "" || tr.Outcome == "" || tr.To == "" {
 			return errors.New("transition from, outcome, and to are required")
 		}
-		if _, ok := nodes[tr.From]; !ok {
+		from, ok := nodes[tr.From]
+		if !ok {
 			return fmt.Errorf("transition source %q does not exist", tr.From)
+		}
+		if from.Class == NodeTerminal {
+			return fmt.Errorf("terminal node %q cannot have outgoing transitions", tr.From)
 		}
 		if _, ok := nodes[tr.To]; !ok {
 			return fmt.Errorf("transition destination %q does not exist", tr.To)

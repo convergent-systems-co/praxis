@@ -23,6 +23,7 @@ type RunView struct {
 	EvidenceCount   int                 `json:"evidence_count"`
 	FailedAttempts  int                 `json:"failed_attempts"`
 	LastFailure     kernel.FailureClass `json:"last_failure,omitempty"`
+	PendingWait     *kernel.Suspension  `json:"pending_wait,omitempty"`
 	LastSequence    int64               `json:"last_sequence"`
 	LastVersion     int64               `json:"last_version"`
 }
@@ -60,10 +61,20 @@ func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 	}
 
 	switch observation.Kind {
-	case kernel.ObservationRunStarted, kernel.ObservationRunResumed, kernel.ObservationRunStateChanged:
+	case kernel.ObservationRunStarted, kernel.ObservationRunResumed:
 		view.CurrentNode = observation.NodeID
 		view.State = observation.State
 		view.TransitionCount = observation.TransitionCount
+	case kernel.ObservationRunStateChanged:
+		view.CurrentNode = observation.NodeID
+		view.State = observation.State
+		view.TransitionCount = observation.TransitionCount
+		if observation.Wait != nil {
+			wait := *observation.Wait
+			view.PendingWait = &wait
+		} else if observation.State != kernel.RunSuspended {
+			view.PendingWait = nil
+		}
 		if observation.FailureClass != "" {
 			view.LastFailure = observation.FailureClass
 		}
@@ -80,6 +91,7 @@ func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 		view.CurrentNode = observation.NodeID
 		view.State = observation.State
 		view.TransitionCount = observation.TransitionCount
+		view.PendingWait = nil
 		if observation.FailureClass != "" {
 			view.LastFailure = observation.FailureClass
 		}
@@ -96,5 +108,9 @@ func (r *RunViews) Get(runID string) (RunView, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	view, ok := r.views[runID]
+	if ok && view.PendingWait != nil {
+		copyWait := *view.PendingWait
+		view.PendingWait = &copyWait
+	}
 	return view, ok
 }

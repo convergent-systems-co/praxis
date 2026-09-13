@@ -33,7 +33,9 @@ from praxis_evidence.proof import validate_proof_record
 from praxis_evidence.types import ProofRecord, proof_record_to_document
 from praxis_executors.adapters.claude_cli import ClaudeCliExecutor
 from praxis_executors.adapters.codex_cli import CodexCliExecutor
+from praxis_executors.adapters.copilot_cli import CopilotCliExecutor
 from praxis_executors.adapters.fake import FakeCapabilityExecutor
+from praxis_executors.adapters.mlx import MlxExecutor
 from praxis_executors.adapters.ollama import OllamaExecutor
 from praxis_executors.adapters.subprocess_executor import SubprocessExecutor
 from praxis_executors.interface import ExecutorError
@@ -54,7 +56,9 @@ _GRAPH_VERSION = "1.0.0"
 _ADAPTER_FACTORIES = {
     "claude_cli": lambda executor_id: ClaudeCliExecutor(executor_id),
     "codex_cli": lambda executor_id: CodexCliExecutor(executor_id),
+    "copilot_cli": lambda executor_id: CopilotCliExecutor(executor_id),
     "fake": lambda executor_id: FakeCapabilityExecutor(executor_id, [], {}),
+    "mlx": lambda executor_id: MlxExecutor(executor_id, base_url="http://127.0.0.1:1"),
     "ollama": lambda executor_id: OllamaExecutor(executor_id, base_url="http://127.0.0.1:1"),
     "subprocess_executor": lambda executor_id: SubprocessExecutor(executor_id, ["coding"]),
 }
@@ -75,6 +79,8 @@ _VENDOR_OR_PRODUCT_NAMES = (
     "llama",
     "gemini",
     "mistral",
+    "copilot",
+    "mlx",
 )
 
 

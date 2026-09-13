@@ -113,6 +113,74 @@ mkdir -p "$HOME/.praxis"
 
 Praxis does not silently choose an authoritative database for commands that mutate or inspect durable state.
 
+## Usage
+
+This repository still ships and tests the Python compatibility surface while the Go control plane is completed. The examples in this section describe that installed `praxis` console script.
+
+### Quickstart: drive a graph to completion
+
+`praxis run` is the shipped compatibility command that drives a graph to completion. The equivalent library path uses `build_trivial_graph`, a `TransitionEngine`, and a `FakeExecutor`; a failed evidence gate raises `TransitionError`.
+
+```python
+from overlays.trivial.overlay import build_trivial_graph
+from praxis_runtime.testing.fake_executor import FakeExecutor
+from praxis_runtime.transitions import TransitionEngine, TransitionError
+
+graph = build_trivial_graph()
+```
+
+### Inspecting a run: the dashboard
+
+The dashboard reads the graph and durable run directory without becoming execution authority.
+
+```bash
+python -m praxis_dashboard --graph examples/sample-graph.json --run-dir /path/to/run-dir --replay-only
+python -m praxis_dashboard --graph examples/sample-graph.json --run-dir /path/to/run-dir
+```
+
+### Inspecting executors: the `praxis` CLI
+
+The installed compatibility CLI provides read-only executor inspection:
+
+```bash
+praxis executors
+praxis executors --json
+praxis executors discover
+praxis executors match --capability coding --capability reasoning --explain
+```
+
+An unavailable adapter degrades its own row rather than hiding other adapters. `--json` is available only for the bare executor status table; neither `doctor` nor `run` accepts `--json`. The compatibility dispatcher recognizes exactly the first arguments `executors`, `doctor`, and `run`; any other first argument prints the package version and exits 0.
+
+### Checking an install: `praxis doctor`
+
+```bash
+praxis doctor
+praxis doctor --graph examples/sample-graph.json --overlay-manifest path/to/overlay-manifest.json
+```
+
+Doctor performs five checks in order: prerequisites and the Python/runtime version, configuration, graph/overlay schema validity, executor discovery, and policy. There is no user configuration file to validate today. The graph/overlay check validates only explicitly supplied documents and never scans the working tree.
+
+Every check ends with an `ok`, `warn`, or `fail` verdict. Doctor exits 0 when no check is `fail`, and exits 1 when at least one check is `fail`. A machine with no `claude` binary and no Ollama service receives a `warn` and still exits 0.
+
+### Driving a graph: `praxis run`
+
+```bash
+praxis run trivial --run-dir /path/to/run-dir
+praxis run examples/sample-graph.json --capability coding --run-dir /path/to/run-dir
+praxis run development --executor executor-id --run-id my-run --run-dir /path/to/run-dir
+```
+
+`<target>` is either a JSON graph document path or the shipped overlay id `trivial` or `development`. `--executor` defaults to `auto`; an explicit choice remains subject to policy, so a policy-denied executor is refused. It must still satisfy the node requirement, and the node is refused when it does not.
+
+The command exits 0 when every node reaches a terminal state, and exits nonzero as soon as a node fails closed. `--run-dir` is required and receives `run-state.json` plus the event directory that `python -m praxis_dashboard --run-dir` reads. A directory already containing `run-state.json` is refused. Resuming an existing run is not supported by this compatibility command.
+
+### Running the test suite
+
+```bash
+python -m pytest
+go test ./...
+```
+
 ## Core CLI control plane
 
 The core executable reserves only platform/lifecycle commands:

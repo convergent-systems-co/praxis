@@ -27,7 +27,12 @@ jobs:
           cache: true
       - name: Format check
         run: |
-          test -z "$(gofmt -l $(find . -type f -name '*.go' -not -path './.git/*'))"
+          unformatted="$(gofmt -l $(find . -type f -name '*.go' -not -path './.git/*'))"
+          if [ -n "$unformatted" ]; then
+            echo "Unformatted Go files:"
+            echo "$unformatted"
+            exit 1
+          fi
       - name: Vet
         run: go vet ./...
       - name: Test

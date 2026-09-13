@@ -319,6 +319,131 @@ def test_execute_launches_polls_to_terminal_and_returns_result_unchanged():
     assert len(poll_calls) == 2
 
 
+class _ProbeRecordingExecutor(Executor):
+    """Executor test double that records whether either probe was called.
+
+    `_ScriptedExecutor` above cannot express a raising `capabilities()`, and
+    neither double counts probe calls; `registered_executors()` must return
+    every registered executor *without* probing, so these tests need both.
+    """
+
+    def __init__(
+        self,
+        executor_id: str,
+        *,
+        health: ExecutorAvailability | Exception = ExecutorAvailability.AVAILABLE,
+        advertisement: dict | Exception | None = None,
+    ) -> None:
+        self.executor_id = executor_id
+        self._health = health
+        self._advertisement = (
+            advertisement if advertisement is not None else _advertisement(executor_id, "kind-a")
+        )
+        self.health_calls = 0
+        self.capabilities_calls = 0
+
+    def capabilities(self) -> dict:
+        self.capabilities_calls += 1
+        if isinstance(self._advertisement, Exception):
+            raise self._advertisement
+        return self._advertisement
+
+    def health(self) -> ExecutorAvailability:
+        self.health_calls += 1
+        if isinstance(self._health, Exception):
+            raise self._health
+        return self._health
+
+    def launch(self, request: ExecutionRequest) -> ExecutionHandle:
+        raise AssertionError("registered_executors() must not launch anything")
+
+    def status(self, handle: ExecutionHandle) -> ExecutorStatus:
+        raise AssertionError("registered_executors() must not poll status")
+
+    def cancel(self, handle: ExecutionHandle) -> None:
+        raise AssertionError("registered_executors() must not cancel anything")
+
+    def result(self, handle: ExecutionHandle) -> ExecutionResult:
+        raise AssertionError("registered_executors() must not read results")
+
+
+def test_registered_executors_preserves_registration_order():
+    registry = ExecutorRegistry()
+    # Registered in an order that is neither alphabetical nor reverse
+    # alphabetical, so sorting the pairs by executor_id would fail this test.
+    zulu = _ProbeRecordingExecutor("executor-zulu")
+    alpha = _ProbeRecordingExecutor("executor-alpha")
+    mike = _ProbeRecordingExecutor("executor-mike")
+    registry.register("executor-zulu", zulu)
+    registry.register("executor-alpha", alpha)
+    registry.register("executor-mike", mike)
+
+    pairs = registry.registered_executors()
+
+    # Ordering is a deliberate guarantee, not an incidental dict detail: the
+    # dashboard's executor panel renders this listing in registration order.
+    assert pairs == (
+        ("executor-zulu", zulu),
+        ("executor-alpha", alpha),
+        ("executor-mike", mike),
+    )
+    assert isinstance(pairs, tuple)
+
+
+def test_registered_executors_includes_executor_whose_health_raises():
+    registry = ExecutorRegistry()
+    broken = _ProbeRecordingExecutor("executor-broken", health=_HealthError("probe failed"))
+    fine = _ProbeRecordingExecutor("executor-fine")
+    # Registered fine-then-broken, the reverse of alphabetical order, so the
+    # ordering guarantee is asserted here too rather than only in the test above.
+    registry.register("executor-fine", fine)
+    registry.register("executor-broken", broken)
+
+    # Unlike advertisements(), which drops it, the unhealthy executor must
+    # still be listed -- the dashboard has to show it as unhealthy.
+    assert registry.registered_executors() == (
+        ("executor-fine", fine),
+        ("executor-broken", broken),
+    )
+
+
+def test_registered_executors_includes_executor_whose_capabilities_raises():
+    registry = ExecutorRegistry()
+    unaskable = _ProbeRecordingExecutor(
+        "executor-unaskable", advertisement=_HealthError("capabilities failed")
+    )
+    registry.register("executor-unaskable", unaskable)
+
+    assert registry.registered_executors() == (("executor-unaskable", unaskable),)
+
+
+def test_registered_executors_probes_neither_health_nor_capabilities():
+    registry = ExecutorRegistry()
+    executor = _ProbeRecordingExecutor("executor-a")
+    registry.register("executor-a", executor)
+
+    registry.registered_executors()
+
+    assert executor.health_calls == 0
+    assert executor.capabilities_calls == 0
+
+
+def test_registered_executors_is_empty_for_a_fresh_registry():
+    assert ExecutorRegistry().registered_executors() == ()
+
+
+def test_registered_executors_reflects_unregister():
+    registry = ExecutorRegistry()
+    kept = _ProbeRecordingExecutor("executor-kept")
+    dropped = _ProbeRecordingExecutor("executor-dropped")
+    registry.register("executor-kept", kept)
+    registry.register("executor-dropped", dropped)
+
+    registry.unregister("executor-dropped")
+
+    assert registry.registered_executors() == (("executor-kept", kept),)
+
+
 def test_execute_works_without_a_poll_callback():
     scripted_result = ExecutionResult(status=ExecutorStatus.SUCCEEDED)
     executor = _ScriptedExecutor(

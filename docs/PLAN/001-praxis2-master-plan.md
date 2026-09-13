@@ -1,10 +1,11 @@
 # PLAN-001: Praxis 2 Master Delivery Plan
 
-- Status: Active / Reconciled
+- Status: Final CI Gate
 - Branch: `redesign/praxis2`
 - Architecture authority: `docs/ADR/*`
 - Implementation authority: `docs/SPEC/*`
 - Review record: `docs/PLAN/002-praxis2-adversarial-and-security-review.md`
+- Final conformance: `docs/PLAN/003-praxis2-final-conformance-report.md`
 - Reconciled: 2026-09-13
 
 ## Purpose
@@ -57,78 +58,79 @@ Praxis is not a software-development loop. Software development is a proving dom
 
 ### Wave 0: Contract foundation — COMPLETE
 
-Outcome: stable canonical/security boundaries.
+Canonical/security contracts, principals/provenance, capability leases, `ActionIntent`, approval binding, crypto profiles, invocation contracts, plugin identities, scheduler/resource contracts, and compatibility tests are implemented.
 
-Implemented evidence includes canonical command/event/security contracts, principals/provenance/trust classes, capability leases, `ActionIntent`, approval binding, crypto profiles, invocation contracts, plugin identities, scheduler/resource contracts, and compatibility tests.
+### Wave 1: Authoritative kernel and persistence — COMPLETE
 
-Exit gate: deterministic validation and negative security tests are green.
-
-### Wave 1: Authoritative kernel and persistence — COMPLETE WITH PROVIDER ABSTRACTION CLOSURE
-
-Outcome: deterministic durable source of truth independent of LLM/client session.
-
-Implemented: SQLite reference provider, migration ledger, append-only events, optimistic aggregate versions, projections/checkpoints, replay/recovery, authority/effect state, secure encrypted blobs, package/invocation registry schema, read-only query path.
-
-Governing: SPEC-006, SPEC-016; ADR-031/032/035/036/040/042/043/047.
-
-Closure requirement: provider-neutral semantic interfaces/conformance suite must front SQLite so runtime/domain code need not know schema details.
+SQLite is the reference implementation behind semantic provider interfaces. Migrations, append-only events, optimistic aggregate versions, projections/checkpoints, replay/recovery, authority/effect state, secure encrypted blobs, package/invocation registry, read-only query path and provider conformance are implemented.
 
 ### Wave 2: Graph execution and resource kernel — COMPLETE
 
-Implemented: graph validation, explicit terminal semantics, generic runner, bounded loops/retries, typed failures, cancellation, durable waits, replay/resume, nested graph scope/authority/quota narrowing, exact subgraph identity/version references, scheduler/fairness/quota primitives.
-
-Exit gate: fast path, architected subgraph path, retry/replay/cancel/wait fixtures pass.
+Graph validation, explicit terminal semantics, bounded loops/retries, typed failures, cancellation, durable waits, replay/resume, exact nested graph identity and scheduler/resource primitives are implemented and tested.
 
 ### Wave 3: Plugin capability/isolation runtime — COMPLETE
 
-Implemented: provider discovery, authenticated instance identity, protocol negotiation, handshake validation, lifecycle/quarantine, supervisor/restart ceilings, isolation enforcement declarations, instance/session-bound capability leases, authoritative atomic lease consumption immediately before transport dispatch.
-
-Exit gate: stale-session, denied-operation, one-use replay, missing-isolation, quarantine and protocol fixtures pass.
+Provider discovery, authenticated instance identity, protocol negotiation, handshake validation, lifecycle/quarantine, supervisor/restart ceilings, isolation declarations, exact instance/session lease binding, authoritative persisted lease reload and atomic bounded-use consumption immediately before transport are implemented.
 
 ### Wave 4: Workspace Intelligence — COMPLETE
 
-Implemented: workspace root confinement, symlink/traversal rejection, bounded context packs, lexical/path evidence, freshness/provenance, destination-aware sensitive release and PQ profile constraints.
-
-Exit gate: confinement, secret/sensitive release, budget and stale-evidence fixtures pass.
+Root confinement, traversal/symlink rejection, bounded context packs, evidence freshness/provenance, destination-aware sensitive release and crypto-profile constraints are implemented.
 
 ### Wave 5: Inference and executor routing — COMPLETE
 
-Implemented: D0 deterministic / D1 bounded / D2 deep reasoning tiers, capability-based routing, latency/token/deadline budgets, escalation semantics, fast-path development classification.
-
-Design principle: use the lowest reasoning level that reliably solves the problem.
+D0 deterministic / D1 bounded / D2 deep reasoning tiers, capability routing, latency/token/deadline budgets, escalation and fast-path classification are implemented.
 
 ### Wave 6: Learning and adaptation — COMPLETE
 
-Implemented: candidate lifecycle, independent-evidence requirement, deterministic promotion gate, policy/invariant non-learnability, rollback-oriented evaluation, evidence provenance.
+Candidate lifecycle, independent-evidence requirement, deterministic promotion, invariant non-learnability, rollback-oriented evaluation and evidence provenance are implemented.
 
 ### Wave 7: Persistent agent identity and memory — COMPLETE
 
-Implemented: persistent agent generations/lineage, scoped memory, provenance/trust-preserving ranking, poisoning-resistant trust behavior, local identity separate from downloadable definition.
+Persistent agent generations/lineage, scoped memory, provenance/trust-preserving ranking and poisoning-resistant behavior are implemented. Downloadable definitions remain distinct from local agent identities.
 
-Universal package closure is governed by SPEC-017.
+### Wave 8: Packaging, catalog, dependency trust and signatures — COMPLETE
 
-### Wave 8: Packaging, catalog, dependency trust and signatures — FUNCTIONALLY COMPLETE; FINAL PACKAGE-CONTENT FIXTURES REMAIN
+Implemented:
 
-Implemented: immutable manifest identity, dependency lock validation, transitive capability aggregation, install lifecycle/update review, rollback semantics, lineage, crypto profiles, dynamic invocation registry, GitHub Releases distribution adapter.
-
-New governing ADRs/SPECs: ADR-046/048, SPEC-011/015/017.
-
-Required final fixtures:
-
-- graph-only package install/activate/update/rollback/uninstall;
-- agent-definition-only package with two independent local identities;
-- mixed graph+plugin package proving plugin authority remains lease-gated;
-- catalog discovery filtering by content class.
+- universal immutable package manifests;
+- typed graph/agent/plugin contents;
+- dependency lock validation and transitive capability aggregation;
+- install/update/uninstall lifecycle and rollback semantics;
+- dynamic invocation registry tied to immutable package generations;
+- graph-only, agent-only and mixed package fixtures;
+- independent local agents from one installed definition;
+- GitHub Releases adapter with `discover/info/install/update/uninstall/list`;
+- universal `praxis-package` discovery topic;
+- bounded release payloads;
+- canonical manifest/artifact/signature release assets;
+- exact manifest+artifact digest signature binding;
+- local publisher trust;
+- algorithm-agile verifier interface;
+- Ed25519 classical verifier;
+- PQ/hybrid fail-closed semantics when required verifier capability is unavailable;
+- explicit-only PQ-preferred classical fallback;
+- renewed review for capability/enforcement/crypto expansion.
 
 ### Wave 9: Personalization and behavioral matching — COMPLETE
 
-Implemented: scoped preferences, explicit > learned > default precedence, behavioral profile matching that ranks eligible packages without granting authority.
+Scoped preferences, explicit > learned > default precedence and behavioral matching without authority escalation are implemented.
 
-### Wave 10: LLM client integration and enforcement surfaces — FUNCTIONALLY COMPLETE; CLI LIFECYCLE/CONTROL CLOSURE REMAINS
+### Wave 10: LLM client integration and enforcement surfaces — COMPLETE
 
-Implemented: canonical parser/resolver, invocation contracts, client capability/enforcement profiles, enforcement-below-LLM semantics, dynamic package command registry, status read path, durable run control service.
+Implemented:
 
-Core CLI reserved surface:
+- canonical parser/resolver and invocation contracts;
+- client capability/enforcement profiles;
+- enforcement-below-LLM semantics;
+- dynamic package commands with no domain-package imports in core CLI;
+- registry-derived help;
+- package lifecycle commands;
+- read-only status;
+- authorized `cancel` and `resume` through deterministic run-control authority;
+- `doctor` and `version`;
+- CLI resume as authorized liveness transition only, never direct node execution.
+
+Core control plane:
 
 ```text
 praxis discover
@@ -145,56 +147,39 @@ praxis doctor
 praxis version
 ```
 
-All domain/package entry points derive from active installed `InvocationContract`s. Core CLI may not import domain packages to expose commands.
-
-Remaining closure: finalize CLI help/list/completion and mutation command wiring through deterministic authority.
+All domain/package entry points derive from installed active `InvocationContract`s.
 
 ### Wave 11: Portable and multi-machine state — COMPLETE AT CONTRACT/CLASSIFICATION LEVEL
 
-Implemented: portable state classification, nonportable runtime authority (approvals/leases/client sessions/resource locks), sensitive encrypted state path, canonical-state principle.
-
-Release closure does not require a cloud sync service; provider-neutral export/import remains the canonical future extension point.
+Portable-state classification and nonportable runtime authority classes are implemented. Release closure does not require a cloud sync service.
 
 ### Wave 12: Proving domain A — software development — COMPLETE
 
-Implemented `develop` package with:
-
-- direct fast path;
-- bounded local planning;
-- architected path through Goals;
-- Goal/Planning Baseline binding;
-- software materialization contract;
-- validation/repair loop;
-- planning-amortization telemetry;
-- end-to-end Goals subgraph execution.
-
-Exit evidence: architected work enters Goals/materialization/local planning; direct work skips it; baseline reuse reduces project-level replanning.
+`develop` implements direct fast path, bounded planning, Goals architected path, Goal/Planning Baseline binding, software materialization, validation/repair, amortization telemetry and end-to-end subgraph execution.
 
 ### Wave 13: Proving domain B — structured research — COMPLETE
 
-Implemented research package using the same Goals/subgraph/runtime semantics without development ontology.
-
-Exit evidence: research can build or reuse a Goal Baseline, gather/synthesize/challenge evidence, and complete without adding software-development concepts to core.
+Research uses the same Goals/subgraph/runtime semantics without adding development ontology to core.
 
 ### Wave 14: Praxis 1 migration/salvage — COMPLETE FOR REDESIGN BRANCH BOUNDARY
 
-Praxis 2 architecture is independent of legacy architecture. Existing implementation is reused only where it conforms to the new contracts. Legacy paths that bypass deterministic command/capability/provenance/enforcement boundaries are not architectural dependencies.
+Praxis 2 is architecturally independent of legacy paths and reuses legacy material only when it conforms to current contracts.
 
-A future production migration may preserve additional legacy state, but it is not a prerequisite for the Praxis 2 redesign branch to satisfy its master plan.
+### Wave 15: Productization, adversarial qualification and release — FINAL CI GATE
 
-### Wave 15: Productization, adversarial qualification and release — IN CLOSURE
+Closed:
 
-Implemented/available: CI, Go module lock, restart/replay tests, SQLite migrations, secure blobs, plugin authority tests, Goals/develop/research proving packages, qualification matrix, GitHub Releases adapter, dynamic CLI registry, PolyForm Noncommercial licensing.
+1. provider-neutral persistence interfaces and conformance tests;
+2. universal package graph/agent/mixed fixtures;
+3. dynamic CLI lifecycle/help/status/resume/cancel control surface;
+4. README/license/contribution-rights alignment;
+5. final adversarial/security review in PLAN-002;
+6. final conformance mapping in PLAN-003;
+7. package distribution payload limits and cryptographic signature verification added during final hostile-path review.
 
-Remaining release gates:
+Remaining mechanical gate:
 
-1. provider-neutral persistence conformance implementation/tests (SPEC-016);
-2. universal package graph/agent/mixed fixture implementation/tests (SPEC-017);
-3. finish CLI `list/help/status/resume/cancel` against durable registry/run control without authority bypass;
-4. align README/user docs with Praxis 2 architecture and PolyForm Noncommercial license;
-5. run final adversarial/security review against current implementation and update PLAN-002;
-6. run full branch CI green after all closure changes;
-7. produce final master-plan conformance report with no unexplained open acceptance gates.
+- full `Praxis 2 Go` workflow green at the reconciled branch head after all final documents and implementation changes.
 
 ## Architecture conformance matrix
 
@@ -207,38 +192,19 @@ Remaining release gates:
 | ADR-040 trust/instruction separation | SPEC-001/008/009/012 | provenance/prompt-injection boundaries |
 | ADR-041 plugin isolation | SPEC-007 | isolation/handshake/supervisor tests |
 | ADR-042 approval binding | SPEC-002/006 | stale/replay/intent mutation tests |
-| ADR-043 cryptographic agility/PQC | SPEC-005 | profile resolution/envelope/downgrade tests |
+| ADR-043 cryptographic agility/PQC | SPEC-005 | profile resolution/envelope/signature/downgrade tests |
 | ADR-044 planning amortization | SPEC-013 | baseline reuse/delta/direct-path tests |
 | ADR-045 Goals | SPEC-014 | Goals baseline/recommendation/invalidation tests |
-| ADR-046 dynamic command surface | SPEC-015 | registry/alias/core-reservation tests |
+| ADR-046 dynamic command surface | SPEC-015 | registry/alias/core-reservation/help tests |
 | ADR-047 state provider abstraction | SPEC-016 | provider conformance suite |
 | ADR-048 universal packages | SPEC-011/017 | graph-only/agent-only/mixed package fixtures |
 
 ## Completion calculation
 
-Completion is weighted by accepted architecture/runtime capability, not lines of code. Documentation without executable evidence does not close an implementation gate. A subsystem is complete when its governing invariants have implementation plus positive/negative tests.
+All architectural and implementation acceptance gates are closed. The branch is **99% complete** solely because final full-head CI has not yet been observed green after the last closure changes.
 
-Current reconciliation identifies only Wave 15 closure gates and the explicit closure items in Waves 1, 8 and 10. All other waves have implementation evidence sufficient for the redesign-branch master plan.
-
-## Work-bundle rules
-
-Every remaining bundle must identify:
-
-- governing ADR/SPEC;
-- exact implementation surface;
-- authority/security implications;
-- positive and negative tests;
-- migration/provider/package compatibility impact;
-- observable completion evidence.
-
-No new domain feature is added during closure unless it fixes a violated invariant or an explicit acceptance gate.
+No new feature work is required by the reconciled master plan.
 
 ## Definition of 100%
 
-Praxis 2 master-plan completion is 100% when:
-
-- all seven Wave 15 release gates above are closed;
-- full branch CI is green at the reconciled head;
-- PLAN-002 reflects the final adversarial/security review;
-- PLAN-001 has no unqualified implementation acceptance gate marked incomplete;
-- the final conformance report maps every current ADR/SPEC addition through implementation and test evidence.
+Praxis 2 master-plan completion is 100% when the full branch CI is green at the reconciled head. At that point this plan will be marked `COMPLETE` and the exact validated commit recorded here.

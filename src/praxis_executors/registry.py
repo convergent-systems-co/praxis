@@ -50,6 +50,23 @@ class ExecutorRegistry:
     def unregister(self, executor_id: str) -> None:
         self._executors.pop(executor_id, None)
 
+    def registered_executors(self) -> tuple[tuple[str, Executor], ...]:
+        """Every registered (executor_id, executor) pair, in registration order.
+
+        Registration order is `dict` insertion order, and it is a deliberate
+        guarantee of this accessor rather than an incidental detail.
+
+        Probes nothing: no `health()`, no `capabilities()`. Callers that need a
+        listing of every executor including the unhealthy and the unaskable
+        (`praxis_dashboard.executor_panel`) do their own guarded probing,
+        because `advertisements()` cannot give them one: it drops an executor
+        whose `health()` raises or reports unavailable, and it propagates the
+        exception from an executor whose `capabilities()` raises. Such a caller
+        must therefore guard its own call to `advertisements()` as well as its
+        own probes.
+        """
+        return tuple(self._executors.items())
+
     def advertisements(self, *, healthy_only: bool = True) -> list[dict]:
         result = []
         for executor_id, executor in self._executors.items():

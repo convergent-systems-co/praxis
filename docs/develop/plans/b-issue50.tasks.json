@@ -1,0 +1,100 @@
+{
+  "bundle": "b-issue50",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Read-only registered_executors() accessor on ExecutorRegistry",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_executors/registry.py",
+        "tests/test_executor_registry.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Executors panel projection (executor_panel.py)",
+      "depends_on": ["T1"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/executor_panel.py",
+        "tests/test_dashboard_executor_panel.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Selection-reasoning projection (selection_view.py)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/selection_view.py",
+        "tests/test_dashboard_selection_view.py"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Current-run view (run_view.py)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/run_view.py",
+        "tests/test_dashboard_run_view.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Recovery / escalation projection (recovery_view.py)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/recovery_view.py",
+        "tests/test_dashboard_recovery_view.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Snapshot and source wiring for the four new projections",
+      "depends_on": ["T2", "T3", "T4", "T5"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/snapshot.py",
+        "src/praxis_dashboard/sources.py",
+        "tests/test_dashboard_snapshot.py",
+        "tests/test_dashboard_sources.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Static page panels for executors, selection, run view, recovery",
+      "depends_on": ["T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_dashboard/static/index.html",
+        "src/praxis_dashboard/static/app.js",
+        "src/praxis_dashboard/static/style.css",
+        "tests/test_dashboard_static_ui.js"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Integration and regression coverage (server 200, replay, read-only, clean install)",
+      "depends_on": ["T6"],
+      "kind": "code",
+      "files": [
+        "tests/test_dashboard_server.py",
+        "tests/test_dashboard_replay_fake_executor.py",
+        "tests/test_dashboard_readonly_guarantee.py",
+        "tests/test_dashboard_live_attach.py"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Update docs/dashboard.md for the new projections, fields, panels, and gaps",
+      "depends_on": ["T6", "T7"],
+      "kind": "docs",
+      "files": [
+        "docs/dashboard.md"
+      ]
+    }
+  ]
+}

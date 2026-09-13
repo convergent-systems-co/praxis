@@ -43,7 +43,7 @@ func run(args []string) error {
 	case "version":
 		return runVersion(args[1:])
 	case "resume", "cancel":
-		return fmt.Errorf("core command %q is reserved but requires run-control authority wiring before CLI exposure", args[0])
+		return runControlCommand(args[0], args[1:])
 	}
 	return runDynamicInvocation(context.Background(), args, os.Getenv)
 }

@@ -53,9 +53,11 @@ Namespaces are intentionally open so new plugin classes do not require a kernel 
 
 The dashboard should be the first user-facing reference plugin and should be built early enough to aid implementation and testing, even if final visual polish belongs later in the redesign.
 
-Its primary mode should be a live **node-and-edge graph view** showing execution in motion.
+It should have two primary views.
 
-The graph view should visualize:
+### Graph view
+
+A live **node-and-edge graph view** shows execution in motion. It should visualize:
 
 - graph nodes and directed edges;
 - current/active node state;
@@ -75,9 +77,33 @@ The graph view should visualize:
 - plugin lifecycle and health;
 - multi-machine lineage/reconciliation when implemented.
 
+### Team view
+
+A generalized team/agent view preserves the useful team model from the earlier development workflow without coupling it to software development. It answers **who or what is performing the work and how responsibility is flowing**.
+
+For every active agent, worker, or delegated subsystem it should show:
+
+- stable identity and current generation;
+- role and current goal/sub-goal;
+- graph and active node;
+- current status: idle, reasoning, executing, waiting, blocked, failed, or complete;
+- selected model/executor/tool surface;
+- authority scope and relevant policy limits;
+- context scope and applicable user preferences;
+- inputs/dependencies and downstream handoffs;
+- work delegated to or received from other agents;
+- current evidence obligations;
+- retries, repairs, escalation, and human-intervention state;
+- token/inference usage where measurable;
+- deterministic work versus inference work;
+- lineage to the catalog seed or prior agent generation;
+- learned adaptations that distinguish this agent from its original seed.
+
+The team view should support selecting an agent and pivoting directly to the corresponding node/subgraph in the graph view. Selecting a node in the graph view should identify the responsible agent or subsystem in the team view. These are two projections over the same authoritative execution/observation state, not separate state models.
+
 ### Debugging value
 
-This should not wait until the final product phase because a live graph view provides direct architectural feedback during implementation. It can expose incorrect transitions, unexpected loops, excessive inference, hidden retries, blocked joins, stale state, and learning changes that would otherwise require log reconstruction.
+These views should not wait until the final product phase. Together they expose incorrect transitions, unexpected loops, excessive inference, hidden retries, blocked joins, poor delegation, stale state, authority mistakes, and learning changes that would otherwise require reconstructing behavior from logs.
 
 The dashboard must remain read-only with respect to authoritative runtime state. It observes and explains; mutation belongs to governed APIs and workflows.
 

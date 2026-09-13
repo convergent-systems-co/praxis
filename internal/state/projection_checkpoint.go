@@ -56,10 +56,17 @@ func (s *SQLiteCheckpointStore) SaveCheckpoint(ctx context.Context, checkpoint p
 	if updatedAt.IsZero() {
 		updatedAt = time.Now().UTC()
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO projection_checkpoints(projection_name,projection_version,consistency_class,last_sequence,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(projection_name,projection_version) DO UPDATE SET consistency_class=excluded.consistency_class,last_sequence=excluded.last_sequence,updated_at=excluded.updated_at WHERE excluded.last_sequence >= projection_checkpoints.last_sequence`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO projection_checkpoints(projection_name,projection_version,consistency_class,last_sequence,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(projection_name,projection_version) DO UPDATE SET last_sequence=excluded.last_sequence,updated_at=excluded.updated_at WHERE excluded.consistency_class=projection_checkpoints.consistency_class AND excluded.last_sequence>=projection_checkpoints.last_sequence`,
 		checkpoint.Name, checkpoint.Version, string(checkpoint.Consistency), checkpoint.LastSequence, updatedAt.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return fmt.Errorf("save projection checkpoint: %w", err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect projection checkpoint write: %w", err)
+	}
+	if changed != 1 {
+		return errors.New("projection checkpoint rejected stale sequence or consistency-class change")
 	}
 	return nil
 }

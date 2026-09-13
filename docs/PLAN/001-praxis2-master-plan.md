@@ -1,12 +1,13 @@
 # PLAN-001: Praxis 2 Master Delivery Plan
 
-- Status: Final CI Gate
+- Status: COMPLETE
 - Branch: `redesign/praxis2`
 - Architecture authority: `docs/ADR/*`
 - Implementation authority: `docs/SPEC/*`
 - Review record: `docs/PLAN/002-praxis2-adversarial-and-security-review.md`
 - Final conformance: `docs/PLAN/003-praxis2-final-conformance-report.md`
 - Reconciled: 2026-09-13
+- Validated implementation/conformance head: `05c048d2dc07889e38642b2954850d96d719337d`
 
 ## Purpose
 
@@ -165,7 +166,7 @@ Research uses the same Goals/subgraph/runtime semantics without adding developme
 
 Praxis 2 is architecturally independent of legacy paths and reuses legacy material only when it conforms to current contracts.
 
-### Wave 15: Productization, adversarial qualification and release — FINAL CI GATE
+### Wave 15: Productization, adversarial qualification and release — COMPLETE
 
 Closed:
 
@@ -175,11 +176,8 @@ Closed:
 4. README/license/contribution-rights alignment;
 5. final adversarial/security review in PLAN-002;
 6. final conformance mapping in PLAN-003;
-7. package distribution payload limits and cryptographic signature verification added during final hostile-path review.
-
-Remaining mechanical gate:
-
-- full `Praxis 2 Go` workflow green at the reconciled branch head after all final documents and implementation changes.
+7. package distribution payload limits and cryptographic signature verification added during final hostile-path review;
+8. full `Praxis 2 Go` workflow green at validated head `05c048d2dc07889e38642b2954850d96d719337d`.
 
 ## Architecture conformance matrix
 
@@ -201,10 +199,12 @@ Remaining mechanical gate:
 
 ## Completion calculation
 
-All architectural and implementation acceptance gates are closed. The branch is **99% complete** solely because final full-head CI has not yet been observed green after the last closure changes.
+All architectural, implementation, qualification, security-review and final CI acceptance gates are closed.
 
-No new feature work is required by the reconciled master plan.
+**Praxis 2 master-plan completion: 100%.**
+
+The completion-marker commit that changes this document is documentation-only; validated executable behavior is the green CI head recorded above.
 
 ## Definition of 100%
 
-Praxis 2 master-plan completion is 100% when the full branch CI is green at the reconciled head. At that point this plan will be marked `COMPLETE` and the exact validated commit recorded here.
+Satisfied on 2026-09-13 by green full-branch CI at validated head `05c048d2dc07889e38642b2954850d96d719337d`, with PLAN-002 and PLAN-003 providing final adversarial/security and conformance records.

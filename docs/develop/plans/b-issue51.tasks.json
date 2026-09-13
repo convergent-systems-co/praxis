@@ -1,0 +1,80 @@
+{
+  "bundle": "b-issue51",
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Bootstrap the development environment (venv + editable install)",
+      "depends_on": [],
+      "kind": "code",
+      "files": [".venv/**"]
+    },
+    {
+      "id": "T1",
+      "title": "Add executor-config.schema.json and its schema-level tests",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_contracts/schemas/v1/executor-config.schema.json",
+        "tests/test_executor_config_schema.py"
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Environment-variable translation module (praxis_cli.config_env)",
+      "depends_on": ["T0"],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/config_env.py",
+        "tests/test_executor_config_env.py"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Document the config surface in docs/executors.md and README.md",
+      "depends_on": [],
+      "kind": "docs",
+      "files": ["docs/executors.md", "README.md"]
+    },
+    {
+      "id": "T4",
+      "title": "Config loader: defaults, discovery, merge, validation, policy build",
+      "depends_on": ["T1", "T2"],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/config.py",
+        "tests/test_executor_config.py"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Filter adapter construction by the resolved provider set",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/adapters.py",
+        "tests/test_cli_adapters.py"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Build match's policy and preferred constraints from config",
+      "depends_on": ["T4"],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/match_cmd.py",
+        "tests/test_cli_match.py"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Resolve config in main, fail closed non-zero, cover CLI edge cases",
+      "depends_on": ["T5", "T6"],
+      "kind": "code",
+      "files": [
+        "src/praxis_cli/main.py",
+        "tests/test_praxis_cli_config.py",
+        "tests/test_praxis_cli_executors.py"
+      ]
+    }
+  ]
+}

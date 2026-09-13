@@ -42,7 +42,12 @@ func ReplayRun(events []eventstore.Event) (*RunExecution, int64, error) {
 		}
 
 		switch observation.Kind {
-		case ObservationRunStarted, ObservationRunResumed:
+		case ObservationRunStarted:
+			run.CurrentNode = observation.NodeID
+			run.State = observation.State
+			run.TransitionCount = observation.TransitionCount
+		case ObservationRunResumed:
+			run.PendingWait = nil
 			run.CurrentNode = observation.NodeID
 			run.State = observation.State
 			run.TransitionCount = observation.TransitionCount

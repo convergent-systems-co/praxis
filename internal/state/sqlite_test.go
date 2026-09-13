@@ -20,10 +20,10 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "2" {
-		t.Fatalf("expected schema version 2, got %s", version)
+	if version != "3" {
+		t.Fatalf("expected schema version 3, got %s", version)
 	}
-	assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations`, 2)
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations`, 3)
 
 	assertPragmaInt(t, db, "foreign_keys", 1)
 	assertPragmaInt(t, db, "busy_timeout", 5000)
@@ -53,13 +53,20 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations`, 2)
+	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations`, 3)
 	var boundInstanceColumns int
 	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('capability_leases') WHERE name='bound_instance_id'`).Scan(&boundInstanceColumns); err != nil {
 		t.Fatal(err)
 	}
 	if boundInstanceColumns != 1 {
 		t.Fatalf("expected one bound_instance_id column, got %d", boundInstanceColumns)
+	}
+	var secureBlobTables int
+	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='secure_blobs'`).Scan(&secureBlobTables); err != nil {
+		t.Fatal(err)
+	}
+	if secureBlobTables != 1 {
+		t.Fatalf("expected secure_blobs table exactly once, got %d", secureBlobTables)
 	}
 }
 

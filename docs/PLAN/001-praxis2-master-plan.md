@@ -58,6 +58,93 @@ Required gates:
 14. All newly discovered critical gaps are implemented and re-audited until the blind audit is conformant.
 15. Full branch CI is green at the final reconciled head.
 
+### Frozen Wave 16 denominator
+
+The original-intent denominator is frozen at 37 claims in `internal/conformance.PraxisOriginalIntentClaims` with claim-set digest `sha256:40162f681aa56bc3091ab4dd188d6857330bc8d495b11eea20e701c49bef2717`. It is derived from ADR-001 through ADR-048 and excludes ADR-049, SPEC-018, this plan, implementation structure, existing tests, and the withheld oracle.
+
+The corrected initial blind result is `docs/research/conformance/blind-source-qualified.json`, digest `sha256:03f7c9a8f07bd222989720f063fa0f354b4e087e578989fac322ab3f8f2f119c`. It found 2 satisfied, 12 unsupported, and 23 indeterminate critical claims. The post-freeze oracle qualification independently matched its positive control with one true positive and no false negative.
+
+The denominator below is now fixed. New evidence may change finding states, but may not silently delete, weaken, or redefine a claim. A genuinely superseded original goal requires a new governed architectural decision and an explicit denominator transition.
+
+## Wave 17: Executed Evidence and Reproducible Attestation — NOT STARTED
+
+1. Define content-addressed execution attestations distinct from test source.
+2. Bind command, exact source/evidence digests, environment/profile, exit state, and produced observations.
+3. Verify attestations before raising evidence maturity to behavior/integration/lifecycle.
+4. Record full Go, Python, clean-install, recovery, security, and conformance runs without allowing a test file to self-attest execution.
+5. Preserve failed and partial runs as evidence.
+
+Primary finding closures: all indeterminate claims; prerequisite for every later closure.
+
+## Wave 18: Persistent Agent Runtime Composition — NOT STARTED
+
+1. Persist agent identity and immutable generations independently of executor/model identity.
+2. Bind active operational graph versions, memory retrieval, preferences, capability history, policies, evaluation history, and lineage.
+3. Execute receiving-goal, context/memory retrieval, action, evidence, reflection, and learning paths through an agent-owned graph.
+4. Provide runtime-derived generation introspection and behavioral diff.
+5. Prove provider replacement, process restart, rollback, and bounded-context retrieval.
+
+Finding closures: OI-001, OI-002, OI-007, OI-008.
+
+## Wave 19: Goal Discovery and Actual Learning Loop — NOT STARTED
+
+1. Integrate process selection, adaptation, composition, novel candidate creation, and bounded one-off execution.
+2. Observe repeated inference and outcomes; diagnose scope and repeated process behavior.
+3. Generate immutable lower-inference candidates without encoding a qualification answer.
+4. Replay original goals and an independent regression corpus, including model/provider portability.
+5. Promote only through correctness/security/policy gates and distinct governance authority.
+6. Persist failed candidates, active/rollback identities, promotion evidence, and restart recovery.
+7. Implement prompt retirement, contradiction-driven fork/demotion, behavioral-profile evidence classes, and generalized cross-agent transfer.
+8. Demonstrate longitudinal improvement in quality/variance/retries/intervention while reducing unnecessary repeated reasoning.
+
+Finding closures: OI-003, OI-004, OI-005, OI-010, OI-013, OI-014, OI-015, OI-016, OI-017, OI-020.
+
+## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
+
+1. Export/import canonical state rather than raw SQLite pages.
+2. Reconcile concurrent compatible, context-separated, conflicting, and stale-descendant state by lineage/provenance.
+3. Prove package discovery, immutable resolution, provenance/signature verification, transitive capability review, and local authorization as one lifecycle.
+4. Prove private personalized state does not enter generalized/catalog artifacts.
+5. Clean-install pure graph, agent-definition, and mixed packages; instantiate independent agents; update, disable, roll back, uninstall, and restart.
+6. Prove dynamic CLI/client entry points follow active package generation atomically without rebuilding core.
+7. Prove provider substitution retains semantics and capability mismatch fails closed.
+
+Finding closures: OI-009, OI-011, OI-019, OI-035, OI-036, OI-037.
+
+## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — NOT STARTED
+
+1. Attest event/projection/checkpoint replay and causal observability after restart.
+2. Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
+3. Attest scheduler ordered acquisition, bounded starvation, cancellation release, lease expiry, and restart recovery.
+4. Prove every mutation/effect entry surface traverses canonical command, policy, capability, approval, and effect commit boundaries.
+5. Prove client degradation and required-mediation failure across supported adapters.
+6. Prove untrusted content remains data through proposal, memory, and authority paths.
+7. Prove effective plugin filesystem/network/process/credential/resource isolation or accurately fail closed where unavailable.
+8. Attest canonical approval binding, atomic consumption, anti-replay, stale precondition rejection, and ambiguous-effect reconciliation.
+9. Attest required PQ/classical/hybrid cryptographic profiles, downgrade resistance, durable algorithm identifiers, rotation, revocation, and authorization separation.
+10. Attest Workspace Intelligence incremental freshness, path isolation, bounded context, and release authorization.
+
+Finding closures: OI-021, OI-023, OI-024, OI-025, OI-026, OI-027, OI-028, OI-029, OI-030, OI-031, OI-032.
+
+## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — NOT STARTED
+
+1. Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
+2. Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence.
+3. Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path.
+4. Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation.
+
+Finding closures: OI-006, OI-012, OI-033, OI-034.
+
+## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY WAVES 17-22
+
+1. Re-inventory implementation evidence without reading the oracle.
+2. Freeze a new content-addressed blind result against the unchanged 37-claim denominator.
+3. Require every critical claim OI-001 through OI-037 to be `satisfied` by admissible evidence.
+4. Load and score the withheld oracle only after freeze; require no false negative.
+5. Run regression, adversarial/security, clean-install, restart/recovery, cross-provider, and full branch CI qualifications.
+6. Reconcile ADR/SPEC/PLAN/report links to exact evidence and frozen digests.
+7. Only after all gates pass may this plan return to COMPLETE and calculate 100% against the frozen denominator.
+
 ## Current evidence
 
 Implemented in this reopened wave:
@@ -68,6 +155,10 @@ Implemented in this reopened wave:
 - `internal/conformance/oracle.go`
 - conformance boundary tests including behavioral prose rejection and order-stable freeze digests
 - blind Praxis audit fixture derived from original ADR intent without oracle input
+- comprehensive 37-claim pre-remediation denominator and content-digested evidence inventory
+- immutable corrected blind report plus post-freeze semantic oracle score
+- generic planning-process candidate generation, replay/regression comparison, independent-evidence/security/policy gates, governed promotion, failed-candidate retention, and rollback demonstration
+- whole-system conformance report at `docs/research/praxis2-whole-system-conformance.md`
 
 ## Completion calculation
 

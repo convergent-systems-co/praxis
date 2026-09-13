@@ -1,31 +1,71 @@
 package conformance
 
 import (
-	"encoding/json"
-	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
 
-// This fixture is derived only from the original architectural intent in ADR-001,
-// ADR-003 and ADR-004 plus observable implementation evidence. It deliberately
-// contains no qualification oracle or post-hoc known-gap text.
-func TestPraxisBlindGoalAudit(t *testing.T) {
-	claims:=[]Claim{
-		{ID:"persistent-agent-entity",Statement:"agents are persistent versioned entities independent of model/provider identity",RequiredEvidence:[]string{"unit_test","runtime_test"},Behavioral:true,Critical:true,SourceRef:"ADR-001:4-5;ADR-003"},
-		{ID:"agent-operational-graphs",Statement:"a persistent agent can execute versioned internal operational graphs for receiving goals, memory/context, action, evidence, reflection and learning",RequiredEvidence:[]string{"runtime_test"},Behavioral:true,Critical:true,SourceRef:"ADR-004"},
-		{ID:"governed-self-modification",Statement:"learned graph changes are candidates evaluated before governed promotion with rollback",RequiredEvidence:[]string{"unit_test","runtime_test"},Behavioral:true,Critical:true,SourceRef:"ADR-001:9;ADR-012"},
-		{ID:"deterministic-runtime-authority",Statement:"runtime state authority transitions recovery evidence and completion are owned below conversation history",RequiredEvidence:[]string{"runtime_test"},Behavioral:true,Critical:true,SourceRef:"ADR-001:3"},
+func TestPraxisBlindGoalAuditHasIndependentComprehensiveDenominator(t *testing.T) {
+	claims := PraxisOriginalIntentClaims()
+	if len(claims) < 30 {
+		t.Fatalf("original-intent denominator is too small: %d", len(claims))
 	}
-	evidence:=[]Evidence{
-		{ID:"agent-definition-tests",ClaimID:"persistent-agent-entity",Kind:"unit_test",Subject:"agent identity/generation",Ref:"internal/agent/definition_test.go",Supports:true},
-		{ID:"agent-identity-tests",ClaimID:"persistent-agent-entity",Kind:"unit_test",Subject:"agent lineage",Ref:"internal/agent/identity_test.go",Supports:true},
-		// Operational graph evidence is intentionally absent unless an executable
-		// agent runtime exists. Graph contracts/prose are not behavioral evidence.
-		{ID:"learning-candidate-tests",ClaimID:"governed-self-modification",Kind:"unit_test",Subject:"candidate lifecycle",Ref:"internal/learning",Supports:true},
-		{ID:"kernel-runtime-tests",ClaimID:"deterministic-runtime-authority",Kind:"runtime_test",Subject:"graph runtime",Ref:"internal/kernel",Supports:true},
+	wantSources := map[string]bool{"ADR-003": false, "ADR-009": false, "ADR-024": false, "ADR-038": false, "ADR-043": false, "ADR-045": false, "ADR-048": false}
+	for _, c := range claims {
+		for source := range wantSources {
+			if strings.Contains(c.SourceRef, source) {
+				wantSources[source] = true
+			}
+		}
+		if strings.Contains(c.SourceRef, "ADR-049") || strings.Contains(c.SourceRef, "PLAN-") {
+			t.Fatalf("remediation/plan contaminated denominator: %s", c.SourceRef)
+		}
 	}
-	r,err:=Evaluate("sha256:praxis-original-intent",claims,evidence,time.Date(2026,9,13,12,35,0,0,time.UTC)); if err!=nil{t.Fatal(err)}
-	b,_:=json.MarshalIndent(r,"","  "); fmt.Printf("PRAXIS_BLIND_CONFORMANCE %s\n",b)
-	if r.Conformant { t.Fatal("blind audit unexpectedly found all critical original-goal behaviors satisfied") }
+	for source, found := range wantSources {
+		if !found {
+			t.Errorf("original-intent dimension absent: %s", source)
+		}
+	}
+}
+
+func TestPraxisBlindGoalAuditFreezesMachineReadableFailure(t *testing.T) {
+	root := "../.."
+	evidence, err := LoadEvidence(root, PraxisEvidenceInventory())
+	if err != nil {
+		t.Fatal(err)
+	}
+	goalDigest, err := SourceSetDigest(root, OriginalIntentSources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Evaluate(goalDigest, PraxisOriginalIntentClaims(), evidence, time.Date(2026, 9, 13, 18, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Digest == "" || r.SourceSetDigest == "" || r.ClaimSetDigest == "" || r.EvidenceDigest == "" {
+		t.Fatalf("audit was not fully frozen: %#v", r)
+	}
+	if r.Conformant {
+		t.Fatal("discovery audit must be capable of reporting current critical gaps")
+	}
+	unsupported := 0
+	for _, f := range r.Findings {
+		if f.Status == Unsupported || f.Status == Indeterminate {
+			unsupported++
+		}
+	}
+	if unsupported == 0 {
+		t.Fatal("expected discovery findings, not a conformance assertion")
+	}
+}
+
+func TestEvidenceInventoryDoesNotTreatTestSourceAsExecutedBehavior(t *testing.T) {
+	evidence, err := LoadEvidence("../..", []InventoryArtifact{{ID: "test-source", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop/runtime_test.go", ClaimIDs: []string{"OI-033"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence[0].Stage != StageContract {
+		t.Fatalf("test source self-attested behavior: %#v", evidence[0])
+	}
 }

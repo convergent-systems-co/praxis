@@ -1,20 +1,82 @@
 package conformance
 
-import "errors"
+import "strings"
 
-type OracleExpectation struct { ClaimID string; Expected Status }
-type OracleScore struct { TruePositive int; TrueNegative int; FalsePositive int; FalseNegative int }
+type OracleExpectation struct {
+	ID            string   `json:"id,omitempty"`
+	ClaimID       string   `json:"claim_id,omitempty"`
+	Statement     string   `json:"statement,omitempty"`
+	RequiredTerms []string `json:"required_terms,omitempty"`
+	Expected      Status   `json:"expected"`
+}
 
-// ScoreFrozen compares an already-frozen result to an external qualification oracle.
-// There is deliberately no oracle parameter on Evaluate.
-func ScoreFrozen(result Result, oracle []OracleExpectation) (OracleScore,error) {
-	if result.Digest==""||result.FrozenAt.IsZero(){return OracleScore{},errors.New("result must be frozen before oracle comparison")}
-	actual:=map[string]Status{}; for _,f:=range result.Findings{actual[f.ClaimID]=f.Status}
-	var s OracleScore
-	for _,o:=range oracle {
-		a,ok:=actual[o.ClaimID]; if !ok { s.FalseNegative++; continue }
-		expectedFailure:=o.Expected!=Satisfied; actualFailure:=a!=Satisfied
-		switch { case expectedFailure&&actualFailure:s.TruePositive++; case !expectedFailure&&!actualFailure:s.TrueNegative++; case !expectedFailure&&actualFailure:s.FalsePositive++; case expectedFailure&&!actualFailure:s.FalseNegative++ }
+type OracleMatch struct {
+	ExpectationID string `json:"expectation_id"`
+	ClaimID       string `json:"claim_id,omitempty"`
+	Matched       bool   `json:"matched"`
+	Rationale     string `json:"rationale"`
+}
+
+type OracleScore struct {
+	TruePositive  int           `json:"true_positives"`
+	TrueNegative  int           `json:"true_negatives"`
+	FalsePositive int           `json:"false_positives"`
+	FalseNegative int           `json:"false_negatives"`
+	Matches       []OracleMatch `json:"matches"`
+}
+
+// ScoreFrozen compares an already-frozen result to an external qualification
+// oracle. There is deliberately no oracle parameter on Evaluate.
+func ScoreFrozen(result Result, oracle []OracleExpectation) (OracleScore, error) {
+	if err := VerifyFrozen(result); err != nil {
+		return OracleScore{}, err
 	}
-	return s,nil
+	var score OracleScore
+	for _, expectation := range oracle {
+		finding, ok := matchFinding(result.Findings, expectation)
+		if !ok {
+			score.FalseNegative++
+			score.Matches = append(score.Matches, OracleMatch{ExpectationID: expectation.ID, Rationale: "no frozen finding matched the withheld semantic expectation"})
+			continue
+		}
+		expectedFailure := expectation.Expected != Satisfied
+		actualFailure := finding.Status != Satisfied
+		switch {
+		case expectedFailure && actualFailure:
+			score.TruePositive++
+		case !expectedFailure && !actualFailure:
+			score.TrueNegative++
+		case !expectedFailure && actualFailure:
+			score.FalsePositive++
+		case expectedFailure && !actualFailure:
+			score.FalseNegative++
+		}
+		score.Matches = append(score.Matches, OracleMatch{ExpectationID: expectation.ID, ClaimID: finding.ClaimID, Matched: true, Rationale: "frozen claim statement contains every withheld semantic term; status=" + string(finding.Status)})
+	}
+	return score, nil
+}
+
+func matchFinding(findings []Finding, expectation OracleExpectation) (Finding, bool) {
+	if expectation.ClaimID != "" {
+		for _, finding := range findings {
+			if finding.ClaimID == expectation.ClaimID {
+				return finding, true
+			}
+		}
+		return Finding{}, false
+	}
+	for _, finding := range findings {
+		statement := strings.ToLower(finding.Statement)
+		matched := len(expectation.RequiredTerms) > 0
+		for _, term := range expectation.RequiredTerms {
+			if !strings.Contains(statement, strings.ToLower(term)) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return finding, true
+		}
+	}
+	return Finding{}, false
 }

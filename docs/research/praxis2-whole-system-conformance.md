@@ -138,6 +138,12 @@ The active generation retains its advisory instruction throughout proposal and e
 
 `learning-runtime-v2.json`, its two 37-claim blind results, and `blind-learning-prompt-retirement-v38.json` are retained as immutable intermediate artifacts from before the OI-038 transition or before evaluation-reopen hardening. The accepted attestation is `docs/research/conformance/attestations/learning-runtime-v3.json`. The current result `docs/research/conformance/blind-learning-prompt-retirement-v38-final.json`, digest `sha256:177c19c9b061bf05319acdea18ba5ffa1e8f4e4bb7f5d945b25fa334e5301ba7`, closes OI-004 and OI-005 while preserving OI-010 and OI-038. Totals are 13 satisfied, 7 unsupported, and 18 indeterminate.
 
+## Adaptive-behavior substrate (no finding closure yet)
+
+The 25 non-satisfied findings were classified and clustered before further code changes in `docs/research/praxis2-finding-root-cause-classification.md`. The first cluster-A substrate follows SPEC-021: observations are content-addressed, scoped to durable agent/run/goal/domain/behavior identity, causally attributable, trust-preserving, and appended through the authoritative event-store contract. Profile history keeps declared, inherited, observed, measured, and confirmed facts distinct. A versioned package policy can analyze replayed evidence for repeated inference, regression, execution-path variance, and provider-portability failure without teaching core domain-specific signal names.
+
+The lifecycle test uses software-delivery and research agents with different package-defined measures, closes and reopens SQLite, and verifies reconstruction of observation and profile evidence. This is enabling evidence, not a tailored closure assertion. The frozen conformance result remains `blind-learning-prompt-retirement-v38-final.json`; no OI status changes until the downstream preference, routing, transfer, candidate/demotion, governance, and restart lifecycle is integrated and independently re-evaluated.
+
 ## Plan input
 
 PLAN-001 must use the current, explicitly transitioned 38-claim denominator plus every finding closure, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.

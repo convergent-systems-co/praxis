@@ -34,6 +34,14 @@ Behavioral claims cannot be satisfied solely by ADR/SPEC/PLAN prose. They requir
 
 Test source is contract evidence, not execution evidence. Behavior/integration/lifecycle maturity requires a frozen execution attestation binding the exact command, source digests, raw output digest, exit state, observations, platform, and timestamps. A missing, failed, mutated, or stale attestation fails closed. Failed attestations remain evidence and are not rewritten as passing runs.
 
+### Evidence-bearing test semantics
+
+Tests admitted as conformance evidence SHALL assert architectural semantics rather than merely recognize fixture or implementation shape. Exact cardinality is primary evidence only when the contract requires that cardinality, including uniqueness, single consumption, deterministic deduplication, or zero unauthorized effects. A closed expected set SHALL be compared by semantic identity, not count alone. An open extensible set SHALL prove required evidence is present plus explicit uniqueness/forbidden-state rules without rejecting additional valid evidence.
+
+Hard-coded positions are admissible only when ordering itself is contractual. Otherwise tests SHALL locate records by stable semantic identity such as request, generation, evidence, scenario, or causation identity before checking lineage and provenance. A test is insufficient if a semantically wrong replacement can preserve its count, or if a semantically valid extension fails only because an incidental count changed.
+
+Changing an attested test invalidates its source digest. The prior attestation and blind result remain immutable historical artifacts; strengthened evidence requires a new attestation and a new blind result before any finding status is retained or changed.
+
 ## Finding states
 
 - `satisfied`: admissible evidence directly supports the claim;

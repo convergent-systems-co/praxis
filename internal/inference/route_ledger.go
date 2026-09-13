@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/adaptation"
 	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 const routeDecisionEvent = "inference.route.decided"
+const routeOutcomeEvent = "inference.route.outcome_observed"
 
 var routeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
+var routeOutcomeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_outcome_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 
 type RouteRecord struct {
 	ID          string              `json:"id"`
@@ -22,6 +26,62 @@ type RouteRecord struct {
 	Eligibility EligibilityEvidence `json:"eligibility"`
 	Decision    EvidenceDecision    `json:"decision"`
 	DecidedAt   time.Time           `json:"decided_at"`
+}
+
+type RouteOutcome struct {
+	ID             string                 `json:"id"`
+	Version        string                 `json:"version"`
+	RouteRecordID  string                 `json:"route_record_id"`
+	RequestID      string                 `json:"request_id"`
+	ExecutorID     string                 `json:"executor_id"`
+	ProviderID     string                 `json:"provider_id"`
+	ResultOutcome  string                 `json:"result_outcome"`
+	ResultEvidence []string               `json:"result_evidence,omitempty"`
+	Failure        string                 `json:"failure,omitempty"`
+	Observation    adaptation.Observation `json:"observation"`
+	ObservedAt     time.Time              `json:"observed_at"`
+}
+
+func FreezeRouteOutcome(outcome RouteOutcome) (RouteOutcome, error) {
+	outcome.ID, outcome.Version = "", routeOutcomeEventVersions.CurrentVersion()
+	outcome.ResultEvidence = append([]string(nil), outcome.ResultEvidence...)
+	sort.Strings(outcome.ResultEvidence)
+	if err := validateRouteOutcome(outcome, false); err != nil {
+		return RouteOutcome{}, err
+	}
+	outcome.ID = inferenceDigest(outcome)
+	return outcome, nil
+}
+
+func VerifyRouteOutcome(outcome RouteOutcome) error {
+	if err := validateRouteOutcome(outcome, true); err != nil {
+		return err
+	}
+	id := outcome.ID
+	outcome.ID = ""
+	if id != inferenceDigest(outcome) {
+		return errors.New("route outcome digest mismatch")
+	}
+	return nil
+}
+
+func validateRouteOutcome(outcome RouteOutcome, requireID bool) error {
+	if requireID && outcome.ID == "" {
+		return errors.New("route outcome identity is required")
+	}
+	if outcome.Version != routeOutcomeEventVersions.CurrentVersion() || outcome.RouteRecordID == "" || outcome.RequestID == "" || outcome.ExecutorID == "" || outcome.ProviderID == "" || outcome.ObservedAt.IsZero() {
+		return errors.New("route outcome requires route, request, executor, provider, version, and time")
+	}
+	if (outcome.ResultOutcome == "") == (outcome.Failure == "") {
+		return errors.New("route outcome requires exactly one result or failure")
+	}
+	if err := adaptation.VerifyObservation(outcome.Observation); err != nil {
+		return err
+	}
+	if outcome.Observation.ID == "" || outcome.Observation.ObservedAt != outcome.ObservedAt || outcome.Observation.PathID != outcome.RouteRecordID || outcome.Observation.ProviderID != outcome.ProviderID {
+		return errors.New("route outcome does not bind its adaptive observation")
+	}
+	return nil
 }
 
 func FreezeRouteRecord(record RouteRecord) (RouteRecord, error) {
@@ -96,6 +156,19 @@ func (l *RouteLedger) Record(ctx context.Context, record RouteRecord) error {
 		if event.ID == "event:"+record.ID {
 			return nil
 		}
+		if event.Type == routeDecisionEvent {
+			payload, _, canonicalErr := routeEventVersions.Canonicalize(event.Version, event.Payload)
+			if canonicalErr != nil {
+				return canonicalErr
+			}
+			var existing RouteRecord
+			if err := json.Unmarshal(payload, &existing); err != nil {
+				return err
+			}
+			if existing.Request.ID == record.Request.ID {
+				return errors.New("route request already has a different decision")
+			}
+		}
 	}
 	payload, err := json.Marshal(record)
 	if err != nil {
@@ -132,4 +205,118 @@ func (l *RouteLedger) Records(ctx context.Context, subject string) ([]RouteRecor
 		out = append(out, record)
 	}
 	return out, nil
+}
+
+func (l *RouteLedger) RecordOutcome(ctx context.Context, subject string, outcome RouteOutcome) error {
+	if err := VerifyRouteOutcome(outcome); err != nil {
+		return err
+	}
+	records, err := l.Records(ctx, subject)
+	if err != nil {
+		return err
+	}
+	var route *RouteRecord
+	for index := range records {
+		if records[index].ID == outcome.RouteRecordID {
+			route = &records[index]
+			break
+		}
+	}
+	if route == nil || route.Request.ID != outcome.RequestID || route.Decision.ExecutorID != outcome.ExecutorID || route.Decision.ProviderID != outcome.ProviderID || route.Request.SubjectAgentID != outcome.Observation.SubjectAgentID || route.Request.RunID != outcome.Observation.RunID || route.Request.GoalClass != outcome.Observation.GoalClass || route.Request.Domain != outcome.Observation.Domain || route.Request.BehaviorKey != outcome.Observation.BehaviorKey || route.Request.Context != outcome.Observation.Context || string(route.Request.Tier) != outcome.Observation.ReasoningTier {
+		return errors.New("route outcome does not match its selected execution")
+	}
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if event.ID == "event:"+outcome.ID {
+			return nil
+		}
+		if event.Type == routeOutcomeEvent {
+			var existing RouteOutcome
+			canonical, _, canonicalErr := routeOutcomeEventVersions.Canonicalize(event.Version, event.Payload)
+			if canonicalErr != nil {
+				return canonicalErr
+			}
+			if err := json.Unmarshal(canonical, &existing); err != nil {
+				return err
+			}
+			if existing.RequestID == outcome.RequestID {
+				return errors.New("route request already has a different outcome")
+			}
+		}
+	}
+	payload, err := json.Marshal(outcome)
+	if err != nil {
+		return err
+	}
+	_, err = l.store.Append(ctx, routeAggregate(subject), int64(len(events)), []eventstore.Event{{ID: "event:" + outcome.ID, AggregateType: "inference_routes", Type: routeOutcomeEvent, Version: routeOutcomeEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: subject, Kind: "agent"}, CommandID: "route-outcome:" + outcome.ID, CorrelationID: route.Request.RunID, CausationID: route.ID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: outcome.ObservedAt}})
+	return err
+}
+
+func (l *RouteLedger) Outcomes(ctx context.Context, subject string) ([]RouteOutcome, error) {
+	records, err := l.Records(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[string]RouteRecord{}
+	for _, record := range records {
+		byID[record.ID] = record
+	}
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
+	if err != nil {
+		return nil, err
+	}
+	out := []RouteOutcome{}
+	seenRequests := map[string]bool{}
+	for _, event := range events {
+		if event.Type != routeOutcomeEvent {
+			continue
+		}
+		payload, _, err := routeOutcomeEventVersions.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var outcome RouteOutcome
+		if err := json.Unmarshal(payload, &outcome); err != nil {
+			return nil, err
+		}
+		if err := VerifyRouteOutcome(outcome); err != nil {
+			return nil, err
+		}
+		route, ok := byID[outcome.RouteRecordID]
+		if !ok || route.Request.ID != outcome.RequestID || route.Decision.ExecutorID != outcome.ExecutorID || route.Decision.ProviderID != outcome.ProviderID || event.ID != "event:"+outcome.ID || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CorrelationID != route.Request.RunID || event.CausationID != route.ID || event.Trust != contracts.TrustObserved || seenRequests[outcome.RequestID] {
+			return nil, errors.New("route outcome event metadata or lineage is invalid")
+		}
+		seenRequests[outcome.RequestID] = true
+		out = append(out, outcome)
+	}
+	return out, nil
+}
+
+func (l *RouteLedger) Execution(ctx context.Context, subject, requestID string) (*RouteRecord, *RouteOutcome, error) {
+	records, err := l.Records(ctx, subject)
+	if err != nil {
+		return nil, nil, err
+	}
+	outcomes, err := l.Outcomes(ctx, subject)
+	if err != nil {
+		return nil, nil, err
+	}
+	var record *RouteRecord
+	var outcome *RouteOutcome
+	for index := range records {
+		if records[index].Request.ID == requestID {
+			copy := records[index]
+			record = &copy
+		}
+	}
+	for index := range outcomes {
+		if outcomes[index].RequestID == requestID {
+			copy := outcomes[index]
+			outcome = &copy
+		}
+	}
+	return record, outcome, nil
 }

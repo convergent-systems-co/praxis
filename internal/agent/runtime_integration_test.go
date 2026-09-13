@@ -100,8 +100,13 @@ func TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacem
 	if second.ExecutorID != "provider-b" || second.AgentID != first.AgentID || second.GenerationID != first.GenerationID || second.GraphVersion != "2" {
 		t.Fatalf("identity changed with provider/restart: first=%#v second=%#v", first, second)
 	}
-	if len(contextsB) != len(want) || len(contextsB[0].Memory) != 1 || contextsB[0].GoalRef != "goal:two" {
+	if len(contextsB) != len(want) {
 		t.Fatalf("goal/memory/context did not reach operational graph: %#v", contextsB)
+	}
+	for _, executionContext := range contextsB {
+		if executionContext.AgentID != "agent-1" || executionContext.GenerationID != "generation-1" || executionContext.GoalRef != "goal:two" || executionContext.Scope != "project:praxis" || len(executionContext.Memory) != 1 || executionContext.Memory[0].ID != "memory-1" {
+			t.Fatalf("exact agent context did not reach every operational node: %#v", executionContext)
+		}
 	}
 }
 
@@ -140,10 +145,14 @@ func TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.CurrentGeneration.ID != "g3" || inspection.Agent.CurrentGeneration != "g3" || len(inspection.GenerationHistory) != 3 {
+	if inspection.CurrentGeneration.ID != "g3" || inspection.Agent.CurrentGeneration != "g3" {
 		t.Fatalf("runtime introspection lost lineage: %#v", inspection)
 	}
-	if inspection.GenerationHistory[1].ParentGeneration != "g1" || inspection.GenerationHistory[2].ParentGeneration != "g2" || inspection.GenerationHistory[2].GraphRefs[0] != "agent.operations@1" {
+	historyByID := map[string]agent.Generation{}
+	for _, historical := range inspection.GenerationHistory {
+		historyByID[historical.ID] = historical
+	}
+	if historyByID["g1"].ParentGeneration != "" || historyByID["g2"].ParentGeneration != "g1" || historyByID["g3"].ParentGeneration != "g2" || !reflect.DeepEqual(historyByID["g3"].GraphRefs, g1.GraphRefs) {
 		t.Fatal("rollback deleted or rewrote generation history")
 	}
 }
@@ -193,8 +202,17 @@ func TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(inspection.Memory) != 4 {
-		t.Fatal("memory reconstruction depended on missing chat state")
+	memoryByID := map[string]agent.MemoryRecord{}
+	for _, memory := range inspection.Memory {
+		memoryByID[memory.ID] = memory
+	}
+	for _, record := range records {
+		if _, ok := memoryByID[record.ID]; !ok {
+			t.Fatalf("memory reconstruction lost required record %s", record.ID)
+		}
+	}
+	if memoryByID["old"].SupersededBy != "replacement" || memoryByID["replacement"].SupersededBy != "" || memoryByID["foreign-scope"].Scope != "project:b" || memoryByID["global"].Scope != "global" {
+		t.Fatalf("memory reconstruction changed semantic identity, scope, or supersession: %#v", memoryByID)
 	}
 }
 

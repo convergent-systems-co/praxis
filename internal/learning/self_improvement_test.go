@@ -26,8 +26,16 @@ func TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(record.SourceObservations) < 20 {
-		t.Fatalf("candidate did not consume the whole frozen finding set: %d observations", len(record.SourceObservations))
+	expectedSources := []string{}
+	expectedGaps := []string{}
+	for _, finding := range frozen.Findings {
+		if finding.Critical && finding.Status != conformance.Satisfied {
+			expectedSources = append(expectedSources, "conformance:"+frozen.Digest+":"+finding.ClaimID+":"+string(finding.Status))
+			expectedGaps = append(expectedGaps, finding.ClaimID)
+		}
+	}
+	if !sameStringSet(record.SourceObservations, expectedSources) {
+		t.Fatalf("candidate source evidence differs from the complete frozen critical finding set: got=%#v want=%#v", record.SourceObservations, expectedSources)
 	}
 	candidate, err := ProposePlanningGeneration(record, active, frozen)
 	if err != nil {
@@ -48,7 +56,8 @@ func TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !evaluation.Passed || len(evaluation.CandidateResults[0].DetectedGapIDs) != len(record.SourceObservations) {
+	result, ok := planningResultByScenario(evaluation.CandidateResults, "praxis-original-planning-replay")
+	if !evaluation.Passed || !ok || !sameStringSet(result.DetectedGapIDs, expectedGaps) {
 		t.Fatalf("actual frozen findings were not improved: %#v", evaluation)
 	}
 }
@@ -98,10 +107,14 @@ func TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer(t *testing
 	if !evaluation.Passed || !evaluation.ImprovedCoverage || evaluation.RegressionCount != 0 {
 		t.Fatalf("candidate did not improve general original-goal coverage: %#v", evaluation)
 	}
-	if got := evaluation.CandidateResults[0].DetectedGapIDs; len(got) != 1 || got[0] != "opaque-beta" {
+	originalResult, ok := planningResultByScenario(evaluation.CandidateResults, "original-plan-satisfied-itself")
+	if !ok || !sameStringSet(originalResult.DetectedGapIDs, []string{"opaque-beta"}) {
+		got := originalResult.DetectedGapIDs
 		t.Fatalf("candidate failed generic omission discovery: %#v", got)
 	}
-	if got := evaluation.CandidateResults[2].DetectedGapIDs; len(got) != 1 || got[0] != "unrelated-delta" {
+	unrelatedResult, ok := planningResultByScenario(evaluation.CandidateResults, "unrelated-omission-regression")
+	if !ok || !sameStringSet(unrelatedResult.DetectedGapIDs, []string{"unrelated-delta"}) {
+		got := unrelatedResult.DetectedGapIDs
 		t.Fatalf("candidate overfit the first scenario: %#v", got)
 	}
 
@@ -126,6 +139,34 @@ func TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer(t *testing
 	if registry.Active().ID != active.ID {
 		t.Fatal("rollback did not restore the prior generation")
 	}
+}
+
+func planningResultByScenario(results []PlanningReplayResult, scenarioID string) (PlanningReplayResult, bool) {
+	for _, result := range results {
+		if result.ScenarioID == scenarioID {
+			return result, true
+		}
+	}
+	return PlanningReplayResult{}, false
+}
+
+func sameStringSet(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	seen := map[string]int{}
+	for _, value := range left {
+		seen[value]++
+	}
+	for _, value := range right {
+		seen[value]--
+	}
+	for _, count := range seen {
+		if count != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func TestFailedCandidateRemainsRegisteredEvidence(t *testing.T) {

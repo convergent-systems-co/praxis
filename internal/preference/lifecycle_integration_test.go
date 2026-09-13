@@ -139,11 +139,27 @@ func TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains(t *testing
 			defer db.Close()
 			restarted, _ := NewLedger(state.NewSQLiteEventStore(db))
 			replayed, err := restarted.Records(ctx, learned.SubjectID)
-			if err != nil || len(replayed) != 4 {
+			if err != nil {
 				t.Fatalf("preference history did not survive restart: %#v %v", replayed, err)
 			}
-			if !replayed[1].Superseded || !replayed[2].Superseded || replayed[3].Superseded {
-				t.Fatalf("correction/migration lineage did not replay: %#v", replayed)
+			replayedByID := map[string]Record{}
+			for _, record := range replayed {
+				replayedByID[record.ID] = record
+			}
+			if len(replayedByID) != len(replayed) {
+				t.Fatalf("preference replay contained duplicate record identities: %#v", replayed)
+			}
+			if seeded, ok := replayedByID[defaults[0].ID]; !ok || seeded.Superseded {
+				t.Fatalf("independent seeded preference was lost or incorrectly superseded: %#v", seeded)
+			}
+			if prior, ok := replayedByID[learned.ID]; !ok || !prior.Superseded {
+				t.Fatalf("learned preference did not retain correction lineage: %#v", prior)
+			}
+			if corrected, ok := replayedByID[correction.ID]; !ok || !corrected.Superseded {
+				t.Fatalf("explicit correction did not retain migration lineage: %#v", corrected)
+			}
+			if current, ok := replayedByID[migrated[0].ID]; !ok || current.Superseded || current.SupersedesID != correction.ID {
+				t.Fatalf("migrated preference is not the active descendant of explicit correction: %#v", current)
 			}
 			resolved, err := Resolve(domain.migratedSlot, replayed, base.Add(4*time.Minute))
 			if err != nil || resolved.ID != migrated[0].ID || recordRank(resolved) != sourceRank(SourceExplicitUser) {

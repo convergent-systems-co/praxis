@@ -143,4 +143,4 @@ When inference is provided by an LLM client rather than a direct provider adapte
 - routing benchmark corpus;
 - conformance tests for D0/D1/D2 behavior.
 
-The evidence router and durable record establish the selection contract. OI-013/OI-014 additionally require graph/runtime dispatch and observed outcome to be bound into the same execution lifecycle; the selection substrate alone is not closure evidence.
+The evidence router and durable record establish the selection contract. The agent runtime adapter loads capability evidence from the durable adaptive ledger, persists the governed selection before invoking the exact selected executor/provider, and then persists a content-bound outcome observation. Completed outcomes can reconstruct the adaptive projection after restart. A selection with no recorded outcome is explicitly unknown and cannot be silently re-dispatched. Finding status changes only through a newly frozen blind audit of this integrated evidence.

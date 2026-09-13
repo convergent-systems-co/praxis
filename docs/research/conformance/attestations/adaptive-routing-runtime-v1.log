@@ -1,0 +1,30 @@
+=== RUN   TestInstantiateDefinitionCreatesIndependentLocalAgents
+--- PASS: TestInstantiateDefinitionCreatesIndependentLocalAgents (0.00s)
+=== RUN   TestInstantiateDefinitionRejectsNonAgentContent
+--- PASS: TestInstantiateDefinitionRejectsNonAgentContent (0.00s)
+=== RUN   TestLaterGenerationRequiresParent
+--- PASS: TestLaterGenerationRequiresParent (0.00s)
+=== RUN   TestFirstGenerationCannotClaimParent
+--- PASS: TestFirstGenerationCannotClaimParent (0.00s)
+=== RUN   TestHighConfidenceUntrustedMemoryStaysUntrusted
+--- PASS: TestHighConfidenceUntrustedMemoryStaysUntrusted (0.00s)
+=== RUN   TestSupersededMemoryIsNotActive
+--- PASS: TestSupersededMemoryIsNotActive (0.00s)
+=== RUN   TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection
+--- PASS: TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection (0.00s)
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research
+--- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains (0.05s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery (0.03s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research (0.02s)
+=== RUN   TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement
+--- PASS: TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement (0.01s)
+=== RUN   TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart
+--- PASS: TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart (0.01s)
+=== RUN   TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware
+--- PASS: TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware (0.01s)
+=== RUN   TestOperationalGraphFailsClosedWhenAgentRoleIsMissing
+--- PASS: TestOperationalGraphFailsClosedWhenAgentRoleIsMissing (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/agent	(cached)

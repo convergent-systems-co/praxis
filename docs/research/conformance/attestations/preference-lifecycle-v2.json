@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/preference"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T21:54:58.299584Z",
+  "finished_at": "2026-09-13T21:55:01.531486Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/preference-lifecycle-v2.log",
+  "output_digest": "sha256:1127467f95c2308999e1b009eb7fc8306fff6176dd5374a81874f05f52c1b0dc",
+  "source_digests": {
+    "internal/preference": "sha256:20d20bf2932bb278b1a38c67ac31195f2a39d228e0dfc05baa5facc12c204082",
+    "internal/state": "sha256:35cfdbb216b58c7b55ac07692aa9fa8ae311e5cb77580480a7cf9ed01ea39115",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains",
+    "TestPreferenceReplayRejectsAuthorityActorMismatch"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:190bf0102dd3bf26b596dcfc7d2192fbd9c02945a7d3c219c31bd284de0b083a"
+}

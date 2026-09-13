@@ -94,7 +94,7 @@ func TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart(t
 			if status.Run.AgentID != domain.agentID || status.Run.GraphID != graph.ID || status.Run.PendingWait == nil || status.Run.PendingWait.Ref != decision.HandoffRef || status.Run.LastCheckpoint == nil {
 				t.Fatalf("restart lost continuation identity: %+v", status.Run)
 			}
-			if len(status.Run.Evidence) != 1 || status.Run.Evidence[0] != "meter:"+domain.signal || len(status.Run.ContinuationHistory) != 1 {
+			if !containsEvidence(status.Run.Evidence, "meter:"+domain.signal) || len(status.Run.ContinuationHistory) != 1 || status.Run.ContinuationHistory[0].ID != decision.ID {
 				t.Fatalf("restart lost pressure/decision evidence: %+v", status.Run)
 			}
 			status, err = control.ResumeSignal(ctx, run.RunID, kernel.WaitHandoff, decision.HandoffRef, "resume-"+domain.name, run.RunID)
@@ -109,11 +109,20 @@ func TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart(t
 			if err != nil {
 				t.Fatal(err)
 			}
-			if final.Run.State != kernel.RunSucceeded || final.Run.AgentID != domain.agentID || final.Run.RunID != run.RunID || len(final.Run.Evidence) != 2 {
+			if final.Run.State != kernel.RunSucceeded || final.Run.AgentID != domain.agentID || final.Run.RunID != run.RunID || !containsEvidence(final.Run.Evidence, "meter:"+domain.signal) || !containsEvidence(final.Run.Evidence, "result:"+domain.name) {
 				t.Fatalf("resumed execution lost identity/evidence: %s %+v", fmt.Sprint(final.Run.Evidence), final.Run)
 			}
 		})
 	}
+}
+
+func containsEvidence(evidence []string, required string) bool {
+	for _, item := range evidence {
+		if item == required {
+			return true
+		}
+	}
+	return false
 }
 
 func TestResourceHandoffDenialDoesNotMutateRun(t *testing.T) {

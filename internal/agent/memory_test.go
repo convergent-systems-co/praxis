@@ -18,7 +18,7 @@ func TestHighConfidenceUntrustedMemoryStaysUntrusted(t *testing.T) {
 		{ID: "c", AgentID: "a", Scope: "project:p", Type: MemoryFact, ContentRef: "content:c", Provenance: memoryProvenance(contracts.TrustUserConfirmed), Trust: contracts.TrustUserConfirmed, Confidence: 0.8, CreatedAt: now},
 	}
 	ranked := RankableMemory(records, now)
-	if len(ranked) != 2 || ranked[0].ID != "u" {
+	if len(ranked) != 2 || ranked[0].ID != "u" || ranked[1].ID != "c" {
 		t.Fatalf("unexpected ranking: %+v", ranked)
 	}
 	if ranked[0].Trust != contracts.TrustUntrustedContent {
@@ -29,5 +29,7 @@ func TestHighConfidenceUntrustedMemoryStaysUntrusted(t *testing.T) {
 func TestSupersededMemoryIsNotActive(t *testing.T) {
 	now := time.Now().UTC()
 	m := MemoryRecord{ID: "m1", AgentID: "a", Scope: "user", Type: MemoryPreference, ContentRef: "c", Provenance: memoryProvenance(contracts.TrustUserConfirmed), Trust: contracts.TrustUserConfirmed, Confidence: 1, CreatedAt: now, SupersededBy: "m2"}
-	if m.Active(now) { t.Fatal("superseded memory must not be active") }
+	if m.Active(now) {
+		t.Fatal("superseded memory must not be active")
+	}
 }

@@ -92,6 +92,8 @@ Closure: OI-001, OI-002, OI-007, and OI-008 are satisfied in frozen result `blin
 
 ## Wave 19: Goal Discovery and Actual Learning Loop — IN PROGRESS
 
+Root-cause gate: before further Wave 19 remediation, all non-satisfied claims were classified independently in `docs/research/praxis2-finding-root-cause-classification.md`. OI-006, OI-012 through OI-017, and OI-020 are treated as one missing durable adaptive-behavior lifecycle, not as finding-specific patches. The remaining findings are grouped into portable package/state, mediated execution, workspace evidence, cryptographic lifecycle, and executable Goal Baseline capabilities. Claim definitions and frozen results remain unchanged, and no completion percentage is assigned.
+
 1. Integrate process selection, adaptation, composition, novel candidate creation, and bounded one-off execution.
 2. Observe repeated inference and outcomes; diagnose scope and repeated process behavior.
 3. Generate immutable lower-inference candidates without encoding a qualification answer.

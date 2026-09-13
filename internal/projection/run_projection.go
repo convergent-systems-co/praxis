@@ -14,15 +14,17 @@ import (
 
 // RunView is a disposable read model derived from authoritative run events.
 type RunView struct {
-	RunID           string          `json:"run_id"`
-	GraphID         string          `json:"graph_id"`
-	GraphVersion    string          `json:"graph_version"`
-	CurrentNode     string          `json:"current_node"`
-	State           kernel.RunState `json:"state"`
-	TransitionCount int             `json:"transition_count"`
-	EvidenceCount   int             `json:"evidence_count"`
-	LastSequence    int64           `json:"last_sequence"`
-	LastVersion     int64           `json:"last_version"`
+	RunID           string              `json:"run_id"`
+	GraphID         string              `json:"graph_id"`
+	GraphVersion    string              `json:"graph_version"`
+	CurrentNode     string              `json:"current_node"`
+	State           kernel.RunState     `json:"state"`
+	TransitionCount int                 `json:"transition_count"`
+	EvidenceCount   int                 `json:"evidence_count"`
+	FailedAttempts  int                 `json:"failed_attempts"`
+	LastFailure     kernel.FailureClass `json:"last_failure,omitempty"`
+	LastSequence    int64               `json:"last_sequence"`
+	LastVersion     int64               `json:"last_version"`
 }
 
 type RunViews struct {
@@ -64,6 +66,9 @@ func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 		view.CurrentNode = observation.NodeID
 		view.State = observation.State
 		view.TransitionCount = observation.TransitionCount
+	case kernel.ObservationNodeAttemptFailed:
+		view.FailedAttempts++
+		view.LastFailure = observation.FailureClass
 	case kernel.ObservationNodeCompleted:
 		view.EvidenceCount += len(observation.Evidence)
 	case kernel.ObservationTransitioned:
@@ -74,6 +79,9 @@ func (r *RunViews) Apply(_ context.Context, event eventstore.Event) error {
 		view.CurrentNode = observation.NodeID
 		view.State = observation.State
 		view.TransitionCount = observation.TransitionCount
+		if observation.FailureClass != "" {
+			view.LastFailure = observation.FailureClass
+		}
 	default:
 		return fmt.Errorf("unknown run observation kind %q", observation.Kind)
 	}

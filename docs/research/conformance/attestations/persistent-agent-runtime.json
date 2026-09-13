@@ -7,18 +7,20 @@
     "./internal/agent"
   ],
   "working_directory": ".",
-  "started_at": "2026-09-13T19:20:05.439111Z",
-  "finished_at": "2026-09-13T19:20:06.192692Z",
+  "started_at": "2026-09-13T19:24:32.822732Z",
+  "finished_at": "2026-09-13T19:24:33.375176Z",
   "exit_code": 0,
   "output_ref": "docs/research/conformance/attestations/persistent-agent-runtime.log",
-  "output_digest": "sha256:ac4237e6ad285948cce71d43db5ec03fb5af44093aa08bd5e1722feca7e4eec4",
+  "output_digest": "sha256:881d6254ee76d7c75df86a55eb6149f487bde5731677b15cfda756ccce8110b5",
   "source_digests": {
-    "internal/agent": "sha256:8a6a66c18e3dcdaa60af7e908c8726ebb45aa50768772931e81a5965d90639d1"
+    "internal/agent": "sha256:463081ac31440124b067ffc8ed86ff8ef9f4244241aae33bc145e37c4d41bb83"
   },
   "observations": [
+    "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart",
     "TestOperationalGraphFailsClosedWhenAgentRoleIsMissing",
-    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement"
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement",
+    "TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware"
   ],
   "platform": "darwin/arm64",
-  "digest": "sha256:f2264837cde10485b20b1e856cfcab4cd0dc89af9c4217cad92a7c308fdd5667"
+  "digest": "sha256:8aca31f9389708af436c345b4a4f53cd8114d4fe6c894e22043c1e5e3bc6217d"
 }

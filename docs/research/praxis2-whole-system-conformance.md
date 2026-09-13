@@ -105,6 +105,8 @@ The execution is frozen at `docs/research/conformance/attestations/persistent-ag
 
 The historical oracle is a discovery qualification, not a requirement that a remediated system remain broken. Its successful positive-control evidence remains the immutable initial qualification against `blind-source-qualified.json`. Scoring the remediated result against an oracle that expects the historical gap naturally reports that the gap is no longer present; it does not invalidate the earlier independent rediscovery.
 
+The next immutable result, `docs/research/conformance/blind-agent-lifecycle.json`, digest `sha256:3c0643b7441522688cdbc1e3dc2c8bd0141e42db5f3faa46db1aca1c13d0d3b4`, additionally closes OI-007 and OI-008. Persistent memory is reconstructed without chat history, filtered by agent/context scope, item-bounded, trust-preserving, and supersession-aware. Agent generation promotion and rollback append new lineage rather than rewriting prior generations, and runtime introspection reconstructs all generations after restart. Totals are 7 satisfied, 10 unsupported, and 20 indeterminate.
+
 ## Plan input
 
 PLAN-001 must use the fixed 37-claim denominator plus the 35 finding closures, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.

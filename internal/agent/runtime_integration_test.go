@@ -59,8 +59,12 @@ func TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacem
 	identity := agent.Agent{ID: "agent-1", OwnerScope: "human:1", CurrentGeneration: "generation-1", Lifecycle: agent.AgentActive, CreatedAt: now}
 	generation := agent.Generation{ID: "generation-1", AgentID: "agent-1", Number: 1, GraphRefs: []string{"agent.operations@2"}, CreationReason: "fixture", GovernanceRef: "governance:create", CreatedAt: now}
 	memory := agent.MemoryRecord{ID: "memory-1", AgentID: "agent-1", Scope: "project:praxis", Type: agent.MemoryFact, ContentRef: "fact:original-goal", Provenance: contracts.ProvenanceRef{SourceType: "observation", Trust: contracts.TrustObserved, ObservedAt: now}, Trust: contracts.TrustObserved, Confidence: 1, CreatedAt: now}
-	runtimeA := agent.Runtime{Events: provider.Events(), Graphs: fixedGraphs{operationalFixture()}, Memory: fixedMemory{[]agent.MemoryRecord{memory}}, MaxMemory: 2, Now: func() time.Time { return now }}
+	runtimeA := agent.Runtime{Events: provider.Events(), Graphs: fixedGraphs{operationalFixture()}, MaxMemory: 2, Now: func() time.Time { return now }}
+	runtimeA.Memory = runtimeA
 	if err := runtimeA.Create(ctx, identity, generation, contracts.PrincipalRef{ID: "human-1", Kind: "user"}, "create-agent-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtimeA.Remember(ctx, memory, contracts.PrincipalRef{ID: "human-1", Kind: "user"}, "remember-1"); err != nil {
 		t.Fatal(err)
 	}
 	var visitedA []string
@@ -81,7 +85,8 @@ func TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacem
 		t.Fatal(err)
 	}
 	defer restarted.Close()
-	runtimeB := agent.Runtime{Events: restarted.Events(), Graphs: fixedGraphs{operationalFixture()}, Memory: fixedMemory{[]agent.MemoryRecord{memory}}, MaxMemory: 2, Now: func() time.Time { return now.Add(time.Minute) }}
+	runtimeB := agent.Runtime{Events: restarted.Events(), Graphs: fixedGraphs{operationalFixture()}, MaxMemory: 2, Now: func() time.Time { return now.Add(time.Minute) }}
+	runtimeB.Memory = runtimeB
 	var visitedB []string
 	var contextsB []agent.ExecutionContext
 	second, err := runtimeB.Execute(ctx, agent.ExecuteRequest{AgentID: "agent-1", RunID: "run-b", GoalRef: "goal:two", Scope: "project:praxis", Executor: recordingExecutor{id: "provider-b", visited: &visitedB, contexts: &contextsB}})
@@ -97,6 +102,99 @@ func TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacem
 	}
 	if len(contextsB) != len(want) || len(contextsB[0].Memory) != 1 || contextsB[0].GoalRef != "goal:two" {
 		t.Fatalf("goal/memory/context did not reach operational graph: %#v", contextsB)
+	}
+}
+
+func TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	now := time.Date(2026, 9, 13, 21, 0, 0, 0, time.UTC)
+	actor := contracts.PrincipalRef{ID: "governance", Kind: "service"}
+	provider, err := stateprovider.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := agent.Runtime{Events: provider.Events(), Now: func() time.Time { return now }}
+	identity := agent.Agent{ID: "agent-lineage", OwnerScope: "human:1", CurrentGeneration: "g1", Lifecycle: agent.AgentActive, CreatedAt: now}
+	g1 := agent.Generation{ID: "g1", AgentID: identity.ID, Number: 1, GraphRefs: []string{"agent.operations@1"}, CreationReason: "seed", GovernanceRef: "create", CreatedAt: now}
+	if err := runtime.Create(ctx, identity, g1, actor, "create-lineage"); err != nil {
+		t.Fatal(err)
+	}
+	g2 := agent.Generation{ID: "g2", AgentID: identity.ID, Number: 2, ParentGeneration: "g1", GraphRefs: []string{"agent.operations@2"}, LearningRefs: []string{"finding:improve"}, CreationReason: "promoted learning", GovernanceRef: "promotion:1", CreatedAt: now.Add(time.Minute)}
+	if err := runtime.PromoteGeneration(ctx, identity.ID, g2, actor, "promote-g2"); err != nil {
+		t.Fatal(err)
+	}
+	g3 := agent.Generation{ID: "g3", AgentID: identity.ID, Number: 3, ParentGeneration: "g2", GraphRefs: append([]string(nil), g1.GraphRefs...), LearningRefs: []string{"rollback:g1"}, CreationReason: "rollback to generation 1 behavior", GovernanceRef: "rollback:1", CreatedAt: now.Add(2 * time.Minute)}
+	if err := runtime.PromoteGeneration(ctx, identity.ID, g3, actor, "rollback-g1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := stateprovider.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.Close()
+	inspection, err := (agent.Runtime{Events: restarted.Events()}).Inspect(ctx, identity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.CurrentGeneration.ID != "g3" || inspection.Agent.CurrentGeneration != "g3" || len(inspection.GenerationHistory) != 3 {
+		t.Fatalf("runtime introspection lost lineage: %#v", inspection)
+	}
+	if inspection.GenerationHistory[1].ParentGeneration != "g1" || inspection.GenerationHistory[2].ParentGeneration != "g2" || inspection.GenerationHistory[2].GraphRefs[0] != "agent.operations@1" {
+		t.Fatal("rollback deleted or rewrote generation history")
+	}
+}
+
+func TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	now := time.Date(2026, 9, 13, 22, 0, 0, 0, time.UTC)
+	actor := contracts.PrincipalRef{ID: "human", Kind: "user"}
+	provider, err := stateprovider.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := agent.Runtime{Events: provider.Events(), Now: func() time.Time { return now }}
+	identity := agent.Agent{ID: "memory-agent", OwnerScope: "human", CurrentGeneration: "g1", Lifecycle: agent.AgentActive, CreatedAt: now}
+	generation := agent.Generation{ID: "g1", AgentID: identity.ID, Number: 1, GraphRefs: []string{"agent.operations@1"}, CreationReason: "seed", GovernanceRef: "create", CreatedAt: now}
+	if err := runtime.Create(ctx, identity, generation, actor, "create-memory-agent"); err != nil {
+		t.Fatal(err)
+	}
+	provenance := contracts.ProvenanceRef{SourceType: "observation", Trust: contracts.TrustObserved, ObservedAt: now}
+	records := []agent.MemoryRecord{{ID: "old", AgentID: identity.ID, Scope: "project:a", Type: agent.MemoryFact, ContentRef: "fact:old", Provenance: provenance, Trust: contracts.TrustObserved, Confidence: .9, CreatedAt: now}, {ID: "replacement", AgentID: identity.ID, Scope: "project:a", Type: agent.MemoryFact, ContentRef: "fact:new", Provenance: provenance, Trust: contracts.TrustObserved, Confidence: .8, CreatedAt: now.Add(time.Second)}, {ID: "foreign-scope", AgentID: identity.ID, Scope: "project:b", Type: agent.MemoryFact, ContentRef: "fact:foreign", Provenance: provenance, Trust: contracts.TrustObserved, Confidence: 1, CreatedAt: now}, {ID: "global", AgentID: identity.ID, Scope: "global", Type: agent.MemoryContext, ContentRef: "context:global", Provenance: provenance, Trust: contracts.TrustObserved, Confidence: .2, CreatedAt: now}}
+	for index, record := range records {
+		if err := runtime.Remember(ctx, record, actor, "remember-"+record.ID); err != nil {
+			t.Fatalf("remember %d: %v", index, err)
+		}
+	}
+	if err := runtime.SupersedeMemory(ctx, identity.ID, "old", "replacement", actor, "supersede-old"); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := stateprovider.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.Close()
+	runtime = agent.Runtime{Events: restarted.Events(), Now: func() time.Time { return now.Add(time.Minute) }}
+	got, err := runtime.RetrieveMemory(ctx, identity.ID, "project:a", "goal:any", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "replacement" {
+		t.Fatalf("retrieval was not bounded/scoped/supersession-aware: %#v", got)
+	}
+	inspection, err := runtime.Inspect(ctx, identity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inspection.Memory) != 4 {
+		t.Fatal("memory reconstruction depended on missing chat state")
 	}
 }
 

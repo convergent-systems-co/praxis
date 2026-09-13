@@ -113,45 +113,222 @@ func (r Runtime) Create(ctx context.Context, a Agent, g Generation, actor contra
 }
 
 func (r Runtime) Load(ctx context.Context, agentID string) (Agent, Generation, int64, error) {
-	if r.Events == nil || agentID == "" {
-		return Agent{}, Generation{}, 0, errors.New("agent runtime store and identity are required")
-	}
-	events, err := r.Events.LoadAggregate(ctx, agentID, 0)
+	inspection, err := r.Inspect(ctx, agentID)
 	if err != nil {
 		return Agent{}, Generation{}, 0, err
 	}
+	return inspection.Agent, inspection.CurrentGeneration, inspection.Version, nil
+}
+
+type AgentInspection struct {
+	Agent             Agent          `json:"agent"`
+	CurrentGeneration Generation     `json:"current_generation"`
+	GenerationHistory []Generation   `json:"generation_history"`
+	Memory            []MemoryRecord `json:"memory"`
+	Version           int64          `json:"version"`
+}
+
+func (r Runtime) Inspect(ctx context.Context, agentID string) (AgentInspection, error) {
+	if r.Events == nil || agentID == "" {
+		return AgentInspection{}, errors.New("agent runtime store and identity are required")
+	}
+	events, err := r.Events.LoadAggregate(ctx, agentID, 0)
+	if err != nil {
+		return AgentInspection{}, err
+	}
 	if len(events) == 0 {
-		return Agent{}, Generation{}, 0, errors.New("agent not found")
+		return AgentInspection{}, errors.New("agent not found")
 	}
 	var identity persistedIdentity
+	var generations []Generation
+	var memories []MemoryRecord
 	var version int64
 	for i, event := range events {
 		if event.AggregateType != "agent" {
-			return Agent{}, Generation{}, 0, fmt.Errorf("agent event %d has wrong aggregate type", i)
+			return AgentInspection{}, fmt.Errorf("agent event %d has wrong aggregate type", i)
 		}
 		switch event.Type {
 		case "agent.created":
 			if i != 0 {
-				return Agent{}, Generation{}, 0, errors.New("agent created event is not first")
+				return AgentInspection{}, errors.New("agent created event is not first")
 			}
 			if err := json.Unmarshal(event.Payload, &identity); err != nil {
-				return Agent{}, Generation{}, 0, err
+				return AgentInspection{}, err
+			}
+			generations = append(generations, identity.Generation)
+		case "agent.generation_promoted":
+			var next Generation
+			if err := json.Unmarshal(event.Payload, &next); err != nil {
+				return AgentInspection{}, err
+			}
+			if next.AgentID != identity.Agent.ID || next.ParentGeneration != identity.Generation.ID || next.Number != identity.Generation.Number+1 {
+				return AgentInspection{}, errors.New("invalid promoted generation lineage")
+			}
+			if err := next.Validate(); err != nil {
+				return AgentInspection{}, err
+			}
+			identity.Generation = next
+			identity.Agent.CurrentGeneration = next.ID
+			generations = append(generations, next)
+		case "agent.memory_recorded":
+			var memory MemoryRecord
+			if err := json.Unmarshal(event.Payload, &memory); err != nil {
+				return AgentInspection{}, err
+			}
+			if err := memory.Validate(); err != nil {
+				return AgentInspection{}, err
+			}
+			if memory.AgentID != identity.Agent.ID {
+				return AgentInspection{}, errors.New("foreign memory in agent aggregate")
+			}
+			memories = append(memories, memory)
+		case "agent.memory_superseded":
+			var change struct {
+				MemoryID     string `json:"memory_id"`
+				SupersededBy string `json:"superseded_by"`
+			}
+			if err := json.Unmarshal(event.Payload, &change); err != nil {
+				return AgentInspection{}, err
+			}
+			found := false
+			for index := range memories {
+				if memories[index].ID == change.MemoryID {
+					memories[index].SupersededBy = change.SupersededBy
+					found = true
+				}
+			}
+			if !found {
+				return AgentInspection{}, errors.New("superseded memory does not exist")
 			}
 		default:
-			return Agent{}, Generation{}, 0, fmt.Errorf("unknown agent event %s", event.Type)
+			return AgentInspection{}, fmt.Errorf("unknown agent event %s", event.Type)
 		}
 		version = event.AggregateVersion
 	}
 	if err := identity.Agent.Validate(); err != nil {
-		return Agent{}, Generation{}, 0, err
+		return AgentInspection{}, err
 	}
 	if err := identity.Generation.Validate(); err != nil {
-		return Agent{}, Generation{}, 0, err
+		return AgentInspection{}, err
 	}
 	if identity.Agent.ID != agentID || identity.Generation.ID != identity.Agent.CurrentGeneration {
-		return Agent{}, Generation{}, 0, errors.New("persisted agent projection is inconsistent")
+		return AgentInspection{}, errors.New("persisted agent projection is inconsistent")
 	}
-	return identity.Agent, identity.Generation, version, nil
+	return AgentInspection{Agent: identity.Agent, CurrentGeneration: identity.Generation, GenerationHistory: generations, Memory: memories, Version: version}, nil
+}
+
+func (r Runtime) PromoteGeneration(ctx context.Context, agentID string, next Generation, actor contracts.PrincipalRef, commandID string) error {
+	inspection, err := r.Inspect(ctx, agentID)
+	if err != nil {
+		return err
+	}
+	if err := actor.Validate(); err != nil {
+		return err
+	}
+	if commandID == "" {
+		return errors.New("promotion command id is required")
+	}
+	if next.AgentID != agentID || next.ParentGeneration != inspection.CurrentGeneration.ID || next.Number != inspection.CurrentGeneration.Number+1 {
+		return errors.New("generation promotion must extend the active lineage")
+	}
+	if err := next.Validate(); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(next)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if r.Now != nil {
+		now = r.Now().UTC()
+	}
+	_, err = r.Events.Append(ctx, agentID, inspection.Version, []eventstore.Event{{ID: agentID + ":generation:" + next.ID, AggregateType: "agent", Type: "agent.generation_promoted", Version: "1", Actor: actor, CommandID: commandID, CorrelationID: commandID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: now}})
+	return err
+}
+
+func (r Runtime) Remember(ctx context.Context, memory MemoryRecord, actor contracts.PrincipalRef, commandID string) error {
+	inspection, err := r.Inspect(ctx, memory.AgentID)
+	if err != nil {
+		return err
+	}
+	if err := memory.Validate(); err != nil {
+		return err
+	}
+	if err := actor.Validate(); err != nil {
+		return err
+	}
+	if commandID == "" {
+		return errors.New("memory command id is required")
+	}
+	for _, existing := range inspection.Memory {
+		if existing.ID == memory.ID {
+			return errors.New("memory id already exists")
+		}
+	}
+	payload, err := json.Marshal(memory)
+	if err != nil {
+		return err
+	}
+	_, err = r.Events.Append(ctx, memory.AgentID, inspection.Version, []eventstore.Event{{ID: memory.AgentID + ":memory:" + memory.ID, AggregateType: "agent", Type: "agent.memory_recorded", Version: "1", Actor: actor, CommandID: commandID, CorrelationID: commandID, Trust: memory.Trust, Payload: payload, CreatedAt: memory.CreatedAt}})
+	return err
+}
+
+func (r Runtime) SupersedeMemory(ctx context.Context, agentID, memoryID, replacementID string, actor contracts.PrincipalRef, commandID string) error {
+	if memoryID == "" || replacementID == "" || memoryID == replacementID {
+		return errors.New("distinct memory and replacement ids are required")
+	}
+	inspection, err := r.Inspect(ctx, agentID)
+	if err != nil {
+		return err
+	}
+	existing, replacement := false, false
+	for _, memory := range inspection.Memory {
+		if memory.ID == memoryID && memory.SupersededBy == "" {
+			existing = true
+		}
+		if memory.ID == replacementID {
+			replacement = true
+		}
+	}
+	if !existing || !replacement {
+		return errors.New("active memory and replacement must exist")
+	}
+	payload, _ := json.Marshal(struct {
+		MemoryID     string `json:"memory_id"`
+		SupersededBy string `json:"superseded_by"`
+	}{memoryID, replacementID})
+	now := time.Now().UTC()
+	if r.Now != nil {
+		now = r.Now().UTC()
+	}
+	_, err = r.Events.Append(ctx, agentID, inspection.Version, []eventstore.Event{{ID: agentID + ":memory-superseded:" + memoryID, AggregateType: "agent", Type: "agent.memory_superseded", Version: "1", Actor: actor, CommandID: commandID, CorrelationID: commandID, Trust: contracts.TrustUserConfirmed, Payload: payload, CreatedAt: now}})
+	return err
+}
+
+func (r Runtime) RetrieveMemory(ctx context.Context, agentID, scope, goalRef string, limit int) ([]MemoryRecord, error) {
+	if limit <= 0 {
+		return nil, errors.New("positive memory limit is required")
+	}
+	inspection, err := r.Inspect(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	if r.Now != nil {
+		now = r.Now().UTC()
+	}
+	ranked := RankableMemory(inspection.Memory, now)
+	out := make([]MemoryRecord, 0, limit)
+	for _, memory := range ranked {
+		if memory.Scope != scope && memory.Scope != "global" {
+			continue
+		}
+		out = append(out, memory)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
 }
 
 type ExecuteRequest struct {
@@ -209,8 +386,12 @@ func (r Runtime) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult
 	if len(memories) > limit {
 		return ExecuteResult{}, errors.New("memory retriever exceeded bounded context limit")
 	}
+	now := time.Now().UTC()
+	if r.Now != nil {
+		now = r.Now().UTC()
+	}
 	for _, memory := range memories {
-		if memory.AgentID != a.ID || !memory.Active(time.Now().UTC()) {
+		if memory.AgentID != a.ID || !memory.Active(now) {
 			return ExecuteResult{}, errors.New("memory retrieval returned invalid or foreign record")
 		}
 	}

@@ -24,7 +24,7 @@ func (s *SQLiteCheckpointStore) LoadCheckpoint(ctx context.Context, name, versio
 	}
 	var checkpoint projection.Checkpoint
 	var consistency, updated string
-	err := s.db.QueryRowContext(ctx, `SELECT projection_name,projection_version,consistency_class,last_sequence,updated_at FROM projection_checkpoints WHERE projection_name=? AND projection_version=?`, name, version).Scan(
+	err := s.db.QueryRowContext(ctx, `SELECT projection_name,projection_version,consistency_class,last_sequence,updated_at FROM projection_checkpoints WHERE projection_name=?`, name).Scan(
 		&checkpoint.Name, &checkpoint.Version, &consistency, &checkpoint.LastSequence, &updated,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -32,6 +32,9 @@ func (s *SQLiteCheckpointStore) LoadCheckpoint(ctx context.Context, name, versio
 	}
 	if err != nil {
 		return projection.Checkpoint{}, false, fmt.Errorf("load projection checkpoint: %w", err)
+	}
+	if checkpoint.Version != version {
+		return projection.Checkpoint{}, false, fmt.Errorf("projection %q version mismatch: persisted=%q requested=%q", name, checkpoint.Version, version)
 	}
 	checkpoint.Consistency = projection.ConsistencyClass(consistency)
 	parsed, err := time.Parse(time.RFC3339Nano, updated)
@@ -56,7 +59,7 @@ func (s *SQLiteCheckpointStore) SaveCheckpoint(ctx context.Context, checkpoint p
 	if updatedAt.IsZero() {
 		updatedAt = time.Now().UTC()
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO projection_checkpoints(projection_name,projection_version,consistency_class,last_sequence,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(projection_name,projection_version) DO UPDATE SET last_sequence=excluded.last_sequence,updated_at=excluded.updated_at WHERE excluded.consistency_class=projection_checkpoints.consistency_class AND excluded.last_sequence>=projection_checkpoints.last_sequence`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO projection_checkpoints(projection_name,projection_version,consistency_class,last_sequence,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(projection_name) DO UPDATE SET last_sequence=excluded.last_sequence,updated_at=excluded.updated_at WHERE excluded.projection_version=projection_checkpoints.projection_version AND excluded.consistency_class=projection_checkpoints.consistency_class AND excluded.last_sequence>=projection_checkpoints.last_sequence`,
 		checkpoint.Name, checkpoint.Version, string(checkpoint.Consistency), checkpoint.LastSequence, updatedAt.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return fmt.Errorf("save projection checkpoint: %w", err)
@@ -66,7 +69,7 @@ func (s *SQLiteCheckpointStore) SaveCheckpoint(ctx context.Context, checkpoint p
 		return fmt.Errorf("inspect projection checkpoint write: %w", err)
 	}
 	if changed != 1 {
-		return errors.New("projection checkpoint rejected stale sequence or consistency-class change")
+		return errors.New("projection checkpoint rejected stale sequence, version change, or consistency-class change")
 	}
 	return nil
 }

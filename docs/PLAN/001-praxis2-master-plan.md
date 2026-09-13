@@ -117,7 +117,7 @@ Version-policy checkpoint: ADR-052 centralizes current, readable-historical, mig
 
 Reverse-adaptation progress: frozen package demotion policy can map a traceable diagnosis to an immutable child generation that restores bounded inference and removes only the contradicted deterministic rule. The compiled active generation is unchanged until exact-evaluation approval by a distinct authority; demotion, restart verification, rollback, and retained lineage work for software-delivery and research policies. Analysis policy/report pairs are now durable adaptive-ledger events. This remains cluster substrate/integration progress rather than an OI-017 closure until the whole cluster is independently attested and re-evaluated.
 
-Preference-lifecycle progress: package-owned content-addressed contracts now drive required-input discovery, safe default seeding, allowed values/scopes, and learnability. Authority-bound corrections append exact supersession lineage; one-to-one migrations bind source/target contracts and transforms while preserving the original authority class and rejecting incompatible reinterpretation. Historical attestation `preference-lifecycle-v1.json` is retained; successor `preference-lifecycle-v2.json` replaces count/position checks with semantic record, authority, and lineage identity after SQLite restart. This is Cluster-A integration progress, not OI-006/OI-012 closure until graph/runtime use, drift candidates, and independent conformance evidence exist.
+Preference-lifecycle closure: package-owned content-addressed contracts drive required-input discovery, safe default seeding, native values/scopes, and learnability. Profile divergence plus a frozen package drift policy produces a governed learned record; the exact generation-bound contract is resolved into every operational graph node. Explicit correction wins after SQLite restart and provider replacement. Generic append cannot mint learned or migrated authority, and one-to-one migration replay binds both contracts, the versioned transform, active origin, slot/value/scope/evidence, and preserved original authority. Historical preference attestations remain immutable; comprehensive successor `cluster-a-runtime-v5.json` binds the final sources and two-domain lifecycle. `blind-preference-lifecycle-v1.json` is retained with OI-012 indeterminate because its inventory mislabeled the executed runtime test as restart-only. Accepted successor `blind-preference-lifecycle-v2.json`, digest `sha256:95956a43b10e81cea320e9b36af0ce17232968c31506f3894e9a5ee48d4af6d7`, independently evaluates OI-006 and OI-012 as satisfied. Totals are 21 satisfied, 3 unsupported, and 14 indeterminate; no unrelated claim changed and the oracle was not loaded.
 
 Evidence-routing progress: a frozen request now binds agent/run/goal/domain/behavior/context/tier, and deterministic eligibility evidence binds the exact request, executor, provider, authority, capability proof, and policy proof. Package routing policy selects typed native measurements, units, thresholds, objective direction, and independent-causation minimums; core preserves and validates those declarations without defining their domain meaning. Software-delivery latency in milliseconds and research verified-source counts route through the same mechanism, while a denied candidate cannot win through a favorable metric. Selection-only attestation `evidence-routing-v1.json` and integrated `adaptive-routing-runtime-v1.json` remain immutable. Successor `adaptive-routing-runtime-v2.json` proves the same dispatch/restart behavior using semantic evidence identities rather than incidental observation counts or positions. OI-013/OI-014 status is determined only by the next frozen blind audit.
 
@@ -166,14 +166,16 @@ Closure evidence: OI-023 and OI-031 are satisfied in `blind-attested-recovery-au
 
 OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-delivery and research profiles use different opaque pressure signals and thresholds while the same core mechanism governs event-led checkpoint, handoff, SQLite restart, exact-reference resume, and run/agent/evidence identity preservation. Calibration remains package/profile policy.
 
-## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — NOT STARTED
+## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
-1. Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
+1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
 2. Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence.
 3. Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path.
 4. Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation.
 
 Finding closures: OI-006, OI-012, OI-033, OI-034.
+
+Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle-v2.json`. The two-domain lifecycle proves governed drift and graph consumption, explicit correction across restart/provider replacement, material-only input/default behavior, and contract-bound migration with fail-closed incompatible reinterpretation. OI-033 and OI-034 remain unresolved.
 
 ## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY WAVES 17-22
 
@@ -210,6 +212,7 @@ Implemented in this reopened wave:
 - content-bound cross-agent generalization/privacy/publication/adoption result `blind-cross-agent-transfer-v3.json` (OI-015 satisfied)
 - durable contradiction-to-inference fork/demotion result `blind-contradiction-demotion-v2.json` (OI-017 satisfied)
 - evaluator-bound five-class behavioral profile/divergence result `blind-behavioral-profile-v2.json` (OI-020 satisfied)
+- governed preference drift/correction/graph-consumption and contract-migration result `blind-preference-lifecycle-v2.json` (OI-006 and OI-012 satisfied)
 
 ## Completion calculation
 

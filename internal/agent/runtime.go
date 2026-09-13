@@ -55,12 +55,24 @@ type MemoryRetriever interface {
 	RetrieveMemory(ctx context.Context, agentID, scope, goalRef string, limit int) ([]MemoryRecord, error)
 }
 
+type ResolvedPreference struct {
+	SlotID     string
+	Value      string
+	RecordID   string
+	ContractID string
+}
+
+type PreferenceResolver interface {
+	ResolvePreferences(ctx context.Context, agentID, contractRef, scope string) ([]ResolvedPreference, error)
+}
+
 type ExecutionContext struct {
 	AgentID      string
 	GenerationID string
 	GoalRef      string
 	Scope        string
 	Memory       []MemoryRecord
+	Preferences  []ResolvedPreference
 }
 
 type AgentNodeExecutor interface {
@@ -69,11 +81,12 @@ type AgentNodeExecutor interface {
 }
 
 type Runtime struct {
-	Events    eventstore.Store
-	Graphs    GraphResolver
-	Memory    MemoryRetriever
-	MaxMemory int
-	Now       func() time.Time
+	Events      eventstore.Store
+	Graphs      GraphResolver
+	Memory      MemoryRetriever
+	Preferences PreferenceResolver
+	MaxMemory   int
+	Now         func() time.Time
 }
 
 type persistedIdentity struct {
@@ -395,7 +408,24 @@ func (r Runtime) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult
 			return ExecuteResult{}, errors.New("memory retrieval returned invalid or foreign record")
 		}
 	}
-	agentContext := ExecutionContext{AgentID: a.ID, GenerationID: g.ID, GoalRef: req.GoalRef, Scope: req.Scope, Memory: append([]MemoryRecord(nil), memories...)}
+	preferences := []ResolvedPreference{}
+	if g.PreferenceRef != "" {
+		if r.Preferences == nil {
+			return ExecuteResult{}, errors.New("agent generation requires unavailable preference resolver")
+		}
+		preferences, err = r.Preferences.ResolvePreferences(ctx, a.ID, g.PreferenceRef, req.Scope)
+		if err != nil {
+			return ExecuteResult{}, err
+		}
+		seen := map[string]bool{}
+		for _, resolved := range preferences {
+			if resolved.SlotID == "" || resolved.Value == "" || resolved.RecordID == "" || resolved.ContractID != g.PreferenceRef || seen[resolved.SlotID] {
+				return ExecuteResult{}, errors.New("preference resolver returned invalid, duplicate, or wrong-contract result")
+			}
+			seen[resolved.SlotID] = true
+		}
+	}
+	agentContext := ExecutionContext{AgentID: a.ID, GenerationID: g.ID, GoalRef: req.GoalRef, Scope: req.Scope, Memory: append([]MemoryRecord(nil), memories...), Preferences: append([]ResolvedPreference(nil), preferences...)}
 	run := kernel.RunExecution{RunID: req.RunID}
 	journal := &kernel.EventJournal{Store: r.Events, Actor: contracts.PrincipalRef{ID: a.ID, Kind: "agent"}, CommandID: "agent-run:" + req.RunID, CorrelationID: req.RunID, Trust: contracts.TrustObserved, Now: r.Now}
 	if err := kernel.RunObserved(ctx, graph.Definition, &run, agentExecutorAdapter{executor: req.Executor, context: agentContext}, journal); err != nil {

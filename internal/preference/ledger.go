@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -12,20 +13,33 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
-const preferenceRecordedEvent = "preference.recorded"
+const (
+	preferenceRecordedEvent        = "preference.recorded"
+	learnedPreferencePromotedEvent = "preference.learned_promoted"
+	preferenceMigratedEvent        = "preference.migrated"
+)
 
 type Authority interface {
 	AuthorizePreference(ctx context.Context, subjectID, authorityID, evidenceRef, scope, slotID string) error
 }
 
+type LearningAuthority interface {
+	AuthorizeLearnedPreference(ctx context.Context, subjectID, authorityID, evidenceRef, scope, slotID, recordID string) error
+}
+
 type Ledger struct {
-	store     eventstore.Store
-	authority Authority
+	store             eventstore.Store
+	authority         Authority
+	learningAuthority LearningAuthority
 }
 
 type recordEnvelope struct {
-	Contract Contract `json:"contract"`
-	Record   Record   `json:"record"`
+	Contract              Contract   `json:"contract"`
+	Record                Record     `json:"record"`
+	FromContract          *Contract  `json:"from_contract,omitempty"`
+	Migration             *Migration `json:"migration,omitempty"`
+	PromotionAuthorityID  string     `json:"promotion_authority_id,omitempty"`
+	PromotionAuthorityRef string     `json:"promotion_authority_ref,omitempty"`
 }
 
 func NewLedger(store eventstore.Store, authorities ...Authority) (*Ledger, error) {
@@ -37,6 +51,13 @@ func NewLedger(store eventstore.Store, authorities ...Authority) (*Ledger, error
 		ledger.authority = authorities[0]
 	}
 	return ledger, nil
+}
+
+func NewGovernedLedger(store eventstore.Store, authority Authority, learning LearningAuthority) (*Ledger, error) {
+	if store == nil || authority == nil || learning == nil {
+		return nil, errors.New("preference store, explicit authority, and learning authority are required")
+	}
+	return &Ledger{store: store, authority: authority, learningAuthority: learning}, nil
 }
 
 func preferenceAggregate(subjectID string) string { return "preferences:" + subjectID }
@@ -132,6 +153,12 @@ func (l *Ledger) Append(ctx context.Context, contract Contract, record Record) e
 	if err := VerifyRecord(contract, record); err != nil {
 		return err
 	}
+	if record.Source == SourceLearned {
+		return errors.New("learned preference requires governed promotion path")
+	}
+	if record.Source == SourceMigrated {
+		return errors.New("migrated preference requires contract-bound migration path")
+	}
 	if record.Source == SourceExplicitUser || record.Source == SourceExplicitOrg {
 		if l.authority == nil {
 			return errors.New("explicit preference append requires deterministic authority")
@@ -184,6 +211,129 @@ func (l *Ledger) Append(ctx context.Context, contract Contract, record Record) e
 	return err
 }
 
+func (l *Ledger) PromoteLearned(ctx context.Context, contract Contract, record Record, authorityID, authorityRef string) error {
+	if err := VerifyRecord(contract, record); err != nil {
+		return err
+	}
+	if record.Source != SourceLearned || authorityID == "" || authorityID == record.SubjectID || authorityRef == "" {
+		return errors.New("learned preference requires distinct promotion authority and evidence")
+	}
+	if l == nil || l.learningAuthority == nil {
+		return errors.New("learned preference promotion requires deterministic authority")
+	}
+	if err := l.learningAuthority.AuthorizeLearnedPreference(ctx, record.SubjectID, authorityID, authorityRef, record.Scope, record.SlotID, record.ID); err != nil {
+		return fmt.Errorf("authorize learned preference: %w", err)
+	}
+	events, err := l.store.LoadAggregate(ctx, preferenceAggregate(record.SubjectID), 0)
+	if err != nil {
+		return err
+	}
+	existing, err := recordsFromEvents(events, record.SubjectID)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range existing {
+		if candidate.ID == record.ID {
+			return nil
+		}
+	}
+	if record.SupersedesID != "" {
+		found := false
+		for _, candidate := range existing {
+			if candidate.ID == record.SupersedesID && candidate.SlotID == record.SlotID && candidate.Scope == record.Scope && !candidate.Superseded {
+				found = true
+			}
+		}
+		if !found {
+			return errors.New("learned preference supersession target is unavailable")
+		}
+	}
+	payload, err := json.Marshal(recordEnvelope{Contract: contract, Record: record, PromotionAuthorityID: authorityID, PromotionAuthorityRef: authorityRef})
+	if err != nil {
+		return err
+	}
+	_, err = l.store.Append(ctx, preferenceAggregate(record.SubjectID), int64(len(events)), []eventstore.Event{{ID: "event:" + record.ID, AggregateType: "preferences", Type: learnedPreferencePromotedEvent, Version: preferenceEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: authorityID, Kind: "governance"}, CommandID: "promote:" + record.ID, CorrelationID: record.ContractID, CausationID: record.SupersedesID, Trust: contracts.TrustPolicy, Payload: payload, CreatedAt: record.UpdatedAt}})
+	return err
+}
+
+// AppendMigration records an explicitly versioned package transform. The
+// migrated record is accepted only when its value, scope, evidence, and
+// authority lineage are a lossless continuation of the exact active origin.
+func (l *Ledger) AppendMigration(ctx context.Context, from, to Contract, migration Migration, record Record) error {
+	if l == nil || l.store == nil {
+		return errors.New("preference migration requires a ledger")
+	}
+	if err := VerifyContract(from); err != nil {
+		return err
+	}
+	if err := VerifyContract(to); err != nil {
+		return err
+	}
+	if err := VerifyMigration(migration); err != nil {
+		return err
+	}
+	if err := VerifyRecord(to, record); err != nil {
+		return err
+	}
+	if migration.FromContractID != from.ID || migration.ToContractID != to.ID || record.Source != SourceMigrated || record.Provenance != "migration:"+migration.ID {
+		return errors.New("migrated preference does not bind the declared contracts and transform")
+	}
+	events, err := l.store.LoadAggregate(ctx, preferenceAggregate(record.SubjectID), 0)
+	if err != nil {
+		return err
+	}
+	existing, err := recordsFromEvents(events, record.SubjectID)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range existing {
+		if candidate.ID == record.ID {
+			return nil
+		}
+	}
+	origin, err := migrationOrigin(from, migration, record, existing)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(recordEnvelope{Contract: to, Record: record, FromContract: &from, Migration: &migration})
+	if err != nil {
+		return err
+	}
+	_, err = l.store.Append(ctx, preferenceAggregate(record.SubjectID), int64(len(events)), []eventstore.Event{{ID: "event:" + record.ID, AggregateType: "preferences", Type: preferenceMigratedEvent, Version: preferenceEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: record.SubjectID, Kind: "agent"}, CommandID: "migrate:" + record.ID, CorrelationID: migration.ID, CausationID: origin.ID, Trust: contracts.TrustDerived, Payload: payload, CreatedAt: record.UpdatedAt}})
+	return err
+}
+
+func migrationOrigin(from Contract, migration Migration, record Record, existing []Record) (Record, error) {
+	var origin Record
+	for _, candidate := range existing {
+		if candidate.ID == record.OriginRecordID {
+			origin = candidate
+			break
+		}
+	}
+	if origin.ID == "" || origin.Superseded || origin.SubjectID != record.SubjectID || origin.ContractID != from.ID || origin.ScopeKind != record.ScopeKind || origin.Scope != record.Scope || origin.ScopeDepth != record.ScopeDepth || origin.Value != record.Value || origin.Confidence != record.Confidence || !slices.Equal(origin.EvidenceIDs, record.EvidenceIDs) {
+		return Record{}, errors.New("preference migration origin is unavailable, inactive, or semantically mismatched")
+	}
+	if err := VerifyRecord(from, origin); err != nil {
+		return Record{}, err
+	}
+	targetSlotID := ""
+	for _, mapping := range migration.Slots {
+		if mapping.FromSlotID == origin.SlotID {
+			targetSlotID = mapping.ToSlotID
+			break
+		}
+	}
+	originSource, originAuthorityID, originAuthorityRef := origin.Source, origin.AuthorityID, origin.AuthorityEvidenceRef
+	if origin.Source == SourceMigrated {
+		originSource, originAuthorityID, originAuthorityRef = origin.OriginSource, origin.OriginAuthorityID, origin.OriginAuthorityRef
+	}
+	if targetSlotID == "" || targetSlotID != record.SlotID || record.SupersedesID != origin.ID || record.OriginSource != originSource || record.OriginAuthorityID != originAuthorityID || record.OriginAuthorityRef != originAuthorityRef {
+		return Record{}, errors.New("preference migration record does not preserve the declared slot and authority lineage")
+	}
+	return origin, nil
+}
+
 func (l *Ledger) Records(ctx context.Context, subjectID string) ([]Record, error) {
 	if l == nil || l.store == nil || subjectID == "" {
 		return nil, errors.New("preference ledger and subject are required")
@@ -199,7 +349,7 @@ func recordsFromEvents(events []eventstore.Event, subjectID string) ([]Record, e
 	out := []Record{}
 	index := map[string]int{}
 	for _, event := range events {
-		if event.Type != preferenceRecordedEvent {
+		if event.Type != preferenceRecordedEvent && event.Type != learnedPreferencePromotedEvent && event.Type != preferenceMigratedEvent {
 			continue
 		}
 		payload, _, err := preferenceEventVersions.Canonicalize(event.Version, event.Payload)
@@ -214,7 +364,21 @@ func recordsFromEvents(events []eventstore.Event, subjectID string) ([]Record, e
 			return nil, err
 		}
 		record := envelope.Record
-		if record.SubjectID != subjectID || event.ID != "event:"+record.ID || event.CorrelationID != record.ContractID || event.CausationID != record.SupersedesID || event.Actor != preferenceActor(record) || event.Trust != preferenceTrust(record) {
+		metadataValid := record.Source != SourceLearned && record.Source != SourceMigrated && event.Actor == preferenceActor(record) && event.Trust == preferenceTrust(record) && envelope.PromotionAuthorityID == "" && envelope.PromotionAuthorityRef == "" && envelope.FromContract == nil && envelope.Migration == nil
+		if event.Type == learnedPreferencePromotedEvent {
+			metadataValid = record.Source == SourceLearned && envelope.PromotionAuthorityID != "" && envelope.PromotionAuthorityID != record.SubjectID && envelope.PromotionAuthorityRef != "" && event.Actor == (contracts.PrincipalRef{ID: envelope.PromotionAuthorityID, Kind: "governance"}) && event.Trust == contracts.TrustPolicy
+		}
+		if event.Type == preferenceMigratedEvent {
+			metadataValid = record.Source == SourceMigrated && envelope.FromContract != nil && envelope.Migration != nil && envelope.PromotionAuthorityID == "" && envelope.PromotionAuthorityRef == "" && event.Actor == (contracts.PrincipalRef{ID: record.SubjectID, Kind: "agent"}) && event.Trust == contracts.TrustDerived
+			if metadataValid {
+				metadataValid = VerifyContract(*envelope.FromContract) == nil && VerifyMigration(*envelope.Migration) == nil && envelope.Migration.FromContractID == envelope.FromContract.ID && envelope.Migration.ToContractID == envelope.Contract.ID && record.Provenance == "migration:"+envelope.Migration.ID && event.CorrelationID == envelope.Migration.ID
+			}
+		}
+		expectedCorrelation := record.ContractID
+		if event.Type == preferenceMigratedEvent && envelope.Migration != nil {
+			expectedCorrelation = envelope.Migration.ID
+		}
+		if record.SubjectID != subjectID || event.ID != "event:"+record.ID || event.CorrelationID != expectedCorrelation || event.CausationID != record.SupersedesID || !metadataValid {
 			return nil, errors.New("preference event metadata does not bind record authority and lineage")
 		}
 		if _, duplicate := index[record.ID]; duplicate {
@@ -225,6 +389,11 @@ func recordsFromEvents(events []eventstore.Event, subjectID string) ([]Record, e
 			samePreference := ok && (out[priorIndex].SlotID == record.SlotID || (record.Source == SourceMigrated && record.OriginRecordID == out[priorIndex].ID))
 			if !samePreference || out[priorIndex].Superseded || out[priorIndex].Scope != record.Scope {
 				return nil, errors.New("preference replay found invalid supersession lineage")
+			}
+			if event.Type == preferenceMigratedEvent {
+				if _, err := migrationOrigin(*envelope.FromContract, *envelope.Migration, record, out); err != nil {
+					return nil, err
+				}
 			}
 			out[priorIndex].Superseded = true
 		}

@@ -17,6 +17,9 @@ type allowPreferenceAuthority struct{}
 func (allowPreferenceAuthority) AuthorizePreference(context.Context, string, string, string, string, string) error {
 	return nil
 }
+func (allowPreferenceAuthority) AuthorizeLearnedPreference(context.Context, string, string, string, string, string, string) error {
+	return nil
+}
 
 func TestPreferenceReplayRejectsAuthorityActorMismatch(t *testing.T) {
 	ctx := context.Background()
@@ -81,7 +84,7 @@ func TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
-			ledger, err := NewLedger(state.NewSQLiteEventStore(db), allowPreferenceAuthority{})
+			ledger, err := NewGovernedLedger(state.NewSQLiteEventStore(db), allowPreferenceAuthority{}, allowPreferenceAuthority{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +95,10 @@ func TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := ledger.Append(ctx, oldContract, learned); err != nil {
+			if err := ledger.Append(ctx, oldContract, learned); err == nil {
+				t.Fatal("learned preference bypassed governed promotion")
+			}
+			if err := ledger.PromoteLearned(ctx, oldContract, learned, "learning-governor", "approval:learning:"+domain.name); err != nil {
 				t.Fatal(err)
 			}
 			correction, err := FreezeRecord(oldContract, Record{SubjectID: learned.SubjectID, SlotID: domain.slot, Value: domain.correctedValue, ScopeKind: domain.scopeKind, Scope: domain.scope, ScopeDepth: 3, Source: SourceExplicitUser, Provenance: "user-correction", AuthorityID: "owner", AuthorityEvidenceRef: "approval:" + domain.name, SupersedesID: learned.ID, CreatedAt: base.Add(2 * time.Minute), UpdatedAt: base.Add(2 * time.Minute)})
@@ -119,6 +125,17 @@ func TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
+			incompatibleContract, err := FreezeContract(Contract{PackageID: domain.packageID, ContractVersion: "incompatible", Slots: []Slot{{ID: domain.migratedSlot, Description: "incompatible target", Required: true, AllowedValues: []string{"not-" + domain.correctedValue}, AllowedScopes: []string{domain.scopeKind}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			incompatibleMigration, err := FreezeMigration(Migration{FromContractID: oldContract.ID, ToContractID: incompatibleContract.ID, TransformID: domain.packageID + "/incompatible/v1", Slots: []SlotMigration{{FromSlotID: domain.slot, ToSlotID: domain.migratedSlot}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ApplyMigration(oldContract, incompatibleContract, incompatibleMigration, history, base.Add(3*time.Minute)); err == nil {
+				t.Fatal("migration silently reinterpreted a value outside the target contract")
+			}
 			migrated, err := ApplyMigration(oldContract, newContract, migration, history, base.Add(3*time.Minute))
 			if err != nil || len(migrated) != 1 {
 				t.Fatalf("explicit preference migration failed: %#v %v", migrated, err)
@@ -126,7 +143,10 @@ func TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains(t *testing
 			if migrated[0].OriginSource != SourceExplicitUser || migrated[0].OriginAuthorityID != "owner" || migrated[0].Value != domain.correctedValue {
 				t.Fatalf("migration lost explicit intent/provenance: %#v", migrated[0])
 			}
-			if err := ledger.Append(ctx, newContract, migrated[0]); err != nil {
+			if err := ledger.Append(ctx, newContract, migrated[0]); err == nil {
+				t.Fatal("migrated preference bypassed its contract-bound transform")
+			}
+			if err := ledger.AppendMigration(ctx, oldContract, newContract, migration, migrated[0]); err != nil {
 				t.Fatal(err)
 			}
 			if err := db.Close(); err != nil {

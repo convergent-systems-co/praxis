@@ -2,17 +2,19 @@ package develop
 
 import "github.com/convergent-systems-co/praxis/internal/kernel"
 
-// Graph returns the initial domain graph for the software-development proving
-// package. Development terminology stays here rather than entering Praxis core.
+// Graph returns the software-development proving graph. Generic outcome shaping
+// is composed through the Goals subgraph; software-specific planning remains here.
 func Graph() kernel.GraphDef {
 	return kernel.GraphDef{
 		ID:             "praxis.package.develop.default",
-		Version:        "0.1.0",
+		Version:        "0.2.0",
 		EntryNode:      "discover",
-		MaxTransitions: 48,
+		MaxTransitions: 56,
 		Nodes: []kernel.NodeDef{
 			{ID: "discover", Class: kernel.NodeCapability},
 			{ID: "classify", Class: kernel.NodeCondition},
+			{ID: "goals", Class: kernel.NodeSubgraph},
+			{ID: "materialize", Class: kernel.NodeInference},
 			{ID: "plan", Class: kernel.NodeInference},
 			{ID: "prepare", Class: kernel.NodeCapability},
 			{ID: "implement", Class: kernel.NodeInference},
@@ -28,6 +30,11 @@ func Graph() kernel.GraphDef {
 			{From: "discover", Outcome: "blocked", To: "failed"},
 			{From: "classify", Outcome: "fast", To: "prepare"},
 			{From: "classify", Outcome: "plan", To: "plan"},
+			{From: "classify", Outcome: "goals", To: "goals"},
+			{From: "goals", Outcome: "baseline", To: "materialize"},
+			{From: "goals", Outcome: "blocked", To: "failed"},
+			{From: "materialize", Outcome: "ready", To: "plan"},
+			{From: "materialize", Outcome: "blocked", To: "failed"},
 			{From: "plan", Outcome: "ready", To: "prepare"},
 			{From: "plan", Outcome: "blocked", To: "failed"},
 			{From: "prepare", Outcome: "ready", To: "implement"},

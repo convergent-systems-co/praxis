@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-resource-continuation.json`
-- Latest frozen result digest: `sha256:416c317ddef1f8d0f4125d02e5e14ecded6949e01ef50d920c285776a142cd28`
+- Latest accepted remediation result: `docs/research/conformance/blind-learning-prompt-retirement-v38-final.json`
+- Latest frozen result digest: `sha256:177c19c9b061bf05319acdea18ba5ffa1e8f4e4bb7f5d945b25fa334e5301ba7`
 
 ## Method and denominator
 
@@ -129,6 +129,14 @@ The first 38-claim result, `docs/research/conformance/blind-denominator-transiti
 ADR-050 and SPEC-020 now assign generic observation, deterministic profile evaluation, checkpoint, handoff, event replay, and governed exact-reference resume to the runtime. Opaque signal names, measurements, thresholds, and action calibration remain outside core. A software-delivery profile and a research profile use different signals while the same runtime preserves run, graph, agent, checkpoint, and evidence identity across SQLite close/reopen and subsequent completion. Denial leaves in-memory state unchanged.
 
 The execution attestation binds both `internal/kernel` and the two-domain integration test and is frozen at `docs/research/conformance/attestations/resource-continuation.json`. Accepted result `docs/research/conformance/blind-resource-continuation.json`, digest `sha256:416c317ddef1f8d0f4125d02e5e14ecded6949e01ef50d920c285776a142cd28`, closes OI-038 against the 38-claim digest `sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0`. Totals are 11 satisfied, 9 unsupported, and 18 indeterminate.
+
+## Deterministic learning and prompt retirement remediation
+
+The execution-learning loop now consumes trusted, scoped input/output observations rather than observation prose. It deduplicates causation roots, recognizes only a fixed reviewable set of deterministic mechanisms, and produces a distinct content-addressed behavior generation. The candidate runs the observed case and an unseen regression case; every required output must match, security and policy violations are absolute blockers, and inference reduction is considered only after correctness. Untrusted content and correlated copies cannot meet the extraction threshold.
+
+The active generation retains its advisory instruction throughout proposal and evaluation. Only a separately governed promotion activates the child whose deterministic rule supersedes that instruction; active prompt rendering then omits it. Registry restart verifies generation and evaluation digests, rejected candidates remain evidence, self-promotion fails, and rollback restores the prior prompt-bearing generation without deleting the learned candidate.
+
+`learning-runtime-v2.json`, its two 37-claim blind results, and `blind-learning-prompt-retirement-v38.json` are retained as immutable intermediate artifacts from before the OI-038 transition or before evaluation-reopen hardening. The accepted attestation is `docs/research/conformance/attestations/learning-runtime-v3.json`. The current result `docs/research/conformance/blind-learning-prompt-retirement-v38-final.json`, digest `sha256:177c19c9b061bf05319acdea18ba5ffa1e8f4e4bb7f5d945b25fa334e5301ba7`, closes OI-004 and OI-005 while preserving OI-010 and OI-038. Totals are 13 satisfied, 7 unsupported, and 18 indeterminate.
 
 ## Plan input
 

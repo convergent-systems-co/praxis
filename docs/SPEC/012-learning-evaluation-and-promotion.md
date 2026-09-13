@@ -1,6 +1,6 @@
 # SPEC-012: Learning, Evaluation, and Governed Promotion
 
-- Status: Draft
+- Status: Active
 - Governing ADRs: 006, 007, 012, 018, 019, 022, 023, 040
 - Depends on: SPEC-001, SPEC-002, SPEC-006, SPEC-009, SPEC-010
 
@@ -55,6 +55,10 @@ Experiments cannot bypass security controls for the sake of learning.
 A candidate that reduces reasoning tier SHALL include a replacement contract and conformance evidence showing the lower tier satisfies the same required outcomes/invariants within accepted error bounds.
 
 D0 extraction SHALL be deterministic and versioned. D1 extraction SHALL carry bounded inference contract/budget.
+
+The reference D2-to-D0 loop recognizes a small versioned allowlist of deterministic mechanisms from observed input/output behavior. It does not compile observation text or model-supplied code. Only successful `runtime_verified` or `user_confirmed` observations count, and correlated observations sharing a causation root count once. The proposed rule and retired-instruction relationship form a new content-addressed behavior generation; the active generation and its prompt remain unchanged until governed promotion.
+
+Candidate replay SHALL include the observed case and at least one independent regression case. Every candidate output must satisfy the required result. Security or policy violations fail the candidate regardless of inference/token reduction. Promotion requires a distinct authority bound to the exact evaluation digest. Active prompt rendering omits a superseded instruction only after its candidate generation becomes active. Registry restart, rollback, and rejected-candidate inspection preserve all generations and evaluation evidence.
 
 ## Preference versus policy
 

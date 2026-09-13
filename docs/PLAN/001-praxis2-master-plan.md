@@ -105,6 +105,8 @@ Finding closures: OI-003, OI-004, OI-005, OI-010, OI-013, OI-014, OI-015, OI-016
 
 Closure evidence: OI-003 is satisfied in `blind-process-discovery.json`. The resolver executes selection, contextual adaptation, exact-version fragment composition, governed candidate creation, and bounded one-off behavior while enforcing capability/policy eligibility below advisory inference.
 
+OI-004 and OI-005 are satisfied in `blind-learning-prompt-retirement-v38-final.json`. Trusted repeated behavior is causally deduplicated and compiled into a content-addressed D0 candidate; original/regression equivalence plus security/policy gates precede distinct-authority promotion, and only the promoted generation retires redundant active prompt inference. Restart, rejection evidence, and rollback are retained.
+
 ## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — NOT STARTED
 
 1. Export/import canonical state rather than raw SQLite pages.
@@ -176,6 +178,7 @@ Implemented in this reopened wave:
 - retained rejected audit `blind-attested-existing-integrations.json`, documenting why graph composition evidence cannot close compound baseline-reuse claim OI-033
 - SPEC-019 plus content-bound goal/process discovery result `blind-process-discovery.json` (OI-003 satisfied)
 - ADR-050/SPEC-020 plus two-domain, SQLite-restart resource continuation result `blind-resource-continuation.json` (OI-038 satisfied)
+- content-bound deterministic learning/prompt-retirement result `blind-learning-prompt-retirement-v38-final.json` (OI-004 and OI-005 satisfied)
 
 ## Completion calculation
 

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Praxis 2 Goal and Agent Graph Lifecycle</title>
+  <desc id="desc">Diagram showing how a user goal becomes a selected, composed, adapted, or newly created graph, how agents execute it, and how versioned generations evolve through evidence and governance.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+    <style>.title{font:700 28px system-ui,sans-serif;fill:#0f172a}.sub{font:500 15px system-ui,sans-serif;fill:#475569}.h{font:700 17px system-ui,sans-serif;fill:#0f172a}.t{font:14px system-ui,sans-serif;fill:#334155}.small{font:12px system-ui,sans-serif;fill:#475569}.box{fill:#fff;stroke:#334155;stroke-width:2;rx:14}.soft{fill:#f8fafc;stroke:#64748b;stroke-width:2;rx:14}.candidate{fill:#f1f5f9;stroke:#475569;stroke-width:2;stroke-dasharray:7 4;rx:14}.arrow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}.dash{stroke:#64748b;stroke-width:2;fill:none;stroke-dasharray:6 4;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1400" height="900" fill="#fff"/>
+  <text x="55" y="55" class="title">Praxis 2 — Goal and Agent Graph Lifecycle</text>
+  <text x="55" y="82" class="sub">Graphs may stabilize, diverge by human/context, or return to inference. Stabilization is evidence-driven, not mandatory.</text>
+
+  <rect x="55" y="125" width="210" height="85" class="box"/><text x="160" y="160" text-anchor="middle" class="h">Human Goal</text><text x="160" y="185" text-anchor="middle" class="t">intent + authority</text>
+  <rect x="315" y="125" width="230" height="85" class="box"/><text x="430" y="160" text-anchor="middle" class="h">Resolve Context</text><text x="430" y="185" text-anchor="middle" class="t">user • home/work • project</text>
+  <rect x="595" y="125" width="260" height="85" class="box"/><text x="725" y="160" text-anchor="middle" class="h">Resolve Process</text><text x="725" y="185" text-anchor="middle" class="t">goal fit + behavioral fit</text>
+  <path d="M265 168 L315 168" class="arrow"/><path d="M545 168 L595 168" class="arrow"/>
+
+  <rect x="915" y="105" width="420" height="245" class="soft"/>
+  <text x="940" y="138" class="h">Process Resolution Choices</text>
+  <rect x="945" y="158" width="170" height="48" class="box"/><text x="1030" y="188" text-anchor="middle" class="t">Select existing</text>
+  <rect x="1135" y="158" width="170" height="48" class="box"/><text x="1220" y="188" text-anchor="middle" class="t">Compose fragments</text>
+  <rect x="945" y="225" width="170" height="48" class="box"/><text x="1030" y="255" text-anchor="middle" class="t">Adapt graph</text>
+  <rect x="1135" y="225" width="170" height="48" class="box"/><text x="1220" y="255" text-anchor="middle" class="t">Create candidate</text>
+  <rect x="1040" y="292" width="170" height="38" class="candidate"/><text x="1125" y="317" text-anchor="middle" class="small">Direct inference if trivial/novel</text>
+  <path d="M855 168 L915 168" class="arrow"/>
+
+  <rect x="315" y="300" width="540" height="160" class="soft"/>
+  <text x="340" y="332" class="h">Versioned Goal Graph</text>
+  <rect x="345" y="355" width="130" height="60" class="box"/><text x="410" y="380" text-anchor="middle" class="t">Deterministic</text><text x="410" y="400" text-anchor="middle" class="small">action / rule</text>
+  <rect x="505" y="355" width="130" height="60" class="box"/><text x="570" y="380" text-anchor="middle" class="t">Inference</text><text x="570" y="400" text-anchor="middle" class="small">bounded judgment</text>
+  <rect x="665" y="355" width="130" height="60" class="box"/><text x="730" y="380" text-anchor="middle" class="t">Validation</text><text x="730" y="400" text-anchor="middle" class="small">proof / evidence</text>
+  <path d="M475 385 L505 385" class="arrow"/><path d="M635 385 L665 385" class="arrow"/>
+  <path d="M1125 350 C1050 400 930 410 855 390" class="arrow"/>
+
+  <rect x="55" y="520" width="800" height="170" class="soft"/>
+  <text x="80" y="552" class="h">Persistent Agent Graphs</text>
+  <rect x="85" y="580" width="190" height="70" class="box"/><text x="180" y="608" text-anchor="middle" class="t">Architect Agent</text><text x="180" y="630" text-anchor="middle" class="small">generation 12</text>
+  <rect x="315" y="580" width="190" height="70" class="box"/><text x="410" y="608" text-anchor="middle" class="t">Coder Agent</text><text x="410" y="630" text-anchor="middle" class="small">generation 31</text>
+  <rect x="545" y="580" width="190" height="70" class="box"/><text x="640" y="608" text-anchor="middle" class="t">Domain Agent</text><text x="640" y="630" text-anchor="middle" class="small">generation N</text>
+  <text x="85" y="676" class="small">Identity + graph + learned state + capability evidence + memory policy + lineage. Model provider is replaceable.</text>
+  <path d="M585 460 L585 520" class="arrow"/>
+
+  <rect x="915" y="430" width="420" height="260" class="soft"/>
+  <text x="940" y="463" class="h">Execution Evidence</text>
+  <text x="950" y="495" class="t">• outcome / validation</text>
+  <text x="950" y="522" class="t">• human correction / override</text>
+  <text x="950" y="549" class="t">• method sequence / exception</text>
+  <text x="950" y="576" class="t">• latency / tokens / cost</text>
+  <text x="950" y="603" class="t">• environment / capabilities</text>
+  <text x="950" y="630" class="t">• fallback / rollback</text>
+  <path d="M855 400 C920 400 940 410 970 430" class="dash"/>
+  <path d="M855 615 L915 615" class="dash"/>
+
+  <rect x="315" y="750" width="230" height="85" class="candidate"/><text x="430" y="785" text-anchor="middle" class="h">Candidate Change</text><text x="430" y="810" text-anchor="middle" class="t">graph / agent / preference</text>
+  <rect x="620" y="750" width="230" height="85" class="box"/><text x="735" y="785" text-anchor="middle" class="h">Governance Gate</text><text x="735" y="810" text-anchor="middle" class="t">evaluate • promote • reject</text>
+  <rect x="925" y="750" width="260" height="85" class="box"/><text x="1055" y="785" text-anchor="middle" class="h">New Generation</text><text x="1055" y="810" text-anchor="middle" class="t">lineage + rollback target</text>
+  <path d="M1060 690 C1000 720 650 720 545 775" class="dash"/>
+  <path d="M545 792 L620 792" class="arrow"/><path d="M850 792 L925 792" class="arrow"/>
+  <path d="M1055 750 C1060 690 820 665 735 650" class="dash"/>
+  <text x="1210" y="790" class="small">may stabilize, fork by context,</text><text x="1210" y="810" class="small">or be demoted back to inference</text>
+</svg>

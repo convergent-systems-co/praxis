@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "google/protobuf/timestamp.proto";
+import "praxis/v1/common.proto";
+import "praxis/v1/crypto.proto";
+
+message ActionIntent {
+  string version = 1;
+  string id = 2;
+  PrincipalRef actor = 3;
+  string operation = 4;
+  string target = 5;
+  map<string,string> parameters = 6;
+  string scope = 7;
+  map<string,string> preconditions = 8;
+  CryptoProfile crypto_profile = 9;
+}
+
+message ApprovalBinding {
+  string id = 1;
+  PrincipalRef approver = 2;
+  oneof binding {
+    string intent_digest = 3;
+    string policy_ref = 4;
+  }
+  google.protobuf.Timestamp issued_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp revoked_at = 7;
+  uint64 remaining_uses = 8;
+}
+
+message CommandEnvelope {
+  string command_id = 1;
+  string command_type = 2;
+  string command_version = 3;
+  PrincipalRef actor = 4;
+  string scope = 5;
+  string correlation_id = 6;
+  string causation_id = 7;
+  bytes payload = 8;
+  repeated ProvenanceRef provenance = 9;
+}

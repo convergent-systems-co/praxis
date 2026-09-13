@@ -29,6 +29,7 @@ type RunObservationKind string
 
 const (
 	ObservationRunStarted    RunObservationKind = "started"
+	ObservationRunResumed    RunObservationKind = "resumed"
 	ObservationNodeCompleted RunObservationKind = "node_completed"
 	ObservationTransitioned  RunObservationKind = "transitioned"
 	ObservationRunTerminal   RunObservationKind = "terminal"
@@ -71,6 +72,11 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 	if run.RunID == "" {
 		return errors.New("run id is required")
 	}
+	if run.State.Terminal() {
+		return errors.New("terminal run cannot be resumed")
+	}
+
+	resuming := run.TransitionCount > 0 || run.State == RunRunning || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling || run.State == RunCancelling
 	if run.GraphID == "" {
 		run.GraphID = graph.ID
 	}
@@ -83,11 +89,15 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 	if run.CurrentNode == "" {
 		run.CurrentNode = graph.EntryNode
 	}
-	if run.State == "" || run.State == RunQueued || run.State == RunRunnable || run.State == RunWaiting {
+	if run.State == "" || run.State == RunQueued || run.State == RunRunnable || run.State == RunWaiting || run.State == RunSuspended || run.State == RunReconciling {
 		run.State = RunRunning
 	}
+	observationKind := ObservationRunStarted
+	if resuming {
+		observationKind = ObservationRunResumed
+	}
 	if err := observeRun(ctx, observer, RunObservation{
-		Kind:            ObservationRunStarted,
+		Kind:            observationKind,
 		RunID:           run.RunID,
 		GraphID:         run.GraphID,
 		GraphVersion:    run.GraphVersion,
@@ -96,7 +106,7 @@ func RunObserved(ctx context.Context, graph GraphDef, run *RunExecution, executo
 		TransitionCount: run.TransitionCount,
 	}); err != nil {
 		run.State = RunFailed
-		return fmt.Errorf("record run start: %w", err)
+		return fmt.Errorf("record run %s: %w", observationKind, err)
 	}
 
 	nodes := make(map[string]NodeDef, len(graph.Nodes))

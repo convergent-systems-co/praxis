@@ -1,0 +1,34 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/learning"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T22:02:04.732279Z",
+  "finished_at": "2026-09-13T22:02:05.435596Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/learning-runtime-v11.log",
+  "output_digest": "sha256:6f9bfb989b733e29335b68313c865e2b9b6d984a87ed7c011e4a3504bd73b80c",
+  "source_digests": {
+    "internal/adaptation": "sha256:784dac87d17bc471500b727770113556585773844515ed3c624a6d7dcc4f85ec",
+    "internal/learning": "sha256:9d2f44d12d976458a711ea25506107673d28063ffbcf1f2af6aee144f65d7568",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart",
+    "TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart",
+    "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle",
+    "TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate",
+    "TestFailedCandidateRemainsRegisteredEvidence",
+    "TestGenerationPromotionAndRollbackSurviveRestart",
+    "TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer",
+    "TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:88e2f99503da0010a4ca952b51940af58e88132e991d273a2cc539ad6ae79448"
+}

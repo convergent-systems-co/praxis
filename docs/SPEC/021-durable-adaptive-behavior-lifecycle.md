@@ -84,6 +84,8 @@ A report proposes no authoritative change by itself. Each policy/security failur
 
 The report and exact frozen policy SHALL be persisted together as an immutable analysis event. Append and restart replay select every cited observation and measurement from the authoritative ledger, deterministically re-run the exact policy at the recorded evaluation time, and require the recomputed report identity to match. Content-addressing alone is not evidence that a diagnosis was actually derived from its claimed inputs.
 
+A content-addressed evaluation plan binds subject/goal/domain/behavior/context scope, exact evaluator identities and versions, and the frozen analysis policy. Evaluator implementations are package-supplied: core invokes the declared version, verifies that every derived measurement names that evaluator, cites only durable in-scope observations, retains its native unit and transform/provenance, and then appends measurement and analysis records. Core does not implement semantic notions such as regression, repetition, variance, or provider failure. A missing evaluator version or an evaluator citing foreign/future evidence fails closed.
+
 ## Downstream adaptation
 
 Longitudinal reports may supply evidence to:
@@ -113,6 +115,9 @@ The built-in deterministic mechanism allowlist is a safe initial compiler provid
 8. correlated copies cannot satisfy a rule's independent-root threshold;
 9. an observation/report cannot promote, demote, route, transfer, or mutate preferences without its downstream governed boundary;
 10. security/policy violations remain visible and cannot be averaged away by performance improvements.
+11. versioned package evaluators jointly diagnose regression, repeated inference, path variance, and provider portability from durable execution series;
+12. software-delivery and research packages use different metric names and native observations without core semantic changes;
+13. restart preserves the plan-to-evaluator-to-measurement-to-policy-to-diagnosis trace.
 
 ## Scalability note
 

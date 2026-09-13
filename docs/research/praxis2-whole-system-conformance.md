@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-adaptive-routing-v2.json`
-- Latest frozen result digest: `sha256:fd55e967abac466c065c048308514907971829b200838bffc405ef9f12a76024`
+- Latest accepted remediation result: `docs/research/conformance/blind-longitudinal-evaluation-v1.json`
+- Latest frozen result digest: `sha256:5a472b7cd0948429c3e02a739842d1fd58e5ecf4fdfc766e55c200b4bc767528`
 
 ## Method and denominator
 
@@ -157,6 +157,8 @@ The evidence-routing slice adds content-addressed route requests and package-own
 Frozen audit `docs/research/conformance/blind-adaptive-routing-v1.json`, digest `sha256:fd22aa58dc4753de4779ba5d3a8116542c434806685fe5f8e5d5d6713cf573ba`, subsequently evaluated both OI-013 and OI-014 as satisfied against the unchanged 38-claim denominator. Totals are 15 satisfied, 7 unsupported, and 16 indeterminate; Praxis remains non-conformant. The audit was frozen without loading the qualification oracle, and no historical result was mutated.
 
 The evidence-test semantics audit then found that eight replayed observations was fixture shape, not a contractual invariant. It also corrected analogous count/position coupling in preference replay, agent lineage/memory, continuation evidence, and planning scenarios while retaining exact contract/security cardinalities. Historical attestations and the v1 blind result remain unchanged. Successor attestations `adaptive-routing-runtime-v2.json`, `preference-lifecycle-v2.json`, `resource-continuation-v2.json`, and `learning-runtime-v10.json` bind the strengthened tests. Frozen result `blind-adaptive-routing-v2.json`, digest `sha256:fd55e967abac466c065c048308514907971829b200838bffc405ef9f12a76024`, retains every affected satisfied finding with the same totals and unchanged claim set.
+
+The next Cluster-A dependency adds content-addressed longitudinal evaluation plans. Exact package evaluator identities/versions derive native measurements only from durable in-scope observations; core validates provenance and records the measurement/policy/report chain without assigning metric meaning. Separate software-delivery and research packages diagnose regression, repeated inference, path variance, and provider-portability failure using different names and native observations, then reconstruct the exact analysis after SQLite restart. Attestation `longitudinal-evaluation-v1.json` enters the independent inventory. Frozen result `blind-longitudinal-evaluation-v1.json`, digest `sha256:5a472b7cd0948429c3e02a739842d1fd58e5ecf4fdfc766e55c200b4bc767528`, evaluates OI-016 as satisfied; totals are 16 satisfied, 6 unsupported, and 16 indeterminate. No unrelated claim changed.
 
 ## Plan input
 

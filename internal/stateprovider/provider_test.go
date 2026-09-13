@@ -50,7 +50,7 @@ func TestSQLiteProviderEventSemanticsMatchCanonicalStore(t *testing.T) {
 	proposed := []eventstore.Event{{
 		ID: "evt-1", AggregateType: "fixture", Type: "fixture.started", Version: "1",
 		Actor: contracts.PrincipalRef{ID: "tester", Kind: "user"}, CommandID: "cmd-1",
-		CorrelationID: "corr-1", CreatedAt: now,
+		CorrelationID: "corr-1", Payload: []byte(`{}`), CreatedAt: now,
 	}}
 	appended, err := provider.Events().Append(ctx, "agg-1", 0, proposed)
 	if err != nil {

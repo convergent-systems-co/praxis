@@ -12,6 +12,7 @@ import (
 
 	"github.com/convergent-systems-co/praxis/internal/client"
 	"github.com/convergent-systems-co/praxis/internal/kernel"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 type smokeTraceObserver struct{}
@@ -22,9 +23,7 @@ func (smokeTraceObserver) ObserveRun(_ context.Context, observation kernel.RunOb
 	return nil
 }
 
-type weatherDashboardSmokeExecutor struct {
-	artifactPath string
-}
+type weatherDashboardSmokeExecutor struct { artifactPath string }
 
 func (e *weatherDashboardSmokeExecutor) ExecuteNode(_ context.Context, graph kernel.GraphDef, node kernel.NodeDef, _ *kernel.RunExecution) (kernel.NodeResult, error) {
 	var result kernel.NodeResult

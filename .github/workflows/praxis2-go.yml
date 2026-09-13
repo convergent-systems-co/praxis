@@ -13,6 +13,10 @@ on:
       - 'migrations/sqlite/**'
       - '.github/workflows/praxis2-go.yml'
 
+concurrency:
+  group: praxis2-go-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

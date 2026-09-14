@@ -13,9 +13,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/agent"
 	"github.com/convergent-systems-co/praxis/internal/kernel"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -53,6 +55,19 @@ func fixturePackageArtifact(t *testing.T, manifest *packagecatalog.Manifest) []b
 			graph := kernel.GraphDef{ID: content.ID, Version: content.Version, EntryNode: "done", Nodes: []kernel.NodeDef{{ID: "done", Class: kernel.NodeTerminal, TerminalState: kernel.RunSucceeded}}}
 			var err error
 			body, err = json.Marshal(graph)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else if content.Kind == packagecatalog.ContentAgentDefinition {
+			binding := contracts.PackageGraphBinding{ID: strings.TrimSuffix(content.ID, "-agent") + ".graph", Version: "1"}
+			for _, candidate := range manifest.Contents {
+				if candidate.Kind == packagecatalog.ContentGraph {
+					binding = contracts.PackageGraphBinding{ID: candidate.ID, Version: candidate.Version}
+					break
+				}
+			}
+			var err error
+			body, err = json.Marshal(contracts.PackageAgentDefinition{Version: contracts.PackageAgentDefinitionCurrentVersion(), Graphs: []contracts.PackageGraphBinding{binding}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -144,6 +159,17 @@ func transitionFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *
 		t.Fatal(err)
 	}
 	return request
+}
+
+func approveAgentInstantiation(t *testing.T, ctx context.Context, db *sql.DB, request contracts.PackageAgentInstantiationRequest, now time.Time) {
+	t.Helper()
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
@@ -259,6 +285,93 @@ func TestAgentOnlyAndMixedPackagesAreFirstClassContents(t *testing.T) {
 	if err != nil || len(plugins) != 1 || plugins[0].Content.ID != "mixed.provider" {
 		t.Fatalf("plugin contents: %#v err=%v", plugins, err)
 	}
+}
+
+func TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := New(db)
+	now := time.Date(2026, 9, 13, 23, 0, 0, 0, time.UTC)
+	domains := []struct {
+		name, packageID, graphID, definitionID, agentID, generationID, owner string
+	}{
+		{name: "software-delivery", packageID: "delivery/agent", graphID: "delivery.graph", definitionID: "delivery-agent", agentID: "agent-delivery", generationID: "agent-delivery-g1", owner: "workspace:delivery"},
+		{name: "research", packageID: "research/agent", graphID: "research.graph", definitionID: "research-agent", agentID: "agent-research", generationID: "agent-research-g1", owner: "research:private"},
+	}
+	for index, domain := range domains {
+		graphPackage := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: domain.packageID + "/graphs", Version: "1", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentGraph, ID: domain.graphID, Version: "1", Artifact: "graphs/default.json", Digest: "pending"}}}
+		activateFixturePackage(t, ctx, db, store, graphPackage, now.Add(time.Duration(index)*time.Minute))
+		agentPackage := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: domain.packageID, Version: "1", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentAgentDefinition, ID: domain.definitionID, Version: "1", Artifact: "agents/default.json", Digest: "pending"}}}
+		activateFixturePackage(t, ctx, db, store, agentPackage, now.Add(time.Duration(index)*time.Minute+time.Second))
+		actor := contracts.PrincipalRef{ID: "owner-" + domain.name, Kind: "user"}
+		request, err := store.PreparePackageAgentInstantiation(ctx, domain.packageID, domain.definitionID, "1", domain.agentID, domain.generationID, domain.owner, "policy:"+domain.name, "approval:instantiate:"+domain.name, actor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		approveAgentInstantiation(t, ctx, db, request, now)
+		instance, err := store.InstantiatePackageAgent(ctx, request, now.Add(5*time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if instance.AgentID != domain.agentID || instance.GenerationID != domain.generationID || instance.GraphRefs[0] != domain.graphID+"@1" || instance.GovernanceRef != "policy:"+domain.name {
+			t.Fatalf("%s instantiation lost package/local identity: instance=%+v", domain.name, instance)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	runtime := agent.Runtime{Events: NewSQLiteEventStore(db)}
+	delivery, deliveryGeneration, _, err := runtime.Load(ctx, "agent-delivery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	research, researchGeneration, _, err := runtime.Load(ctx, "agent-research")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delivery.ID == research.ID || deliveryGeneration.ID == researchGeneration.ID || delivery.OwnerScope == research.OwnerScope || deliveryGeneration.GraphRefs[0] == researchGeneration.GraphRefs[0] {
+		t.Fatalf("materially different package definitions did not retain independent local agents: delivery=%+v/%+v research=%+v/%+v", delivery, deliveryGeneration, research, researchGeneration)
+	}
+	events, err := NewSQLiteEventStore(db).LoadAggregate(ctx, delivery.ID, 0)
+	if err != nil || len(events) != 1 || events[0].Trust != contracts.TrustUserConfirmed || events[0].Actor.ID != "owner-software-delivery" {
+		t.Fatalf("governed instantiation did not retain authority-bound creation evidence: events=%+v err=%v", events, err)
+	}
+}
+
+func TestAgentInstantiationCannotMutateApprovedIdentity(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	now := time.Now().UTC()
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/agent", Version: "1", Contents: []packagecatalog.ContentRef{
+		{Kind: packagecatalog.ContentGraph, ID: "research.graph", Version: "1", Artifact: "graphs/default.json", Digest: "pending"},
+		{Kind: packagecatalog.ContentAgentDefinition, ID: "research-agent", Version: "1", Artifact: "agents/default.json", Digest: "pending"},
+	}}
+	activateFixturePackage(t, ctx, db, store, manifest, now)
+	request, err := store.PreparePackageAgentInstantiation(ctx, manifest.PackageID, "research-agent", "1", "agent-original", "generation-original", "research:private", "policy:research", "approval:agent", contracts.PrincipalRef{ID: "owner", Kind: "user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	approveAgentInstantiation(t, ctx, db, request, now)
+	request.AgentID = "agent-attacker-selected"
+	if _, err := store.InstantiatePackageAgent(ctx, request, now.Add(time.Minute)); err == nil {
+		t.Fatal("caller-mutated local agent identity crossed the intent-bound authority boundary")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:agent'`, 1)
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM events WHERE aggregate_type='agent'`, 0)
 }
 
 func TestPackageCannotShadowCoreCommand(t *testing.T) {

@@ -76,6 +76,8 @@ type PackageRegistry interface {
 	InstalledPackages(ctx context.Context) ([]InstalledPackage, error)
 	ActivePackage(ctx context.Context, packageID string) (InstalledPackage, error)
 	SelectedPackage(ctx context.Context, packageID string) (InstalledPackage, error)
+	PrepareAgentInstantiation(ctx context.Context, packageID, definitionID, definitionVersion, agentID, generationID, ownerScope, governanceRef, approvalID string, actor contracts.PrincipalRef) (contracts.PackageAgentInstantiationRequest, error)
+	InstantiateAgent(ctx context.Context, request contracts.PackageAgentInstantiationRequest, now time.Time) (contracts.PackageAgentInstance, error)
 }
 
 type Provider interface {

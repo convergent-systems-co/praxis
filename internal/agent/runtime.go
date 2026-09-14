@@ -121,7 +121,11 @@ func (r Runtime) Create(ctx context.Context, a Agent, g Generation, actor contra
 	if r.Now != nil {
 		now = r.Now().UTC()
 	}
-	_, err = r.Events.Append(ctx, a.ID, 0, []eventstore.Event{{ID: a.ID + ":generation:" + g.ID, AggregateType: "agent", Type: "agent.created", Version: "1", Actor: actor, CommandID: commandID, CorrelationID: commandID, Trust: contracts.TrustUserConfirmed, Payload: payload, CreatedAt: now}})
+	// The generic event-store boundary can preserve the actor's creation
+	// observation, but it has no approval authority and therefore cannot mint
+	// user_confirmed evidence. Governed package instantiation performs the
+	// approval-bound atomic transition in state.Store.
+	_, err = r.Events.Append(ctx, a.ID, 0, []eventstore.Event{{ID: a.ID + ":generation:" + g.ID, AggregateType: "agent", Type: "agent.created", Version: "1", Actor: actor, CommandID: commandID, CorrelationID: commandID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: now}})
 	return err
 }
 

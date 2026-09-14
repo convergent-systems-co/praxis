@@ -64,6 +64,10 @@ func TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacem
 	if err := runtimeA.Create(ctx, identity, generation, contracts.PrincipalRef{ID: "human-1", Kind: "user"}, "create-agent-1"); err != nil {
 		t.Fatal(err)
 	}
+	createdEvents, err := provider.Events().LoadAggregate(ctx, identity.ID, 0)
+	if err != nil || len(createdEvents) != 1 || createdEvents[0].Trust != contracts.TrustObserved {
+		t.Fatalf("generic creation path minted authority it does not possess: events=%+v err=%v", createdEvents, err)
+	}
 	if err := runtimeA.Remember(ctx, memory, contracts.PrincipalRef{ID: "human-1", Kind: "user"}, "remember-1"); err != nil {
 		t.Fatal(err)
 	}

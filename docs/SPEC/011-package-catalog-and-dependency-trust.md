@@ -57,6 +57,8 @@ An agent content entry SHALL define an immutable agent definition/template inclu
 
 Installing an agent package registers the definition/template only. Instantiating a persistent agent SHALL create a governed local identity/generation bound to that immutable definition.
 
+The package definition is versioned immutable data containing exact graph ID/version bindings and optional bootstrap preference metadata. Instantiation SHALL re-resolve the active definition bytes and every bound graph inside the authoritative transaction, compare the exact package/definition/graph/local-identity intent, consume one persisted approval, and append the first agent generation atomically. A caller-selected principal, agent ID, generation ID, graph, owner scope, or governance reference cannot mint confirmed creation evidence. Generic event append may retain an observation but SHALL NOT label it `user_confirmed` without the authority boundary.
+
 Two installations/instances from the same definition SHALL have independent identity, memory, learning state, grants, and lineage.
 
 Updating an agent-definition package SHALL NOT silently replace or rewrite existing agent identity/history. Adoption/migration to a newer definition occurs through governed lineage/generation semantics.

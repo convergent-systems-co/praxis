@@ -47,6 +47,8 @@ An agent definition SHALL describe the bootstrap/template contract for creating 
 
 Instantiation creates a new local governed identity/generation. Multiple identities may be instantiated from one installed definition.
 
+Instantiation authority binds the exact installed package generation, definition content digest, definition-declared graph set, new local agent/generation IDs, owner scope, and governance reference. SQLite rechecks those immutable bytes and active graph bindings, consumes the intent-bound approval, and appends the initial agent event in one transaction. Restart reconstructs the same independent identities through the normal agent event runtime.
+
 Updating an agent-definition package SHALL NOT automatically migrate active agent generations. Migration/adoption is an explicit governed operation preserving lineage.
 
 ## Plugin contents

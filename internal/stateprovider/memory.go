@@ -7,6 +7,7 @@ import (
 
 	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 // MemoryProvider is a bounded deterministic provider for semantic conformance
@@ -61,6 +62,12 @@ func (unsupportedPackageRegistry) ActivePackage(context.Context, string) (Instal
 }
 func (unsupportedPackageRegistry) SelectedPackage(context.Context, string) (InstalledPackage, error) {
 	return InstalledPackage{}, errors.New("provider does not support package registry")
+}
+func (unsupportedPackageRegistry) PrepareAgentInstantiation(context.Context, string, string, string, string, string, string, string, string, contracts.PrincipalRef) (contracts.PackageAgentInstantiationRequest, error) {
+	return contracts.PackageAgentInstantiationRequest{}, errors.New("provider does not support package agent instantiation")
+}
+func (unsupportedPackageRegistry) InstantiateAgent(context.Context, contracts.PackageAgentInstantiationRequest, time.Time) (contracts.PackageAgentInstance, error) {
+	return contracts.PackageAgentInstance{}, errors.New("provider does not support package agent instantiation")
 }
 
 func RequireEvents(provider Provider, required ...Capability) (eventstore.Store, error) {

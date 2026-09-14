@@ -8,6 +8,7 @@ import (
 	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
 	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 type SQLiteProvider struct {
@@ -118,6 +119,12 @@ func (r sqlitePackageRegistry) SelectedPackage(ctx context.Context, packageID st
 		return InstalledPackage{}, err
 	}
 	return InstalledPackage{Manifest: item.Manifest, State: item.State, SourceKind: item.SourceKind, SourceRef: item.SourceRef}, nil
+}
+func (r sqlitePackageRegistry) PrepareAgentInstantiation(ctx context.Context, packageID, definitionID, definitionVersion, agentID, generationID, ownerScope, governanceRef, approvalID string, actor contracts.PrincipalRef) (contracts.PackageAgentInstantiationRequest, error) {
+	return r.store.PreparePackageAgentInstantiation(ctx, packageID, definitionID, definitionVersion, agentID, generationID, ownerScope, governanceRef, approvalID, actor)
+}
+func (r sqlitePackageRegistry) InstantiateAgent(ctx context.Context, request contracts.PackageAgentInstantiationRequest, now time.Time) (contracts.PackageAgentInstance, error) {
+	return r.store.InstantiatePackageAgent(ctx, request, now)
 }
 
 var _ Provider = (*SQLiteProvider)(nil)

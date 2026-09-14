@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/mediation"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T14:58:02.59288Z",
+  "finished_at": "2026-09-14T14:58:03.770183Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/mediation-gate-v1.log",
+  "output_digest": "sha256:3dc5489f1ba533defad61a102c2e789cb302b743f3c104e18757b9d41b735d02",
+  "source_digests": {
+    "internal/mediation": "sha256:b5c0b200e9397dd900e09234d06a91098e8380ecfb958d5d19d9a5ee96bcb251",
+    "internal/mediation/gate_test.go": "sha256:faceb34ea894d5d276028968f938c9f424765c31727c1a0c13cc294a8dd704f5"
+  },
+  "observations": [
+    "TestAuthorizeFailsClosedForUnknownOrBypassableMediation",
+    "TestAuthorizeRequiresDeterministicClientMediation",
+    "TestModelProposalCannotReplaceMediationDecision"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:636f5e903552cdac417ece5696340b062343bc29d4c324e419a47fe219ccee7c"
+}

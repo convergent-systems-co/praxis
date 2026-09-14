@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-client-surface-v1.json`
-- Latest frozen result digest: `sha256:b4d41e9f764b9a36855bfc4f8b15a37e51f2ce230fd46825faa0caa390656e3e`
+- Latest accepted remediation result: `docs/research/conformance/blind-mediation-gate-v1.json`
+- Latest frozen result digest: `sha256:deea0c57dfdf8b14281d5c598e43095547cf94ecfc34e67fcb2a83818a56f814`
 
 ## Method and denominator
 
@@ -277,3 +277,13 @@ affordance; missing adapter identity fails closed. The blind result
 `sha256:b4d41e9f764b9a36855bfc4f8b15a37e51f2ce230fd46825faa0caa390656e3e`
 and independently advances OI-026. Totals are now 34 satisfied and 4
 indeterminate; OI-025, OI-027, OI-028, and OI-030 remain open.
+
+The below-LLM mediation gate then received successor execution attestation
+`docs/research/conformance/attestations/mediation-gate-v1.json`. It validates
+the canonical action intent and requires deterministic client enforcement;
+unknown enforcement, bypass paths, and model-only authorization fail closed.
+The blind result `docs/research/conformance/blind-mediation-gate-v1.json` is
+frozen at
+`sha256:deea0c57dfdf8b14281d5c598e43095547cf94ecfc34e67fcb2a83818a56f814`
+and independently advances OI-027. Totals are now 35 satisfied and 3
+indeterminate; OI-025, OI-028, and OI-030 remain open.

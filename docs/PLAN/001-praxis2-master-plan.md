@@ -527,6 +527,13 @@ the richer adapter exposes an optional presentation affordance while the
 minimal adapter records that affordance as explicitly omitted. Missing adapter
 identity fails closed, and no adapter can change option meaning or authority.
 
+OI-027 is satisfied in `blind-mediation-gate-v1.json`, digest
+`sha256:deea0c57dfdf8b14281d5c598e43095547cf94ecfc34e67fcb2a83818a56f814`.
+The deterministic mediation gate validates the canonical action intent and
+requires machine-verifiable client enforcement before execution. Unknown
+enforcement and unmediated bypass paths fail closed; a model proposal is never
+treated as an authorization result.
+
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
@@ -583,6 +590,7 @@ Implemented in this reopened wave:
 - crypto lifecycle attestation `crypto-lifecycle-v1.json` and blind result `blind-crypto-lifecycle-v1.json`; OI-032 is satisfied and the unchanged 38-claim denominator records 32 satisfied / 6 indeterminate
 - untrusted-content boundary attestation `untrusted-content-boundary-v1.json` and blind result `blind-untrusted-content-boundary-v1.json`; OI-029 is satisfied and the unchanged 38-claim denominator records 33 satisfied / 5 indeterminate
 - client-surface equivalence attestation `client-surface-v1.json` and blind result `blind-client-surface-v1.json`; OI-026 is satisfied and the unchanged 38-claim denominator records 34 satisfied / 4 indeterminate
+- below-LLM mediation attestation `mediation-gate-v1.json` and blind result `blind-mediation-gate-v1.json`; OI-027 is satisfied and the unchanged 38-claim denominator records 35 satisfied / 3 indeterminate
 
 ## Completion calculation
 

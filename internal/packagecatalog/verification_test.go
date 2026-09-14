@@ -142,12 +142,13 @@ func TestVerifyPackageBindsTypedContentToExactArchiveBytes(t *testing.T) {
 	graph := []byte(`{"ID":"research.graph","Version":"1"}`)
 	plugin := []byte("executable-provider")
 	artifact := testBundle(t, map[string][]byte{"graphs/research.json": graph, "plugins/provider": plugin})
+	graphRef := ContentRef{Kind: ContentGraph, ID: "research.graph", Version: "1", Digest: bytesDigest(graph), Artifact: "graphs/research.json"}
 	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "mixed/research", Version: "1", Contents: []ContentRef{
-		{Kind: ContentGraph, ID: "research.graph", Version: "1", Digest: bytesDigest(graph), Artifact: "graphs/research.json"},
+		graphRef,
 		{Kind: ContentPlugin, ID: "research.provider", Version: "1", Digest: bytesDigest(plugin), Artifact: "plugins/provider"},
 	}}
 	verified := verifiedFixture(t, manifest, artifact, nil)
-	got, err := verified.ContentBytes(manifest.Contents[0])
+	got, err := verified.ContentBytes(graphRef)
 	if err != nil || !bytes.Equal(got, graph) {
 		t.Fatalf("verified graph bytes not retained: %q %v", got, err)
 	}
@@ -158,7 +159,11 @@ func TestVerifyPackageBindsTypedContentToExactArchiveBytes(t *testing.T) {
 
 	wrong := manifest
 	wrong.Contents = append([]ContentRef(nil), manifest.Contents...)
-	wrong.Contents[0].Digest = bytesDigest([]byte("other graph"))
+	for i := range wrong.Contents {
+		if wrong.Contents[i].Kind == graphRef.Kind && wrong.Contents[i].ID == graphRef.ID && wrong.Contents[i].Version == graphRef.Version {
+			wrong.Contents[i].Digest = bytesDigest([]byte("other graph"))
+		}
+	}
 	input, verifier := signedVerificationInput(t, wrong, artifact)
 	if _, err := VerifyPackage(input, []SignatureVerifier{verifier}); err == nil {
 		t.Fatal("valid signature over a false content digest must not verify the package")

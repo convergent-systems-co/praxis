@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/convergent-systems-co/praxis/internal/agent"
 	"github.com/convergent-systems-co/praxis/internal/kernel"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
+	"github.com/convergent-systems-co/praxis/internal/transfer"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -117,6 +119,11 @@ func fixtureActivationRequest(t *testing.T, ctx context.Context, db *sql.DB, man
 func fixtureVerifiedPackage(t *testing.T, manifest packagecatalog.Manifest, dependencies map[string]packagecatalog.VerifiedPackage, now time.Time) (packagecatalog.Manifest, packagecatalog.VerifiedPackage) {
 	t.Helper()
 	artifact := fixturePackageArtifact(t, &manifest)
+	return fixtureVerifiedBytes(t, manifest, artifact, dependencies, now)
+}
+
+func fixtureVerifiedBytes(t *testing.T, manifest packagecatalog.Manifest, artifact []byte, dependencies map[string]packagecatalog.VerifiedPackage, now time.Time) (packagecatalog.Manifest, packagecatalog.VerifiedPackage) {
+	t.Helper()
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -135,6 +142,28 @@ func fixtureVerifiedPackage(t *testing.T, manifest packagecatalog.Manifest, depe
 		t.Fatal(err)
 	}
 	return manifest, verified
+}
+
+type catalogContributionAuthority struct{}
+
+func (catalogContributionAuthority) AuthorizeTransfer(_ context.Context, operation string, authority contracts.PrincipalRef, target, evidenceRef string) error {
+	if operation != "publish" || authority.ID != "catalog-governor" || target != "public:catalog" || evidenceRef != "approval:catalog" {
+		return errors.New("catalog publication denied")
+	}
+	return nil
+}
+
+type catalogContributionProcessor struct {
+	content []byte
+	now     time.Time
+}
+
+func (p catalogContributionProcessor) GeneralizeAndSanitize(_ context.Context, request transfer.Request, policy transfer.TransferPolicy) (transfer.Artifact, error) {
+	return transfer.Artifact{RequestID: request.ID, Kind: request.ArtifactKind, Scope: request.TargetScope, ContentRef: "artifact://catalog/research", ContentDigest: digestPackageBytes(p.content), SourceRefs: request.Sources, GeneralizerID: policy.GeneralizerID, GeneralizerVersion: policy.GeneralizerVersion, SanitizerID: policy.SanitizerID, SanitizerVersion: policy.SanitizerVersion, SanitizationEvidenceRefs: []string{"strip-private-context"}, CreatedAt: p.now}, nil
+}
+
+func (p catalogContributionProcessor) Evaluate(_ context.Context, artifact transfer.Artifact, policy transfer.TransferPolicy) (transfer.Evaluation, error) {
+	return transfer.Evaluation{ArtifactID: artifact.ID, EvaluatorID: policy.EvaluatorID, EvaluatorVersion: policy.EvaluatorVersion, IndependentRoots: []string{"run:one", "run:two"}, Invariants: []transfer.InvariantResult{{Class: "privacy", ControlID: "strip-private-context", Passed: true, EvidenceRef: "privacy:clean"}, {Class: "security", ControlID: "no-authority-content", Passed: true, EvidenceRef: "security:clean"}}, Accepted: true, EvaluatedAt: p.now.Add(time.Minute)}, nil
 }
 
 func activateFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, now time.Time) packagecatalog.Manifest {
@@ -314,6 +343,87 @@ func TestVerifiedDependencyClosureDeploysAtomicallyAndSurvivesRestart(t *testing
 		graph, _, err := store.ResolveGraph(ctx, expected.PackageID+".graph", expected.Version)
 		if err != nil || graph.ID != expected.PackageID+".graph" {
 			t.Fatalf("deployed graph is not executable content after restart: graph=%+v err=%v", graph, err)
+		}
+	}
+}
+
+func TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 14, 6, 0, 0, 0, time.UTC)
+	privateText := "participant Alice credential SECRET-RESEARCH private-memory-42"
+	generalized := []byte("require independent primary and secondary evidence")
+	policy, err := transfer.FreezePolicy(transfer.TransferPolicy{PackageID: "research/local", SourceScope: "human:private", TargetScope: "public:catalog", GeneralizerID: "research.generalize", GeneralizerVersion: "1", SanitizerID: "research.sanitize", SanitizerVersion: "1", EvaluatorID: "research.evaluate", EvaluatorVersion: "1", RequiredPrivacyControls: []string{"strip-private-context"}, MinIndependentRoots: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := transfer.FreezeRequest(transfer.Request{Proposer: contracts.PrincipalRef{ID: "research-agent", Kind: "agent"}, SourceScope: policy.SourceScope, TargetScope: policy.TargetScope, ArtifactKind: "source-procedure", Sources: []transfer.SourceReference{{AgentID: "research-agent", GenerationID: "generation-private", MemoryID: "private-memory-42", ContentDigest: digestPackageBytes([]byte(privateText)), CausationRoot: "run:one"}, {AgentID: "research-agent", GenerationID: "generation-private", MemoryID: "private-memory-43", ContentDigest: "sha256:independent", CausationRoot: "run:two"}}, Policy: policy, RequestedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle, err := transfer.NewLifecycle(NewSQLiteEventStore(db), catalogContributionAuthority{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lifecycle.Propose(ctx, request, policy, catalogContributionProcessor{content: generalized, now: now}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lifecycle.Publish(ctx, request.ID, contracts.PrincipalRef{ID: "catalog-governor", Kind: "governance"}, "approval:catalog", now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	published, err := lifecycle.ResolvePublished(ctx, request.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contribution, err := packagecatalog.BuildCatalogContribution(packagecatalog.CatalogContributionSpec{PackageID: "catalog/research-sources", PackageVersion: "1", Publisher: "research-team", ContentKind: packagecatalog.ContentTemplate, ContentID: "research.sources", ContentVersion: "1", ArtifactPath: "templates/sources.txt", PackagingPolicyID: "research.package-map", PackagingPolicyVersion: "1"}, published, generalized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, verified := fixtureVerifiedBytes(t, contribution.Manifest, contribution.Artifact, nil, now.Add(3*time.Minute))
+	actor := contracts.PrincipalRef{ID: "install-owner", Kind: "user"}
+	intent, err := packagecatalog.NewActivationIntent(verified, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	approvalID := "approval:catalog-bootstrap"
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, approvalID, actor.ID, actor.Kind, digest, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := New(db).ActivatePackage(ctx, packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: approvalID}, now.Add(3*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	content, err := New(db).ResolveContent(ctx, packagecatalog.ContentTemplate, "research.sources", "1")
+	if err != nil || !bytes.Equal(content.ArtifactBytes, generalized) || content.PackageDigest != manifest.ContentDigest {
+		t.Fatalf("new installation did not reconstruct generalized bootstrap behavior: content=%+v err=%v", content, err)
+	}
+	rows, err := db.QueryContext(ctx, `SELECT manifest_json FROM installed_packages WHERE package_id=? UNION ALL SELECT artifact_bytes FROM package_activation_receipts WHERE package_id=? UNION ALL SELECT artifact_bytes FROM package_contents WHERE package_id=?`, manifest.PackageID, manifest.PackageID, manifest.PackageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var persisted []byte
+		if err := rows.Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(persisted, []byte(privateText)) || bytes.Contains(persisted, []byte("private-memory-42")) || bytes.Contains(persisted, []byte("research-agent")) {
+			t.Fatal("catalog package persistence imported private personalized state")
 		}
 	}
 }

@@ -45,6 +45,52 @@ type Lifecycle struct {
 	authorizer Authorizer
 }
 
+// PublishedArtifact is an in-process capability minted only after replay has
+// verified accepted evaluation and distinct-authority publication. Package
+// construction accepts this capability rather than caller-authored privacy
+// booleans or raw memory payloads.
+type PublishedArtifact struct {
+	aggregate Aggregate
+	sealed    bool
+}
+
+func (p PublishedArtifact) Validate() error {
+	if !p.sealed {
+		return errors.New("published artifact must be minted by the transfer lifecycle")
+	}
+	return validatePublishedAggregate(p.aggregate)
+}
+
+func (p PublishedArtifact) Artifact() Artifact {
+	artifact := p.aggregate.Artifact
+	artifact.SourceRefs = append([]SourceReference(nil), artifact.SourceRefs...)
+	artifact.SanitizationEvidenceRefs = append([]string(nil), artifact.SanitizationEvidenceRefs...)
+	return artifact
+}
+func (p PublishedArtifact) Evaluation() Evaluation {
+	evaluation := p.aggregate.Evaluation
+	evaluation.IndependentRoots = append([]string(nil), evaluation.IndependentRoots...)
+	evaluation.Invariants = append([]InvariantResult(nil), evaluation.Invariants...)
+	return evaluation
+}
+func (p PublishedArtifact) Publication() Publication { return p.aggregate.Publication }
+func (p PublishedArtifact) Policy() TransferPolicy {
+	policy := p.aggregate.Request.Policy
+	policy.RequiredPrivacyControls = append([]string(nil), policy.RequiredPrivacyControls...)
+	return policy
+}
+
+func (l *Lifecycle) ResolvePublished(ctx context.Context, requestID string) (PublishedArtifact, error) {
+	aggregate, err := l.Inspect(ctx, requestID)
+	if err != nil {
+		return PublishedArtifact{}, err
+	}
+	if err := validatePublishedAggregate(aggregate); err != nil {
+		return PublishedArtifact{}, err
+	}
+	return PublishedArtifact{aggregate: aggregate, sealed: true}, nil
+}
+
 func NewLifecycle(store eventstore.Store, authorizer Authorizer) (*Lifecycle, error) {
 	if store == nil || authorizer == nil {
 		return nil, errors.New("transfer event store and deterministic authorizer are required")
@@ -201,6 +247,27 @@ func encodeInitialEvents(request Request, artifact Artifact, evaluation Evaluati
 		{ID: "event:" + artifact.ID, AggregateType: "knowledge_transfer", Type: artifactEvent, Version: transferArtifactVersions.CurrentVersion(), Actor: actor, CommandID: "generalize:" + artifact.ID, CorrelationID: request.ID, CausationID: request.ID, Trust: contracts.TrustDerived, Payload: artifactPayload, CreatedAt: artifact.CreatedAt.UTC()},
 		{ID: "event:" + evaluation.ID, AggregateType: "knowledge_transfer", Type: evaluationEvent, Version: transferEvaluationVersions.CurrentVersion(), Actor: actor, CommandID: "evaluate:" + evaluation.ID, CorrelationID: request.ID, CausationID: artifact.ID, Trust: contracts.TrustDerived, Payload: evaluationPayload, CreatedAt: evaluation.EvaluatedAt.UTC()},
 	}, nil
+}
+
+func validatePublishedAggregate(state Aggregate) error {
+	if err := VerifyRequest(state.Request); err != nil {
+		return err
+	}
+	artifactID := state.Artifact.ID
+	artifact, err := freezeArtifact(state.Artifact, state.Request, state.Request.Policy)
+	if err != nil || artifact.ID != artifactID {
+		return errors.New("published transfer artifact digest mismatch")
+	}
+	evaluationID := state.Evaluation.ID
+	evaluation, err := freezeEvaluation(state.Evaluation, state.Artifact, state.Request.Policy)
+	if err != nil || evaluation.ID != evaluationID || !state.Evaluation.Accepted {
+		return errors.New("transfer artifact lacks accepted evaluation")
+	}
+	publication := state.Publication
+	if publication.ID == "" || publication.ArtifactID != state.Artifact.ID || publication.EvaluationID != state.Evaluation.ID || publication.Scope != state.Artifact.Scope || publication.AuthorityRef == "" || publication.PublishedAt.IsZero() || publication.Authority.ID == state.Request.Proposer.ID || digest("transfer-publication", withoutPublicationID(publication)) != publication.ID {
+		return errors.New("transfer artifact lacks valid distinct-authority publication")
+	}
+	return nil
 }
 
 func freezeArtifact(artifact Artifact, request Request, policy TransferPolicy) (Artifact, error) {

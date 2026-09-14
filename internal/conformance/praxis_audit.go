@@ -109,8 +109,9 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation = "docs/research/conformance/attestations/cluster-a-runtime-v16.json"
-	portableStateAttestation   = "docs/research/conformance/attestations/portable-state-v11.json"
+	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v17.json"
+	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v12.json"
+	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v12.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -134,6 +135,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "preference-migration-runtime", Kind: "runtime_test", Stage: StageLifecycle, Ref: "internal/preference", ClaimIDs: []string{"OI-012"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains"},
 		{ID: "portable-state-integration", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/sync", ClaimIDs: []string{"OI-009"}, AttestationRef: portableStateAttestation, Observation: "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart"},
 		{ID: "portable-state-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/sync", ClaimIDs: []string{"OI-009"}, AttestationRef: portableStateAttestation, Observation: "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart"},
+		{ID: "catalog-bootstrap-lifecycle", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-011"}, AttestationRef: packageLifecycleAttestation, Observation: "TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart"},
+		{ID: "catalog-contribution-privacy", Kind: "security_test", Stage: StageIntegration, Ref: "internal/packagecatalog", ClaimIDs: []string{"OI-011"}, AttestationRef: packageLifecycleAttestation, Observation: "TestCatalogContributionRequiresGovernedGeneralizedPublication"},
 		{ID: "executor-routing", Kind: "integration_test", Stage: StageBehavior, Ref: "tests/test_executor_registry.py", ClaimIDs: []string{"OI-013", "OI-014"}},
 		{ID: "adaptive-routing-integration", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-013", "OI-014"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains"},
 		{ID: "adaptive-routing-security", Kind: "security_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-014"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains"},

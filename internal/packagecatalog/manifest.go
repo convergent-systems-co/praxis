@@ -137,6 +137,17 @@ func (m Manifest) ContentsOf(kind ContentKind) []ContentRef {
 	return out
 }
 
+// Content resolves one manifest item by its stable semantic identity. Manifest
+// ordering is serialization topology and is not content identity.
+func (m Manifest) Content(kind ContentKind, id, version string) (ContentRef, bool) {
+	for _, content := range m.Contents {
+		if content.Kind == kind && content.ID == id && content.Version == version {
+			return content, true
+		}
+	}
+	return ContentRef{}, false
+}
+
 // EffectiveCapabilities computes the deterministic transitive capability request.
 // It does not grant any of these capabilities.
 func EffectiveCapabilities(root Manifest, dependencies map[string]Manifest) ([]string, error) {

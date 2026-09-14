@@ -140,6 +140,8 @@ Any local modification changes content digest and creates descendant lineage. Up
 
 Catalog entries are discovery metadata referring to immutable package artifacts. Popularity, stars, repository ownership, catalog presence, or release publication are not execution trust.
 
+The governed catalog-contribution operation SHALL accept only a transfer-lifecycle-minted published artifact whose generalized bytes match its immutable digest. A successful result SHALL contain the package-policy-mapped generalized content and a reserved safe provenance content item binding the transfer evaluation/publication and mapping-policy identities. Those items are selected by kind, stable ID, and version; manifest position is not semantic. Other valid package operations may produce an empty typed-content inventory, and compatible contribution profiles may add safe content, so neither global non-emptiness nor an exact contribution item count is a package-manifest invariant. Construction fails closed when required semantic content or its exact archive bytes are absent.
+
 Catalog metadata SHOULD expose:
 
 - package ID/version/publisher/description/tags;

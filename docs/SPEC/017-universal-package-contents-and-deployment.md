@@ -53,7 +53,7 @@ Updating an agent-definition package SHALL NOT automatically migrate active agen
 
 ## Plugin contents
 
-Executable plugin contents SHALL include verified artifact digest, protocol compatibility, executable/launch metadata, isolation requirements, capability advertisement constraints, and platform compatibility.
+Packaged plugins SHALL separate a `plugin` definition from a `plugin_executable` payload. The versioned definition includes protocol compatibility, executable content ID/version, package-relative entrypoint, exact payload digest, launch metadata, isolation requirements, capability advertisement constraints, and platform compatibility. Both exact contents are signed inventory members of one immutable package generation. Activation rejects a missing, mismatched, multiply referenced, or orphaned executable payload before publishing any package registry state.
 
 Activation of the package does not grant the plugin any capability lease. Runtime plugin activation remains governed by SPEC-007.
 

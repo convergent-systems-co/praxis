@@ -21,7 +21,7 @@ Define the executable boundary between the Praxis core and independently impleme
 
 ## PluginManifest
 
-A versioned manifest SHALL declare stable plugin ID/version, protocol range, implementation/runtime requirements, executable entrypoint, advertised capabilities, requested privileges, required isolation properties, resource limits, health protocol, configuration schema, dependency identities/digests, publisher/provenance/signature metadata, and supported cryptographic/provider properties where applicable.
+A versioned manifest SHALL declare stable plugin ID/version, protocol range, implementation/runtime requirements, executable content ID/version and package entrypoint, exact executable digest, advertised capabilities, requested privileges, required isolation properties, resource limits, health protocol, configuration schema, dependency identities/digests, publisher/provenance/signature metadata, and supported cryptographic/provider properties where applicable. Under ADR-053, packaged manifest v2 begins the supported durable contract. The incomplete pre-release v1 shape is explicitly unsupported and is not upcast because it lacked the executable-content identity required to interpret old bytes safely.
 
 Installation SHALL NOT convert requested privileges into grants.
 

@@ -21,6 +21,7 @@ import (
 	"github.com/convergent-systems-co/praxis/internal/agent"
 	"github.com/convergent-systems-co/praxis/internal/kernel"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
+	"github.com/convergent-systems-co/praxis/internal/plugin"
 	"github.com/convergent-systems-co/praxis/internal/transfer"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -50,6 +51,12 @@ func fixturePackageArtifact(t *testing.T, manifest *packagecatalog.Manifest) []b
 	var archive bytes.Buffer
 	gz := gzip.NewWriter(&archive)
 	tw := tar.NewWriter(gz)
+	bodies := map[string][]byte{}
+	for _, content := range manifest.Contents {
+		if content.Kind == packagecatalog.ContentPluginExecutable {
+			bodies[content.Artifact] = []byte("executable:" + content.ID + "@" + content.Version)
+		}
+	}
 	for i := range manifest.Contents {
 		content := &manifest.Contents[i]
 		var body []byte
@@ -73,6 +80,19 @@ func fixturePackageArtifact(t *testing.T, manifest *packagecatalog.Manifest) []b
 			if err != nil {
 				t.Fatal(err)
 			}
+		} else if content.Kind == packagecatalog.ContentPlugin {
+			executableID := content.ID + ".executable"
+			executable, ok := manifest.Content(packagecatalog.ContentPluginExecutable, executableID, content.Version)
+			if !ok {
+				t.Fatalf("plugin fixture %s lacks executable content %s@%s", content.ID, executableID, content.Version)
+			}
+			var err error
+			body, err = json.Marshal(plugin.Manifest{ContractVersion: plugin.ManifestContractCurrentVersion(), ID: content.ID, Version: content.Version, ProtocolMin: "1", ProtocolMax: "1", Entrypoint: executable.Artifact, ExecutableContentID: executable.ID, ExecutableContentVersion: executable.Version, Capabilities: []string{"workspace.search.text"}, RequiredIsolation: []plugin.IsolationProperty{plugin.IsolationFilesystem}, Publisher: manifest.Publisher, ArtifactDigest: digestPackageBytes(bodies[executable.Artifact])})
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else if content.Kind == packagecatalog.ContentPluginExecutable {
+			body = bodies[content.Artifact]
 		} else {
 			body = []byte(string(content.Kind) + ":" + content.ID + "@" + content.Version)
 		}
@@ -166,16 +186,16 @@ func (p catalogContributionProcessor) Evaluate(_ context.Context, artifact trans
 	return transfer.Evaluation{ArtifactID: artifact.ID, EvaluatorID: policy.EvaluatorID, EvaluatorVersion: policy.EvaluatorVersion, IndependentRoots: []string{"run:one", "run:two"}, Invariants: []transfer.InvariantResult{{Class: "privacy", ControlID: "strip-private-context", Passed: true, EvidenceRef: "privacy:clean"}, {Class: "security", ControlID: "no-authority-content", Passed: true, EvidenceRef: "security:clean"}}, Accepted: true, EvaluatedAt: p.now.Add(time.Minute)}, nil
 }
 
-func activateFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, now time.Time) packagecatalog.Manifest {
+func activateFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, store *Store, manifest packagecatalog.Manifest, now time.Time) packagecatalog.Manifest {
 	t.Helper()
 	manifest, request := fixtureActivationRequest(t, ctx, db, manifest, now)
-	if err := s.ActivatePackage(ctx, request, now); err != nil {
+	if err := store.ActivatePackage(ctx, request, now); err != nil {
 		t.Fatal(err)
 	}
 	return manifest
 }
 
-func transitionFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, now time.Time) packagecatalog.TransitionRequest {
+func transitionFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, store *Store, manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, now time.Time) packagecatalog.TransitionRequest {
 	t.Helper()
 	actor := contracts.PrincipalRef{ID: "fixture-authority", Kind: "user"}
 	approvalID := "approval:" + string(operation) + ":" + manifest.PackageID + ":" + manifest.Version
@@ -190,7 +210,7 @@ func transitionFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *
 	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, approvalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.TransitionPackage(ctx, request, now); err != nil {
+	if err := store.TransitionPackage(ctx, request, now); err != nil {
 		t.Fatal(err)
 	}
 	return request
@@ -238,28 +258,28 @@ func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := New(db)
+	store := New(db)
 	m := fixturePackage("example/pkg", "1.0.0", "sha256:one", "example")
-	m = activateFixturePackage(t, ctx, db, s, m, time.Now().UTC())
-	got, err := s.ResolveInvocationAlias(ctx, "example")
+	m = activateFixturePackage(t, ctx, db, store, m, time.Now().UTC())
+	got, err := store.ResolveInvocationAlias(ctx, "example")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Contract.PackageID != m.PackageID || got.ContentDigest != m.ContentDigest {
 		t.Fatalf("wrong registered package: %#v", got)
 	}
-	content, err := s.ResolveContent(ctx, packagecatalog.ContentGraph, "example/pkg.graph", "1.0.0")
+	content, err := store.ResolveContent(ctx, packagecatalog.ContentGraph, "example/pkg.graph", "1.0.0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if content.PackageID != m.PackageID || len(content.ArtifactBytes) == 0 || content.Content.Digest != digestPackageBytes(content.ArtifactBytes) {
 		t.Fatalf("wrong graph registration: %#v", content)
 	}
-	transitionFixturePackage(t, ctx, db, s, m, packagecatalog.TransitionDisable, time.Now().UTC())
-	if _, err := s.ResolveInvocationAlias(ctx, "example"); err == nil {
+	transitionFixturePackage(t, ctx, db, store, m, packagecatalog.TransitionDisable, time.Now().UTC())
+	if _, err := store.ResolveInvocationAlias(ctx, "example"); err == nil {
 		t.Fatal("disabled package alias must disappear")
 	}
-	if _, err := s.ResolveContent(ctx, packagecatalog.ContentGraph, "example/pkg.graph", "1.0.0"); err == nil {
+	if _, err := store.ResolveContent(ctx, packagecatalog.ContentGraph, "example/pkg.graph", "1.0.0"); err == nil {
 		t.Fatal("disabled package graph must disappear")
 	}
 }
@@ -643,22 +663,72 @@ func TestAgentOnlyAndMixedPackagesAreFirstClassContents(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := New(db)
+	store := New(db)
+	now := time.Date(2026, 9, 14, 7, 30, 0, 0, time.UTC)
 	agentOnly := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "agent/pkg", Version: "1", ContentDigest: "sha256:a", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentAgentDefinition, ID: "researcher", Version: "1", Digest: "sha256:agent", Artifact: "agents/researcher.json"}}}
-	activateFixturePackage(t, ctx, db, s, agentOnly, time.Now().UTC())
-	agents, err := s.ActiveContents(ctx, packagecatalog.ContentAgentDefinition)
+	activateFixturePackage(t, ctx, db, store, agentOnly, now)
+	agents, err := store.ActiveContents(ctx, packagecatalog.ContentAgentDefinition)
 	if err != nil || len(agents) != 1 || agents[0].Content.ID != "researcher" {
 		t.Fatalf("agent contents: %#v err=%v", agents, err)
 	}
 	mixed := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "mixed/pkg", Version: "1", ContentDigest: "sha256:m", Contents: []packagecatalog.ContentRef{
 		{Kind: packagecatalog.ContentGraph, ID: "mixed.graph", Version: "1", Digest: "sha256:g", Artifact: "graphs/mixed.json"},
-		{Kind: packagecatalog.ContentPlugin, ID: "mixed.provider", Version: "1", Digest: "sha256:p", Artifact: "plugins/provider"},
+		{Kind: packagecatalog.ContentPlugin, ID: "mixed.provider", Version: "1", Digest: "sha256:p", Artifact: "plugins/provider.json"},
+		{Kind: packagecatalog.ContentPluginExecutable, ID: "mixed.provider.executable", Version: "1", Digest: "sha256:px", Artifact: "plugins/provider"},
 	}}
-	activateFixturePackage(t, ctx, db, s, mixed, time.Now().UTC())
-	plugins, err := s.ActiveContents(ctx, packagecatalog.ContentPlugin)
+	mixed = activateFixturePackage(t, ctx, db, store, mixed, now.Add(time.Minute))
+	plugins, err := store.ActiveContents(ctx, packagecatalog.ContentPlugin)
 	if err != nil || len(plugins) != 1 || plugins[0].Content.ID != "mixed.provider" {
 		t.Fatalf("plugin contents: %#v err=%v", plugins, err)
 	}
+	resolved, err := store.ResolvePlugin(ctx, "mixed.provider", "1")
+	if err != nil || resolved.Definition.PackageDigest != mixed.ContentDigest || resolved.Manifest.ArtifactDigest != resolved.Executable.Content.Digest {
+		t.Fatalf("plugin definition did not bind exact executable package content: %+v err=%v", resolved, err)
+	}
+}
+
+func TestPackagePluginDefinitionBindsExecutableAcrossRestartAndRejectsOrphans(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 14, 8, 0, 0, 0, time.UTC)
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/provider", Version: "1", Publisher: "research-team", Contents: []packagecatalog.ContentRef{
+		{Kind: packagecatalog.ContentPlugin, ID: "research.sources", Version: "1", Artifact: "plugins/research-sources.json"},
+		{Kind: packagecatalog.ContentPluginExecutable, ID: "research.sources.executable", Version: "1", Artifact: "plugins/research-sources"},
+	}}
+	manifest = activateFixturePackage(t, ctx, db, New(db), manifest, now)
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	replayed := New(db)
+	resolved, err := replayed.ResolvePlugin(ctx, "research.sources", "1")
+	if err != nil || resolved.Definition.PackageDigest != manifest.ContentDigest || resolved.Manifest.Entrypoint != resolved.Executable.Content.Artifact || resolved.Manifest.ArtifactDigest != resolved.Executable.Content.Digest {
+		t.Fatalf("restart lost plugin definition/executable binding: %+v err=%v", resolved, err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE package_contents SET artifact_bytes=? WHERE package_id=? AND kind=?`, []byte("attacker executable"), manifest.PackageID, packagecatalog.ContentPluginExecutable); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := replayed.ResolvePlugin(ctx, "research.sources", "1"); err == nil {
+		t.Fatal("mutated persisted executable retained plugin identity")
+	}
+
+	orphan := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "delivery/orphan-plugin", Version: "1", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentPluginExecutable, ID: "delivery.orphan.executable", Version: "1", Artifact: "plugins/orphan"}}}
+	orphan, request := fixtureActivationRequest(t, ctx, db, orphan, now.Add(time.Minute))
+	if err := replayed.ActivatePackage(ctx, request, now.Add(time.Minute)); err == nil {
+		t.Fatal("orphaned executable plugin content became active")
+	}
+	if _, err := replayed.ActivePackage(ctx, orphan.PackageID); err == nil {
+		t.Fatal("invalid plugin package published partial state")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:delivery/orphan-plugin:1'`, 1)
 }
 
 func TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart(t *testing.T) {
@@ -977,10 +1047,10 @@ func TestPackageTransitionCannotChangeOperationAfterApproval(t *testing.T) {
 	}
 }
 
-func activateFixturePackageExpectError(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, now time.Time, label string) {
+func activateFixturePackageExpectError(t *testing.T, ctx context.Context, db *sql.DB, store *Store, manifest packagecatalog.Manifest, now time.Time, label string) {
 	t.Helper()
 	_, request := fixtureActivationRequest(t, ctx, db, manifest, now)
-	if err := s.ActivatePackage(ctx, request, now); err == nil {
+	if err := store.ActivatePackage(ctx, request, now); err == nil {
 		t.Fatalf("%s must fail", label)
 	}
 }

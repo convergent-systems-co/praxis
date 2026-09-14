@@ -8,11 +8,11 @@ import (
 type IsolationProperty string
 
 const (
-	IsolationFilesystem IsolationProperty = "filesystem"
-	IsolationNetwork    IsolationProperty = "network"
-	IsolationProcess    IsolationProperty = "process"
+	IsolationFilesystem  IsolationProperty = "filesystem"
+	IsolationNetwork     IsolationProperty = "network"
+	IsolationProcess     IsolationProperty = "process"
 	IsolationEnvironment IsolationProperty = "environment"
-	IsolationIPC        IsolationProperty = "ipc"
+	IsolationIPC         IsolationProperty = "ipc"
 	IsolationCredentials IsolationProperty = "credentials"
 )
 
@@ -22,24 +22,33 @@ type RequestedPrivilege struct {
 }
 
 type Manifest struct {
-	ID                    string
-	Version               string
-	ProtocolMin           string
-	ProtocolMax           string
-	Entrypoint             string
-	Capabilities          []string
-	RequestedPrivileges   []RequestedPrivilege
-	RequiredIsolation     []IsolationProperty
-	Publisher             string
-	ArtifactDigest        string
+	ContractVersion          string               `json:"contract_version"`
+	ID                       string               `json:"id"`
+	Version                  string               `json:"version"`
+	ProtocolMin              string               `json:"protocol_min"`
+	ProtocolMax              string               `json:"protocol_max"`
+	Entrypoint               string               `json:"entrypoint"`
+	ExecutableContentID      string               `json:"executable_content_id"`
+	ExecutableContentVersion string               `json:"executable_content_version"`
+	Capabilities             []string             `json:"capabilities,omitempty"`
+	RequestedPrivileges      []RequestedPrivilege `json:"requested_privileges,omitempty"`
+	RequiredIsolation        []IsolationProperty  `json:"required_isolation,omitempty"`
+	Publisher                string               `json:"publisher,omitempty"`
+	ArtifactDigest           string               `json:"artifact_digest"`
 }
 
 func (m Manifest) Validate() error {
-	if m.ID == "" || m.Version == "" || m.ProtocolMin == "" || m.ProtocolMax == "" || m.Entrypoint == "" {
-		return errors.New("plugin id, version, protocol range, and entrypoint are required")
+	if _, _, err := manifestVersions.Canonicalize(m.ContractVersion, nil); err != nil {
+		return err
+	}
+	if m.ID == "" || m.Version == "" || m.ProtocolMin == "" || m.ProtocolMax == "" || m.Entrypoint == "" || m.ExecutableContentID == "" || m.ExecutableContentVersion == "" {
+		return errors.New("plugin id, version, protocol range, entrypoint, and executable content identity are required")
 	}
 	if m.ArtifactDigest == "" {
 		return errors.New("plugin artifact digest is required")
+	}
+	if err := (ProtocolRange{Min: m.ProtocolMin, Max: m.ProtocolMax}).Validate(); err != nil {
+		return err
 	}
 	seen := map[string]struct{}{}
 	for _, c := range m.Capabilities {

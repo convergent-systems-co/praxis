@@ -93,7 +93,8 @@ func TestRegistryOrderingIsDeterministic(t *testing.T) {
 
 func fixtureProvider(id string, state State, isolation map[IsolationProperty]EnforcementState, priority int) Provider {
 	manifest := Manifest{
-		ID: id, Version: "1.0.0", ProtocolMin: "1", ProtocolMax: "1", Entrypoint: "/plugin",
+		ContractVersion: ManifestContractCurrentVersion(), ID: id, Version: "1.0.0", ProtocolMin: "1", ProtocolMax: "1", Entrypoint: "plugins/" + id,
+		ExecutableContentID: id + ".executable", ExecutableContentVersion: "1.0.0",
 		Capabilities: []string{"workspace.search.text"}, RequiredIsolation: []IsolationProperty{IsolationFilesystem},
 		Publisher: "test", ArtifactDigest: "sha256:" + id,
 	}

@@ -22,6 +22,7 @@ const (
 	ContentGraph             ContentKind = "graph"
 	ContentAgentDefinition   ContentKind = "agent_definition"
 	ContentPlugin            ContentKind = "plugin"
+	ContentPluginExecutable  ContentKind = "plugin_executable"
 	ContentPreference        ContentKind = "preference_contract"
 	ContentBehavioralProfile ContentKind = "behavioral_profile"
 	ContentTemplate          ContentKind = "template"
@@ -43,7 +44,7 @@ func (c ContentRef) Validate() error {
 		return errors.New("package content kind, id, version, digest, and artifact are required")
 	}
 	switch c.Kind {
-	case ContentGraph, ContentAgentDefinition, ContentPlugin, ContentPreference, ContentBehavioralProfile, ContentTemplate, ContentMigration, ContentDocumentation:
+	case ContentGraph, ContentAgentDefinition, ContentPlugin, ContentPluginExecutable, ContentPreference, ContentBehavioralProfile, ContentTemplate, ContentMigration, ContentDocumentation:
 		return nil
 	default:
 		return fmt.Errorf("unsupported package content kind %q", c.Kind)

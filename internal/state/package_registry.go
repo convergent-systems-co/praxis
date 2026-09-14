@@ -160,6 +160,9 @@ func validateActiveDependencyCompatibilityTx(ctx context.Context, tx *sql.Tx, ta
 }
 
 func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatalog.VerifiedPackage, intent contracts.ActionIntent, intentDigest, approvalID string, now time.Time) error {
+	if err := validateVerifiedPluginContents(pkg); err != nil {
+		return fmt.Errorf("validate package plugin contents: %w", err)
+	}
 	manifest := pkg.Manifest()
 	verification := pkg.Evidence()
 	sourceKind, sourceRef := verification.SourceKind, verification.SourceRef

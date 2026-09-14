@@ -189,6 +189,11 @@ observability across database restart. This is
 admission substrate only: cancellation propagation, quota inheritance, retry
 governance, child-work mediation, and complete OI-024 evidence remain open.
 
+Successor blind result `blind-plugin-scheduler-substrate-v1.json` is frozen at
+`sha256:6c55874cf8d9290c7b3285c2826f40c0d843440f4cd2430dcb35116db3da7b57`.
+It independently retains 25 satisfied and 13 indeterminate claims; no oracle
+was loaded and no finding was closed by the scheduler substrate.
+
 Package contract/transition progress: a contract-family catalog now rejects duplicate semantic ownership, and named package manifest, signature, verification, activation, deployment, transition, and rollback policies are the only current-version sources. Package release version remains distinct from manifest schema version; client invocation schema is owned by its separate client-contract catalog; SQLite receipt state evolves through migrations. Governed disable/remove operations bind exact generation and operation to an independently persisted approval, atomically withdraw active contents/aliases, retain receipts across restart, and reject caller mutation without consuming authority. OI findings remain open until resolution, privacy, plugin lifecycle, graph dispatch, and whole-lifecycle evidence are complete.
 
 Rollback progress: core derives the exact dependency-first target closure from retained manifests, binds both current generation preconditions and target IDs/versions/digests to a rollback-specific contract and approval, revalidates retained manifest/artifact/signature/verification/content/invocation evidence, and restores the complete closure atomically. Successor generations remain immutable `rolled_back` history, client aliases follow the restored generation after SQLite restart, mutated targets preserve approval, and an unaffected active dependent blocks an incompatible generation switch. This is lifecycle substrate; findings remain open pending plugin/privacy/client-dispatch integration and independent whole-package evaluation.

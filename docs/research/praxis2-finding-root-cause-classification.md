@@ -111,3 +111,14 @@ Graph definitions, baseline values, classifiers, and scripted composition tests 
 5. After each cluster, create a new immutable execution attestation and frozen blind result, compare unrelated findings for regression, and retain every predecessor artifact unchanged.
 
 Before accepting any closure, evaluate the evidence as though the target claim ID were unknown. Evidence tailored only to an expected status is inadmissible in spirit even if its file type matches the inventory.
+
+## Successor blind audit
+
+After the durable supervisor and scheduler substrate increments, the new blind
+result `docs/research/conformance/blind-plugin-scheduler-substrate-v1.json`
+was frozen with digest
+`sha256:6c55874cf8d9290c7b3285c2826f40c0d843440f4cd2430dcb35116db3da7b57`.
+It preserves the same 25 satisfied / 13 indeterminate state without loading
+the withheld oracle. The substrate findings remain classified under Cluster C;
+OI-021, OI-024, OI-025, OI-027, OI-029, and OI-030 require integrated lifecycle
+and enforcement evidence beyond these components.

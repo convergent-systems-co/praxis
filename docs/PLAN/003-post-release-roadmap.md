@@ -1,0 +1,236 @@
+# PLAN-003: Praxis Post-Release Delivery Roadmap
+
+- Status: PLANNED — POST-RELEASE
+- Branch context: `redesign/praxis2`
+- Depends on: PLAN-001 Praxis 2 release qualification
+- Purpose: preserve and sequence all currently open Praxis work so release qualification can finish without losing post-release commitments.
+
+## Relationship to PLAN-001
+
+PLAN-001 remains the authoritative Praxis 2 release plan and frozen original-intent conformance denominator.
+
+This roadmap does **not** weaken, expand, or silently redefine PLAN-001 completion criteria. Work listed here begins after Praxis 2 release qualification unless PLAN-001/ADR/SPEC review explicitly determines that an item is release-critical and promotes it into the current release dependency graph.
+
+A post-release issue may therefore have one of three dispositions:
+
+1. **Release-critical discovery** — move into PLAN-001 through normal ADR/SPEC/PLAN governance and complete before release.
+2. **Post-release delivery** — execute from this roadmap after qualified release.
+3. **Legacy/superseded work** — reconcile against Praxis 2 architecture before implementation; close, replace, or migrate rather than blindly implementing obsolete assumptions.
+
+## Delivery laws
+
+1. ADRs remain architectural authority; issues are requirements/work inputs, not architecture authority.
+2. SPECs define executable semantics and acceptance evidence before implementation where architecture changes.
+3. First-party packages receive no privileged authority unavailable to third-party packages except explicit bootstrap mechanics.
+4. Post-release work must preserve deterministic authority below inference, evidence integrity, restart/recovery semantics, and governed learning.
+5. Legacy Python/overlay issues must be reconciled against the qualified Go/Praxis 2 architecture before implementation.
+6. Issue completion is not equivalent to product-goal completion; each wave has its own integration and qualification gate.
+7. Do not re-open the frozen PLAN-001 OI denominator for post-release features unless evidence proves an original-intent decomposition error and the governed denominator-transition process is followed.
+
+## Wave P0: Release follow-through and terminology
+
+### #95 — Decision: Praxis product name vs SAGA architectural identity
+
+Resolve product/architecture naming before broad public documentation or external specification work hardens terminology.
+
+Deliverables:
+
+- accepted naming decision;
+- ADR if terminology changes architectural boundaries;
+- repository terminology reconciliation;
+- migration guidance for public docs/schemas where needed.
+
+### #99 — Create Praxis 2 release documentation and architecture guide
+
+Begin only from the qualified release commit in a separate documentation worktree/branch.
+
+Deliverables include detailed README, installation, getting started, architecture/concepts, diagrams, client integration, package/plugin, customization, security, and operations/troubleshooting documentation.
+
+Dependency: qualified PLAN-001 release; naming decision #95 should be resolved first if it changes terminology.
+
+## Wave P1: First-party product bundles and development workflow
+
+### #101 — Define first-party Goals and Develop bundles with multi-agent parallel execution and structured command surface
+
+This is the primary first-party productization wave.
+
+Reconcile ADR -> SPEC -> PLAN before implementation. Define real package-owned graph/agent bundles rather than prompt personas.
+
+Required `develop` surface includes, subject to final InvocationContract syntax:
+
+```text
+/praxis develop [target]
+    [--dashboard]
+    [--issues <github|gitlab|ado>[,<provider>...]]
+    [--file <path> ...]
+    [--parallel <n>]
+    [--rigor <auto|fast|standard|full>]
+```
+
+The Develop Bundle must evaluate responsibilities such as planner/architect, TDD/test design, developer, independent tester/verifier, adversarial/security reviewer, conditional IaC/platform developer, documentation reviewer, and integrator without assuming every role is a persistent agent.
+
+Parallel execution is graph-owned dependency-aware fan-out/fan-in; `--parallel N` is a concurrency ceiling, not an instruction to spawn N identical developers.
+
+The Goals Bundle must similarly define outcome clarification, evidence/context exploration, constraint/risk analysis, decomposition/options, independent goal review, and baseline compilation with progressive rigor.
+
+Qualification must cover fast-path work, standard TDD/development, security-sensitive work, IaC selection, documentation selection, actual dependency-safe parallelism, issue ingestion, file scoping with justified dependency expansion, baseline reuse, restart/recovery, independent evidence, dynamic InvocationContract activation, and a non-development counterexample proving domain neutrality.
+
+### #26 — Epic: Praxis overlay completeness / develop lane gap
+
+Treat as **legacy architecture input**, not an automatic implementation plan.
+
+Before executing remaining work:
+
+- compare its v4 overlay assumptions with qualified Praxis 2 Develop Bundle architecture;
+- migrate still-valid behavior into #101/first-party package architecture;
+- close or supersede obsolete overlay-specific work;
+- retain useful parity fixtures as regression evidence where semantically valid.
+
+Do not restore old bespoke `/develop` runtime mechanics if Praxis 2 provides the canonical capability.
+
+## Wave P2: Architectural review and retrospective learning
+
+### #96 — Add architectural inversion review to goal/design and learning graphs
+
+Add architecture-from-intent / inversion review so implementation location cannot silently become architectural ownership.
+
+Integrate with Goal/design review and governed learning. Include both universal-mechanism and genuinely domain-specific counterexamples.
+
+### #97 — Retrospective learning from Praxis construction history
+
+Build content-addressed retrospective episodes from Praxis 2 construction history and require blind derivation of generalized lessons before oracle comparison.
+
+Key requirements:
+
+- historical before/finding/after evidence;
+- blind candidate lesson generation;
+- positive transfer and counterexample replay;
+- governed candidate graph/process generation;
+- distinct promotion authority;
+- rollback and rejected-candidate retention.
+
+Dependency: qualified core learning/conformance architecture from PLAN-001. #96 may become one candidate consumer of retrospective learning but must not contaminate blind discovery.
+
+## Wave P3: Supervision, presentation efficiency, and operator UX
+
+### #98 — Add supervision-aware output policy for autonomous execution
+
+Separate durable execution evidence from human presentation.
+
+Provide Observe / Supervise / Autonomous semantics (final names may vary), significance-aware surfacing, evidence retention, high-impact fail-toward-visibility behavior, and token/presentation observability where provider telemetry exists.
+
+### #100 — Post-release Praxis supervision and conformance TUI
+
+Build a reusable read-only semantic projection/query layer first, then CLI/TUI clients such as `praxis status` and `praxis tui`.
+
+The projection must answer what Praxis is doing, why a claim is satisfied, what changed, what is blocked, and what happens next without making the UI authoritative.
+
+Dependency: #98 for supervision/presentation integration where practical; both must consume durable evidence rather than model narration.
+
+`/praxis develop --dashboard` from #101 should attach to/degrade against this projection contract rather than introduce a separate dashboard authority.
+
+## Wave P4: Executor and client ecosystem reconciliation
+
+### #37 — Epic: Universal AI Execution Fabric
+
+Treat as a **legacy/transition epic requiring reconciliation** against qualified Praxis 2 executor routing, client adapters, package lifecycle, deterministic authority, and Go control plane.
+
+Do not implement remaining Python-era assumptions mechanically.
+
+Re-evaluate the following open child issues and either migrate, supersede, or close them:
+
+- #42 — GitHub Copilot executor adapter
+- #44 — MLX / local Hugging Face executor adapter
+- #46 — `praxis doctor`
+- #47 — `praxis run --executor <id|auto>` runner / executor requirements
+- #48 — executor failure escalation wiring
+- #49 — executor evidence/eval/learning wiring + human-executor decision
+- #50 — dashboard executors/selection/recovery visualization
+- #51 — executor configuration/validation/precedence
+- #54 — legacy documentation set
+
+Reconciliation rules:
+
+1. Prefer qualified Praxis 2 Go/client/package mechanisms over duplicate Python control planes.
+2. Preserve the no-silent-metered-API / no-credential-extraction security intent where still applicable.
+3. Model model/provider choice through capability evidence and routing rather than graph vendor coupling.
+4. Merge dashboard requirements into #100 when they are operational-projection concerns.
+5. Merge documentation requirements into #99 when they belong to release/public documentation.
+6. Integrate adapter configuration through qualified package/client contracts rather than parallel config systems.
+7. Close superseded issues explicitly with links to their replacement architecture/issues rather than leaving zombie backlog.
+
+## Wave P5: Backlog reconciliation and closure
+
+After P0-P4, perform a complete issue reconciliation:
+
+1. enumerate all remaining open issues;
+2. map each to current ADR/SPEC/package/runtime authority;
+3. identify duplicates and superseded legacy issues;
+4. preserve still-valid requirements and evidence;
+5. close or migrate obsolete items with rationale;
+6. create new issues only for genuinely uncovered work;
+7. update this roadmap to reflect the resulting canonical backlog.
+
+## Dependency order
+
+Conceptual order:
+
+```text
+PLAN-001 qualified release
+        |
+        +--> #95 terminology decision
+        |
+        +--> #99 release documentation
+        |
+        +--> #101 first-party Goals/Develop bundles
+        |       |
+        |       +--> reconcile #26 legacy develop/overlay work
+        |
+        +--> #96 architecture inversion review
+        +--> #97 retrospective learning
+        |
+        +--> #98 supervision-aware output
+        |       |
+        |       +--> #100 supervision/conformance TUI
+        |                |
+        |                +--> #101 --dashboard integration as applicable
+        |
+        +--> reconcile #37 executor/client epic
+                |
+                +--> #42 #44 #46 #47 #48 #49 #50 #51 #54
+```
+
+Parallel delivery is allowed when dependency, authority, file-footprint, and qualification boundaries make it safe. This roadmap does not require artificial serialization.
+
+## Current tracked open issues at roadmap creation
+
+The following currently open issues are explicitly accounted for by this plan:
+
+- #26 — Epic: Praxis overlay completeness
+- #37 — Epic: Universal AI Execution Fabric
+- #42 — GitHub Copilot executor adapter
+- #44 — MLX / local Hugging Face executor adapter
+- #46 — praxis doctor
+- #47 — praxis run executor runner
+- #48 — executor failure escalation
+- #49 — executor evidence/eval/learning + human-executor decision
+- #50 — dashboard executor/recovery visualization
+- #51 — executor configuration/precedence
+- #54 — legacy documentation set
+- #95 — Praxis vs SAGA naming decision
+- #96 — architectural inversion review
+- #97 — retrospective learning
+- #98 — supervision-aware output policy
+- #99 — release documentation and architecture guide
+- #100 — supervision/conformance TUI
+- #101 — first-party Goals/Develop bundles and parallel execution
+
+## Completion
+
+PLAN-003 is complete when every issue listed above has been either:
+
+- delivered and qualified under current architecture;
+- intentionally migrated into a canonical replacement issue/plan with traceable requirements; or
+- closed as superseded/not-planned with explicit architectural rationale.
+
+The roadmap must not be considered complete merely because individual issues are closed; the resulting product capabilities and documentation must remain coherent under the qualified Praxis architecture.

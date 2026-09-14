@@ -178,6 +178,35 @@ persists the turn in SQLite, closes/reopens the database, and verifies the
 remote checkpoint. This is provider-neutral adapter evidence using local test
 authority; it does not configure external model credentials or the public CLI.
 
+## #103 qualification audit — post-`276a63d` state
+
+Satisfied by production-backed evidence:
+
+- deterministic provenance-bound selection of one runnable candidate;
+- provider-neutral explicit-argv worker boundary;
+- SQLite turn persistence and close/reopen replay;
+- concrete Git fetch/state classification, validated progress, push, and
+  remote-HEAD verification;
+- supervised one-unit termination and controller-owned progress/publication
+  semantics.
+
+Not yet satisfied:
+
+- public `praxis goal-drive` invocation dispatch from the registered contract;
+- production construction of the GoalInput/Goal store and key-provider path;
+- a registered external Codex/Claude or equivalent production worker provider;
+- orchestration of declared `--no-push`, timeout, max-turn, and retry options
+  through a native invocation boundary;
+- concrete adapter qualification for all required remote-ahead/divergence and
+  interruption/recovery cases, plus the non-development/provider-substitution
+  acceptance scenarios in SPEC-023.
+
+The local explicit-argv worker and temporary Git remote prove the control-plane
+contracts only; they do not satisfy the missing public/provider-backed
+execution obligations. DF-003/#103 remains blocked at that boundary, and
+DF-004 remains the missing external key-provider authority. No requirement is
+removed or reassigned to make #103 complete.
+
 ## Dogfood finding DF-009 — synthetic turn was reported as durable execution
 
 The selection-to-worker test selected `ready` and passed it to

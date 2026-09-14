@@ -15,7 +15,7 @@ func baselineFixture() GoalBaseline {
 func TestAcceptedWorkPlanSurvivesCanonicalBaselineRoundTrip(t *testing.T) {
 	b := baselineFixture()
 	b.WorkPlan = &contracts.WorkPlan{
-		AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted",
+		AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "reviewer", Kind: "human"}, ProposalDigest: "sha256:proposal",
 		Candidates: []contracts.WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: contracts.ProvenancePLAN}},
 	}
 	digest, err := b.ComputeDigest()

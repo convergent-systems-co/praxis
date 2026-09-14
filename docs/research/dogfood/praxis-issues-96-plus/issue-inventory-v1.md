@@ -246,3 +246,19 @@ runnable children. The current dogfood baseline has no WorkPlan, so no #103
 child is legitimately runnable and no child was fabricated. Public ingestion,
 key/provider authority, and provider-backed execution remain unresolved #103
 obligations rather than being reassigned.
+
+## Dogfood finding DF-012 — proposal-to-WorkPlan acceptance boundary
+
+DF-011 established that accepted requirements were not materialized into
+executable children. Further inspection found no existing Goal, planning,
+architecture-review, or learning-promotion mechanism that accepts a
+decomposition and attaches it to a Goal Baseline. Goals stages are explicitly
+data-only, architecture review is advisory, and learning promotion targets
+behavior generations rather than Goal work.
+
+ADR-064/SPEC-027 define the missing transition without creating work for the
+current dogfood Goal: model/executor output may produce a content-bound
+`WorkPlanProposal`, but only a distinct human or policy-governed acceptance with
+independent review evidence can produce an accepted WorkPlan. Acceptance binds
+the proposal and baseline digests; stale requirements invalidate the plan. The
+current baseline remains without a WorkPlan and therefore has no runnable child.

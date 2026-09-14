@@ -77,6 +77,11 @@ plan; it must not infer child objectives from Goal prose, success criteria, or
 `PlanRef`. Public ingestion and provider-backed execution remain separate
 #103 obligations.
 
+The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
+proposal, independent review, and acceptance are distinct records. A missing or
+unresolved acceptance is surfaced as authority insufficiency rather than
+converted into global blockage or implicit runnable work.
+
 Parent readiness must retain child-level blocked evidence and derive
 `runnable`, `blocked`, or `complete` from the full authoritative candidate set;
 one blocked child must not suppress a ready sibling.

@@ -38,11 +38,13 @@ type WorkerResult struct {
 type TurnRequest struct {
 	GoalID, GoalVersion, TurnID, ChildObjective, GraphID, GraphVersion, StartHead string
 	Repository                                                                    contracts.RepositoryState
+	ProviderID                                                                    string
 }
 
 type Controller struct {
 	Ledger          Ledger
 	Worker          Worker
+	Providers       *Registry
 	NoProgressLimit int
 }
 
@@ -62,8 +64,8 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 }
 
 func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord, error) {
-	if c.Worker == nil {
-		return nil, errors.New("Goal-drive worker is required")
+	if _, err := c.worker(req); err != nil {
+		return nil, err
 	}
 	if req.Repository != contracts.RepositorySynced {
 		return nil, fmt.Errorf("%w: %s", ErrUnsafeRepository, req.Repository)
@@ -88,8 +90,22 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	return turns, nil
 }
 
+func (c Controller) worker(req TurnRequest) (Worker, error) {
+	if c.Providers != nil {
+		return c.Providers.Resolve(req.ProviderID)
+	}
+	if c.Worker == nil {
+		return nil, errors.New("Goal-drive worker is required")
+	}
+	return c.Worker, nil
+}
+
 func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, error) {
-	result, workerErr := c.Worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
+	worker, err := c.worker(req)
+	if err != nil {
+		return TurnRecord{}, err
+	}
+	result, workerErr := worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
 	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()

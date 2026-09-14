@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-dynamic-cli-lifecycle-v1.json`
-- Latest frozen result digest: `sha256:d6973f8ecd1db6b6abf71bf6e95aa14d0a37e7e8b770a5c33a193b762719391a`
+- Latest accepted remediation result: `docs/research/conformance/blind-universal-package-lifecycle-v1.json`
+- Latest frozen result digest: `sha256:0c2a9188744a19dc82d3118a7b5d0e38db5950419764f99c74a327ec7c429ee8`
 
 ## Method and denominator
 
@@ -231,4 +231,15 @@ restart reconstructs the registry. The blind result
 `docs/research/conformance/blind-dynamic-cli-lifecycle-v1.json` is frozen at
 `sha256:d6973f8ecd1db6b6abf71bf6e95aa14d0a37e7e8b770a5c33a193b762719391a` and
 independently advances OI-035. Totals are now 30 satisfied and 8 indeterminate;
-OI-037 remains open for the complete mixed-package lifecycle.
+The preceding substrate result left OI-037 open for the complete mixed-package lifecycle; the successor qualification below closes that gap.
+
+The universal package lifecycle then received successor execution attestation
+`docs/research/conformance/attestations/universal-package-lifecycle-v1.json`.
+The execution covers pure graph activation and restart, agent-only and mixed
+graph/plugin package contents, independent agent instantiation, atomic update,
+governed rollback, disable/remove history, dependency rollback, and retained
+content corruption rejection. The blind result
+`docs/research/conformance/blind-universal-package-lifecycle-v1.json` is frozen
+at `sha256:0c2a9188744a19dc82d3118a7b5d0e38db5950419764f99c74a327ec7c429ee8`
+and independently advances OI-037. Totals are now 31 satisfied and 7
+indeterminate; OI-030 remains open for effective host isolation.

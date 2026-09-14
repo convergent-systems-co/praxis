@@ -113,6 +113,7 @@ const (
 	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v6.json"
 	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v1.json"
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v1.json"
+	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -169,7 +170,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},
 		{ID: "goals-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}, AttestationRef: goalsSessionAttestation, Observation: "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines"},
 		{ID: "dynamic-package-cli", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-035"}, AttestationRef: dynamicCLIAttestation, Observation: "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface"},
-		{ID: "dynamic-package-lifecycle-contract", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}},
+		{ID: "dynamic-package-lifecycle-contract", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestGovernedPackageRollbackRestoresExactClosureAcrossRestart"},
+		{ID: "dynamic-package-lifecycle-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestVerifiedGraphArtifactSurvivesActivationAndRestart"},
 		{ID: "state-provider", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/stateprovider", ClaimIDs: []string{"OI-036"}, AttestationRef: portableStateAttestation, Observation: "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed"},
 		{ID: "resource-continuation-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/continuation_integration_test.go", ClaimIDs: []string{"OI-038"}, AttestationRef: "docs/research/conformance/attestations/resource-continuation-v2.json", Observation: "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart"},
 	}

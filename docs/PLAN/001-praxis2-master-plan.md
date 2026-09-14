@@ -485,6 +485,16 @@ SQLite resource-provider execution to both integration and restart evidence.
 
 OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-delivery and research profiles use different opaque pressure signals and thresholds while the same core mechanism governs event-led checkpoint, handoff, SQLite restart, exact-reference resume, and run/agent/evidence identity preservation. Calibration remains package/profile policy.
 
+OI-035 is satisfied in `blind-dynamic-cli-lifecycle-v1.json`, digest
+`sha256:d6973f8ecd1db6b6abf71bf6e95aa14d0a37e7e8b770a5c33a193b762719391a`,
+by the content-bound dynamic command lifecycle: installation publishes an
+unknown alias, client resolution applies the persisted option contract, update
+atomically replaces the visible generation, disable/removal removes the alias,
+alias collision preserves the existing owner, persisted contract tampering is
+rejected, and restart reconstructs the active registry. OI-037 remains
+indeterminate because this evidence does not yet qualify the complete mixed
+package install/activation/update/rollback lifecycle.
+
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
@@ -536,6 +546,7 @@ Implemented in this reopened wave:
 - encrypted immutable Goals session checkpoint attestation `goals-session-v1.json` and successor Cluster-A attestation `cluster-a-runtime-v45.json`
 - successor Goals four-domain lifecycle attestation `goals-session-v5.json` and blind result `blind-goals-session-v5.json`; OI-034 remains satisfied and the unchanged 38-claim denominator records 28 satisfied / 10 indeterminate
 - successor Goals attestation `goals-session-v6.json` rebinds the changed development package without weakening prior evidence; blind result `blind-planning-lifecycle-v1.json` closes OI-033 and records 29 satisfied / 9 indeterminate against the unchanged 38-claim denominator
+- dynamic CLI lifecycle attestation `dynamic-cli-lifecycle-v1.json` and blind result `blind-dynamic-cli-lifecycle-v1.json`; OI-035 is satisfied and the unchanged 38-claim denominator records 30 satisfied / 8 indeterminate
 
 ## Completion calculation
 

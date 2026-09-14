@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-planning-lifecycle-v1.json`
-- Latest frozen result digest: `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d`
+- Latest accepted remediation result: `docs/research/conformance/blind-dynamic-cli-lifecycle-v1.json`
+- Latest frozen result digest: `sha256:d6973f8ecd1db6b6abf71bf6e95aa14d0a37e7e8b770a5c33a193b762719391a`
 
 ## Method and denominator
 
@@ -219,3 +219,16 @@ result `docs/research/conformance/blind-planning-lifecycle-v1.json` is frozen at
 `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d` and
 independently advances OI-033. Totals are now 29 satisfied and 9 indeterminate;
 the denominator and all unrelated finding states are unchanged.
+
+The dynamic package-command lifecycle then received a content-bound execution
+attestation at
+`docs/research/conformance/attestations/dynamic-cli-lifecycle-v1.json`.
+Installation publishes a previously unknown command alias, the client derives
+defaults and rejects unknown options from the persisted contract, update
+atomically replaces the visible generation, disable removes it, collisions do
+not damage the existing owner, persisted contract tampering fails closed, and
+restart reconstructs the registry. The blind result
+`docs/research/conformance/blind-dynamic-cli-lifecycle-v1.json` is frozen at
+`sha256:d6973f8ecd1db6b6abf71bf6e95aa14d0a37e7e8b770a5c33a193b762719391a` and
+independently advances OI-035. Totals are now 30 satisfied and 8 indeterminate;
+OI-037 remains open for the complete mixed-package lifecycle.

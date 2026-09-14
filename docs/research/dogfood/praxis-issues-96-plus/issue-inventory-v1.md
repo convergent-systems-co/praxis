@@ -166,3 +166,15 @@ candidate loading and command dispatch remain separate #103 work. The
 controller now consumes an authoritative candidate set when `ChildObjective` is
 absent, selects exactly one unit before the worker turn, records that identity,
 and preserves the supervised one-turn boundary.
+
+## Dogfood finding DF-009 — synthetic turn was reported as durable execution
+
+The selection-to-worker test selected `ready` and passed it to
+`fakeWorker.last.ChildObjective`, producing a test-local `COMPLETE` record with
+`Progress=true`. Its controller fixture uses `eventstore.NewMemoryStore` and
+`ExecuteTurn`, not `ExecuteTurnWithRepository`; therefore it published no Git
+checkpoint and left no restart-readable durable turn record. The unchanged
+source HEAD was expected. This evidence must not be reported as production
+Goal progress. Real provider-backed repository execution remains governed by
+DF-003/#103 and requires the registered worker, durable state provider, and
+repository adapter path.

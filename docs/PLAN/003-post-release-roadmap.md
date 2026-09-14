@@ -70,6 +70,11 @@ The controller must consume a provenance-bound runnable candidate set and
 select one unit deterministically by readiness, priority, and sequence;
 ambiguous or insufficient authoritative state must fail closed.
 
+Dogfood evidence must distinguish test-local controller ledger records from
+restart-readable production turn records and repository-backed checkpoint
+publication. A fake worker or in-memory store is not release or Goal-progress
+evidence for issue execution.
+
 Human-facing invocation summaries must project the durable turn record without
 conflating verification activity with progress: `NO_PROGRESS` and unchanged
 checkpoints must not be summarized as publication or parent Goal advancement.

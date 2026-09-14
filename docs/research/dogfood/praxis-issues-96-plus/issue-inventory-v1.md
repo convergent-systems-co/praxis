@@ -266,6 +266,16 @@ passphrase, SSH, or shell fallback. Intel cross-compilation succeeds; native
 runtime construction and live backend evidence remain incomplete until a
 Keychain-authorized macOS environment is available.
 
+Authorized macOS execution subsequently passed the live backend lifecycle
+tests. The remaining work is CLI/runtime end-to-end qualification with an
+actual encrypted GoalStore, accepted WorkPlan, and registered worker; no
+current dogfood Goal or authority was fabricated.
+
+The same Keychain tests pass in an authorized macOS execution context. The
+prior OSStatus `100001` is therefore an environment boundary from the seatbelt
+sandbox (`/usr/bin/security error 100001` reports `UNIX[Operation not
+permitted]`), not a backend/API defect. Sandboxed runs continue to fail closed.
+
 ## Dogfood finding DF-010 — parent blocker granularity
 
 The selector already handles partial blocking correctly when given an

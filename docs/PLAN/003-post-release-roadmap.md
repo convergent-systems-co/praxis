@@ -160,6 +160,13 @@ identity item substitution. Live Keychain qualification remains environment
 dependent: an environment returning Keychain authorization/unavailability
 must fail closed and cannot be treated as successful bootstrap evidence.
 
+The direct Security.framework backend has since passed live bootstrap, restart,
+missing-item, identity-substitution, duplicate-bootstrap, and no-fallback tests
+outside the repository sandbox. The earlier OSStatus `100001` was identified
+as the sandbox's `UNIX[Operation not permitted]` restriction; sandboxed runs
+remain intentionally classified as unavailable rather than weakening the
+backend.
+
 Do not mark #103 complete from this slice alone. Completion still requires the
 native invocation/dispatch and authority-backed acceptance obligations recorded
 in the dogfood qualification audit; missing external provider/key authority

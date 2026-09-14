@@ -52,9 +52,9 @@ portable age-compatible SSH wrapping backend require separate audited adapters.
 
 ## Consequences
 
-Native runtime construction remains blocked until at least one supported
-platform backend is implemented and explicitly selected. This is an honest
-configuration/implementation boundary, not permission to register a fake
-provider or weaken encryption. Rotation and migration must create new
+The native CLI now exposes explicit `key-bootstrap` initialization and loads a
+digest-bound metadata record through the same registry before constructing
+GoalStore. Missing metadata, unavailable provider material, and substitution
+fail before state decryption. Rotation and migration must create new
 metadata-bound provider/key versions and rewrap DEKs where supported, while
 retaining historical envelope evidence.

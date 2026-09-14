@@ -25,7 +25,9 @@ or ledger payloads.
 
 The first-run lifecycle MUST be explicit: detect missing binding, require a
 user/operator-selected backend, provision or recover a provider-held KEK, and
-persist only non-secret binding metadata. Locked, unavailable, corrupted, or
+persist only non-secret binding metadata. The native CLI uses the explicit
+`key-bootstrap` command to create a digest-bound metadata record and
+`PRAXIS_BOOTSTRAP_RECORD` to recover it. Locked, unavailable, corrupted, or
 cross-machine bindings MUST fail closed. There is no implicit weaker fallback.
 
 GoalStore continues to use its existing envelope contract: random symmetric

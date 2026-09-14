@@ -302,3 +302,24 @@ This does not create or attach a WorkPlan for the current dogfood Goal, add a
 mutable active pointer, or provide public activation/dispatch UX. Goal-drive
 continues to consume only an exact baseline generation supplied by its
 invocation contract.
+
+## Dogfood finding DF-015 — proposal generation and independent review entry
+
+Recovery confirmed that the Goals graph's planning/refinement nodes and the
+architecture inversion review are not a WorkPlan proposal/review lifecycle.
+They produce data or advisory ownership evidence and cannot establish
+decomposition authority. No production component previously generated a
+proposal from a Goal Baseline or persisted independent WorkPlan review.
+
+The bounded foundation adds explicit, non-authoritative proposal construction
+in `packages/goals` and durable review records in `internal/goalstore`.
+Candidates must name requirement provenance; proposals remain model-provenance
+when inference supplied them. Reviews bind exact proposal/baseline digests and
+require distinct reviewer identity and generation. The same provider is
+permitted only when those identities/generations are distinct. Acceptable
+review requires complete referenced-requirement coverage and no invented scope;
+revision, insufficient-evidence, and authority-conflict outcomes remain
+non-executable.
+
+This does not create a proposal or review for the current dogfood Goal, invoke
+human/policy acceptance, attach a WorkPlan, or add provider execution.

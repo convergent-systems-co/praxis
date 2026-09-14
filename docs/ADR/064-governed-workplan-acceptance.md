@@ -22,6 +22,14 @@ independent review digest, and a distinct accepting principal. The proposer
 cannot accept its own proposal. Accepted candidates must be non-model
 provenance and accepted relationships must remain within the accepted set.
 
+Proposal generation may be inference-assisted, but each candidate must retain
+explicit requirement provenance and proposer generation identity. Independent
+review is a third record: distinct reviewer identity and generation evaluate
+coverage, omitted requirements, invented scope, dependencies, granularity,
+authority boundaries, and expected evidence. Review status only determines
+whether the proposal is ready to be surfaced to acceptance authority; it never
+accepts, attaches, or activates the plan.
+
 Acceptance may be human or policy-governed. Human acceptance is required for
 ambiguous, material, or authority-sensitive decomposition unless an existing
 policy explicitly grants an independent deterministic authority to decide it.

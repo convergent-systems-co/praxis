@@ -90,6 +90,11 @@ predecessor/source-digest lineage. This operation must not create a mutable
 current pointer, infer a latest generation, or attach an accepted record to a
 different baseline.
 
+Proposal generation/review remains upstream of acceptance. The Goals package
+foundation may bind explicitly supplied proposal candidates to a verified
+baseline and the GoalStore persists an independent review record, but no
+proposal is generated from prose and no review grants execution authority.
+
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or
 unresolved acceptance is surfaced as authority insufficiency rather than

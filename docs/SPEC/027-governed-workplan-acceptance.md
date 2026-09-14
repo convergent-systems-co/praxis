@@ -7,8 +7,26 @@
 ## Proposal
 
 A proposal SHALL identify the Goal, exact baseline generation/digest, proposer,
-candidates, and typed relationships. Proposal records may be model-derived and
-are advisory only. Their digest SHALL be stable and content-addressed.
+candidates, requirement references for every candidate, and typed relationships.
+Proposal records may be model-derived and are advisory only. Their digest SHALL
+be stable and content-addressed.
+
+The current proposal foundation accepts explicitly supplied candidate records
+through the Goals package and binds them to a verified immutable baseline. It
+does not derive children from baseline prose, `PlanRef`, issue text, repository
+shape, or provider output. Such evidence may inform an upstream proposer but
+cannot replace an authoritative requirement reference.
+
+## Independent review
+
+A proposal review SHALL be a separate durable record bound to the exact
+proposal and baseline digests. It SHALL identify a reviewer principal and
+reviewer generation distinct from the proposer generation; the provider may be
+the same only when those authority identities and generations remain distinct.
+An acceptable review SHALL demonstrate complete referenced-requirement
+coverage, no missing requirements, and no invented scope. Other outcomes are
+`revision_required`, `insufficient_evidence`, or `authority_conflict`. Review
+evidence is advisory for acceptance and cannot attach or activate a WorkPlan.
 
 ## Acceptance
 

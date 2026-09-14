@@ -167,8 +167,8 @@ func TestRepositorySessionCheckpointVersionsAreImmutable(t *testing.T) {
 func workPlanProposalFixture() (contracts.WorkPlanProposal, contracts.WorkPlanAcceptance, contracts.WorkPlan) {
 	proposal := contracts.WorkPlanProposal{
 		ID: "proposal-1", GoalID: "goal-1", GoalVersion: "1", BaselineDigest: "sha256:baseline",
-		ProposedBy: contracts.PrincipalRef{ID: "planner-model", Kind: "model"},
-		Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "model:proposal", SourceDigest: "sha256:model", Provenance: contracts.ProvenanceModelProposal}},
+		ProposedBy: contracts.PrincipalRef{ID: "planner-model", Kind: "model"}, ProposerGeneration: "planner-generation-1",
+		Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "model:proposal", SourceDigest: "sha256:model", Provenance: contracts.ProvenanceModelProposal, Requirements: []contracts.RequirementRef{{ID: "req-1", SourceRef: "goal:requirement/1", SourceDigest: "sha256:req"}}}},
 	}
 	digest, _ := proposal.Digest()
 	decision := contracts.WorkPlanAcceptance{
@@ -177,7 +177,7 @@ func workPlanProposalFixture() (contracts.WorkPlanProposal, contracts.WorkPlanAc
 		AcceptanceRef: "acceptance-1", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human-reviewer", Kind: "human"},
 		ReviewDigest: "sha256:review", Mode: "human",
 	}
-	accepted := contracts.WorkPlan{BaselineDigest: proposal.BaselineDigest, Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN}}}
+	accepted := contracts.WorkPlan{BaselineDigest: proposal.BaselineDigest, Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN, Requirements: proposal.Candidates[0].Requirements}}}
 	return proposal, decision, accepted
 }
 
@@ -228,6 +228,45 @@ func TestRepositoryWorkPlanAcceptanceRejectsMissingProposal(t *testing.T) {
 	proposal, decision, accepted := workPlanProposalFixture()
 	if _, err := repo.SaveAcceptedWorkPlan(context.Background(), proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err == nil {
 		t.Fatal("acceptance without a durable proposal was authorized")
+	}
+}
+
+func TestRepositoryWorkPlanReviewBindsProposalAndSurvivesRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	ctx := context.Background()
+	keyWrapper := &wrapper{caps: praxiscrypto.Capabilities{PQ: true}}
+	db, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	proposal, _, _ := workPlanProposalFixture()
+	if _, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := proposal.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	review := contracts.WorkPlanProposalReview{ProposalDigest: digest, BaselineDigest: proposal.BaselineDigest, ReviewRef: "review-1", ReviewDigest: "sha256:review", ReviewedBy: contracts.PrincipalRef{ID: "reviewer", Kind: "agent"}, ReviewerGeneration: "reviewer-generation-1", ReviewerProvider: "same-provider-is-allowed", Status: contracts.ReviewAcceptableForAuthority, CoveredRequirements: []string{"req-1"}}
+	if err := repo.SaveWorkPlanReview(ctx, proposal.ID, "1", review, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopenedDB, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopenedDB.Close()
+	reopened := Repository{Store: state.New(reopenedDB), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	loaded, err := reopened.LoadWorkPlanReview(ctx, review.ReviewRef, "1", time.Now().UTC())
+	if err != nil || loaded.ProposalDigest != digest || loaded.Status != contracts.ReviewAcceptableForAuthority {
+		t.Fatalf("review did not survive restart: %+v err=%v", loaded, err)
+	}
+	if _, err := reopened.LoadAcceptedWorkPlan(ctx, "missing-acceptance", "1", time.Now().UTC()); err == nil {
+		t.Fatal("review unexpectedly created acceptance authority")
 	}
 }
 

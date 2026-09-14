@@ -27,13 +27,14 @@ type WorkPlan struct {
 // WorkPlanProposal is advisory decomposition. It may contain model-derived
 // candidates and edges, but it is never selector input.
 type WorkPlanProposal struct {
-	ID             string             `json:"id"`
-	GoalID         string             `json:"goal_id"`
-	GoalVersion    string             `json:"goal_version"`
-	BaselineDigest string             `json:"baseline_digest"`
-	ProposedBy     PrincipalRef       `json:"proposed_by"`
-	Candidates     []WorkCandidate    `json:"candidates,omitempty"`
-	Relationships  []WorkRelationship `json:"relationships,omitempty"`
+	ID                 string             `json:"id"`
+	GoalID             string             `json:"goal_id"`
+	GoalVersion        string             `json:"goal_version"`
+	BaselineDigest     string             `json:"baseline_digest"`
+	ProposedBy         PrincipalRef       `json:"proposed_by"`
+	ProposerGeneration string             `json:"proposer_generation"`
+	Candidates         []WorkCandidate    `json:"candidates,omitempty"`
+	Relationships      []WorkRelationship `json:"relationships,omitempty"`
 }
 
 type WorkPlanAcceptance struct {
@@ -69,6 +70,14 @@ func (p WorkPlan) Validate() error {
 			return fmt.Errorf("%w: duplicate candidate %q", ErrUnacceptedWorkPlan, candidate.ID)
 		}
 		seen[candidate.ID] = struct{}{}
+		if len(candidate.Requirements) == 0 {
+			return fmt.Errorf("%w: proposal candidate %q lacks requirement provenance", ErrUnacceptedWorkPlan, candidate.ID)
+		}
+		for _, requirement := range candidate.Requirements {
+			if err := requirement.Validate(); err != nil {
+				return err
+			}
+		}
 	}
 	for _, relationship := range p.Relationships {
 		if err := relationship.Validate(); err != nil {
@@ -103,6 +112,14 @@ func (p WorkPlanProposal) Validate() error {
 			return fmt.Errorf("%w: duplicate proposal candidate %q", ErrUnacceptedWorkPlan, candidate.ID)
 		}
 		seen[candidate.ID] = struct{}{}
+		if len(candidate.Requirements) == 0 {
+			return fmt.Errorf("%w: proposal candidate %q lacks requirement provenance", ErrUnacceptedWorkPlan, candidate.ID)
+		}
+		for _, requirement := range candidate.Requirements {
+			if err := requirement.Validate(); err != nil {
+				return err
+			}
+		}
 		if candidate.Provenance != ProvenanceModelProposal {
 			if err := candidate.Validate(); err != nil {
 				return err
@@ -119,6 +136,86 @@ func (p WorkPlanProposal) Validate() error {
 		if _, ok := seen[relationship.Prerequisite]; !ok {
 			return fmt.Errorf("%w: proposal relationship prerequisite %q is not a candidate", ErrUnacceptedWorkPlan, relationship.Prerequisite)
 		}
+		if err := relationship.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type WorkPlanReviewStatus string
+
+const (
+	ReviewAcceptableForAuthority WorkPlanReviewStatus = "acceptable_for_authority_decision"
+	ReviewRevisionRequired       WorkPlanReviewStatus = "revision_required"
+	ReviewInsufficientEvidence   WorkPlanReviewStatus = "insufficient_evidence"
+	ReviewAuthorityConflict      WorkPlanReviewStatus = "authority_conflict"
+)
+
+// WorkPlanProposalReview is independent evidence about a proposal. It never
+// creates a WorkPlan or attaches one to a Goal Baseline.
+type WorkPlanProposalReview struct {
+	ProposalDigest      string               `json:"proposal_digest"`
+	BaselineDigest      string               `json:"baseline_digest"`
+	ReviewRef           string               `json:"review_ref"`
+	ReviewDigest        string               `json:"review_digest"`
+	ReviewedBy          PrincipalRef         `json:"reviewed_by"`
+	ReviewerGeneration  string               `json:"reviewer_generation"`
+	ReviewerProvider    string               `json:"reviewer_provider,omitempty"`
+	Status              WorkPlanReviewStatus `json:"status"`
+	CoveredRequirements []string             `json:"covered_requirements,omitempty"`
+	MissingRequirements []string             `json:"missing_requirements,omitempty"`
+	InventedScope       []string             `json:"invented_scope,omitempty"`
+	Findings            []string             `json:"findings,omitempty"`
+}
+
+func (r WorkPlanProposalReview) Validate(proposal WorkPlanProposal) error {
+	proposalDigest, err := proposal.Digest()
+	if err != nil {
+		return err
+	}
+	if r.ProposalDigest != proposalDigest || r.BaselineDigest != proposal.BaselineDigest || r.ReviewRef == "" || r.ReviewDigest == "" {
+		return fmt.Errorf("%w: review must bind exact proposal, baseline, and review identity", ErrUnacceptedWorkPlan)
+	}
+	if err := r.ReviewedBy.Validate(); err != nil {
+		return err
+	}
+	if proposal.ProposerGeneration == "" || r.ReviewedBy.ID == proposal.ProposedBy.ID || r.ReviewerGeneration == "" || r.ReviewerGeneration == proposal.ProposerGeneration {
+		return fmt.Errorf("%w: reviewer identity and generation must be independent", ErrUnacceptedWorkPlan)
+	}
+	switch r.Status {
+	case ReviewAcceptableForAuthority, ReviewRevisionRequired, ReviewInsufficientEvidence, ReviewAuthorityConflict:
+	default:
+		return fmt.Errorf("%w: unknown proposal review status %q", ErrUnacceptedWorkPlan, r.Status)
+	}
+	requirements := make(map[string]struct{})
+	for _, candidate := range proposal.Candidates {
+		for _, requirement := range candidate.Requirements {
+			requirements[requirement.ID] = struct{}{}
+		}
+	}
+	seen := make(map[string]struct{})
+	for _, id := range append(append(append([]string{}, r.CoveredRequirements...), r.MissingRequirements...), r.InventedScope...) {
+		if id == "" {
+			return fmt.Errorf("%w: review finding identity is required", ErrUnacceptedWorkPlan)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("%w: duplicate review finding %q", ErrUnacceptedWorkPlan, id)
+		}
+		seen[id] = struct{}{}
+	}
+	for _, id := range r.CoveredRequirements {
+		if _, ok := requirements[id]; !ok {
+			return fmt.Errorf("%w: review covers unknown requirement %q", ErrUnacceptedWorkPlan, id)
+		}
+	}
+	for _, id := range r.MissingRequirements {
+		if _, ok := requirements[id]; !ok {
+			return fmt.Errorf("%w: review marks unknown requirement missing %q", ErrUnacceptedWorkPlan, id)
+		}
+	}
+	if r.Status == ReviewAcceptableForAuthority && (len(r.MissingRequirements) != 0 || len(r.InventedScope) != 0 || len(r.CoveredRequirements) != len(requirements)) {
+		return fmt.Errorf("%w: acceptable review requires complete requirement coverage and no invented scope", ErrUnacceptedWorkPlan)
 	}
 	return nil
 }
@@ -191,8 +288,12 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 		proposalRelationships[relationship.Dependent+"\x00"+relationship.Prerequisite+"\x00"+string(relationship.Kind)] = struct{}{}
 	}
 	for _, candidate := range accepted.Candidates {
-		if _, ok := proposalIDs[candidate.ID]; !ok {
+		proposed, ok := proposalIDs[candidate.ID]
+		if !ok {
 			return WorkPlan{}, fmt.Errorf("%w: accepted candidate %q was not proposed", ErrUnacceptedWorkPlan, candidate.ID)
+		}
+		if !sameRequirements(candidate.Requirements, proposed.Requirements) {
+			return WorkPlan{}, fmt.Errorf("%w: accepted candidate %q changed requirement provenance", ErrUnacceptedWorkPlan, candidate.ID)
 		}
 		if candidate.Provenance == ProvenanceModelProposal {
 			return WorkPlan{}, ErrInferredWorkSelection
@@ -212,6 +313,21 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 		return WorkPlan{}, err
 	}
 	return accepted, nil
+}
+
+func sameRequirements(a, b []RequirementRef) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	left, right := append([]RequirementRef(nil), a...), append([]RequirementRef(nil), b...)
+	sort.Slice(left, func(i, j int) bool { return left[i].ID < left[j].ID })
+	sort.Slice(right, func(i, j int) bool { return right[i].ID < right[j].ID })
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // MaterializeWorkPlan returns only an accepted, validated decomposition. It

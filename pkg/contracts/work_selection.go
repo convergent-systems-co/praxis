@@ -6,6 +6,21 @@ import (
 	"sort"
 )
 
+// RequirementRef binds a proposed child to an authoritative requirement
+// record. It is traceability, not execution authority.
+type RequirementRef struct {
+	ID           string `json:"id"`
+	SourceRef    string `json:"source_ref"`
+	SourceDigest string `json:"source_digest"`
+}
+
+func (r RequirementRef) Validate() error {
+	if r.ID == "" || r.SourceRef == "" || r.SourceDigest == "" {
+		return fmt.Errorf("%w: requirement identity and provenance are required", ErrInvalidWorkRelationship)
+	}
+	return nil
+}
+
 // WorkCandidate is an authoritative durable work record eligible for
 // selection. Lower Priority and Sequence values win; equal values are
 // ambiguous and fail closed rather than depending on input order.
@@ -17,6 +32,7 @@ type WorkCandidate struct {
 	SourceRef    string                 `json:"source_ref"`
 	SourceDigest string                 `json:"source_digest"`
 	Provenance   RelationshipProvenance `json:"provenance"`
+	Requirements []RequirementRef       `json:"requirements,omitempty"`
 }
 
 var (

@@ -18,6 +18,7 @@ const baselineNamespace = "goal_baseline"
 const sessionNamespace = "goal_session"
 const workPlanProposalNamespace = "work_plan_proposal"
 const workPlanAcceptanceNamespace = "work_plan_acceptance"
+const workPlanReviewNamespace = "work_plan_review"
 
 type Repository struct {
 	Store       *state.Store
@@ -251,6 +252,56 @@ type acceptedWorkPlanRecord struct {
 	Proposal contracts.WorkPlanProposal   `json:"proposal"`
 	Decision contracts.WorkPlanAcceptance `json:"decision"`
 	Plan     contracts.WorkPlan           `json:"plan"`
+}
+
+type workPlanReviewRecord struct {
+	Proposal contracts.WorkPlanProposal       `json:"proposal"`
+	Review   contracts.WorkPlanProposalReview `json:"review"`
+}
+
+// SaveWorkPlanReview persists independent advisory review evidence only after
+// reloading the exact immutable proposal. A review cannot attach or activate
+// the proposal.
+func (r Repository) SaveWorkPlanReview(ctx context.Context, proposalID, proposalVersion string, review contracts.WorkPlanProposalReview, recordVersion string, createdAt time.Time, expiresAt *time.Time) error {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return err
+	}
+	proposal, err := r.LoadWorkPlanProposal(ctx, proposalID, proposalVersion, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("load proposal for review: %w", err)
+	}
+	if err := review.Validate(proposal); err != nil {
+		return err
+	}
+	if recordVersion == "" {
+		return errors.New("work plan review version is required")
+	}
+	payload, err := json.Marshal(workPlanReviewRecord{Proposal: proposal, Review: review})
+	if err != nil {
+		return fmt.Errorf("encode WorkPlan review: %w", err)
+	}
+	if err := r.putWorkPlanBlob(ctx, workPlanReviewNamespace, review.ReviewRef, recordVersion, payload, createdAt, expiresAt); err != nil {
+		return fmt.Errorf("persist WorkPlan review: %w", err)
+	}
+	return nil
+}
+
+func (r Repository) LoadWorkPlanReview(ctx context.Context, reviewRef, version string, now time.Time) (contracts.WorkPlanProposalReview, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, workPlanReviewNamespace, reviewRef, version, now)
+	if err != nil {
+		return contracts.WorkPlanProposalReview{}, err
+	}
+	var stored workPlanReviewRecord
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return contracts.WorkPlanProposalReview{}, fmt.Errorf("decode WorkPlan review: %w", err)
+	}
+	if stored.Review.ReviewRef != reviewRef || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.WorkPlanProposalReview{}, errors.New("WorkPlan review identity or record digest mismatch")
+	}
+	if err := stored.Review.Validate(stored.Proposal); err != nil {
+		return contracts.WorkPlanProposalReview{}, fmt.Errorf("validate WorkPlan review: %w", err)
+	}
+	return stored.Review, nil
 }
 
 // SaveAcceptedWorkPlan is the durable acceptance boundary. It requires the

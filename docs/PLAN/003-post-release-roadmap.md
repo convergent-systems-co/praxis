@@ -182,6 +182,13 @@ Human-facing invocation summaries must project the durable turn record without
 conflating verification activity with progress: `NO_PROGRESS` and unchanged
 checkpoints must not be summarized as publication or parent Goal advancement.
 
+DF-029 is resolved for the currently qualified Darwin subset by ADR-066 and
+SPEC-029. The release builder now selects cgo per target, proves the native
+macOS Keychain capability in each Darwin artifact, and records target/build
+provenance. The full six-platform matrix remains intentionally blocked until
+audited Windows and Linux bootstrap backends exist; no unsupported artifact is
+published as production-ready.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs

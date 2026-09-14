@@ -77,11 +77,17 @@ deliberate:
 make package RELEASE_VERSION=v2.0.0 RELEASE_DIR=dist/v2.0.0
 ```
 
-The current builder has a known Darwin packaging boundary: its global
-`CGO_ENABLED=0` setting is incompatible with the cgo-backed Security.framework
-Keychain backend, so a non-Darwin host may fail while producing the macOS
-archive. This is reported as release-tooling evidence and is not worked around
-by weakening crypto or substituting a fake backend.
+The authoritative builder selects cgo and bootstrap capability per target.
+Until Windows/Linux native bootstrap backends are qualified, qualify the
+available Darwin subset explicitly:
+
+```bash
+make package RELEASE_VERSION=v2.0.0 RELEASE_DIR=dist/v2.0.0 \
+  RELEASE_TARGETS='darwin/amd64 darwin/arm64'
+```
+
+An unqualified full-matrix request fails closed before replacing its output
+directory. The builder does not weaken crypto or substitute a fake backend.
 
 `make clean` removes only the derived `build/` directory. It deliberately does
 not remove `dist/`, release archives, user state, bootstrap metadata, or

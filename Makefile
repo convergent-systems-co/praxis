@@ -7,6 +7,7 @@ PREFIX ?=
 DESTDIR ?=
 RELEASE_VERSION ?=
 RELEASE_DIR ?=
+RELEASE_TARGETS ?=
 
 .PHONY: build clean key-bootstrap init test test-go test-current test-attestation test-python vet fmt doctor install package release-check
 
@@ -82,7 +83,7 @@ install: build
 package:
 	@test -n "$(RELEASE_VERSION)" || (echo 'RELEASE_VERSION is required' >&2; exit 2)
 	@test -n "$(RELEASE_DIR)" || (echo 'RELEASE_DIR is required; choose an explicit derived output directory' >&2; exit 2)
-	bash scripts/build-release.sh "$(RELEASE_VERSION)" "$(RELEASE_DIR)"
+	PRAXIS_RELEASE_TARGETS="$(RELEASE_TARGETS)" bash scripts/build-release.sh "$(RELEASE_VERSION)" "$(RELEASE_DIR)"
 
 release-check: vet test-go package
 	git diff --check

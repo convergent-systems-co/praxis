@@ -543,17 +543,15 @@ dogfood Goal.
 
 ## Dogfood finding DF-029 — release-builder/macOS cgo boundary
 
-The repository Makefile's `package` target correctly delegates to the existing
-`scripts/build-release.sh`, but qualification of that wrapper exposed an
-existing release-tooling defect. The builder sets `CGO_ENABLED=0` for every
-target. The Darwin build therefore includes the `darwin` platform registration
-but excludes the cgo-backed Security.framework Keychain implementation, and
-fails with `undefined: NewMacOSKeychainBackend` before producing archives.
+The repository Makefile's `package` target initially exposed an existing
+release-tooling defect: `scripts/build-release.sh` forced `CGO_ENABLED=0` for
+every target, so Darwin builds excluded the cgo-backed Security.framework
+Keychain implementation and failed with `undefined:
+NewMacOSKeychainBackend`.
 
-This is not permission to add a weaker Keychain implementation, disable the
-macOS backend, or treat a non-Darwin artifact as macOS qualification. It is a
-deferred packaging/release-tooling seam: the builder needs a governed strategy
-for producing Darwin artifacts with the native backend (or an explicitly
-qualified platform build process) while preserving the existing crypto
-boundary. No release artifact, protected branch, or historical evidence was
-modified.
+ADR-066/SPEC-029 resolve the currently qualified seam in the authoritative
+builder. Darwin targets use cgo, require the native Keychain capability, are
+checked from an unstripped capability probe, and record target/toolchain
+provenance. The full matrix remains fail-closed until audited Windows and Linux
+bootstrap backends exist. No weaker backend, release artifact, protected branch,
+or historical evidence was substituted or modified.

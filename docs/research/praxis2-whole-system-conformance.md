@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-crypto-lifecycle-v1.json`
-- Latest frozen result digest: `sha256:b88741d2258b164686128cd961dcfc339832c3232ebc7bdc631b87ee448c02ad`
+- Latest accepted remediation result: `docs/research/conformance/blind-untrusted-content-boundary-v1.json`
+- Latest frozen result digest: `sha256:95c68ef247dca2069418f45990ddc0f04e427112d66258e32ce83c42b1537178`
 
 ## Method and denominator
 
@@ -256,3 +256,14 @@ and contains no secret bytes. The blind result
 `sha256:b88741d2258b164686128cd961dcfc339832c3232ebc7bdc631b87ee448c02ad`
 and independently advances OI-032. Totals are now 32 satisfied and 6
 indeterminate; OI-025 through OI-030 remain open.
+
+The untrusted-content boundary then received successor execution attestation
+`docs/research/conformance/attestations/untrusted-content-boundary-v1.json`.
+The typed proposal preserves source provenance and untrusted trust through an
+observation-only memory candidate, rejects content claiming policy or human
+authority, and refuses to mint an action intent. The blind result
+`docs/research/conformance/blind-untrusted-content-boundary-v1.json` is frozen
+at `sha256:95c68ef247dca2069418f45990ddc0f04e427112d66258e32ce83c42b1537178`
+and independently advances OI-029 without claiming model-level prompt
+injection detection. Totals are now 33 satisfied and 5 indeterminate; OI-025,
+OI-026, OI-027, OI-028, and OI-030 remain open.

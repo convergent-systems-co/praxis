@@ -115,6 +115,7 @@ const (
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v1.json"
 	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v1.json"
 	cryptoLifecycleAttestation  = "docs/research/conformance/attestations/crypto-lifecycle-v1.json"
+	trustBoundaryAttestation   = "docs/research/conformance/attestations/untrusted-content-boundary-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -132,6 +133,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "agent-lineage-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-008"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart"},
 		{ID: "goal-process-discovery-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/processresolver", ClaimIDs: []string{"OI-003"}, AttestationRef: "docs/research/conformance/attestations/goal-process-discovery.json", Observation: "TestGoalProcessDiscoveryResolvesAndExecutesAllModes"},
 		{ID: "agent-memory", Kind: "security_test", Stage: StageBehavior, Ref: "internal/agent/memory_test.go", ClaimIDs: []string{"OI-007", "OI-029"}},
+		{ID: "untrusted-content-boundary", Kind: "security_test", Stage: StageIntegration, Ref: "internal/trustboundary", ClaimIDs: []string{"OI-029"}, AttestationRef: trustBoundaryAttestation, Observation: "TestUntrustedContentRemainsDataThroughMemoryAndAuthorityBoundary"},
 		{ID: "learning-extraction-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-004"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle"},
 		{ID: "prompt-retirement-runtime", Kind: "runtime_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-005"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle"},
 		{ID: "learning-promotion", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-010"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestGenerationPromotionAndRollbackSurviveRestart"},

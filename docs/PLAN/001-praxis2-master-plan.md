@@ -512,6 +512,14 @@ rotation with retained historical verification; revocation; and rejection of
 unauthorized operations. No private key material enters the serialized key
 reference or generic authorization path.
 
+OI-029 is satisfied in `blind-untrusted-content-boundary-v1.json`, digest
+`sha256:95c68ef247dca2069418f45990ddc0f04e427112d66258e32ce83c42b1537178`.
+The typed proposal boundary preserves untrusted provenance and trust when
+creating an observation-only memory candidate, rejects content claiming policy
+or human authority, and cannot mint an action intent. This closes the
+content-to-proposal-to-memory-to-authority path without claiming prompt-level
+injection detection.
+
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
@@ -566,6 +574,7 @@ Implemented in this reopened wave:
 - dynamic CLI lifecycle attestation `dynamic-cli-lifecycle-v1.json` and blind result `blind-dynamic-cli-lifecycle-v1.json`; OI-035 is satisfied and the unchanged 38-claim denominator records 30 satisfied / 8 indeterminate
 - universal package lifecycle attestation `universal-package-lifecycle-v1.json` and blind result `blind-universal-package-lifecycle-v1.json`; OI-037 is satisfied and the unchanged 38-claim denominator records 31 satisfied / 7 indeterminate
 - crypto lifecycle attestation `crypto-lifecycle-v1.json` and blind result `blind-crypto-lifecycle-v1.json`; OI-032 is satisfied and the unchanged 38-claim denominator records 32 satisfied / 6 indeterminate
+- untrusted-content boundary attestation `untrusted-content-boundary-v1.json` and blind result `blind-untrusted-content-boundary-v1.json`; OI-029 is satisfied and the unchanged 38-claim denominator records 33 satisfied / 5 indeterminate
 
 ## Completion calculation
 

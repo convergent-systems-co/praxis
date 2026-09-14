@@ -37,6 +37,13 @@ remains eligible as caller-supplied work input; it does not authorize a second
 selection or an implicit execution loop. The selected objective SHALL be
 recorded in the turn ledger.
 
+The readiness assessment SHALL retain each incomplete candidate's readiness and
+blocking prerequisites and derive the parent work-set state from the whole
+candidate set: `runnable`, `blocked`, or `complete`. One blocked child SHALL
+NOT make a ready sibling globally blocked. An empty, ambiguous, or
+insufficiently authoritative candidate set SHALL fail closed rather than
+fabricating a child unit.
+
 ## Acceptance evidence
 
 Tests SHALL prove that authoritative hard dependencies block and unblock work,

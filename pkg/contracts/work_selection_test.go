@@ -34,3 +34,22 @@ func TestSelectRunnableWorkReportsNoRunnableCandidate(t *testing.T) {
 		t.Fatalf("blocked work must not be selected: %v", err)
 	}
 }
+
+func TestAssessWorkCandidatesPreservesPartialBlockersAndParentState(t *testing.T) {
+	assessment, err := AssessWorkCandidates([]WorkCandidate{candidate("blocked", 0, 0, false), candidate("ready", 1, 0, false)}, []WorkRelationship{{Dependent: "blocked", Prerequisite: "missing", Kind: RelationshipHardDependency, SourceRef: "docs/PLAN/003-post-release-roadmap.md", SourceDigest: "sha256:roadmap", Provenance: ProvenancePLAN}})
+	if err != nil || assessment.State != WorkSetRunnable || assessment.Selected == nil || assessment.Selected.ID != "ready" {
+		t.Fatalf("partial blocker incorrectly changed parent readiness: %+v err=%v", assessment, err)
+	}
+	if len(assessment.Candidates) != 2 || assessment.Candidates[0].Readiness != WorkBlocked || len(assessment.Candidates[0].BlockedBy) != 1 {
+		t.Fatalf("child blocker evidence was not preserved: %+v", assessment.Candidates)
+	}
+
+	blocked, err := AssessWorkCandidates([]WorkCandidate{candidate("blocked", 0, 0, false)}, []WorkRelationship{{Dependent: "blocked", Prerequisite: "missing", Kind: RelationshipHardDependency, SourceRef: "docs/PLAN/003-post-release-roadmap.md", SourceDigest: "sha256:roadmap", Provenance: ProvenancePLAN}})
+	if err != nil || blocked.State != WorkSetBlocked || blocked.Selected != nil {
+		t.Fatalf("all-blocked parent state mismatch: %+v err=%v", blocked, err)
+	}
+	complete, err := AssessWorkCandidates([]WorkCandidate{candidate("done", 0, 0, true)}, nil)
+	if err != nil || complete.State != WorkSetComplete || complete.Selected != nil {
+		t.Fatalf("all-complete parent state mismatch: %+v err=%v", complete, err)
+	}
+}

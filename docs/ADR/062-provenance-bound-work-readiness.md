@@ -36,6 +36,11 @@ selection runs once before the worker turn. The selected candidate is recorded
 in the turn ledger; selection does not create an internal loop. An explicit
 authoritative child objective remains supported.
 
+Parent work status is derived from the complete authoritative candidate set:
+`runnable` when at least one candidate is ready, `blocked` when incomplete
+candidates exist but none is ready, and `complete` when all candidates are
+complete. A blocked child must not make a ready sibling globally blocked.
+
 ## Consequences
 
 The roadmap can preserve nuanced dependency language without losing selection

@@ -207,6 +207,16 @@ execution obligations. DF-003/#103 remains blocked at that boundary, and
 DF-004 remains the missing external key-provider authority. No requirement is
 removed or reassigned to make #103 complete.
 
+## Dogfood finding DF-010 — parent blocker granularity
+
+The selector already handles partial blocking correctly when given an
+authoritative candidate set: it selects a ready sibling rather than treating
+one blocked child as a globally blocked parent. The prior #103 audit was a
+coarse capability classification, not a durable parent-state record. The
+selection contract now exposes child readiness/blocking evidence and derives
+`runnable`, `blocked`, or `complete` from the full set; no #103 child records
+are fabricated when the production invocation boundary lacks them.
+
 ## Dogfood finding DF-009 — synthetic turn was reported as durable execution
 
 The selection-to-worker test selected `ready` and passed it to

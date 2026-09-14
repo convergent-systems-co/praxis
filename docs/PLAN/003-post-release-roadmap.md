@@ -70,6 +70,10 @@ The controller must consume a provenance-bound runnable candidate set and
 select one unit deterministically by readiness, priority, and sequence;
 ambiguous or insufficient authoritative state must fail closed.
 
+Parent readiness must retain child-level blocked evidence and derive
+`runnable`, `blocked`, or `complete` from the full authoritative candidate set;
+one blocked child must not suppress a ready sibling.
+
 Dogfood evidence must distinguish test-local controller ledger records from
 restart-readable production turn records and repository-backed checkpoint
 publication. A fake worker or in-memory store is not release or Goal-progress

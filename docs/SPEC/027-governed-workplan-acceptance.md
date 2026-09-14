@@ -103,6 +103,14 @@ repository boundary does not itself create a proposal, perform independent
 review, attach a WorkPlan to a Goal Baseline, or grant public invocation
 authority; those are separate governed operations.
 
+An `AuthorityDecision` MAY be invalidated only by an immutable
+exact-decision-bound `AuthorityRevocation`; the original decision SHALL remain
+available as audit evidence. Effective decision loads SHALL fail closed after
+the revocation effective time, and revocation records SHALL not expire. The
+acceptance and successor-attachment transitions SHALL revalidate effective
+authority. Principal-wide and policy-wide revocation remain the responsibility
+of their governing registries and cannot be inferred from a decision record.
+
 Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an
 accepted set exists, ADR-062/SPEC-025 alone determine child readiness and
@@ -114,6 +122,9 @@ Goal-drive does not interpret them as execution authority.
 Decision consumption SHALL be distinct from successor-baseline attachment.
 The acceptance record retains the request/decision-linked authority evidence;
 attachment later reloads that accepted record and the exact source baseline.
+An already attached baseline remains immutable historical evidence; later
+revocation does not rewrite completed work or the baseline. Future execution
+must continue to use its applicable runtime policy/lease checks.
 
 ## Acceptance evidence
 

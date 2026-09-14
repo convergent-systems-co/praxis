@@ -22,6 +22,9 @@ const workPlanAcceptanceNamespace = "work_plan_acceptance"
 const workPlanReviewNamespace = "work_plan_review"
 const authorityRequestNamespace = "authority_request"
 const authorityDecisionNamespace = "authority_decision"
+const authorityRevocationNamespace = "authority_revocation"
+
+var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
 
 type Repository struct {
 	Store       *state.Store
@@ -125,6 +128,14 @@ func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, source
 	}
 	if plan.BaselineDigest != source.Digest {
 		return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan source baseline differs: %w", goals.ErrBaselineDigestMismatch)
+	}
+	if plan.AuthorityRequestID != "" {
+		if plan.AuthorityRequestVersion == "" || plan.AuthorityDecisionRef == "" || plan.AuthorityDecisionVersion == "" {
+			return goals.GoalBaseline{}, errors.New("accepted WorkPlan authority lineage is incomplete")
+		}
+		if _, err := r.LoadAuthorityDecision(ctx, plan.AuthorityRequestID, plan.AuthorityRequestVersion, time.Now().UTC()); err != nil {
+			return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan authority is no longer effective: %w", err)
+		}
 	}
 	successor := source
 	successor.Version = successorVersion
@@ -394,6 +405,8 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 		AuthorityRef: request.RequestedAuthority, AuthorityDigest: authorityDecision.AuthorityDigest,
 		AcceptanceRef: acceptanceRef, AcceptanceDigest: authorityAcceptanceDigest(request, authorityDecision, acceptanceRef, acceptanceVersion),
 		AcceptedBy: authorityDecision.DecidedBy, AuthorityScope: authorityDecision.GrantedScope,
+		AuthorityRequestID: request.ID, AuthorityRequestVersion: request.Version,
+		AuthorityDecisionRef: authorityDecision.DecisionRef, AuthorityDecisionVersion: authorityDecision.DecisionVersion,
 		ReviewRef: request.ReviewRef, ReviewVersion: request.ReviewVersion, ReviewDigest: request.ReviewDigest, Mode: mode,
 	}
 	if existing, loadErr := r.LoadAcceptedWorkPlan(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC()); loadErr == nil {
@@ -433,6 +446,54 @@ func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, ver
 		return contracts.WorkPlan{}, fmt.Errorf("validate accepted WorkPlan: %w", err)
 	}
 	return plan, nil
+}
+
+// SaveAuthorityRevocation appends an immutable revocation record for one exact
+// authority decision. It never rewrites the original decision; effective
+// authority is determined by consulting this record at authority boundaries.
+func (r Repository) SaveAuthorityRevocation(ctx context.Context, requestID, requestVersion string, revocation contracts.AuthorityRevocation, createdAt time.Time, expiresAt *time.Time) error {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return err
+	}
+	if expiresAt != nil {
+		return errors.New("authority revocation cannot expire")
+	}
+	decision, err := r.LoadAuthorityDecisionEvidence(ctx, requestID, requestVersion, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("load authority decision for revocation: %w", err)
+	}
+	if err := revocation.Validate(decision); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(authorityRevocationRecord{Decision: decision, Revocation: revocation})
+	if err != nil {
+		return fmt.Errorf("encode authority revocation: %w", err)
+	}
+	if err := r.putWorkPlanBlob(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt); err != nil {
+		return fmt.Errorf("persist authority revocation: %w", err)
+	}
+	return nil
+}
+
+func (r Repository) LoadAuthorityRevocation(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityRevocation, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityRevocationNamespace, requestID, requestVersion, now)
+	if err != nil {
+		return contracts.AuthorityRevocation{}, err
+	}
+	var stored authorityRevocationRecord
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return contracts.AuthorityRevocation{}, fmt.Errorf("decode authority revocation: %w", err)
+	}
+	if stored.Revocation.RequestID != requestID || stored.Revocation.RequestVersion != requestVersion || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.AuthorityRevocation{}, errors.New("authority revocation identity or digest mismatch")
+	}
+	if err := stored.Revocation.Validate(stored.Decision); err != nil {
+		return contracts.AuthorityRevocation{}, fmt.Errorf("validate authority revocation: %w", err)
+	}
+	if !now.IsZero() && !now.Before(stored.Revocation.EffectiveAt) {
+		return stored.Revocation, nil
+	}
+	return contracts.AuthorityRevocation{}, state.ErrSecureBlobNotFound
 }
 
 func authorityAcceptanceDigest(request contracts.AuthorityRequest, decision contracts.AuthorityDecision, acceptanceRef, acceptanceVersion string) string {
@@ -529,6 +590,11 @@ type authorityDecisionRecord struct {
 	Decision contracts.AuthorityDecision `json:"decision"`
 }
 
+type authorityRevocationRecord struct {
+	Decision   contracts.AuthorityDecision   `json:"decision"`
+	Revocation contracts.AuthorityRevocation `json:"revocation"`
+}
+
 // SaveAuthorityDecision is the explicit structured decision boundary. The
 // request is reloaded by immutable identity; the decision is stored under that
 // same identity/version so conflicting second decisions cannot be recorded.
@@ -567,6 +633,22 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 }
 
 func (r Repository) LoadAuthorityDecision(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityDecision, error) {
+	decision, err := r.LoadAuthorityDecisionEvidence(ctx, requestID, requestVersion, now)
+	if err != nil {
+		return contracts.AuthorityDecision{}, err
+	}
+	if _, err := r.LoadAuthorityRevocation(ctx, requestID, requestVersion, now); err == nil {
+		return contracts.AuthorityDecision{}, ErrAuthorityDecisionRevoked
+	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+		return contracts.AuthorityDecision{}, fmt.Errorf("check authority revocation: %w", err)
+	}
+	return decision, nil
+}
+
+// LoadAuthorityDecisionEvidence returns the immutable original decision even
+// after revocation, for audit. Callers seeking effective authority must use
+// LoadAuthorityDecision, which applies expiry and revocation.
+func (r Repository) LoadAuthorityDecisionEvidence(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityDecision, error) {
 	payload, record, err := r.loadWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, now)
 	if err != nil {
 		return contracts.AuthorityDecision{}, err

@@ -2,6 +2,7 @@ package goalstore
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -390,6 +391,23 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	replayed, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, request.ID, request.Version, accepted, "acceptance-authority-1", "1", time.Now().UTC(), nil)
 	if err != nil || replayed.AcceptanceRef != acceptedPlan.AcceptanceRef {
 		t.Fatalf("identical authority-backed acceptance was not idempotent: %+v err=%v", replayed, err)
+	}
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	revocation := contracts.AuthorityRevocation{RequestID: request.ID, RequestVersion: request.Version, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, RevocationRef: "revocation-1", RevocationVersion: "1", RevokedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, AuthorityDigest: "sha256:operator-revocation", EffectiveAt: time.Now().UTC(), Reason: "authority withdrawn before attachment"}
+	if err := repo.SaveAuthorityRevocation(ctx, request.ID, request.Version, revocation, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadAuthorityDecision(ctx, request.ID, request.Version, time.Now().UTC()); !errors.Is(err, ErrAuthorityDecisionRevoked) {
+		t.Fatalf("revoked authority remained effective: %v", err)
+	}
+	if evidence, err := repo.LoadAuthorityDecisionEvidence(ctx, request.ID, request.Version, time.Now().UTC()); err != nil || evidence.DecisionRef != decision.DecisionRef {
+		t.Fatalf("historical decision evidence was not retained: %+v err=%v", evidence, err)
+	}
+	if _, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, request.ID, request.Version, accepted, "acceptance-after-revoke", "1", time.Now().UTC(), nil); err == nil {
+		t.Fatal("revoked authority was consumed into a new acceptance")
 	}
 	rejectedRequest := request
 	rejectedRequest.ID = "request-reject-1"

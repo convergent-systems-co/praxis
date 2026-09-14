@@ -396,3 +396,19 @@ Goal Baseline or create records for the current dogfood Goal. Expiry is
 enforced by decision loading; revocation remains an external authority-state
 integration seam because the current immutable decision contract has no
 revocation registry.
+
+## Dogfood finding DF-020 — exact authority-decision revocation
+
+DF-019 left accepted authority permanently effective because the generic
+decision store had expiry but no revocation state. Existing lease, approval,
+key, and package registries demonstrate revocation patterns, but none governs
+WorkPlan authority decisions.
+
+The bounded correction adds an immutable exact-decision-bound
+`AuthorityRevocation` record. Effective decision loads fail closed after its
+effective time; audit loads retain the original decision; acceptance and
+successor attachment revalidate effective authority. Revocation is intentionally
+scoped to one decision. Principal/policy-wide revocation remains with its
+existing authority registry, and already-attached immutable baselines are not
+rewritten. Atomic cross-record revoke/consume transactions and public
+supervision remain later integration seams.

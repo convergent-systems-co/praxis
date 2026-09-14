@@ -86,6 +86,14 @@ WorkPlan. Repeating the same acceptance identity with the same resulting plan
 is idempotent; reuse against another generation or proposal fails closed.
 Successor-baseline attachment remains a separate transition.
 
+Revocation is a separate append-only record bound to one exact decision,
+request identity/version, decision identity/version, and decision digest. It
+changes effective authority at a stated time without rewriting the original
+decision. Acceptance and successor attachment must consult effective authority;
+principal-wide or policy-wide revocation remains with those registries. An
+already attached immutable baseline and completed work remain auditable and are
+not rewritten by later revocation.
+
 ## Consequences
 
 Inference can improve liveness by proposing decomposition without minting

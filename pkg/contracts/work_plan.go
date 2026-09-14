@@ -13,15 +13,19 @@ import (
 // baseline. A model may propose candidates, but only a plan persisted with an
 // authority reference can be materialized for controller selection.
 type WorkPlan struct {
-	BaselineDigest   string             `json:"baseline_digest"`
-	AuthorityRef     string             `json:"authority_ref"`
-	AuthorityDigest  string             `json:"authority_digest"`
-	AcceptanceRef    string             `json:"acceptance_ref"`
-	AcceptanceDigest string             `json:"acceptance_digest"`
-	AcceptedBy       PrincipalRef       `json:"accepted_by"`
-	ProposalDigest   string             `json:"proposal_digest"`
-	Candidates       []WorkCandidate    `json:"candidates,omitempty"`
-	Relationships    []WorkRelationship `json:"relationships,omitempty"`
+	BaselineDigest           string             `json:"baseline_digest"`
+	AuthorityRef             string             `json:"authority_ref"`
+	AuthorityDigest          string             `json:"authority_digest"`
+	AcceptanceRef            string             `json:"acceptance_ref"`
+	AcceptanceDigest         string             `json:"acceptance_digest"`
+	AcceptedBy               PrincipalRef       `json:"accepted_by"`
+	ProposalDigest           string             `json:"proposal_digest"`
+	AuthorityRequestID       string             `json:"authority_request_id,omitempty"`
+	AuthorityRequestVersion  string             `json:"authority_request_version,omitempty"`
+	AuthorityDecisionRef     string             `json:"authority_decision_ref,omitempty"`
+	AuthorityDecisionVersion string             `json:"authority_decision_version,omitempty"`
+	Candidates               []WorkCandidate    `json:"candidates,omitempty"`
+	Relationships            []WorkRelationship `json:"relationships,omitempty"`
 }
 
 // WorkPlanProposal is advisory decomposition. It may contain model-derived
@@ -38,18 +42,22 @@ type WorkPlanProposal struct {
 }
 
 type WorkPlanAcceptance struct {
-	ProposalDigest   string       `json:"proposal_digest"`
-	BaselineDigest   string       `json:"baseline_digest"`
-	AuthorityRef     string       `json:"authority_ref"`
-	AuthorityDigest  string       `json:"authority_digest"`
-	AcceptanceRef    string       `json:"acceptance_ref"`
-	AcceptanceDigest string       `json:"acceptance_digest"`
-	AcceptedBy       PrincipalRef `json:"accepted_by"`
-	AuthorityScope   string       `json:"authority_scope"`
-	ReviewRef        string       `json:"review_ref"`
-	ReviewVersion    string       `json:"review_version"`
-	ReviewDigest     string       `json:"review_digest"`
-	Mode             string       `json:"mode"` // human or policy
+	ProposalDigest           string       `json:"proposal_digest"`
+	BaselineDigest           string       `json:"baseline_digest"`
+	AuthorityRef             string       `json:"authority_ref"`
+	AuthorityDigest          string       `json:"authority_digest"`
+	AcceptanceRef            string       `json:"acceptance_ref"`
+	AcceptanceDigest         string       `json:"acceptance_digest"`
+	AcceptedBy               PrincipalRef `json:"accepted_by"`
+	AuthorityScope           string       `json:"authority_scope"`
+	ReviewRef                string       `json:"review_ref"`
+	ReviewVersion            string       `json:"review_version"`
+	ReviewDigest             string       `json:"review_digest"`
+	AuthorityRequestID       string       `json:"authority_request_id,omitempty"`
+	AuthorityRequestVersion  string       `json:"authority_request_version,omitempty"`
+	AuthorityDecisionRef     string       `json:"authority_decision_ref,omitempty"`
+	AuthorityDecisionVersion string       `json:"authority_decision_version,omitempty"`
+	Mode                     string       `json:"mode"` // human or policy
 }
 
 var ErrUnacceptedWorkPlan = errors.New("work plan is not an accepted authoritative decomposition")
@@ -312,6 +320,10 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 	accepted.AuthorityRef, accepted.AuthorityDigest = decision.AuthorityRef, decision.AuthorityDigest
 	accepted.AcceptanceRef, accepted.AcceptanceDigest = decision.AcceptanceRef, decision.AcceptanceDigest
 	accepted.AcceptedBy, accepted.ProposalDigest = decision.AcceptedBy, proposalDigest
+	accepted.AuthorityRequestID = decision.AuthorityRequestID
+	accepted.AuthorityRequestVersion = decision.AuthorityRequestVersion
+	accepted.AuthorityDecisionRef = decision.AuthorityDecisionRef
+	accepted.AuthorityDecisionVersion = decision.AuthorityDecisionVersion
 	if err := accepted.Validate(); err != nil {
 		return WorkPlan{}, err
 	}

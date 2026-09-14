@@ -88,6 +88,49 @@ type AuthorityDecision struct {
 	ExpiresAt       *time.Time               `json:"expires_at,omitempty"`
 }
 
+func (d AuthorityDecision) Digest() (string, error) {
+	if d.RequestID == "" || d.RequestVersion == "" || d.RequestDigest == "" || d.DecisionRef == "" || d.DecisionVersion == "" {
+		return "", errors.New("authority decision identity is required")
+	}
+	payload, err := json.Marshal(d)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+type AuthorityRevocation struct {
+	RequestID         string       `json:"request_id"`
+	RequestVersion    string       `json:"request_version"`
+	DecisionRef       string       `json:"decision_ref"`
+	DecisionVersion   string       `json:"decision_version"`
+	DecisionDigest    string       `json:"decision_digest"`
+	RevocationRef     string       `json:"revocation_ref"`
+	RevocationVersion string       `json:"revocation_version"`
+	RevokedBy         PrincipalRef `json:"revoked_by"`
+	AuthorityDigest   string       `json:"authority_digest"`
+	EffectiveAt       time.Time    `json:"effective_at"`
+	Reason            string       `json:"reason"`
+}
+
+func (r AuthorityRevocation) Validate(decision AuthorityDecision) error {
+	digest, err := decision.Digest()
+	if err != nil {
+		return err
+	}
+	if r.RequestID != decision.RequestID || r.RequestVersion != decision.RequestVersion || r.DecisionRef != decision.DecisionRef || r.DecisionVersion != decision.DecisionVersion || r.DecisionDigest != digest || r.RevocationRef == "" || r.RevocationVersion == "" || r.AuthorityDigest == "" || r.Reason == "" || r.EffectiveAt.IsZero() {
+		return errors.New("authority revocation does not bind the exact decision")
+	}
+	if err := r.RevokedBy.Validate(); err != nil {
+		return err
+	}
+	if r.RevokedBy.Kind != "human" && r.RevokedBy.Kind != "policy" && r.RevokedBy.Kind != "controller" {
+		return errors.New("authority revocation principal is not a governance authority")
+	}
+	return nil
+}
+
 func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) error {
 	digest, err := request.Digest()
 	if err != nil {

@@ -59,6 +59,9 @@ func (unsupportedPackageRegistry) InstalledPackages(context.Context) ([]Installe
 func (unsupportedPackageRegistry) ActivePackage(context.Context, string) (InstalledPackage, error) {
 	return InstalledPackage{}, errors.New("provider does not support package registry")
 }
+func (unsupportedPackageRegistry) SelectedPackage(context.Context, string) (InstalledPackage, error) {
+	return InstalledPackage{}, errors.New("provider does not support package registry")
+}
 
 func RequireEvents(provider Provider, required ...Capability) (eventstore.Store, error) {
 	if provider == nil {

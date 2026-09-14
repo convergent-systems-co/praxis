@@ -1,30 +1,39 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/distribution"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
+	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 func signedFixtureRelease(t *testing.T, profile contracts.CryptoProfile) (distribution.Release, []byte, string) {
 	t.Helper()
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "acme/pkg", Version: "1"}
+	return signedManifestRelease(t, manifest, []byte("package-payload"), profile)
+}
+
+func signedManifestRelease(t *testing.T, manifest packagecatalog.Manifest, artifact []byte, profile contracts.CryptoProfile) (distribution.Release, []byte, string) {
+	t.Helper()
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact := []byte("package-payload")
 	sum := sha256.Sum256(artifact)
 	artifactDigest := "sha256:" + hex.EncodeToString(sum[:])
-	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "acme/pkg", Version: "1", ContentDigest: artifactDigest}
+	manifest.ContentDigest = artifactDigest
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -47,10 +56,115 @@ func signedFixtureRelease(t *testing.T, profile contracts.CryptoProfile) (distri
 		t.Fatal(err)
 	}
 	return distribution.Release{
+		Ref:            distribution.PackageRef{Source: "github-releases", Owner: "acme", Repo: "pkg"},
 		ManifestDigest: manifestDigest,
 		Manifest:       manifest, ManifestBytes: manifestBytes,
 		Signature: envelope,
 	}, artifact, string(keysJSON)
+}
+
+func activateDynamicFixture(t *testing.T, ctx context.Context, db *sql.DB, manifest packagecatalog.Manifest, alias string, now time.Time) packagecatalog.Manifest {
+	t.Helper()
+	manifest.Invocations = []contracts.InvocationContract{{Version: contracts.InvocationContractCurrentVersion(), PackageID: manifest.PackageID, PackageVersion: manifest.Version, GraphID: manifest.PackageID + ".graph", GraphVersion: manifest.Version, EntryPointID: manifest.PackageID + ".run", Aliases: []string{alias}, Options: []contracts.InvocationOption{{Name: "mode", Type: "string", Default: "safe"}}}}
+	release, artifact, trusted := signedManifestRelease(t, manifest, []byte("package:"+manifest.PackageID+"@"+manifest.Version), contracts.CryptoClassicalCompatible)
+	verified, err := verifyReleasePackage(release, artifact, func(key string) string {
+		if key == "PRAXIS_TRUSTED_KEYS" {
+			return trusted
+		}
+		return ""
+	}, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := contracts.PrincipalRef{ID: "operator", Kind: "user"}
+	intent, err := packagecatalog.NewActivationIntent(verified, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	approvalID := "approval:" + manifest.Version
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, approvalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.New(db).ActivatePackage(ctx, packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: approvalID}, now); err != nil {
+		t.Fatal(err)
+	}
+	return release.Manifest
+}
+
+func TestDynamicInvocationFollowsExactActiveGenerationAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 13, 22, 0, 0, 0, time.UTC)
+	v1 := activateDynamicFixture(t, ctx, db, packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/dynamic", Version: "1"}, "investigate", now)
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	getenv := func(key string) string {
+		if key == "PRAXIS_DB" {
+			return path
+		}
+		return ""
+	}
+	resolved, err := resolveDynamicInvocation(ctx, []string{"investigate", "topic", "--mode=deep"}, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.PackageID != v1.PackageID || resolved.PackageVersion != "1" || resolved.PackageDigest != v1.ContentDigest || resolved.GraphVersion != "1" || resolved.Options["mode"] != "deep" {
+		t.Fatalf("dynamic client lost exact active generation: %+v", resolved)
+	}
+
+	db, err = state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2 := activateDynamicFixture(t, ctx, db, packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/dynamic", Version: "2"}, "investigate-v2", now.Add(time.Minute))
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveDynamicInvocation(ctx, []string{"investigate"}, getenv); err == nil {
+		t.Fatal("stale projected alias resolved after package generation changed")
+	}
+	resolved, err = resolveDynamicInvocation(ctx, []string{"investigate-v2"}, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.PackageVersion != "2" || resolved.PackageDigest != v2.ContentDigest || resolved.GraphVersion != "2" {
+		t.Fatalf("updated command did not atomically follow v2: %+v", resolved)
+	}
+
+	db, err = state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := contracts.PrincipalRef{ID: "operator", Kind: "user"}
+	transition, err := packagecatalog.NewTransitionRequest(packagecatalog.PackageIdentity{PackageID: v2.PackageID, Version: v2.Version, ContentDigest: v2.ContentDigest}, packagecatalog.TransitionDisable, actor, "approval:disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := transition.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, transition.ApprovalID, actor.ID, actor.Kind, digest, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.New(db).TransitionPackage(ctx, transition, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveDynamicInvocation(ctx, []string{"investigate-v2"}, getenv); err == nil {
+		t.Fatal("disabled package command resolved after restart")
+	}
 }
 
 func TestVerifyReleasePackageRequiresLocallyTrustedSignature(t *testing.T) {

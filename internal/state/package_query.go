@@ -176,3 +176,22 @@ func (s *Store) ActivePackage(ctx context.Context, packageID string) (InstalledP
 	}
 	return p, nil
 }
+
+// SelectedPackage returns the generation currently governing package
+// lifecycle operations. Disabled packages remain selectable for governed
+// removal; removed and superseded installed generations do not.
+func (s *Store) SelectedPackage(ctx context.Context, packageID string) (InstalledPackage, error) {
+	if s == nil || s.db == nil || packageID == "" {
+		return InstalledPackage{}, errors.New("state store and package id are required")
+	}
+	var body []byte
+	var p InstalledPackage
+	err := s.db.QueryRowContext(ctx, `SELECT manifest_json,state,source_kind,source_ref FROM installed_packages WHERE package_id=? AND state IN ('active','disabled') ORDER BY CASE state WHEN 'active' THEN 0 ELSE 1 END,activated_at DESC LIMIT 1`, packageID).Scan(&body, &p.State, &p.SourceKind, &p.SourceRef)
+	if err != nil {
+		return InstalledPackage{}, err
+	}
+	if err := json.Unmarshal(body, &p.Manifest); err != nil {
+		return InstalledPackage{}, fmt.Errorf("decode selected installed package: %w", err)
+	}
+	return p, nil
+}

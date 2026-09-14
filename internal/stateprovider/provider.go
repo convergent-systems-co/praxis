@@ -75,6 +75,7 @@ type PackageRegistry interface {
 	ResolveContent(ctx context.Context, kind packagecatalog.ContentKind, id, version string) (RegisteredContent, error)
 	InstalledPackages(ctx context.Context) ([]InstalledPackage, error)
 	ActivePackage(ctx context.Context, packageID string) (InstalledPackage, error)
+	SelectedPackage(ctx context.Context, packageID string) (InstalledPackage, error)
 }
 
 type Provider interface {

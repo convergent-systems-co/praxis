@@ -1,0 +1,53 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./cmd/praxis",
+    "./internal/distribution",
+    "./internal/packagecatalog",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T00:38:03.063213Z",
+  "finished_at": "2026-09-14T00:38:03.715577Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-lifecycle-v7.log",
+  "output_digest": "sha256:2a3ad72c22dc4080b21865440e487063bcc4fa26a8b972148a03e2647976a145",
+  "source_digests": {
+    "cmd/praxis": "sha256:0fe76c8afbfc4a0cd9ad63b0ab04a02262e576a0868803f5116874082133d016",
+    "internal/distribution": "sha256:c657baedbd6260286d8d60a873af104f6bdd0f1b56600e5729b3b00f9c2fc914",
+    "internal/packagecatalog": "sha256:20eaedb2007c76439f57df8b91e6b79338b678ffddec7af2444940949241fd2d",
+    "internal/state": "sha256:80df7359acd3cb0a8022d043e4dc29ea6f0449652d84572634e2768bcaad66e3",
+    "internal/stateprovider": "sha256:03b0050c6b194d7bc0aa3e0da1aad7d3383ff6378aef991658579964317c47e1",
+    "migrations/sqlite": "sha256:3ca75daf46a5f1f898a65d1945aed00cfb9592c3022079a03367cacb6449893d",
+    "pkg/contracts": "sha256:b81e5917f34071db703b4bddc3a5bbc82661bb4c687bd7f945e14679cc31e76e"
+  },
+  "observations": [
+    "TestContractUpgradeChangesOwningDefinitionAndMigrationOnly",
+    "TestDynamicInvocationFollowsExactActiveGenerationAcrossRestart",
+    "TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract",
+    "TestGovernedDisableAndRemovePreserveHistoryAcrossRestart",
+    "TestInvocationContractUsesOwningCompatibilityPolicy",
+    "TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic",
+    "TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity",
+    "TestPackageContractVersionsAreRegistryGovernedAndFailClosed",
+    "TestPackageTransitionCannotChangeOperationAfterApproval",
+    "TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration",
+    "TestPackageVerificationAuthorityAndRegistrationsSurviveRestart",
+    "TestResolverRejectsLockMismatchCycleAndUnavailableTransport",
+    "TestResolverVerifiesImmutableTransitiveLocksAcrossCatalogTransports",
+    "TestVerificationCannotMintActivationAuthority",
+    "TestVerifiedGraphArtifactSurvivesActivationAndRestart",
+    "TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities",
+    "TestVerifyPackageBindsTypedContentToExactArchiveBytes",
+    "TestVersionCatalogRejectsDuplicateSemanticOwnership"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:66c76f806e767de0c414abaa948fc2f558899db969b7606f139e91fc5e787e73"
+}

@@ -214,6 +214,28 @@ func TestVerifiedGraphArtifactSurvivesActivationAndRestart(t *testing.T) {
 	}
 }
 
+func TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	manifest := activateFixturePackage(t, ctx, db, New(db), fixturePackage("client/exact", "1", "", "exact"), time.Now().UTC())
+	mutated := manifest.Invocations[0]
+	mutated.GraphID = "attacker.graph"
+	body, err := json.Marshal(mutated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE invocation_registry SET contract_json=? WHERE package_id=? AND active=1`, body, manifest.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(db).ResolveInvocationAlias(ctx, "exact"); err == nil {
+		t.Fatal("valid caller-selected contract bytes must not replace the digest-bound active contract")
+	}
+}
+
 func TestAgentOnlyAndMixedPackagesAreFirstClassContents(t *testing.T) {
 	ctx := context.Background()
 	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
@@ -391,6 +413,10 @@ func TestGovernedDisableAndRemovePreserveHistoryAcrossRestart(t *testing.T) {
 	store = New(restarted)
 	if _, err := store.ResolveInvocationAlias(ctx, "study"); err == nil {
 		t.Fatal("disabled package command returned after restart")
+	}
+	selected, err := store.SelectedPackage(ctx, manifest.PackageID)
+	if err != nil || selected.State != "disabled" || selected.Manifest.ContentDigest != manifest.ContentDigest {
+		t.Fatalf("disabled exact generation is not selectable for governed removal: selected=%+v err=%v", selected, err)
 	}
 	receipts, err := store.PackageTransitionReceipts(ctx, manifest.PackageID)
 	if err != nil {

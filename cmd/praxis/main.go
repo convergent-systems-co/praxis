@@ -15,11 +15,14 @@ import (
 )
 
 type normalizedOutput struct {
-	EntryPointID string            `json:"entry_point_id"`
-	PackageID    string            `json:"package_id"`
-	GraphID      string            `json:"graph_id"`
-	Arguments    []string          `json:"arguments,omitempty"`
-	Options      map[string]string `json:"options"`
+	EntryPointID   string            `json:"entry_point_id"`
+	PackageID      string            `json:"package_id"`
+	PackageVersion string            `json:"package_version"`
+	PackageDigest  string            `json:"package_digest"`
+	GraphID        string            `json:"graph_id"`
+	GraphVersion   string            `json:"graph_version"`
+	Arguments      []string          `json:"arguments,omitempty"`
+	Options        map[string]string `json:"options"`
 }
 
 func main() {
@@ -49,24 +52,37 @@ func run(args []string) error {
 }
 
 func runDynamicInvocation(ctx context.Context, args []string, getenv func(string) string) error {
+	out, err := resolveDynamicInvocation(ctx, args, getenv)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(encoded))
+	return nil
+}
+
+func resolveDynamicInvocation(ctx context.Context, args []string, getenv func(string) string) (normalizedOutput, error) {
 	if len(args) == 0 {
-		return errors.New("entry point is required")
+		return normalizedOutput{}, errors.New("entry point is required")
 	}
 	dbPath := ""
 	if getenv != nil {
 		dbPath = getenv("PRAXIS_DB")
 	}
 	if dbPath == "" {
-		return errors.New("PRAXIS_DB is required to resolve installed package commands")
+		return normalizedOutput{}, errors.New("PRAXIS_DB is required to resolve installed package commands")
 	}
 	db, err := state.OpenSQLiteReadOnly(ctx, dbPath)
 	if err != nil {
-		return err
+		return normalizedOutput{}, err
 	}
 	defer db.Close()
 	registered, err := state.New(db).ActiveInvocations(ctx)
 	if err != nil {
-		return err
+		return normalizedOutput{}, err
 	}
 	contractsList := make([]contracts.InvocationContract, 0, len(registered))
 	for _, item := range registered {
@@ -74,24 +90,28 @@ func runDynamicInvocation(ctx context.Context, args []string, getenv func(string
 	}
 	registry, err := client.NewRegistry(contractsList)
 	if err != nil {
-		return err
+		return normalizedOutput{}, err
 	}
 	input := "praxis " + strings.Join(args, " ")
 	inv, err := client.ParseSlashInvocation(input)
 	if err != nil {
-		return err
+		return normalizedOutput{}, err
 	}
 	contract, options, err := registry.Resolve(inv)
 	if err != nil {
-		return err
+		return normalizedOutput{}, err
 	}
-	out := normalizedOutput{EntryPointID: contract.EntryPointID, PackageID: contract.PackageID, GraphID: contract.GraphID, Arguments: inv.Arguments, Options: options}
-	encoded, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		return err
+	var packageDigest string
+	for _, item := range registered {
+		if item.Contract.EntryPointID == contract.EntryPointID && item.Contract.PackageID == contract.PackageID && item.Contract.PackageVersion == contract.PackageVersion {
+			packageDigest = item.ContentDigest
+			break
+		}
 	}
-	fmt.Println(string(encoded))
-	return nil
+	if packageDigest == "" {
+		return normalizedOutput{}, errors.New("resolved invocation is not bound to an active package generation")
+	}
+	return normalizedOutput{EntryPointID: contract.EntryPointID, PackageID: contract.PackageID, PackageVersion: contract.PackageVersion, PackageDigest: packageDigest, GraphID: contract.GraphID, GraphVersion: contract.GraphVersion, Arguments: inv.Arguments, Options: options}, nil
 }
 
 func runHelp(args []string) error {

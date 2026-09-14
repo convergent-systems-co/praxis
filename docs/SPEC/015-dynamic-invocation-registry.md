@@ -118,6 +118,8 @@ The main `praxis` CLI SHALL:
 5. emit the canonical normalized invocation;
 6. continue through normal deterministic authority/enforcement paths.
 
+The normalized invocation SHALL retain the exact active package ID/version/content digest and graph ID/version, not only friendly names. Registry reads recheck canonical contract bytes against the stored contract digest before client parsing. A syntactically valid replacement contract, stale alias projection, disabled generation, or digest mismatch fails closed.
+
 The CLI binary SHALL NOT import domain packages merely to enumerate their invocation contracts.
 
 ## Help, list, completion, and machine discovery

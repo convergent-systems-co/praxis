@@ -112,6 +112,13 @@ func (r sqlitePackageRegistry) ActivePackage(ctx context.Context, packageID stri
 	}
 	return InstalledPackage{Manifest: item.Manifest, State: item.State, SourceKind: item.SourceKind, SourceRef: item.SourceRef}, nil
 }
+func (r sqlitePackageRegistry) SelectedPackage(ctx context.Context, packageID string) (InstalledPackage, error) {
+	item, err := r.store.SelectedPackage(ctx, packageID)
+	if err != nil {
+		return InstalledPackage{}, err
+	}
+	return InstalledPackage{Manifest: item.Manifest, State: item.State, SourceKind: item.SourceKind, SourceRef: item.SourceRef}, nil
+}
 
 var _ Provider = (*SQLiteProvider)(nil)
 var _ PackageRegistry = sqlitePackageRegistry{}

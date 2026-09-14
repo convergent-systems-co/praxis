@@ -150,9 +150,9 @@ func runPackageCommand(command string, args []string) error {
 		}
 		defer db.Close()
 		store := state.New(db)
-		installed, err := store.ActivePackage(ctx, args[0])
+		installed, err := store.SelectedPackage(ctx, args[0])
 		if err != nil {
-			return fmt.Errorf("active package %q: %w", args[0], err)
+			return fmt.Errorf("selected package %q: %w", args[0], err)
 		}
 		operation := packagecatalog.TransitionDisable
 		if command == "uninstall" {

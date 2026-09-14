@@ -298,6 +298,9 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 		if err := json.Unmarshal(body, &item.Contract); err != nil {
 			return nil, fmt.Errorf("decode invocation registry: %w", err)
 		}
+		if digestPackageBytes(body) != item.ContractDigest {
+			return nil, fmt.Errorf("invocation contract %q digest mismatch", item.Contract.EntryPointID)
+		}
 		if err := item.Contract.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid persisted invocation %q: %w", item.Contract.EntryPointID, err)
 		}
@@ -353,6 +356,9 @@ func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (Regis
 	}
 	if err := json.Unmarshal(body, &item.Contract); err != nil {
 		return RegisteredInvocation{}, err
+	}
+	if digestPackageBytes(body) != item.ContractDigest {
+		return RegisteredInvocation{}, errors.New("persisted invocation contract digest mismatch")
 	}
 	return item, item.Contract.Validate()
 }

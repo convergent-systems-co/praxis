@@ -77,6 +77,13 @@ plan; it must not infer child objectives from Goal prose, success criteria, or
 `PlanRef`. Public ingestion and provider-backed execution remain separate
 #103 obligations.
 
+Proposal and acceptance records now have an immutable encrypted GoalStore
+boundary. This is persistence infrastructure only: no proposal generator,
+independent review surface, acceptance authority, or baseline successor
+attachment is implied by the store API. Those lifecycle entries remain
+separate #103 governance work and must preserve the ADR-064/SPEC-027
+proposer/reviewer/accepter boundary.
+
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or
 unresolved acceptance is surfaced as authority insufficiency rather than

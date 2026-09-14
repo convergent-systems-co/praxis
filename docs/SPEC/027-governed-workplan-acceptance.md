@@ -39,7 +39,13 @@ Baseline. Goal-drive SHALL consume it only after baseline verification. A
 successor baseline with changed requirements SHALL invalidate the predecessor
 WorkPlan by digest mismatch; silent reuse is forbidden. Accepted state and
 acceptance evidence SHALL survive provider replacement and restart through the
-authoritative Goal/state provider.
+authoritative Goal/state provider. The production `internal/goalstore`
+repository is the persistence boundary for proposal and acceptance records:
+proposals are stored immutably before acceptance, and an accepted record stores
+the proposal, acceptance decision, and resulting WorkPlan together. This
+repository boundary does not itself create a proposal, perform independent
+review, attach a WorkPlan to a Goal Baseline, or grant public invocation
+authority; those are separate governed operations.
 
 Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an

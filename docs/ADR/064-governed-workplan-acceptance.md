@@ -34,6 +34,12 @@ The Goal/plan governance boundary owns proposal review and acceptance. Goal
 drive owns only materialization, readiness, selection, and bounded execution
 after an accepted WorkPlan is attached to the exact immutable baseline.
 
+The encrypted GoalStore is the restart/provider-replacement persistence owner
+for proposal and acceptance records. Persistence is intentionally not
+proposal generation, independent review, acceptance authority, or baseline
+attachment: those operations must enter through separately governed control
+plane boundaries.
+
 Requirement or authority changes create a successor baseline and invalidate
 WorkPlans whose baseline digest no longer matches. Partial blockers remain
 child-level readiness state; unresolved acceptance decisions are surfaced as

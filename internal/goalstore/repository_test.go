@@ -163,3 +163,70 @@ func TestRepositorySessionCheckpointVersionsAreImmutable(t *testing.T) {
 		t.Fatal("reusing a checkpoint version must not replace the immutable snapshot")
 	}
 }
+
+func workPlanProposalFixture() (contracts.WorkPlanProposal, contracts.WorkPlanAcceptance, contracts.WorkPlan) {
+	proposal := contracts.WorkPlanProposal{
+		ID: "proposal-1", GoalID: "goal-1", GoalVersion: "1", BaselineDigest: "sha256:baseline",
+		ProposedBy: contracts.PrincipalRef{ID: "planner-model", Kind: "model"},
+		Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "model:proposal", SourceDigest: "sha256:model", Provenance: contracts.ProvenanceModelProposal}},
+	}
+	digest, _ := proposal.Digest()
+	decision := contracts.WorkPlanAcceptance{
+		ProposalDigest: digest, BaselineDigest: proposal.BaselineDigest,
+		AuthorityRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", AuthorityDigest: "sha256:authority",
+		AcceptanceRef: "acceptance-1", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human-reviewer", Kind: "human"},
+		ReviewDigest: "sha256:review", Mode: "human",
+	}
+	accepted := contracts.WorkPlan{Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN}}}
+	return proposal, decision, accepted
+}
+
+func TestRepositoryWorkPlanAcceptanceSurvivesRestartAndRejectsDuplicate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	ctx := context.Background()
+	keyWrapper := &wrapper{caps: praxiscrypto.Capabilities{PQ: true}}
+	db, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	proposal, decision, accepted := workPlanProposalFixture()
+	proposalDigest, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proposalDigest == "" {
+		t.Fatal("proposal digest must be persisted")
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopenedDB, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopenedDB.Close()
+	reopened := Repository{Store: state.New(reopenedDB), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	plan, err := reopened.SaveAcceptedWorkPlan(ctx, proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := reopened.LoadAcceptedWorkPlan(ctx, decision.AcceptanceRef, "1", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.ProposalDigest != proposalDigest || loaded.AcceptanceRef != decision.AcceptanceRef {
+		t.Fatalf("accepted WorkPlan lost durable bindings: saved=%+v loaded=%+v", plan, loaded)
+	}
+	if _, err := reopened.SaveAcceptedWorkPlan(ctx, proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err == nil {
+		t.Fatal("accepted WorkPlan version was overwritten")
+	}
+}
+
+func TestRepositoryWorkPlanAcceptanceRejectsMissingProposal(t *testing.T) {
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	proposal, decision, accepted := workPlanProposalFixture()
+	if _, err := repo.SaveAcceptedWorkPlan(context.Background(), proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err == nil {
+		t.Fatal("acceptance without a durable proposal was authorized")
+	}
+}

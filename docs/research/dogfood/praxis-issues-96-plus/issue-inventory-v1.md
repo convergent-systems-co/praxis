@@ -262,3 +262,22 @@ current dogfood Goal: model/executor output may produce a content-bound
 independent review evidence can produce an accepted WorkPlan. Acceptance binds
 the proposal and baseline digests; stale requirements invalidate the plan. The
 current baseline remains without a WorkPlan and therefore has no runnable child.
+
+## Dogfood finding DF-013 — proposal/acceptance persistence boundary
+
+DF-012 identified the missing operational transition from advisory decomposition
+to accepted WorkPlan. Recovery showed that the existing GoalStore persisted
+Goals, sessions, and baselines, but not proposal or acceptance evidence. That
+made restart/provider replacement unable to recover this governance handoff.
+
+The smallest safe foundation is now implemented in `internal/goalstore`:
+`SaveWorkPlanProposal` persists an immutable advisory proposal, and
+`SaveAcceptedWorkPlan` requires that persisted proposal, re-runs the governed
+`AcceptWorkPlan` contract, and stores proposal, decision, and accepted plan in
+one encrypted immutable record. Reload revalidates the complete acceptance
+contract, including proposer/accepter separation and baseline/proposal binding.
+
+This does not create a producer, reviewer, human/policy decision surface, or
+successor Goal Baseline, and it does not make the current dogfood Goal
+runnable. Those remain governed lifecycle gaps; no current Goal WorkPlan was
+created or accepted.

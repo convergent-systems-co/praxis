@@ -243,6 +243,17 @@ can safely build the DF-024 runtime. External credentials and current-Goal
 authority were not fabricated. The proven runtime remains available to a
 setup-configured host that injects those dependencies.
 
+## Dogfood finding DF-026 — first-party key bootstrap boundary
+
+The native CLI blocker is a real production integration gap, not an authority
+grant or a reason to weaken GoalStore encryption. Existing `KeyWrapper` and
+`EnvelopeService` preserve random symmetric DEKs and authenticated envelopes,
+but `ProviderRegistry` has no first-party bootstrap factory and no platform
+binding. ADR-065/SPEC-028 add the explicit metadata-only bootstrap contract and
+fail-closed registry. No OS backend, portable vault, credential, or key was
+fabricated. Native runtime remains blocked pending an audited backend and its
+restart/rotation/migration evidence.
+
 ## Dogfood finding DF-010 — parent blocker granularity
 
 The selector already handles partial blocking correctly when given an

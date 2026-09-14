@@ -144,6 +144,14 @@ presenting normalized options as execution. External Codex/Claude credentials,
 durable key-wrapper construction, and public provider registration remain
 separate #103 integration work.
 
+DF-026 records the crypto bootstrap boundary. ADR-065/SPEC-028 establish an
+explicit metadata-only, provider-neutral bootstrap registry without changing
+GoalStore envelope semantics or allowing implicit fallback. Native runtime
+construction remains blocked until an audited first-party backend is selected
+and implemented for at least one supported platform; platform adapters and
+portable age-compatible wrapping are separate bounded work, not permission to
+use fake providers or weaken protection.
+
 Do not mark #103 complete from this slice alone. Completion still requires the
 native invocation/dispatch and authority-backed acceptance obligations recorded
 in the dogfood qualification audit; missing external provider/key authority

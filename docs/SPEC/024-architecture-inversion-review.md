@@ -42,6 +42,11 @@ The evaluator is advisory and has no side effects. It SHALL NOT register,
 activate, promote, approve, or execute a capability. It SHALL preserve the
 input evidence references and a deterministic reason list in its result.
 
+The Goals consumer SHALL require an exact, verified Goal Baseline digest in the
+goal evidence. The learning consumer SHALL retain the blind candidate
+derivation digest beside the review and SHALL NOT pass the review result back
+into blind candidate derivation.
+
 ## Failure semantics
 
 Malformed input, missing required evidence, duplicate evidence identity, or an
@@ -55,4 +60,5 @@ prove universal ownership.
 Tests SHALL demonstrate: a universal mechanism, a genuinely domain-specific
 capability, implementation-location-only reasoning, missing evidence,
 duplicate evidence, and the fact that every result remains advisory and does
-not expose an authority-granting operation.
+not expose an authority-granting operation. Consumer tests SHALL also prove
+exact Goal Baseline binding and preservation of the blind-learning boundary.

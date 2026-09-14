@@ -157,7 +157,9 @@ Integrate with Goal/design review and governed learning. Include both universal-
 ADR-061 and SPEC-024 define the post-release boundary. The first implementation
 is an advisory, evidence-bound evaluator with fail-closed provenance checks;
 integration into interactive Goals and governed retrospective learning remains
-a follow-on consumer task. Qualification must prove that implementation
+a follow-on graph-node task. The first consumer seams now require an exact
+Goal Baseline digest and keep the blind learning derivation digest separate
+from the advisory result. Qualification must prove that implementation
 location alone cannot establish ownership, that universal mechanisms require
 separate policy evidence, and that domain-specific counterexamples prevent
 over-generalization without promoting themselves.

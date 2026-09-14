@@ -94,4 +94,5 @@ preserves evidence references; it does not grant ownership, promotion, or
 execution authority. Targeted qualification covers universal mechanism,
 domain-specific counterexample, implementation-location-only reasoning, and
 fail-closed evidence validation. Integration into the interactive Goals graph
-and retrospective learning remains open work for this issue.
+and actual graph-node registration remains open, while exact Goal Baseline and
+blind-learning consumer seams are now implemented and tested.

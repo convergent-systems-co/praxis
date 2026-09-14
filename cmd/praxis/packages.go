@@ -78,8 +78,7 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		verified := resolution.Root
-		activation, err := packageActivationRequest(verified, os.Getenv)
+		deployment, err := packageDeploymentRequest(resolution, os.Getenv)
 		if err != nil {
 			return err
 		}
@@ -88,7 +87,7 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		defer db.Close()
-		if err := state.New(db).ActivatePackage(ctx, activation, now); err != nil {
+		if err := state.New(db).DeployPackages(ctx, deployment, now); err != nil {
 			return err
 		}
 		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_keys": signatureKeyIDs(release.Signature), "signature_profile": release.Signature.Profile, "dependency_resolution": resolution.Order, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
@@ -131,12 +130,11 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		verified := resolution.Root
-		activation, err := packageActivationRequest(verified, os.Getenv)
+		deployment, err := packageDeploymentRequest(resolution, os.Getenv)
 		if err != nil {
 			return err
 		}
-		if err := store.ActivatePackage(ctx, activation, now); err != nil {
+		if err := store.DeployPackages(ctx, deployment, now); err != nil {
 			return err
 		}
 		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "dependency_resolution": resolution.Order, "review": review})
@@ -284,6 +282,17 @@ func packageActivationRequest(verified packagecatalog.VerifiedPackage, getenv fu
 	}
 	request := packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: approvalID}
 	return request, request.Validate()
+}
+
+func packageDeploymentRequest(resolution distribution.Resolution, getenv func(string) string) (packagecatalog.DeploymentRequest, error) {
+	if getenv == nil {
+		return packagecatalog.DeploymentRequest{}, errors.New("package deployment authority environment is required")
+	}
+	approvalID, actorID, actorKind := getenv("PRAXIS_PACKAGE_APPROVAL_ID"), getenv("PRAXIS_AUTHORITY_ID"), getenv("PRAXIS_AUTHORITY_KIND")
+	if approvalID == "" || actorID == "" || actorKind == "" {
+		return packagecatalog.DeploymentRequest{}, errors.New("PRAXIS_PACKAGE_APPROVAL_ID, PRAXIS_AUTHORITY_ID, and PRAXIS_AUTHORITY_KIND are required; verified dependency evidence does not grant deployment authority")
+	}
+	return packagecatalog.NewDeploymentRequest(resolution.Root, resolution.Dependencies, contracts.PrincipalRef{ID: actorID, Kind: actorKind}, approvalID)
 }
 
 func packageTransitionRequest(manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, getenv func(string) string) (packagecatalog.TransitionRequest, error) {

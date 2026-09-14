@@ -221,6 +221,9 @@ func TestVerificationCannotMintActivationAuthority(t *testing.T) {
 	if _, err := packageActivationRequest(verified, func(string) string { return "" }); err == nil {
 		t.Fatal("verified package without local approval binding must not become activatable")
 	}
+	if _, err := packageDeploymentRequest(distribution.Resolution{Root: verified}, func(string) string { return "" }); err == nil {
+		t.Fatal("verified package closure without local approval binding must not become deployable")
+	}
 }
 
 func TestInstallArgsRequireExplicitFallbackFlag(t *testing.T) {

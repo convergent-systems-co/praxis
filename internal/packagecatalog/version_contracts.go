@@ -21,6 +21,10 @@ var (
 		Contract: "package.activation_intent", CurrentVersion: "v1",
 		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
 	}
+	deploymentIntentPolicy = contracts.ContractVersionPolicy{
+		Contract: "package.deployment_intent", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
 	packageTransitionIntentPolicy = contracts.ContractVersionPolicy{
 		Contract: "package.transition_intent", CurrentVersion: "v1",
 		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
@@ -30,6 +34,7 @@ var (
 	signatureEnvelopeVersions       = packageVersionCatalog.MustRegister(signatureEnvelopePolicy, nil)
 	verificationEvidenceVersions    = packageVersionCatalog.MustRegister(verificationEvidencePolicy, nil)
 	activationIntentVersions        = packageVersionCatalog.MustRegister(activationIntentPolicy, nil)
+	deploymentIntentVersions        = packageVersionCatalog.MustRegister(deploymentIntentPolicy, nil)
 	packageTransitionIntentVersions = packageVersionCatalog.MustRegister(packageTransitionIntentPolicy, nil)
 )
 
@@ -39,6 +44,7 @@ func VerificationEvidenceCurrentVersion() string {
 	return verificationEvidenceVersions.CurrentVersion()
 }
 func ActivationIntentCurrentVersion() string { return activationIntentVersions.CurrentVersion() }
+func DeploymentIntentCurrentVersion() string { return deploymentIntentVersions.CurrentVersion() }
 
 func requirePackageContractVersion(registry *contracts.VersionRegistry, version string) error {
 	_, _, err := registry.Canonicalize(version, nil)

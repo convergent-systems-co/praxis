@@ -97,24 +97,7 @@ func fixturePackageArtifact(t *testing.T, manifest *packagecatalog.Manifest) []b
 
 func fixtureActivationRequest(t *testing.T, ctx context.Context, db *sql.DB, manifest packagecatalog.Manifest, now time.Time) (packagecatalog.Manifest, packagecatalog.ActivationRequest) {
 	t.Helper()
-	artifact := fixturePackageArtifact(t, &manifest)
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestSum := sha256.Sum256(manifestBytes)
-	pub, private, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	envelope := packagecatalog.SignatureEnvelope{Version: packagecatalog.SignatureEnvelopeCurrentVersion(), Profile: contracts.CryptoClassicalCompatible, ManifestDigest: "sha256:" + hex.EncodeToString(manifestSum[:]), ArtifactDigest: manifest.ContentDigest}
-	proof := packagecatalog.SignatureProof{Algorithm: packagecatalog.SignatureAlgorithmEd25519, KeyID: "fixture-publisher"}
-	proof.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(private, envelope.Statement()))
-	envelope.Proofs = []packagecatalog.SignatureProof{proof}
-	verified, err := packagecatalog.VerifyPackage(packagecatalog.VerificationInput{ManifestBytes: manifestBytes, ArtifactBytes: artifact, Signature: envelope, SourceKind: "fixture", SourceRef: manifest.PackageID + "@" + manifest.Version, VerifiedAt: now}, []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"fixture-publisher": pub}}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	manifest, verified := fixtureVerifiedPackage(t, manifest, nil, now)
 	actor := contracts.PrincipalRef{ID: "fixture-authority", Kind: "user"}
 	intent, err := packagecatalog.NewActivationIntent(verified, actor)
 	if err != nil {
@@ -129,6 +112,29 @@ func fixtureActivationRequest(t *testing.T, ctx context.Context, db *sql.DB, man
 		t.Fatal(err)
 	}
 	return manifest, packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: approvalID}
+}
+
+func fixtureVerifiedPackage(t *testing.T, manifest packagecatalog.Manifest, dependencies map[string]packagecatalog.VerifiedPackage, now time.Time) (packagecatalog.Manifest, packagecatalog.VerifiedPackage) {
+	t.Helper()
+	artifact := fixturePackageArtifact(t, &manifest)
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestSum := sha256.Sum256(manifestBytes)
+	pub, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope := packagecatalog.SignatureEnvelope{Version: packagecatalog.SignatureEnvelopeCurrentVersion(), Profile: contracts.CryptoClassicalCompatible, ManifestDigest: "sha256:" + hex.EncodeToString(manifestSum[:]), ArtifactDigest: manifest.ContentDigest}
+	proof := packagecatalog.SignatureProof{Algorithm: packagecatalog.SignatureAlgorithmEd25519, KeyID: "fixture-publisher"}
+	proof.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(private, envelope.Statement()))
+	envelope.Proofs = []packagecatalog.SignatureProof{proof}
+	verified, err := packagecatalog.VerifyPackage(packagecatalog.VerificationInput{ManifestBytes: manifestBytes, ArtifactBytes: artifact, Signature: envelope, ResolvedDependencies: dependencies, SourceKind: "fixture", SourceRef: manifest.PackageID + "@" + manifest.Version, VerifiedAt: now}, []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"fixture-publisher": pub}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return manifest, verified
 }
 
 func activateFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, now time.Time) packagecatalog.Manifest {
@@ -238,6 +244,118 @@ func TestVerifiedGraphArtifactSurvivesActivationAndRestart(t *testing.T) {
 	if _, _, err := New(db).ResolveGraph(ctx, "research/graph.graph", "1"); err == nil {
 		t.Fatal("persisted content corruption must fail before graph decoding")
 	}
+}
+
+func TestVerifiedDependencyClosureDeploysAtomicallyAndSurvivesRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 14, 2, 0, 0, 0, time.UTC)
+	dependencyManifest, dependency := fixtureVerifiedPackage(t, fixturePackage("research/evidence", "1", "pending", "evidence"), nil, now)
+	rootManifest := fixturePackage("delivery/root", "2", "pending", "deliver")
+	rootManifest.Dependencies = []packagecatalog.Dependency{{PackageID: dependencyManifest.PackageID, Version: dependencyManifest.Version, Digest: dependencyManifest.ContentDigest}}
+	rootManifest, root := fixtureVerifiedPackage(t, rootManifest, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, now)
+	actor := contracts.PrincipalRef{ID: "deployment-owner", Kind: "user"}
+	request, err := packagecatalog.NewDeploymentRequest(root, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, actor, "approval:deployment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := New(db).DeployPackages(ctx, request, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	for _, expected := range []packagecatalog.Manifest{dependencyManifest, rootManifest} {
+		installed, err := store.ActivePackage(ctx, expected.PackageID)
+		if err != nil || installed.Manifest.Version != expected.Version || installed.Manifest.ContentDigest != expected.ContentDigest {
+			t.Fatalf("verified closure generation did not reconstruct after restart: expected=%+v got=%+v err=%v", expected, installed, err)
+		}
+		graph, _, err := store.ResolveGraph(ctx, expected.PackageID+".graph", expected.Version)
+		if err != nil || graph.ID != expected.PackageID+".graph" {
+			t.Fatalf("deployed graph is not executable content after restart: graph=%+v err=%v", graph, err)
+		}
+	}
+}
+
+func TestDependencyDeploymentFailureRollsBackClosureAndAuthority(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Now().UTC()
+	dependencyManifest, dependency := fixtureVerifiedPackage(t, fixturePackage("research/evidence", "1", "pending", "evidence"), nil, now)
+	rootManifest := fixturePackage("delivery/root", "1", "pending", "status")
+	rootManifest.Dependencies = []packagecatalog.Dependency{{PackageID: dependencyManifest.PackageID, Version: dependencyManifest.Version, Digest: dependencyManifest.ContentDigest}}
+	_, root := fixtureVerifiedPackage(t, rootManifest, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, now)
+	actor := contracts.PrincipalRef{ID: "deployment-owner", Kind: "user"}
+	request, err := packagecatalog.NewDeploymentRequest(root, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, actor, "approval:deployment-failure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := New(db).DeployPackages(ctx, request, now); err == nil {
+		t.Fatal("root policy failure must abort the complete dependency deployment")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:deployment-failure'`, 1)
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM installed_packages`, 0)
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM package_activation_receipts`, 0)
+}
+
+func TestSinglePackageActivationCannotBypassDependencyDeployment(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Now().UTC()
+	dependencyManifest, dependency := fixtureVerifiedPackage(t, fixturePackage("research/evidence", "1", "pending", "evidence"), nil, now)
+	rootManifest := fixturePackage("delivery/root", "1", "pending", "deliver")
+	rootManifest.Dependencies = []packagecatalog.Dependency{{PackageID: dependencyManifest.PackageID, Version: dependencyManifest.Version, Digest: dependencyManifest.ContentDigest}}
+	_, root := fixtureVerifiedPackage(t, rootManifest, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, now)
+	actor := contracts.PrincipalRef{ID: "owner", Kind: "user"}
+	intent, err := packagecatalog.NewActivationIntent(root, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, "approval:root-only", actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	err = New(db).ActivatePackage(ctx, packagecatalog.ActivationRequest{Package: root, Intent: intent, ApprovalID: "approval:root-only"}, now)
+	if err == nil || !strings.Contains(err.Error(), "closure-bound deployment") {
+		t.Fatal("root-only activation bypassed the required verified dependency deployment")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:root-only'`, 1)
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM installed_packages`, 0)
 }
 
 func TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract(t *testing.T) {

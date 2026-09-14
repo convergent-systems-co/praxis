@@ -33,6 +33,8 @@ Adaptive observation, profile, measurement, and analysis event replay now use na
 
 The client invocation policy records an earlier repository split explicitly: package-owned records used both `v1` and `1` with the same schema semantics before one compatibility owner existed. `v1` is the canonical current write version and `1` is supported historical state. This is compatibility metadata at the owning definition, not consumer-selected leniency; unknown forms still fail closed.
 
+The package-family catalog also owns distinct single-generation activation, verified-closure deployment, and generation-transition intent policies. The deployment contract is not inferred from activation call-site strings: its current write version and future compatibility/migration dispositions have one named owner, while consumers construct instances from that metadata.
+
 Package-installed agent definitions and their instantiation intents are owned by one agent-contract catalog. Package-definition consumers obtain the current version from that catalog and unknown persisted definition versions fail closed; graph identity versions inside a definition remain immutable content references rather than being mistaken for schema compatibility policy.
 
 A repository review found additional durable/versioned surfaces that need explicit policy ownership as their contracts evolve:

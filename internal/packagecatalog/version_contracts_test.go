@@ -13,6 +13,7 @@ func TestPackageContractVersionsAreRegistryGovernedAndFailClosed(t *testing.T) {
 		"signature":    signatureEnvelopeVersions,
 		"verification": verificationEvidenceVersions,
 		"activation":   activationIntentVersions,
+		"deployment":   deploymentIntentVersions,
 		"transition":   packageTransitionIntentVersions,
 	}
 	for name, registry := range registries {
@@ -30,7 +31,7 @@ func TestPackageContractVersionsAreRegistryGovernedAndFailClosed(t *testing.T) {
 }
 
 func TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity(t *testing.T) {
-	for _, policy := range []contracts.ContractVersionPolicy{manifestContractPolicy, signatureEnvelopePolicy, verificationEvidencePolicy, activationIntentPolicy, packageTransitionIntentPolicy} {
+	for _, policy := range []contracts.ContractVersionPolicy{manifestContractPolicy, signatureEnvelopePolicy, verificationEvidencePolicy, activationIntentPolicy, deploymentIntentPolicy, packageTransitionIntentPolicy} {
 		owned, ok := packageVersionCatalog.Lookup(policy.Contract)
 		if !ok || owned.PolicyDigest() == "" || owned.CurrentVersion() != policy.CurrentVersion {
 			t.Fatalf("package contract %s is not owned by the family catalog", policy.Contract)

@@ -63,6 +63,9 @@ type sqlitePackageRegistry struct{ store *state.Store }
 func (r sqlitePackageRegistry) ActivatePackage(ctx context.Context, request packagecatalog.ActivationRequest, now time.Time) error {
 	return r.store.ActivatePackage(ctx, request, now)
 }
+func (r sqlitePackageRegistry) DeployPackages(ctx context.Context, request packagecatalog.DeploymentRequest, now time.Time) error {
+	return r.store.DeployPackages(ctx, request, now)
+}
 func (r sqlitePackageRegistry) TransitionPackage(ctx context.Context, request packagecatalog.TransitionRequest, now time.Time) error {
 	return r.store.TransitionPackage(ctx, request, now)
 }

@@ -64,20 +64,8 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	if err := request.Validate(); err != nil {
 		return err
 	}
-	manifest := request.Package.Manifest()
-	verification := request.Package.Evidence()
-	sourceKind, sourceRef := verification.SourceKind, verification.SourceRef
-	for _, inv := range manifest.Invocations {
-		for _, alias := range inv.Aliases {
-			if IsReservedCoreCommand(alias) {
-				return fmt.Errorf("package cannot register reserved core command %q", alias)
-			}
-		}
-	}
-
-	manifestJSON, err := json.Marshal(manifest)
-	if err != nil {
-		return fmt.Errorf("marshal package manifest: %w", err)
+	if len(request.Package.Manifest().Dependencies) != 0 {
+		return errors.New("package with dependencies requires closure-bound deployment")
 	}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
@@ -90,6 +78,58 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	}
 	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
 		return err
+	}
+	if err := activateVerifiedPackageTx(ctx, tx, request.Package, request.Intent, intentDigest, request.ApprovalID, now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeployPackages activates an exact verified dependency closure in one
+// transaction. One approval authorizes the closure-bound deployment intent;
+// any collision or persistence failure rolls back every generation and the
+// authority consumption.
+func (s *Store) DeployPackages(ctx context.Context, request packagecatalog.DeploymentRequest, now time.Time) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin package deployment: %w", err)
+	}
+	defer tx.Rollback()
+	intentDigest, err := request.Intent.Digest()
+	if err != nil {
+		return err
+	}
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+		return err
+	}
+	for _, pkg := range request.Packages {
+		if err := activateVerifiedPackageTx(ctx, tx, pkg, request.Intent, intentDigest, request.ApprovalID, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatalog.VerifiedPackage, intent contracts.ActionIntent, intentDigest, approvalID string, now time.Time) error {
+	manifest := pkg.Manifest()
+	verification := pkg.Evidence()
+	sourceKind, sourceRef := verification.SourceKind, verification.SourceRef
+	for _, inv := range manifest.Invocations {
+		for _, alias := range inv.Aliases {
+			if IsReservedCoreCommand(alias) {
+				return fmt.Errorf("package cannot register reserved core command %q", alias)
+			}
+		}
+	}
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("marshal package manifest: %w", err)
 	}
 
 	for _, inv := range manifest.Invocations {
@@ -138,23 +178,23 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	if err != nil {
 		return fmt.Errorf("marshal package verification: %w", err)
 	}
-	signatureJSON, err := json.Marshal(request.Package.Signature())
+	signatureJSON, err := json.Marshal(pkg.Signature())
 	if err != nil {
 		return fmt.Errorf("marshal package signature: %w", err)
 	}
-	intentJSON, err := json.Marshal(request.Intent)
+	intentJSON, err := json.Marshal(intent)
 	if err != nil {
 		return fmt.Errorf("marshal package activation intent: %w", err)
 	}
-	activationSum := sha256.Sum256([]byte(verification.ID + "\x00" + request.ApprovalID))
+	activationSum := sha256.Sum256([]byte(verification.ID + "\x00" + approvalID))
 	activationID := "package-activation:sha256:" + hex.EncodeToString(activationSum[:])
 	if _, err := tx.ExecContext(ctx, `INSERT INTO package_activation_receipts(activation_id,package_id,package_version,content_digest,verification_id,verification_json,manifest_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at,artifact_bytes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		activationID, manifest.PackageID, manifest.Version, manifest.ContentDigest, verification.ID, verificationJSON, request.Package.ManifestBytes(), signatureJSON, intentJSON, intentDigest, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, stamp, request.Package.ArtifactBytes()); err != nil {
+		activationID, manifest.PackageID, manifest.Version, manifest.ContentDigest, verification.ID, verificationJSON, pkg.ManifestBytes(), signatureJSON, intentJSON, intentDigest, approvalID, intent.Actor.ID, intent.Actor.Kind, stamp, pkg.ArtifactBytes()); err != nil {
 		return fmt.Errorf("persist package activation receipt: %w", err)
 	}
 
 	for _, content := range manifest.Contents {
-		artifactBytes, err := request.Package.ContentBytes(content)
+		artifactBytes, err := pkg.ContentBytes(content)
 		if err != nil {
 			return fmt.Errorf("load verified package content %s/%s@%s: %w", content.Kind, content.ID, content.Version, err)
 		}
@@ -183,7 +223,7 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 			}
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor contracts.PrincipalRef, intentDigest string, now time.Time) error {

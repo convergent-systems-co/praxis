@@ -109,9 +109,9 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v21.json"
-	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v16.json"
-	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v16.json"
+	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v22.json"
+	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v17.json"
+	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v17.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are

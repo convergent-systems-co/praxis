@@ -23,6 +23,12 @@ A repeated or material conformance failure may create a governed learning candid
 
 No learner may directly mutate the active graph. Goal Conformance itself is not execution authority.
 
+### Finding persistence across child scope
+
+A material architectural finding discovered during a child objective SHALL survive that objective's local edit boundary. The agent records the observation, authority sources, classification, affected parent claims/gates, and disposition before selecting implementation order. “Out of scope for this child objective” is a scheduling state, not a relevance or dismissal state; only parent-goal evaluation can determine genuine irrelevance.
+
+Frozen diagnoses are immutable evidence. Later remediation creates successor evidence and re-evaluates affected and unrelated claims independently. The withheld qualification oracle remains unavailable during discovery, diagnosis, candidate generation, and remediation. Retrospective-learning inputs preserve the observation and investigation trail without embedding the generalized lesson the learner is expected to derive.
+
 ## Consequences
 
 - 100% plan completion is insufficient without goal-conformance evidence.

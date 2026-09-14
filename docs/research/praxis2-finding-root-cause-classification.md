@@ -46,6 +46,14 @@ Claims: OI-021, OI-024, OI-025, OI-026, OI-027, OI-029, OI-030.
 
 The common gap is an end-to-end trusted execution envelope. Plugin supervision is in-memory and uses an abstract launcher; scheduling has deterministic ordering but no durable leases; effect coordination has no durable idempotent outcome lifecycle; client and untrusted-content checks are not demonstrated across every authoritative path; isolation records asserted properties rather than enforcing them. These claims require real process, restart, cancellation, authorization, effect, and isolation evidence rather than more policy objects.
 
+#### Persisted child finding: plugin capability-set publication
+
+During Cluster-C transport work, review found a material supporting defect at the capability authority boundary. Before correction, `ValidateHandshake` required equality between the signed manifest capability list and runtime advertisement, while `Registry.Resolve` then selected against the manifest list. This conflated permitted package capability, current instance availability, and routable eligibility. Removing only the equality check would have made under-advertised capabilities routable; adding a caller-set provider field would have let unvalidated data influence selection.
+
+The finding is classified **missing enforcement** and affects the OI-021/OI-030/OI-037 lifecycle dependency, but does not add a denominator claim or close any OI. ADR-055 defines the authority relationship: runtime advertisement is a validated subset of the signed upper bound; only the handshake-validated ephemeral set is routable; grants remain separately leased. The before/after source identities are frozen in `docs/research/conformance/plugin-capability-set-finding-v1.json`. It was initially outside the narrow transport-edit scope, but remained relevant to the parent goal and was scheduled into the same Cluster-C dependency before evidence closure.
+
+This record also captures the process classification: a validated material finding outside a child diff is persisted and scheduled, never silently discarded. Scope controls implementation order, not parent-goal relevance.
+
 ### D. Incremental workspace evidence lifecycle
 
 Claim: OI-028.

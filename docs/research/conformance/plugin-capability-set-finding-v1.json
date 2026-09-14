@@ -1,0 +1,50 @@
+{
+  "finding_id": "cluster-c-plugin-capability-set-publication-v1",
+  "status": "frozen_diagnosis_and_remediated",
+  "classification": "missing_enforcement",
+  "affected_parent_claims": ["OI-021", "OI-030", "OI-037"],
+  "denominator_changed": false,
+  "oracle_used": false,
+  "observation": {
+    "before": {
+      "handshake_relationship": "advertised capabilities == manifest capabilities",
+      "routing_source": "manifest capabilities",
+      "handshake_source_sha256": "sha256:32b3627b6fb40e10c07c231e5c907e774549f770648be43897d8b95176abd88b",
+      "registry_source_sha256": "sha256:5e8cbad1a9ff5fcda0766f889746a5040be7767bac6ad82819fb79a4126c5257"
+    },
+    "questions": [
+      "whether declaration and runtime advertisement have the same semantic set",
+      "whether missing runtime capabilities are invalid or degraded availability",
+      "whether routing can use package metadata without current session evidence",
+      "whether a provider field can be caller-asserted without authority"
+    ]
+  },
+  "authority_review": [
+    "docs/ADR/016-demonstrated-capabilities-and-routing.md",
+    "docs/ADR/029-grpc-protobuf-plugin-transport.md",
+    "docs/ADR/041-plugin-isolation-least-privilege-and-capability-leases.md",
+    "docs/ADR/053-package-plugin-definition-and-executable-binding.md",
+    "docs/SPEC/007-plugin-capability-and-isolation-runtime.md"
+  ],
+  "remediation": {
+    "architecture": "docs/ADR/055-plugin-capability-set-semantics.md",
+    "handshake_relationship": "advertised capabilities subset of signed permitted capabilities",
+    "routing_source": "handshake-validated ephemeral provider advertisement",
+    "provider_publication": "supervisor requires exact validated handshake result",
+    "after_handshake_sha256": "sha256:020d2baae0be20df0716eebf47ea6c13d7f283d9c5384304a2633d4b47dabb2b",
+    "after_registry_sha256": "sha256:af8ecd88bb14b51d1c8d5ae3945e4813abb47aa5042094a677a3b38494c3131c"
+  },
+  "evidence": [
+    "internal/plugin/grpc_handshake_test.go",
+    "internal/plugin/registry_test.go",
+    "internal/plugin/supervisor_test.go",
+    "internal/plugin/grpc_transport_test.go",
+    "internal/plugin/grpc_process_integration_test.go"
+  ],
+  "process_record": {
+    "initial_child_scope": "protobuf/grpc transport implementation",
+    "initial_disposition": "outside immediate edit scope but parent-relevant",
+    "correct_disposition": "persist, classify, schedule, remediate, and independently verify",
+    "learner_visible_generalized_lesson": false
+  }
+}

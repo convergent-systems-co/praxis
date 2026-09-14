@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
 	"testing"
@@ -65,5 +66,48 @@ func TestVersionRegistryOwnsCompatibilityAndMigrationSemantics(t *testing.T) {
 	policyCopy.Versions[0].Disposition = VersionCurrent
 	if definition, _ := registry.Definition("v1"); definition.Disposition != VersionRevokedUnsafe {
 		t.Fatal("fixture expected v1 to remain revoked")
+	}
+}
+
+func TestVersionCatalogRejectsDuplicateSemanticOwnership(t *testing.T) {
+	catalog := NewVersionCatalog()
+	v1 := ContractVersionPolicy{Contract: "fixture.authority", CurrentVersion: "v1", Versions: []ContractVersionDefinition{{Version: "v1", Disposition: VersionCurrent}}}
+	registered, err := catalog.Register(v1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := catalog.Register(v1, nil); !errors.Is(err, ErrContractPolicyAlreadyRegistered) {
+		t.Fatalf("identical duplicate ownership must be rejected consistently: %v", err)
+	}
+	v2 := ContractVersionPolicy{Contract: "fixture.authority", CurrentVersion: "v2", Versions: []ContractVersionDefinition{{Version: "v2", Disposition: VersionCurrent}, {Version: "v1", Disposition: VersionSupportedHistorical}}}
+	if _, err := catalog.Register(v2, nil); !errors.Is(err, ErrContractPolicyAlreadyRegistered) {
+		t.Fatalf("conflicting current-version ownership must fail closed: %v", err)
+	}
+	canonical, ok := catalog.Lookup("fixture.authority")
+	if !ok || canonical != registered || canonical.CurrentVersion() != "v1" {
+		t.Fatal("duplicate registration changed the canonical contract policy")
+	}
+}
+
+func TestContractUpgradeChangesOwningDefinitionAndMigrationOnly(t *testing.T) {
+	upcast := func(payload []byte) ([]byte, error) { return append([]byte("v2:"), payload...), nil }
+	policy := ContractVersionPolicy{Contract: "fixture.upgrade", CurrentVersion: "v2", Versions: []ContractVersionDefinition{
+		{Version: "v1", Disposition: VersionMigratable, MigrationID: "fixture.v1-to-v2", MigrationTarget: "v2"},
+		{Version: "v2", Disposition: VersionCurrent},
+	}}
+	catalog := NewVersionCatalog()
+	if _, err := catalog.Register(policy, map[string]VersionUpcaster{"fixture.v1-to-v2": upcast}); err != nil {
+		t.Fatal(err)
+	}
+	consumer, ok := catalog.Lookup("fixture.upgrade")
+	if !ok {
+		t.Fatal("consumer could not obtain owning contract definition")
+	}
+	canonical, migration, err := consumer.Canonicalize("v1", []byte("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(canonical, []byte("v2:payload")) || migration == nil || migration.UpcasterID != "fixture.v1-to-v2" || migration.PolicyDigest != consumer.PolicyDigest() {
+		t.Fatalf("consumer did not follow owning upgrade policy: body=%q migration=%#v", canonical, migration)
 	}
 }

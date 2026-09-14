@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 )
 
 type VersionDisposition string
@@ -24,6 +25,7 @@ var (
 	ErrRevokedContractVersion               = errors.New("revoked contract version")
 	ErrUnknownContractVersion               = errors.New("unknown contract version")
 	ErrContractMigrationUnavailable         = errors.New("contract migration is unavailable")
+	ErrContractPolicyAlreadyRegistered      = errors.New("contract version policy is already registered")
 )
 
 type ContractVersionDefinition struct {
@@ -86,6 +88,54 @@ type VersionRegistry struct {
 	policyDigest string
 	versions     map[string]ContractVersionDefinition
 	upcasters    map[string]VersionUpcaster
+}
+
+// VersionCatalog owns one authoritative VersionRegistry per contract identity
+// within a contract family/runtime context. Duplicate declarations fail closed,
+// including identical duplicates, so initialization never hides distributed
+// ownership behind apparently idempotent registration.
+type VersionCatalog struct {
+	mu         sync.RWMutex
+	registries map[string]*VersionRegistry
+}
+
+func NewVersionCatalog() *VersionCatalog {
+	return &VersionCatalog{registries: map[string]*VersionRegistry{}}
+}
+
+func (c *VersionCatalog) Register(policy ContractVersionPolicy, upcasters map[string]VersionUpcaster) (*VersionRegistry, error) {
+	if c == nil {
+		return nil, errors.New("contract version catalog is required")
+	}
+	registry, err := NewVersionRegistry(policy, upcasters)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if existing := c.registries[policy.Contract]; existing != nil {
+		return nil, fmt.Errorf("%w: %s already owns policy %s", ErrContractPolicyAlreadyRegistered, policy.Contract, existing.PolicyDigest())
+	}
+	c.registries[policy.Contract] = registry
+	return registry, nil
+}
+
+func (c *VersionCatalog) MustRegister(policy ContractVersionPolicy, upcasters map[string]VersionUpcaster) *VersionRegistry {
+	registry, err := c.Register(policy, upcasters)
+	if err != nil {
+		panic(err)
+	}
+	return registry
+}
+
+func (c *VersionCatalog) Lookup(contract string) (*VersionRegistry, bool) {
+	if c == nil {
+		return nil, false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	registry, ok := c.registries[contract]
+	return registry, ok
 }
 
 func NewVersionRegistry(policy ContractVersionPolicy, upcasters map[string]VersionUpcaster) (*VersionRegistry, error) {

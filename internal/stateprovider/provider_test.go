@@ -87,7 +87,7 @@ func TestSQLiteProviderPackageRegistryIsProviderNeutral(t *testing.T) {
 	now := time.Now().UTC()
 	artifact := []byte("fixture-package")
 	artifactSum := sha256.Sum256(artifact)
-	manifest := packagecatalog.Manifest{PackageID: "fixture/pkg", Version: "1.0.0", ContentDigest: "sha256:" + hex.EncodeToString(artifactSum[:])}
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "fixture/pkg", Version: "1.0.0", ContentDigest: "sha256:" + hex.EncodeToString(artifactSum[:])}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)

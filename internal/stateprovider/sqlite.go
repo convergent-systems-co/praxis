@@ -62,11 +62,8 @@ type sqlitePackageRegistry struct{ store *state.Store }
 func (r sqlitePackageRegistry) ActivatePackage(ctx context.Context, request packagecatalog.ActivationRequest, now time.Time) error {
 	return r.store.ActivatePackage(ctx, request, now)
 }
-func (r sqlitePackageRegistry) DeactivatePackage(ctx context.Context, packageID string) error {
-	return r.store.DeactivatePackage(ctx, packageID)
-}
-func (r sqlitePackageRegistry) RemovePackage(ctx context.Context, packageID string) error {
-	return r.store.RemovePackage(ctx, packageID)
+func (r sqlitePackageRegistry) TransitionPackage(ctx context.Context, request packagecatalog.TransitionRequest, now time.Time) error {
+	return r.store.TransitionPackage(ctx, request, now)
 }
 func (r sqlitePackageRegistry) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error) {
 	items, err := r.store.ActiveInvocations(ctx)

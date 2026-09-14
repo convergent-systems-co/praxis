@@ -68,8 +68,7 @@ type InstalledPackage struct {
 
 type PackageRegistry interface {
 	ActivatePackage(ctx context.Context, request packagecatalog.ActivationRequest, now time.Time) error
-	DeactivatePackage(ctx context.Context, packageID string) error
-	RemovePackage(ctx context.Context, packageID string) error
+	TransitionPackage(ctx context.Context, request packagecatalog.TransitionRequest, now time.Time) error
 	ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error)
 	ActiveContents(ctx context.Context, kind packagecatalog.ContentKind) ([]RegisteredContent, error)
 	ResolveContent(ctx context.Context, kind packagecatalog.ContentKind, id, version string) (RegisteredContent, error)

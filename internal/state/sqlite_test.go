@@ -20,10 +20,10 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "6" {
-		t.Fatalf("expected schema version 6, got %s", version)
+	if version != "7" {
+		t.Fatalf("expected schema version 7, got %s", version)
 	}
-	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql"} {
+	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql"} {
 		assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='`+migration+`'`, 1)
 	}
 
@@ -56,6 +56,7 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 	}
 	defer second.Close()
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0006_governed_package_activation.sql'`, 1)
+	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0007_governed_package_transitions.sql'`, 1)
 	var boundInstanceColumns int
 	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('capability_leases') WHERE name='bound_instance_id'`).Scan(&boundInstanceColumns); err != nil {
 		t.Fatal(err)
@@ -90,6 +91,13 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 	}
 	if activationReceiptTables != 1 {
 		t.Fatalf("expected governed package activation receipt table, got %d", activationReceiptTables)
+	}
+	var transitionReceiptTables int
+	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='package_transition_receipts'`).Scan(&transitionReceiptTables); err != nil {
+		t.Fatal(err)
+	}
+	if transitionReceiptTables != 1 {
+		t.Fatalf("expected governed package transition receipt table, got %d", transitionReceiptTables)
 	}
 }
 

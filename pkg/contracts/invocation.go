@@ -2,6 +2,20 @@ package contracts
 
 import "errors"
 
+var (
+	clientContractCatalog    = NewVersionCatalog()
+	invocationContractPolicy = ContractVersionPolicy{
+		Contract: "client.invocation", CurrentVersion: "v1",
+		Versions: []ContractVersionDefinition{
+			{Version: "v1", Disposition: VersionCurrent},
+			{Version: "1", Disposition: VersionSupportedHistorical},
+		},
+	}
+	invocationContractVersions = clientContractCatalog.MustRegister(invocationContractPolicy, nil)
+)
+
+func InvocationContractCurrentVersion() string { return invocationContractVersions.CurrentVersion() }
+
 type InvocationOption struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
@@ -26,7 +40,10 @@ type InvocationContract struct {
 }
 
 func (c InvocationContract) Validate() error {
-	if c.Version == "" || c.PackageID == "" || c.PackageVersion == "" || c.GraphID == "" || c.GraphVersion == "" || c.EntryPointID == "" {
+	if _, _, err := invocationContractVersions.Canonicalize(c.Version, nil); err != nil {
+		return err
+	}
+	if c.PackageID == "" || c.PackageVersion == "" || c.GraphID == "" || c.GraphVersion == "" || c.EntryPointID == "" {
 		return errors.New("invocation contract identity/version fields are required")
 	}
 	if len(c.Aliases) == 0 {

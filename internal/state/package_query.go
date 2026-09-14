@@ -33,6 +33,56 @@ type PackageActivationReceipt struct {
 	ActivatedAt    time.Time
 }
 
+type PackageTransitionReceipt struct {
+	TransitionID   string
+	Request        packagecatalog.TransitionRequest
+	IntentDigest   string
+	TransitionedAt time.Time
+}
+
+func (s *Store) PackageTransitionReceipts(ctx context.Context, packageID string) ([]PackageTransitionReceipt, error) {
+	if s == nil || s.db == nil || packageID == "" {
+		return nil, errors.New("state store and package id are required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT transition_id,package_version,content_digest,operation,intent_json,intent_digest,approval_id,authority_id,authority_kind,transitioned_at FROM package_transition_receipts WHERE package_id=? ORDER BY transitioned_at,transition_id`, packageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PackageTransitionReceipt
+	for rows.Next() {
+		var item PackageTransitionReceipt
+		var operation packagecatalog.TransitionOperation
+		var intentJSON []byte
+		var authority contracts.PrincipalRef
+		var stamp string
+		item.Request.Identity.PackageID = packageID
+		if err := rows.Scan(&item.TransitionID, &item.Request.Identity.Version, &item.Request.Identity.ContentDigest, &operation, &intentJSON, &item.IntentDigest, &item.Request.ApprovalID, &authority.ID, &authority.Kind, &stamp); err != nil {
+			return nil, err
+		}
+		item.Request.Operation = operation
+		if err := json.Unmarshal(intentJSON, &item.Request.Intent); err != nil {
+			return nil, fmt.Errorf("decode package transition intent: %w", err)
+		}
+		if item.Request.Intent.Actor != authority {
+			return nil, errors.New("package transition authority does not match intent actor")
+		}
+		if err := item.Request.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid package transition receipt: %w", err)
+		}
+		digest, err := item.Request.Intent.Digest()
+		if err != nil || digest != item.IntentDigest {
+			return nil, errors.New("package transition intent digest mismatch")
+		}
+		item.TransitionedAt, err = time.Parse(time.RFC3339Nano, stamp)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) PackageActivationReceipts(ctx context.Context, packageID string) ([]PackageActivationReceipt, error) {
 	if s == nil || s.db == nil || packageID == "" {
 		return nil, errors.New("state store and package id are required")

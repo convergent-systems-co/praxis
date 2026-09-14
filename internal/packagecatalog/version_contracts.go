@@ -3,19 +3,38 @@ package packagecatalog
 import "github.com/convergent-systems-co/praxis/pkg/contracts"
 
 var (
-	signatureEnvelopeVersions    = packageContract("package.signature_envelope", "v1")
-	verificationEvidenceVersions = packageContract("package.verification_evidence", "v1")
-	activationIntentVersions     = packageContract("package.activation_intent", "v1")
+	packageVersionCatalog = contracts.NewVersionCatalog()
+
+	manifestContractPolicy = contracts.ContractVersionPolicy{
+		Contract: "package.manifest", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
+	signatureEnvelopePolicy = contracts.ContractVersionPolicy{
+		Contract: "package.signature_envelope", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
+	verificationEvidencePolicy = contracts.ContractVersionPolicy{
+		Contract: "package.verification_evidence", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
+	activationIntentPolicy = contracts.ContractVersionPolicy{
+		Contract: "package.activation_intent", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
+	packageTransitionIntentPolicy = contracts.ContractVersionPolicy{
+		Contract: "package.transition_intent", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
+
+	manifestContractVersions        = packageVersionCatalog.MustRegister(manifestContractPolicy, nil)
+	signatureEnvelopeVersions       = packageVersionCatalog.MustRegister(signatureEnvelopePolicy, nil)
+	verificationEvidenceVersions    = packageVersionCatalog.MustRegister(verificationEvidencePolicy, nil)
+	activationIntentVersions        = packageVersionCatalog.MustRegister(activationIntentPolicy, nil)
+	packageTransitionIntentVersions = packageVersionCatalog.MustRegister(packageTransitionIntentPolicy, nil)
 )
 
-func packageContract(name, current string) *contracts.VersionRegistry {
-	return contracts.MustVersionRegistry(contracts.ContractVersionPolicy{
-		Contract: name, CurrentVersion: current,
-		Versions: []contracts.ContractVersionDefinition{{Version: current, Disposition: contracts.VersionCurrent}},
-	}, nil)
-}
-
 func SignatureEnvelopeCurrentVersion() string { return signatureEnvelopeVersions.CurrentVersion() }
+func ManifestContractCurrentVersion() string  { return manifestContractVersions.CurrentVersion() }
 func VerificationEvidenceCurrentVersion() string {
 	return verificationEvidenceVersions.CurrentVersion()
 }

@@ -42,9 +42,10 @@ func verifiedFixture(t *testing.T, manifest Manifest, artifact []byte, dependenc
 }
 
 func TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities(t *testing.T) {
-	dependency := verifiedFixture(t, Manifest{PackageID: "research/sources", Version: "1", Capabilities: []string{"network.read"}}, []byte("research-sources"), nil)
+	dependency := verifiedFixture(t, Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "research/sources", Version: "1", Capabilities: []string{"network.read"}}, []byte("research-sources"), nil)
 	root := verifiedFixture(t, Manifest{
-		PackageID: "delivery/graph", Version: "2", Publisher: "publisher",
+		ContractVersion: ManifestContractCurrentVersion(),
+		PackageID:       "delivery/graph", Version: "2", Publisher: "publisher",
 		Capabilities: []string{"workspace.read"}, RequiredEnforcement: []string{"network.egress.filtered"},
 		Dependencies: []Dependency{{PackageID: "research/sources", Version: "1", Digest: dependency.Manifest().ContentDigest}},
 	}, []byte("delivery-graph"), map[string]VerifiedPackage{"research/sources": dependency})
@@ -63,7 +64,7 @@ func TestBarePackageCannotMintVerificationAndTamperingFails(t *testing.T) {
 	if err := (VerifiedPackage{}).Validate(); err == nil {
 		t.Fatal("zero-value package must not mint verification")
 	}
-	manifest := Manifest{PackageID: "research/pkg", Version: "1", ContentDigest: bytesDigest([]byte("expected"))}
+	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "research/pkg", Version: "1", ContentDigest: bytesDigest([]byte("expected"))}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +80,7 @@ func TestBarePackageCannotMintVerificationAndTamperingFails(t *testing.T) {
 }
 
 func TestVerifiedPackageAccessorsCannotMutateSealedEvidence(t *testing.T) {
-	verified := verifiedFixture(t, Manifest{PackageID: "research/pkg", Version: "1", Capabilities: []string{"network.read"}}, []byte("research"), nil)
+	verified := verifiedFixture(t, Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "research/pkg", Version: "1", Capabilities: []string{"network.read"}}, []byte("research"), nil)
 	manifest := verified.Manifest()
 	manifest.Capabilities[0] = "network.write"
 	evidence := verified.Evidence()
@@ -101,7 +102,7 @@ func TestVerifiedPackageAccessorsCannotMutateSealedEvidence(t *testing.T) {
 }
 
 func TestUnverifiedDependencyCannotSatisfyImmutableLock(t *testing.T) {
-	manifest := Manifest{PackageID: "root", Version: "1", Dependencies: []Dependency{{PackageID: "dep", Version: "1", Digest: bytesDigest([]byte("dep"))}}}
+	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "root", Version: "1", Dependencies: []Dependency{{PackageID: "dep", Version: "1", Digest: bytesDigest([]byte("dep"))}}}
 	manifest.ContentDigest = bytesDigest([]byte("root"))
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {

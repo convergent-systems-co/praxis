@@ -101,6 +101,8 @@ Capability/enforcement/crypto expansion follows reauthorization policy. Existing
 
 Uninstall SHALL remove/deactivate discoverable active registrations and prevent new execution from removed content. Historical event/run/agent lineage needed for audit/replay remains unless separately deleted under explicit retention policy.
 
+Disable and uninstall are authoritative mutations. Each binds an exact installed generation and operation to a persisted local approval, consumes that approval atomically with registry removal, and retains an immutable transition receipt across restart. A caller supplying only a package ID cannot disable or remove content.
+
 ## GitHub Releases packaging profile
 
 Initial release assets SHOULD contain:

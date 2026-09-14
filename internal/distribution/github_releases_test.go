@@ -32,7 +32,7 @@ func TestGitHubReleasesDiscoverUsesUniversalPackageTopic(t *testing.T) {
 }
 
 func TestGitHubReleasesResolveLoadsCanonicalSignedAssets(t *testing.T) {
-	manifest := []byte(`{"package_id":"acme/tool","version":"1.0.0","content_digest":"sha256:abc","invocations":[{"version":"v1","package_id":"acme/tool","package_version":"1.0.0","graph_id":"graph","graph_version":"1","entry_point_id":"acme.tool.default","aliases":["tool"]}]}`)
+	manifest := []byte(`{"contract_version":"v1","package_id":"acme/tool","version":"1.0.0","content_digest":"sha256:abc","invocations":[{"version":"v1","package_id":"acme/tool","package_version":"1.0.0","graph_id":"graph","graph_version":"1","entry_point_id":"acme.tool.default","aliases":["tool"]}]}`)
 	manifestDigest := sha256Digest(manifest)
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)

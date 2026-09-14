@@ -25,9 +25,13 @@ A migratable definition binds a versioned upcaster identity and target. The cano
 
 Static contract policy is validated once and exposed read-only. Consumers ask their named registry to canonicalize an event/object version; they do not supply current versions or historical lists. Adding a version changes the contract policy and, when required, its registered migration—not arbitrary replay call sites.
 
+Contracts that form one owning family SHALL register their explicit named policies in a `VersionCatalog` (or an equivalently strict owner). The catalog admits one policy per contract identity. Duplicate declarations—including identical duplicates—fail closed so apparently idempotent setup cannot conceal distributed semantic ownership. A helper that accepts a contract name and current version is not an authoritative definition when it can recreate policies independently; version literals remain legitimate inside the one named policy that owns the contract.
+
 ## Initial application and audit
 
 Adaptive observation, profile, measurement, and analysis event replay now use named registries. Observation/profile v1 disposition is defined once as `unsupported_pre_release`; current versions are obtained from the same policy for freeze, validation, append, and replay.
+
+The client invocation policy records an earlier repository split explicitly: package-owned records used both `v1` and `1` with the same schema semantics before one compatibility owner existed. `v1` is the canonical current write version and `1` is supported historical state. This is compatibility metadata at the owning definition, not consumer-selected leniency; unknown forms still fail closed.
 
 A repository review found additional durable/versioned surfaces that need explicit policy ownership as their contracts evolve:
 
@@ -44,6 +48,7 @@ This audit is an adoption map, not evidence that the remaining surfaces are alre
 ## Consequences
 
 - Replay compatibility is centralized, deterministic, auditable, and fail-closed.
+- Conflicting declarations for one contract identity fail at registration rather than creating multiple semantic truths.
 - Recognized does not imply readable.
 - Pre-release rejection and security revocation remain distinct.
 - Migration behavior has explicit identity and evidence.

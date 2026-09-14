@@ -110,6 +110,8 @@ Activation SHALL publish all typed registries required by the package (graph, ag
 
 Package signature, verification-evidence, and activation-intent formats are durable versioned contracts governed by first-class version registries. Compatibility behavior belongs to that metadata; unknown or rejected versions fail closed and consumers do not carry historical-version lists.
 
+The package contract family owns one catalog of explicit policies for package manifests, signature envelopes, verification evidence, activation intents, and disable/remove transition intents. The generic client-contract family separately owns `InvocationContract` schema compatibility. Repository history contains semantically identical package-owned invocation records using both `v1` and `1` before that ownership was centralized; the policy designates `v1` as current and `1` as supported historical state rather than rewriting persisted package data. Package/version and graph/version fields in a manifest are immutable content identities, not schema-version policy. Install-state vocabulary and activation/transition receipt tables evolve through the centralized SQLite schema migration boundary; they SHALL NOT be misclassified as independently upcastable byte contracts. Adding v2 to any durable package record changes its one owning policy and optional named upcaster, never a consumer-local helper argument.
+
 ## Update and rollback
 
 An update SHALL pin a new immutable package generation and run compatibility/migration checks before activation.

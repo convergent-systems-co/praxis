@@ -21,7 +21,8 @@ func fixturePackage(id, version, digest, alias string) packagecatalog.Manifest {
 	artifactSum := sha256.Sum256([]byte("package-artifact:" + id + "@" + version))
 	digest = "sha256:" + hex.EncodeToString(artifactSum[:])
 	return packagecatalog.Manifest{
-		PackageID: id, Version: version, ContentDigest: digest,
+		ContractVersion: packagecatalog.ManifestContractCurrentVersion(),
+		PackageID:       id, Version: version, ContentDigest: digest,
 		Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentGraph, ID: id + ".graph", Version: version, Digest: "sha256:graph-" + version, Artifact: "graphs/default.json"}},
 		Invocations: []contracts.InvocationContract{{
 			Version: "v1", PackageID: id, PackageVersion: version,
@@ -79,6 +80,27 @@ func activateFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *St
 	return manifest
 }
 
+func transitionFixturePackage(t *testing.T, ctx context.Context, db *sql.DB, s *Store, manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, now time.Time) packagecatalog.TransitionRequest {
+	t.Helper()
+	actor := contracts.PrincipalRef{ID: "fixture-authority", Kind: "user"}
+	approvalID := "approval:" + string(operation) + ":" + manifest.PackageID + ":" + manifest.Version
+	request, err := packagecatalog.NewTransitionRequest(packagecatalog.PackageIdentity{PackageID: manifest.PackageID, Version: manifest.Version, ContentDigest: manifest.ContentDigest}, operation, actor, approvalID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, approvalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.TransitionPackage(ctx, request, now); err != nil {
+		t.Fatal(err)
+	}
+	return request
+}
+
 func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	ctx := context.Background()
 	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
@@ -103,9 +125,7 @@ func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	if content.PackageID != m.PackageID || content.Content.Digest != "sha256:graph-1.0.0" {
 		t.Fatalf("wrong graph registration: %#v", content)
 	}
-	if err := s.DeactivatePackage(ctx, m.PackageID); err != nil {
-		t.Fatal(err)
-	}
+	transitionFixturePackage(t, ctx, db, s, m, packagecatalog.TransitionDisable, time.Now().UTC())
 	if _, err := s.ResolveInvocationAlias(ctx, "example"); err == nil {
 		t.Fatal("disabled package alias must disappear")
 	}
@@ -122,13 +142,13 @@ func TestAgentOnlyAndMixedPackagesAreFirstClassContents(t *testing.T) {
 	}
 	defer db.Close()
 	s := New(db)
-	agentOnly := packagecatalog.Manifest{PackageID: "agent/pkg", Version: "1", ContentDigest: "sha256:a", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentAgentDefinition, ID: "researcher", Version: "1", Digest: "sha256:agent", Artifact: "agents/researcher.json"}}}
+	agentOnly := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "agent/pkg", Version: "1", ContentDigest: "sha256:a", Contents: []packagecatalog.ContentRef{{Kind: packagecatalog.ContentAgentDefinition, ID: "researcher", Version: "1", Digest: "sha256:agent", Artifact: "agents/researcher.json"}}}
 	activateFixturePackage(t, ctx, db, s, agentOnly, time.Now().UTC())
 	agents, err := s.ActiveContents(ctx, packagecatalog.ContentAgentDefinition)
 	if err != nil || len(agents) != 1 || agents[0].Content.ID != "researcher" {
 		t.Fatalf("agent contents: %#v err=%v", agents, err)
 	}
-	mixed := packagecatalog.Manifest{PackageID: "mixed/pkg", Version: "1", ContentDigest: "sha256:m", Contents: []packagecatalog.ContentRef{
+	mixed := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "mixed/pkg", Version: "1", ContentDigest: "sha256:m", Contents: []packagecatalog.ContentRef{
 		{Kind: packagecatalog.ContentGraph, ID: "mixed.graph", Version: "1", Digest: "sha256:g", Artifact: "graphs/mixed.json"},
 		{Kind: packagecatalog.ContentPlugin, ID: "mixed.provider", Version: "1", Digest: "sha256:p", Artifact: "plugins/provider"},
 	}}
@@ -263,6 +283,101 @@ func TestPackageVerificationAuthorityAndRegistrationsSurviveRestart(t *testing.T
 	}
 	if resolved.Contract.PackageID != manifest.PackageID || resolved.ContentDigest != manifest.ContentDigest {
 		t.Fatalf("restart changed active client-visible generation: %#v", resolved)
+	}
+}
+
+func TestGovernedDisableAndRemovePreserveHistoryAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := New(db)
+	now := time.Date(2026, 9, 13, 19, 0, 0, 0, time.UTC)
+	manifest := activateFixturePackage(t, ctx, db, store, fixturePackage("research/lifecycle", "1", "", "study"), now)
+	disable := transitionFixturePackage(t, ctx, db, store, manifest, packagecatalog.TransitionDisable, now.Add(time.Minute))
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store = New(restarted)
+	if _, err := store.ResolveInvocationAlias(ctx, "study"); err == nil {
+		t.Fatal("disabled package command returned after restart")
+	}
+	receipts, err := store.PackageTransitionReceipts(ctx, manifest.PackageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(receipts) != 1 || receipts[0].Request.Operation != packagecatalog.TransitionDisable || receipts[0].Request.Identity.ContentDigest != manifest.ContentDigest || receipts[0].Request.ApprovalID != disable.ApprovalID {
+		t.Fatalf("restart lost exact disable evidence: %#v", receipts)
+	}
+	remove := transitionFixturePackage(t, ctx, restarted, store, manifest, packagecatalog.TransitionRemove, now.Add(2*time.Minute))
+	if err := restarted.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	finalDB, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer finalDB.Close()
+	finalStore := New(finalDB)
+	installed, err := finalStore.InstalledPackages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range installed {
+		if item.Manifest.PackageID == manifest.PackageID {
+			t.Fatal("removed package remained discoverable as installed")
+		}
+	}
+	receipts, err = finalStore.PackageTransitionReceipts(ctx, manifest.PackageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operations := map[packagecatalog.TransitionOperation]string{}
+	for _, receipt := range receipts {
+		operations[receipt.Request.Operation] = receipt.Request.ApprovalID
+	}
+	if operations[packagecatalog.TransitionDisable] != disable.ApprovalID || operations[packagecatalog.TransitionRemove] != remove.ApprovalID {
+		t.Fatalf("remove restart lost governed transition history: %#v", operations)
+	}
+}
+
+func TestPackageTransitionCannotChangeOperationAfterApproval(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	now := time.Date(2026, 9, 13, 19, 30, 0, 0, time.UTC)
+	manifest := activateFixturePackage(t, ctx, db, store, fixturePackage("delivery/transition", "1", "", "ship"), now)
+	actor := contracts.PrincipalRef{ID: "fixture-authority", Kind: "user"}
+	request, err := packagecatalog.NewTransitionRequest(packagecatalog.PackageIdentity{PackageID: manifest.PackageID, Version: manifest.Version, ContentDigest: manifest.ContentDigest}, packagecatalog.TransitionDisable, actor, "approval-transition-tamper")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	request.Operation = packagecatalog.TransitionRemove
+	if err := store.TransitionPackage(ctx, request, now.Add(time.Second)); err == nil {
+		t.Fatal("caller changed approved disable into removal")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval-transition-tamper'`, 1)
+	if _, err := store.ResolveInvocationAlias(ctx, "ship"); err != nil {
+		t.Fatalf("denied transition changed active surface: %v", err)
 	}
 }
 

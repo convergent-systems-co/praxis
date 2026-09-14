@@ -49,6 +49,7 @@ func (c ContentRef) Validate() error {
 }
 
 type Manifest struct {
+	ContractVersion     string                         `json:"contract_version"`
 	PackageID           string                         `json:"package_id"`
 	Version             string                         `json:"version"`
 	ContentDigest       string                         `json:"content_digest"`
@@ -66,6 +67,9 @@ type Manifest struct {
 }
 
 func (m Manifest) Validate() error {
+	if err := requirePackageContractVersion(manifestContractVersions, m.ContractVersion); err != nil {
+		return err
+	}
 	if m.PackageID == "" || m.Version == "" || m.ContentDigest == "" {
 		return errors.New("package id, version, and content digest are required")
 	}

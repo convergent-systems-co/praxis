@@ -138,19 +138,32 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "review": review})
-	case "uninstall":
+	case "disable", "uninstall":
 		if len(args) != 1 {
-			return errors.New("usage: praxis uninstall <package-id>")
+			return fmt.Errorf("usage: praxis %s <package-id>", command)
 		}
 		db, err := openPackageDB(ctx)
 		if err != nil {
 			return err
 		}
 		defer db.Close()
-		if err := state.New(db).RemovePackage(ctx, args[0]); err != nil {
+		store := state.New(db)
+		installed, err := store.ActivePackage(ctx, args[0])
+		if err != nil {
+			return fmt.Errorf("active package %q: %w", args[0], err)
+		}
+		operation := packagecatalog.TransitionDisable
+		if command == "uninstall" {
+			operation = packagecatalog.TransitionRemove
+		}
+		transition, err := packageTransitionRequest(installed.Manifest, operation, os.Getenv)
+		if err != nil {
 			return err
 		}
-		return printJSON(map[string]any{"uninstalled": args[0], "durable_history_preserved": true})
+		if err := store.TransitionPackage(ctx, transition, time.Now().UTC()); err != nil {
+			return err
+		}
+		return printJSON(map[string]any{"package_id": args[0], "state": strings.TrimPrefix(string(operation), "package."), "durable_history_preserved": true})
 	default:
 		return fmt.Errorf("unknown package command %q", command)
 	}
@@ -248,6 +261,17 @@ func packageActivationRequest(verified packagecatalog.VerifiedPackage, getenv fu
 	}
 	request := packagecatalog.ActivationRequest{Package: verified, Intent: intent, ApprovalID: approvalID}
 	return request, request.Validate()
+}
+
+func packageTransitionRequest(manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, getenv func(string) string) (packagecatalog.TransitionRequest, error) {
+	if getenv == nil {
+		return packagecatalog.TransitionRequest{}, errors.New("package transition authority environment is required")
+	}
+	approvalID, actorID, actorKind := getenv("PRAXIS_PACKAGE_APPROVAL_ID"), getenv("PRAXIS_AUTHORITY_ID"), getenv("PRAXIS_AUTHORITY_KIND")
+	if approvalID == "" || actorID == "" || actorKind == "" {
+		return packagecatalog.TransitionRequest{}, errors.New("PRAXIS_PACKAGE_APPROVAL_ID, PRAXIS_AUTHORITY_ID, and PRAXIS_AUTHORITY_KIND are required for package transitions")
+	}
+	return packagecatalog.NewTransitionRequest(packagecatalog.PackageIdentity{PackageID: manifest.PackageID, Version: manifest.Version, ContentDigest: manifest.ContentDigest}, operation, contracts.PrincipalRef{ID: actorID, Kind: actorKind}, approvalID)
 }
 
 func signatureKeyIDs(envelope packagecatalog.SignatureEnvelope) []string {

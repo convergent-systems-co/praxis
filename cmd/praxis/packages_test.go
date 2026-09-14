@@ -24,7 +24,7 @@ func signedFixtureRelease(t *testing.T, profile contracts.CryptoProfile) (distri
 	artifact := []byte("package-payload")
 	sum := sha256.Sum256(artifact)
 	artifactDigest := "sha256:" + hex.EncodeToString(sum[:])
-	manifest := packagecatalog.Manifest{PackageID: "acme/pkg", Version: "1", ContentDigest: artifactDigest}
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "acme/pkg", Version: "1", ContentDigest: artifactDigest}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -116,5 +116,31 @@ func TestInstallArgsRequireExplicitFallbackFlag(t *testing.T) {
 	}
 	if _, _, err := parseInstallArgs([]string{"acme/pkg", "--anything"}); err == nil {
 		t.Fatal("unknown install option must fail")
+	}
+}
+
+func TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration(t *testing.T) {
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/pkg", Version: "2", ContentDigest: "sha256:generation"}
+	getenv := func(key string) string {
+		switch key {
+		case "PRAXIS_PACKAGE_APPROVAL_ID":
+			return "approval-remove"
+		case "PRAXIS_AUTHORITY_ID":
+			return "operator"
+		case "PRAXIS_AUTHORITY_KIND":
+			return "user"
+		default:
+			return ""
+		}
+	}
+	request, err := packageTransitionRequest(manifest, packagecatalog.TransitionRemove, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Identity.PackageID != manifest.PackageID || request.Identity.Version != manifest.Version || request.Identity.ContentDigest != manifest.ContentDigest || request.Intent.Actor.ID != "operator" || request.ApprovalID != "approval-remove" {
+		t.Fatalf("transition request lost exact authority/generation binding: %#v", request)
+	}
+	if _, err := packageTransitionRequest(manifest, packagecatalog.TransitionRemove, func(string) string { return "" }); err == nil {
+		t.Fatal("package removal must not infer local authority from the requested operation")
 	}
 }

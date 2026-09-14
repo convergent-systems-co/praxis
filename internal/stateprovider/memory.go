@@ -41,10 +41,7 @@ type unsupportedPackageRegistry struct{}
 func (unsupportedPackageRegistry) ActivatePackage(context.Context, packagecatalog.ActivationRequest, time.Time) error {
 	return errors.New("provider does not support atomic package activation")
 }
-func (unsupportedPackageRegistry) DeactivatePackage(context.Context, string) error {
-	return errors.New("provider does not support atomic package activation")
-}
-func (unsupportedPackageRegistry) RemovePackage(context.Context, string) error {
+func (unsupportedPackageRegistry) TransitionPackage(context.Context, packagecatalog.TransitionRequest, time.Time) error {
 	return errors.New("provider does not support atomic package activation")
 }
 func (unsupportedPackageRegistry) ActiveInvocations(context.Context) ([]RegisteredInvocation, error) {

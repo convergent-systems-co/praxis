@@ -16,7 +16,7 @@ import (
 )
 
 var reservedCoreCommands = map[string]struct{}{
-	"discover": {}, "info": {}, "install": {}, "update": {}, "uninstall": {},
+	"discover": {}, "info": {}, "install": {}, "update": {}, "disable": {}, "uninstall": {},
 	"list": {}, "help": {}, "status": {}, "resume": {}, "cancel": {},
 	"doctor": {}, "version": {},
 }
@@ -214,15 +214,36 @@ func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor co
 	return nil
 }
 
-func (s *Store) DeactivatePackage(ctx context.Context, packageID string) error {
-	if s == nil || s.db == nil || packageID == "" {
-		return errors.New("state store and package id are required")
+func (s *Store) TransitionPackage(ctx context.Context, request packagecatalog.TransitionRequest, now time.Time) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if err := request.Validate(); err != nil {
+		return err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	var persistedVersion, persistedDigest, state string
+	if err := tx.QueryRowContext(ctx, `SELECT package_version,content_digest,state FROM installed_packages WHERE package_id=? AND state IN ('active','disabled') ORDER BY CASE state WHEN 'active' THEN 0 ELSE 1 END,activated_at DESC LIMIT 1`, request.Identity.PackageID).Scan(&persistedVersion, &persistedDigest, &state); err != nil {
+		return err
+	}
+	if persistedVersion != request.Identity.Version || persistedDigest != request.Identity.ContentDigest {
+		return errors.New("package transition target is not the selected installed generation")
+	}
+	if request.Operation == packagecatalog.TransitionDisable && state != "active" {
+		return errors.New("only an active package can be disabled")
+	}
+	intentDigest, err := request.Intent.Digest()
+	if err != nil {
+		return err
+	}
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+		return err
+	}
+	packageID := request.Identity.PackageID
 	if _, err := tx.ExecContext(ctx, `DELETE FROM invocation_aliases WHERE (entry_point_id,package_version,content_digest) IN (SELECT entry_point_id,package_version,content_digest FROM invocation_registry WHERE package_id=? AND active=1)`, packageID); err != nil {
 		return err
 	}
@@ -232,18 +253,23 @@ func (s *Store) DeactivatePackage(ctx context.Context, packageID string) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE package_contents SET active=0 WHERE package_id=?`, packageID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE installed_packages SET state='disabled' WHERE package_id=? AND state='active'`, packageID); err != nil {
+	nextState := "disabled"
+	if request.Operation == packagecatalog.TransitionRemove {
+		nextState = "removed"
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE installed_packages SET state=? WHERE package_id=? AND state<>'removed'`, nextState, packageID); err != nil {
+		return err
+	}
+	intentJSON, err := json.Marshal(request.Intent)
+	if err != nil {
+		return err
+	}
+	transitionSum := sha256.Sum256([]byte(intentDigest + "\x00" + request.ApprovalID))
+	transitionID := "package-transition:sha256:" + hex.EncodeToString(transitionSum[:])
+	if _, err := tx.ExecContext(ctx, `INSERT INTO package_transition_receipts(transition_id,package_id,package_version,content_digest,operation,intent_json,intent_digest,approval_id,authority_id,authority_kind,transitioned_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, transitionID, packageID, request.Identity.Version, request.Identity.ContentDigest, request.Operation, intentJSON, intentDigest, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, now.UTC().Format(time.RFC3339Nano)); err != nil {
 		return err
 	}
 	return tx.Commit()
-}
-
-func (s *Store) RemovePackage(ctx context.Context, packageID string) error {
-	if err := s.DeactivatePackage(ctx, packageID); err != nil {
-		return err
-	}
-	_, err := s.db.ExecContext(ctx, `UPDATE installed_packages SET state='removed' WHERE package_id=?`, packageID)
-	return err
 }
 
 func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error) {

@@ -36,7 +36,7 @@ func run(args []string) error {
 	switch args[0] {
 	case "status":
 		return runStatus(args[1:])
-	case "discover", "info", "install", "update", "uninstall", "list":
+	case "discover", "info", "install", "update", "disable", "uninstall", "list":
 		return runPackageCommand(args[0], args[1:])
 	case "doctor":
 		return runDoctor(args[1:])
@@ -96,7 +96,7 @@ func runDynamicInvocation(ctx context.Context, args []string, getenv func(string
 
 func runHelp(args []string) error {
 	fmt.Println("usage: praxis <command|installed-entry-point> [arguments] [options]")
-	fmt.Println("core: discover, info, install, update, uninstall, list, help, status, resume, cancel, doctor, version")
+	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, doctor, version")
 	path := os.Getenv("PRAXIS_DB")
 	if path == "" {
 		fmt.Println("installed entry points: unavailable (set PRAXIS_DB to inspect the active registry)")

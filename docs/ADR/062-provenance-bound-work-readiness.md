@@ -31,6 +31,11 @@ and sequence fields; equal ready candidates fail closed as ambiguous. It may
 report model proposals as unresolved context, but it must not use them to
 authorize or deny deterministic work selection.
 
+When the Goal-drive caller omits a child objective, this controller-owned
+selection runs once before the worker turn. The selected candidate is recorded
+in the turn ledger; selection does not create an internal loop. An explicit
+authoritative child objective remains supported.
+
 ## Consequences
 
 The roadmap can preserve nuanced dependency language without losing selection

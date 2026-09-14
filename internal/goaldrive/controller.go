@@ -42,6 +42,8 @@ type TurnRequest struct {
 	Repository                                                                                  contracts.RepositoryState
 	ProviderID                                                                                  string
 	Mode                                                                                        ExecutionMode
+	WorkCandidates                                                                              []contracts.WorkCandidate
+	WorkRelationships                                                                           []contracts.WorkRelationship
 }
 
 type Controller struct {
@@ -52,7 +54,7 @@ type Controller struct {
 }
 
 func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecord, error) {
-	turns, err := c.prepare(ctx, req)
+	turns, req, err := c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, err
 	}
@@ -66,22 +68,29 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 	return record, workerErr
 }
 
-func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord, error) {
+func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord, TurnRequest, error) {
 	if req.InvocationID == "" {
-		return nil, errors.New("Goal-drive invocation identity is required")
+		return nil, TurnRequest{}, errors.New("Goal-drive invocation identity is required")
 	}
 	if req.Mode != ModeSupervised && req.Mode != ModeContinuous {
-		return nil, fmt.Errorf("unsupported Goal-drive execution mode %q", req.Mode)
+		return nil, TurnRequest{}, fmt.Errorf("unsupported Goal-drive execution mode %q", req.Mode)
+	}
+	if req.ChildObjective == "" {
+		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
+		if err != nil {
+			return nil, TurnRequest{}, err
+		}
+		req.ChildObjective = candidate.ID
 	}
 	if _, err := c.worker(req); err != nil {
-		return nil, err
+		return nil, TurnRequest{}, err
 	}
 	if req.Repository != contracts.RepositorySynced {
-		return nil, fmt.Errorf("%w: %s", ErrUnsafeRepository, req.Repository)
+		return nil, TurnRequest{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, req.Repository)
 	}
 	turns, err := c.Ledger.Load(ctx, req.GoalID, req.GoalVersion)
 	if err != nil {
-		return nil, err
+		return nil, TurnRequest{}, err
 	}
 	limit := c.NoProgressLimit
 	if limit <= 0 {
@@ -91,10 +100,10 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	for _, turn := range turns {
 		if turn.InvocationID == req.InvocationID {
 			if turn.Mode != req.Mode {
-				return nil, ErrInvocationModeMismatch
+				return nil, TurnRequest{}, ErrInvocationModeMismatch
 			}
 			if req.Mode == ModeSupervised && turn.Progress {
-				return nil, ErrSupervisedTerminated
+				return nil, TurnRequest{}, ErrSupervisedTerminated
 			}
 		}
 		if turn.ChildObjective == req.ChildObjective && turn.Outcome == OutcomeNoProgress {
@@ -102,9 +111,9 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		}
 	}
 	if noProgress >= limit {
-		return nil, ErrNoProgressLimit
+		return nil, TurnRequest{}, ErrNoProgressLimit
 	}
-	return turns, nil
+	return turns, req, nil
 }
 
 func (c Controller) worker(req TurnRequest) (Worker, error) {

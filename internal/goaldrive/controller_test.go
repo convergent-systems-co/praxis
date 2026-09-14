@@ -11,13 +11,49 @@ import (
 
 type fakeWorker struct {
 	called int
+	last   WorkerRequest
 	result WorkerResult
 	err    error
 }
 
-func (w *fakeWorker) Execute(_ context.Context, _ WorkerRequest) (WorkerResult, error) {
+func (w *fakeWorker) Execute(_ context.Context, request WorkerRequest) (WorkerResult, error) {
 	w.called++
+	w.last = request
 	return w.result, w.err
+}
+
+func controllerCandidate(id string, priority, sequence int, completed bool) contracts.WorkCandidate {
+	return contracts.WorkCandidate{ID: id, Priority: priority, Sequence: sequence, Completed: completed, SourceRef: "docs/PLAN/003-post-release-roadmap.md#" + id, SourceDigest: "sha256:roadmap", Provenance: contracts.ProvenancePLAN}
+}
+
+func TestControllerSelectsOneAuthoritativeRunnableUnitWhenObjectiveIsAbsent(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	req := turnRequest()
+	req.ChildObjective = ""
+	req.WorkCandidates = []contracts.WorkCandidate{controllerCandidate("blocked", 0, 0, false), controllerCandidate("ready", 1, 0, false), controllerCandidate("done", 0, 1, true)}
+	req.WorkRelationships = []contracts.WorkRelationship{{Dependent: "blocked", Prerequisite: "missing", Kind: contracts.RelationshipHardDependency, SourceRef: "docs/PLAN/003-post-release-roadmap.md", SourceDigest: "sha256:roadmap", Provenance: contracts.ProvenancePLAN}}
+	record, err := controller.ExecuteTurn(context.Background(), req)
+	if err != nil || record.ChildObjective != "ready" || worker.called != 1 || worker.last.ChildObjective != "ready" {
+		t.Fatalf("controller did not select exactly one authoritative runnable unit: record=%+v worker=%+v err=%v", record, worker.last, err)
+	}
+	next := req
+	next.TurnID = "turn-2"
+	if _, err := controller.ExecuteTurn(context.Background(), next); !errors.Is(err, ErrSupervisedTerminated) || worker.called != 1 {
+		t.Fatalf("fresh selection must still stop at supervised boundary: err=%v calls=%d", err, worker.called)
+	}
+}
+
+func TestControllerFailsClosedWhenObjectiveIsAbsentAndNoUnitIsRunnable(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	req := turnRequest()
+	req.ChildObjective = ""
+	req.WorkCandidates = []contracts.WorkCandidate{controllerCandidate("blocked", 0, 0, false)}
+	req.WorkRelationships = []contracts.WorkRelationship{{Dependent: "blocked", Prerequisite: "missing", Kind: contracts.RelationshipHardDependency, SourceRef: "docs/PLAN/003-post-release-roadmap.md", SourceDigest: "sha256:roadmap", Provenance: contracts.ProvenancePLAN}}
+	if _, err := controller.ExecuteTurn(context.Background(), req); !errors.Is(err, contracts.ErrNoRunnableWork) || worker.called != 0 {
+		t.Fatalf("no runnable authoritative unit must stop before worker: err=%v calls=%d", err, worker.called)
+	}
 }
 
 func controllerFixture(worker Worker) Controller {

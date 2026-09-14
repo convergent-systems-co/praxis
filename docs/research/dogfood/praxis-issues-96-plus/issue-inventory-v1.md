@@ -162,4 +162,7 @@ demonstrate that all work was blocked. The capability belongs to the #103
 Goal-drive control plane. A provider-neutral selector primitive now validates
 candidate provenance, applies authoritative hard-dependency readiness, orders
 by durable priority/sequence, and fails closed on ambiguity; native durable
-candidate loading and command dispatch remain separate #103 work.
+candidate loading and command dispatch remain separate #103 work. The
+controller now consumes an authoritative candidate set when `ChildObjective` is
+absent, selects exactly one unit before the worker turn, records that identity,
+and preserves the supervised one-turn boundary.

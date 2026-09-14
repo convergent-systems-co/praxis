@@ -31,6 +31,12 @@ then ascending sequence, and SHALL fail closed when multiple candidates tie on
 both fields. Input order, issue-number order, model proposals, or weaker
 relationship kinds SHALL NOT mint selection authority.
 
+When a Goal-drive request omits `ChildObjective`, the controller SHALL perform
+exactly one such selection before invoking the worker. An explicit objective
+remains eligible as caller-supplied work input; it does not authorize a second
+selection or an implicit execution loop. The selected objective SHALL be
+recorded in the turn ledger.
+
 ## Acceptance evidence
 
 Tests SHALL prove that authoritative hard dependencies block and unblock work,

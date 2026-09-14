@@ -80,7 +80,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	}
 	req.StartHead = snapshot.Head
 	req.Repository = contracts.RepositorySynced
-	turns, err := c.prepare(ctx, req)
+	turns, req, err := c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, err
 	}

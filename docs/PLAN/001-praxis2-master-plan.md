@@ -163,7 +163,7 @@ Plugin wire-contract progress: repository/tag/history review classifies the orig
 
 Capability-set review: ADR-055 evaluates manifest declaration, handshake advertisement, provider availability, routing, and lease authority as distinct facts. The signed manifest is a reviewed upper bound; a handshake-validated session may expose a safe subset, while any extra capability fails closed. A provider cannot publish caller-selected availability or `ready` state: supervisor publication requires the exact validated handshake result, and only its ephemeral advertised set is routable. Restart requires fresh validation and stale lease/session binding remains denied. The equality audit retained exact relations for signed bytes, dependency closures, AAD, and bound identity; it did not loosen them mechanically. Successor attestations v21/v16/v16 preserve source-affected accepted evidence. This remains enabling runtime substrate, not a finding closure.
 
-Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v29/v24/v24 preserve source-affected accepted evidence. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
+Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v30/v25/v25 preserve source-affected accepted evidence. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
 
 Verified launch-boundary progress: `ResolvedPlugin.LaunchSpec` now carries the
 exact digest-verified executable bytes reconstructed from active package state
@@ -173,6 +173,13 @@ materializes only those bytes, strips ambient environment, and fails closed when
 required isolation lacks an enforcer. This is an integration prerequisite, not
 closure of OI-021/OI-030/OI-037: durable supervisor recovery, lease persistence,
 real package update/revocation, and effective OS isolation remain outstanding.
+
+Package-to-supervisor integration progress: an activated mixed package now
+resolves its exact executable bytes into a persistent supervisor launch binding,
+completes a fresh capability-validated handshake, routes the advertised
+capability, and normalizes ready state to stopped after SQLite restart. This is
+still lifecycle substrate; real process execution, lease use, update/revocation,
+and host isolation remain required for OI-021/OI-030/OI-037.
 
 Durable supervisor progress: ADR-056 and SQLite migration 0010 persist the
 verified launch binding plus failure/quarantine/revocation state. Restored

@@ -26,6 +26,7 @@ A post-release issue may therefore have one of three dispositions:
 5. Legacy Python/overlay issues must be reconciled against the qualified Go/Praxis 2 architecture before implementation.
 6. Issue completion is not equivalent to product-goal completion; each wave has its own integration and qualification gate.
 7. Do not re-open the frozen PLAN-001 OI denominator for post-release features unless evidence proves an original-intent decomposition error and the governed denominator-transition process is followed.
+8. Executor optimization, learned routing, and token management may never outrank capability, security, evidence, or explicit transport/API policy.
 
 ## Wave P0: Release follow-through and terminology
 
@@ -48,11 +49,52 @@ Deliverables include detailed README, installation, getting started, architectur
 
 Dependency: qualified PLAN-001 release; naming decision #95 should be resolved first if it changes terminology.
 
-## Wave P1: First-party product bundles and development workflow
+## Wave P1: Executor targeting and first-party product bundles
+
+### #102 — Governed executor affinity and model-routing targets for agents and graphs
+
+Issue #102 is the execution-selection foundation for multi-agent first-party bundles.
+
+Architecture is governed by ADR-059 and SPEC-022.
+
+Deliverables:
+
+- provider-neutral Execution Target contract;
+- explicit distinction between executor/model family and transport/auth/accounting surface;
+- support for preferred and required execution profiles;
+- explicit safe fallback sets and fail-closed behavior;
+- subscription/local versus metered API policy;
+- token/context/resource budget inputs where reliable telemetry exists;
+- no fabricated token/cost telemetry;
+- deterministic authority and precedence across org/user/package/agent/graph/node/operator/learned inputs;
+- persistent agent identity independent of executor identity;
+- governed learned-routing promotion/demotion;
+- executor-specific quota/concurrency integration with scheduler/resource governance;
+- durable explainable routing evidence for later supervision/TUI projection.
+
+At minimum the implementation must prove distinct selectable execution surfaces for:
+
+```text
+Codex subscription/CLI
+OpenAI API
+Claude subscription/CLI
+Anthropic API
+```
+
+These examples define required representational capability, not privileged provider semantics.
+
+Security and evidence constraints always outrank token/cost optimization. No subscription/local execution may silently fall back to metered API usage unless explicit policy allows it.
+
+Dependencies/interactions:
+
+- reconcile with #37 Universal AI Execution Fabric rather than duplicate concrete adapters;
+- consume/reconcile existing inference routing and budget semantics;
+- expose routing evidence to #100 supervision/TUI work;
+- complete before or as the first architectural slice of #101 so first-party bundles do not invent provider-selection logic independently.
 
 ### #101 — Define first-party Goals and Develop bundles with multi-agent parallel execution and structured command surface
 
-This is the primary first-party productization wave.
+This is the primary first-party productization wave and consumes the governed executor-target contract from #102.
 
 Reconcile ADR -> SPEC -> PLAN before implementation. Define real package-owned graph/agent bundles rather than prompt personas.
 
@@ -71,9 +113,11 @@ The Develop Bundle must evaluate responsibilities such as planner/architect, TDD
 
 Parallel execution is graph-owned dependency-aware fan-out/fan-in; `--parallel N` is a concurrency ceiling, not an instruction to spawn N identical developers.
 
+Specialized roles may carry package-owned execution affinity/default profiles through #102, but no role is permanently bound to Codex, Claude, OpenAI, Anthropic, or any other provider. Stronger user/org/security policy remains authoritative.
+
 The Goals Bundle must similarly define outcome clarification, evidence/context exploration, constraint/risk analysis, decomposition/options, independent goal review, and baseline compilation with progressive rigor.
 
-Qualification must cover fast-path work, standard TDD/development, security-sensitive work, IaC selection, documentation selection, actual dependency-safe parallelism, issue ingestion, file scoping with justified dependency expansion, baseline reuse, restart/recovery, independent evidence, dynamic InvocationContract activation, and a non-development counterexample proving domain neutrality.
+Qualification must cover fast-path work, standard TDD/development, security-sensitive work, IaC selection, documentation selection, actual dependency-safe parallelism, issue ingestion, file scoping with justified dependency expansion, baseline reuse, restart/recovery, independent evidence, dynamic InvocationContract activation, multiple eligible executor surfaces through #102, and a non-development counterexample proving domain neutrality.
 
 ### #26 — Epic: Praxis overlay completeness / develop lane gap
 
@@ -111,6 +155,8 @@ Key requirements:
 
 Dependency: qualified core learning/conformance architecture from PLAN-001. #96 may become one candidate consumer of retrospective learning but must not contaminate blind discovery.
 
+Routing-performance observations from #102 may eventually become another learning input, but learned executor preference must follow the same governed promotion separation rather than self-modifying active routing directly.
+
 ## Wave P3: Supervision, presentation efficiency, and operator UX
 
 ### #98 — Add supervision-aware output policy for autonomous execution
@@ -127,13 +173,15 @@ The projection must answer what Praxis is doing, why a claim is satisfied, what 
 
 Dependency: #98 for supervision/presentation integration where practical; both must consume durable evidence rather than model narration.
 
+The TUI/projection should expose #102 routing evidence where available, including selected executor surface, selection/fallback reason, known/unknown token/resource state, applicable budget/policy state, and executor-specific concurrency/quota pressure.
+
 `/praxis develop --dashboard` from #101 should attach to/degrade against this projection contract rather than introduce a separate dashboard authority.
 
 ## Wave P4: Executor and client ecosystem reconciliation
 
 ### #37 — Epic: Universal AI Execution Fabric
 
-Treat as a **legacy/transition epic requiring reconciliation** against qualified Praxis 2 executor routing, client adapters, package lifecycle, deterministic authority, and Go control plane.
+Treat as a **legacy/transition epic requiring reconciliation** against qualified Praxis 2 executor routing, client adapters, package lifecycle, deterministic authority, Go control plane, and ADR-059/SPEC-022 execution-target semantics.
 
 Do not implement remaining Python-era assumptions mechanically.
 
@@ -153,11 +201,12 @@ Reconciliation rules:
 
 1. Prefer qualified Praxis 2 Go/client/package mechanisms over duplicate Python control planes.
 2. Preserve the no-silent-metered-API / no-credential-extraction security intent where still applicable.
-3. Model model/provider choice through capability evidence and routing rather than graph vendor coupling.
+3. Concrete adapters provide executor-surface capabilities/metadata; provider choice is governed through ADR-059/SPEC-022 rather than graph vendor coupling.
 4. Merge dashboard requirements into #100 when they are operational-projection concerns.
 5. Merge documentation requirements into #99 when they belong to release/public documentation.
 6. Integrate adapter configuration through qualified package/client contracts rather than parallel config systems.
 7. Close superseded issues explicitly with links to their replacement architecture/issues rather than leaving zombie backlog.
+8. Treat provider family, concrete model identity, transport/auth class, and metering/accounting class as distinct where required by SPEC-022.
 
 ## Wave P5: Backlog reconciliation and closure
 
@@ -182,9 +231,11 @@ PLAN-001 qualified release
         |
         +--> #99 release documentation
         |
-        +--> #101 first-party Goals/Develop bundles
+        +--> #102 governed executor targeting
         |       |
-        |       +--> reconcile #26 legacy develop/overlay work
+        |       +--> #101 first-party Goals/Develop bundles
+        |               |
+        |               +--> reconcile #26 legacy develop/overlay work
         |
         +--> #96 architecture inversion review
         +--> #97 retrospective learning
@@ -194,15 +245,20 @@ PLAN-001 qualified release
         |       +--> #100 supervision/conformance TUI
         |                |
         |                +--> #101 --dashboard integration as applicable
+        |                +--> #102 routing/budget projection
         |
         +--> reconcile #37 executor/client epic
                 |
+                +--> concrete executor surfaces/adapters
                 +--> #42 #44 #46 #47 #48 #49 #50 #51 #54
+                +--> feed eligible surfaces into #102 routing contract
 ```
+
+#102 and #37 may proceed partially in parallel: #102 owns neutral targeting/authority/budget/fallback semantics, while #37 reconciliation owns concrete executor-surface adapters and related client mechanics. Neither should duplicate the other.
 
 Parallel delivery is allowed when dependency, authority, file-footprint, and qualification boundaries make it safe. This roadmap does not require artificial serialization.
 
-## Current tracked open issues at roadmap creation
+## Current tracked open issues
 
 The following currently open issues are explicitly accounted for by this plan:
 
@@ -224,6 +280,7 @@ The following currently open issues are explicitly accounted for by this plan:
 - #99 — release documentation and architecture guide
 - #100 — supervision/conformance TUI
 - #101 — first-party Goals/Develop bundles and parallel execution
+- #102 — governed executor affinity, targeting, fallback, and token/budget routing
 
 ## Completion
 

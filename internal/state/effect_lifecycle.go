@@ -50,6 +50,19 @@ func (s *Store) MarkEffectOutcome(ctx context.Context, effectID string, state Ef
 	return nil
 }
 
+// ReconcileEffect closes an unknown/reconciling outcome only with explicit
+// evidence from the external authority. Empty evidence is rejected so a
+// caller cannot manufacture certainty by selecting a terminal enum.
+func (s *Store) ReconcileEffect(ctx context.Context, effectID string, terminal EffectState, evidence []byte, now time.Time) error {
+	if len(evidence) == 0 {
+		return errors.New("effect reconciliation evidence is required")
+	}
+	if terminal != EffectSucceeded && terminal != EffectFailed {
+		return errors.New("effect reconciliation must produce succeeded or failed")
+	}
+	return s.MarkEffectOutcome(ctx, effectID, terminal, nil, evidence, now)
+}
+
 func (s *Store) RecoverableEffects(ctx context.Context) ([]RecoverableEffect, error) {
 	if s == nil || s.db == nil {
 		return nil, errors.New("state store is required")

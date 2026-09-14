@@ -46,4 +46,10 @@ func TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart(t *testin
 	if action, err := ClassifyEffectRecovery(RecoverableEffect{ID: "effect-1", State: EffectUnknown}); err == nil || action != RecoveryFailClosed {
 		t.Fatalf("unknown outcome must fail closed without reconciliation: %s %v", action, err)
 	}
+	if err := store.ReconcileEffect(ctx, "effect-1", EffectSucceeded, nil, now.Add(2*time.Second)); err == nil {
+		t.Fatal("reconciliation without evidence must fail closed")
+	}
+	if err := store.ReconcileEffect(ctx, "effect-1", EffectSucceeded, []byte(`{"external_id":"x"}`), now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
 }

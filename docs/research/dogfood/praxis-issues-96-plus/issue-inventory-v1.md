@@ -47,6 +47,6 @@ This is a Praxis dogfood capability boundary, not a target-repository issue and
 not a release-blocking defect. It maps directly to GitHub #103. No workaround
 was promoted into active runtime behavior.
 
-Evidence: `internal/goalstore/dogfood_parent_test.go`; Goal ID
+Evidence: `internal/dogfood/parent_goal_test.go`; Goal ID
 `dogfood-praxis-issues-96-plus`; Baseline `dogfood-praxis-issues-96-plus/1`;
 digest `sha256:0c954f080a9f03a2f403de94b9c6278699a1ef8a579c59347e6155a45c1f3a6b`.

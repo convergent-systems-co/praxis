@@ -67,8 +67,10 @@ non-conformance regression/vet run at dogfood commit `5f415d8`.
 ## Dogfood finding DF-003
 
 The repository still has no registered Codex/Claude worker provider and no
-public `praxis goal-drive` command. The provider-neutral explicit-argv adapter
-and setup-time registry implemented in the isolated dogfood branch are bounded
-internal capabilities, not a claim that issue execution is now user-facing or
-complete. Provider installation, package invocation wiring, Goal persistence
-from the CLI, and end-to-end issue execution remain required by #103.
+active public `praxis goal-drive` command. A registry-bound Goal-drive
+InvocationContract now exists, but the provider-neutral explicit-argv adapter,
+setup-time registry, and package contract implemented in the isolated dogfood
+branch are bounded capabilities, not a claim that issue execution is now
+user-facing or complete. Verified package activation/dispatch, provider
+installation, Goal persistence from the CLI, and end-to-end issue execution
+remain required by #103.

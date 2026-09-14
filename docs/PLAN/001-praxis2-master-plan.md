@@ -491,9 +491,8 @@ by the content-bound dynamic command lifecycle: installation publishes an
 unknown alias, client resolution applies the persisted option contract, update
 atomically replaces the visible generation, disable/removal removes the alias,
 alias collision preserves the existing owner, persisted contract tampering is
-rejected, and restart reconstructs the active registry. OI-037 remains
-indeterminate because this evidence does not yet qualify the complete mixed
-package install/activation/update/rollback lifecycle.
+rejected, and restart reconstructs the active registry. This evidence closes
+OI-035 only; the separate universal-package successor below closes OI-037.
 
 OI-037 is satisfied in `blind-universal-package-lifecycle-v1.json`, digest
 `sha256:0c2a9188744a19dc82d3118a7b5d0e38db5950419764f99c74a327ec7c429ee8`,
@@ -503,6 +502,15 @@ independent agents; atomically updates and rolls back package generations;
 preserves history through disable/remove; and rejects dependency/retained-byte
 corruption. The integration and restart evidence are bound to the same exact
 package-registry source and raw output.
+
+OI-032 is satisfied in `blind-crypto-lifecycle-v1.json`, digest
+`sha256:b88741d2258b164686128cd961dcfc339832c3232ebc7bdc631b87ee448c02ad`.
+The successor execution binds deterministic classical, PQ-preferred,
+PQ-required, and hybrid profile resolution; envelope metadata and downgrade
+resistance; package PQ/hybrid signature verification; opaque key references;
+rotation with retained historical verification; revocation; and rejection of
+unauthorized operations. No private key material enters the serialized key
+reference or generic authorization path.
 
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
@@ -557,6 +565,7 @@ Implemented in this reopened wave:
 - successor Goals attestation `goals-session-v6.json` rebinds the changed development package without weakening prior evidence; blind result `blind-planning-lifecycle-v1.json` closes OI-033 and records 29 satisfied / 9 indeterminate against the unchanged 38-claim denominator
 - dynamic CLI lifecycle attestation `dynamic-cli-lifecycle-v1.json` and blind result `blind-dynamic-cli-lifecycle-v1.json`; OI-035 is satisfied and the unchanged 38-claim denominator records 30 satisfied / 8 indeterminate
 - universal package lifecycle attestation `universal-package-lifecycle-v1.json` and blind result `blind-universal-package-lifecycle-v1.json`; OI-037 is satisfied and the unchanged 38-claim denominator records 31 satisfied / 7 indeterminate
+- crypto lifecycle attestation `crypto-lifecycle-v1.json` and blind result `blind-crypto-lifecycle-v1.json`; OI-032 is satisfied and the unchanged 38-claim denominator records 32 satisfied / 6 indeterminate
 
 ## Completion calculation
 

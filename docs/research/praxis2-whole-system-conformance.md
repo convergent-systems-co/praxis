@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-universal-package-lifecycle-v1.json`
-- Latest frozen result digest: `sha256:0c2a9188744a19dc82d3118a7b5d0e38db5950419764f99c74a327ec7c429ee8`
+- Latest accepted remediation result: `docs/research/conformance/blind-crypto-lifecycle-v1.json`
+- Latest frozen result digest: `sha256:b88741d2258b164686128cd961dcfc339832c3232ebc7bdc631b87ee448c02ad`
 
 ## Method and denominator
 
@@ -243,3 +243,16 @@ content corruption rejection. The blind result
 at `sha256:0c2a9188744a19dc82d3118a7b5d0e38db5950419764f99c74a327ec7c429ee8`
 and independently advances OI-037. Totals are now 31 satisfied and 7
 indeterminate; OI-030 remains open for effective host isolation.
+
+The cryptographic lifecycle then received successor execution attestation
+`docs/research/conformance/attestations/crypto-lifecycle-v1.json`. It binds
+classical, PQ-preferred, PQ-required, and hybrid resolution, explicit fallback
+policy, authenticated envelope profile/suite/key metadata, package PQ/hybrid
+signature verification, and fail-closed downgrade behavior. The new key
+registry retains opaque logical identity across rotation, permits historical
+verification only for retired keys, rejects revoked keys for new operations,
+and contains no secret bytes. The blind result
+`docs/research/conformance/blind-crypto-lifecycle-v1.json` is frozen at
+`sha256:b88741d2258b164686128cd961dcfc339832c3232ebc7bdc631b87ee448c02ad`
+and independently advances OI-032. Totals are now 32 satisfied and 6
+indeterminate; OI-025 through OI-030 remain open.

@@ -114,6 +114,7 @@ const (
 	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v1.json"
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v1.json"
 	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v1.json"
+	cryptoLifecycleAttestation  = "docs/research/conformance/attestations/crypto-lifecycle-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -166,7 +167,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "workspace-runtime", Kind: "integration_test", Stage: StageBehavior, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}},
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
 		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
-		{ID: "crypto-profiles", Kind: "security_test", Stage: StageBehavior, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}},
+		{ID: "crypto-profiles", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestKeyLifecycleRotationRevocationAndHistoricalVerification"},
+		{ID: "crypto-profiles-security", Kind: "security_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestEnvelopePQRequiredFailsBeforeClassicalFallback"},
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},
 		{ID: "goals-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}, AttestationRef: goalsSessionAttestation, Observation: "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines"},
 		{ID: "dynamic-package-cli", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-035"}, AttestationRef: dynamicCLIAttestation, Observation: "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface"},

@@ -49,6 +49,20 @@ Deliverables include detailed README, installation, getting started, architectur
 
 Dependency: qualified PLAN-001 release; naming decision #95 should be resolved first if it changes terminology.
 
+### #103 — Shared GoalInput and deterministic `goal-drive` controller
+
+The first dogfood pass exercised the supported Go Goals/session and encrypted
+Goal Baseline interfaces and demonstrated that no user-facing Goal or parent
+controller command currently exists. Treat this as a post-release capability
+boundary, not a v2.0.0 qualification defect.
+
+Implement ADR-060 and SPEC-023 before adding a native command. The controller
+is the prerequisite for safely dogfooding issue-oriented work and for the
+first-party Goals/Develop and supervision waves. Qualification must include
+the repository state machine, immutable input generations, provider-neutral
+worker boundary, restart-safe ledger, bounded progress/no-progress semantics,
+and fail-closed authority behavior.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs

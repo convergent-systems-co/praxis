@@ -75,6 +75,11 @@ restart-readable production turn records and repository-backed checkpoint
 publication. A fake worker or in-memory store is not release or Goal-progress
 evidence for issue execution.
 
+The first production-backed slice may use the provider-neutral explicit-argv
+worker contract and concrete Git repository adapter with a durable SQLite
+ledger. It must not imply that external Codex/Claude credentials or a public
+`goal-drive` command are configured; those remain separate #103 authority.
+
 Human-facing invocation summaries must project the durable turn record without
 conflating verification activity with progress: `NO_PROGRESS` and unchanged
 checkpoints must not be summarized as publication or parent Goal advancement.

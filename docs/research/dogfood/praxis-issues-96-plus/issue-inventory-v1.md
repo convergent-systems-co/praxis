@@ -167,6 +167,17 @@ controller now consumes an authoritative candidate set when `ChildObjective` is
 absent, selects exactly one unit before the worker turn, records that identity,
 and preserves the supervised one-turn boundary.
 
+## #103 production-backed checkpoint
+
+`internal/goaldrive.GitRepository` now binds controller execution to a real
+checkout and remote: it fetches and classifies clean/synchronized state,
+fast-forwards only through the controller boundary, and verifies pushed HEAD
+identity. `TestExecuteTurnWithGitRepositoryPersistsAndPublishesOneSelectedUnit`
+executes one selector-chosen unit through the explicit-argv worker contract,
+persists the turn in SQLite, closes/reopens the database, and verifies the
+remote checkpoint. This is provider-neutral adapter evidence using local test
+authority; it does not configure external model credentials or the public CLI.
+
 ## Dogfood finding DF-009 — synthetic turn was reported as durable execution
 
 The selection-to-worker test selected `ready` and passed it to

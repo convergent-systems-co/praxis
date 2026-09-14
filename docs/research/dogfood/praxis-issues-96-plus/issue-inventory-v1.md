@@ -50,3 +50,16 @@ was promoted into active runtime behavior.
 Evidence: `internal/dogfood/parent_goal_test.go`; Goal ID
 `dogfood-praxis-issues-96-plus`; Baseline `dogfood-praxis-issues-96-plus/1`;
 digest `sha256:0c954f080a9f03a2f403de94b9c6278699a1ef8a579c59347e6155a45c1f3a6b`.
+
+## Dogfood finding DF-002
+
+The first full Go regression after the #103 contract slice failed only in the
+blind conformance test because the frozen attestation for `pkg/contracts` no
+longer matched the intentionally changed post-release source. Moving the
+parent-goal harness out of attested `internal/goalstore` removed the analogous
+test-only collision. The remaining `pkg/contracts` mismatch is expected for a
+post-release runtime change and is a requalification gate for the future #103
+release, not permission to edit historical evidence or a v2.0.0 release defect.
+
+Evidence: full `go test ./...` at the pre-relocation checkpoint and the passing
+non-conformance regression/vet run at dogfood commit `5f415d8`.

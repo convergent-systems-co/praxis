@@ -110,7 +110,8 @@ type InventoryArtifact struct {
 
 const (
 	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v45.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v5.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v6.json"
+	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -164,7 +165,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
 		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
 		{ID: "crypto-profiles", Kind: "security_test", Stage: StageBehavior, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}},
-		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop/runtime_test.go", ClaimIDs: []string{"OI-033"}},
+		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},
 		{ID: "goals-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}, AttestationRef: goalsSessionAttestation, Observation: "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines"},
 		{ID: "dynamic-package-cli", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-035", "OI-037"}},
 		{ID: "state-provider", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/stateprovider", ClaimIDs: []string{"OI-036"}, AttestationRef: portableStateAttestation, Observation: "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed"},

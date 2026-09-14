@@ -1,0 +1,41 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-attest-cache-turn12",
+    "GOMODCACHE=/private/tmp/praxis-attest-modcache-turn12",
+    "GOPATH=/private/tmp/praxis-attest-gopath-turn12",
+    "go",
+    "test",
+    "-v",
+    "./packages/goals",
+    "./internal/goalstore",
+    "./packages/research",
+    "./packages/develop",
+    "./internal/processresolver"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T14:34:06.065964Z",
+  "finished_at": "2026-09-14T14:34:06.284782Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/goals-session-v6.log",
+  "output_digest": "sha256:d663c0411ea4c0181e319008e18242c2e492cd9dc09f2e48d0af4a8ae6941c76",
+  "source_digests": {
+    "internal/goalstore": "sha256:4750a2a51f361444a4f2cf89e47edff2cfd905640ec17ed76dd99c2f861e0445",
+    "internal/processresolver": "sha256:a0cc14626fb77b07ef5bea45e815450b7e38f09c1afbb71ff39c370a1e852b6f",
+    "packages/develop": "sha256:e0d914cb4512dd3cce9188722d6ab70a629899d2405b5859793ddfba9a64ac2f",
+    "packages/goals": "sha256:e7d3051bcdebc286f9c7b20b4da2670b3a7c79d10802403fed70c982b3177dae",
+    "packages/research": "sha256:7b7ccc32d7a1fc04043505951b87ffcd584a6076a1048bbbefad96ff526420f8"
+  },
+  "observations": [
+    "TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd",
+    "TestGoalProcessDiscoveryResolvesAndExecutesAllModes",
+    "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines",
+    "TestGoalSessionSnapshotsAndResumesInteractiveProgress",
+    "TestRepositorySessionCheckpointSurvivesRestartAndResumes",
+    "TestRepositorySessionCheckpointVersionsAreImmutable",
+    "TestResearchExecutesGoalsAndResearchEvidenceFlow"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:d46071cafaf5c2e6455378ae8d09c790d0e9cd01a4f86e6e4d13e0899889cae4"
+}

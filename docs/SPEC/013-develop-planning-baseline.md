@@ -105,6 +105,19 @@ Delta planning SHALL receive changed evidence plus the smallest dependency closu
 
 When a baseline is updated, its version/digest changes and affected slice references are revalidated.
 
+The executable applicability decision is fail-closed and content-based:
+
+- a missing baseline identity selects `architect`;
+- a changed goal/version or requirements identity selects `replan`;
+- a changed artifact digest invalidates that artifact and every downstream dependency;
+- a slice intersecting that closure selects `delta` and receives the sorted closure;
+- a slice outside the closure selects `reuse`;
+- a missing required current evidence digest is stale evidence and invalidates the referenced artifact.
+
+Dependency endpoints MUST reference artifacts in the same baseline. A baseline
+may not use an artifact's name, position, or unchanged plan reference as proof
+that its content is still current.
+
 ## Slice contract
 
 Every implementation slice derived from a baseline SHALL reference:

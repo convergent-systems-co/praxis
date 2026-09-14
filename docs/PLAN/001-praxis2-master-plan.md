@@ -489,12 +489,12 @@ OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-del
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
 2. COMPLETE — Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence. The resumable session substrate records every responsibility outcome, persists encrypted immutable digest-bound checkpoints, refuses completion without an integrity-bound baseline, and atomically rejects failed finalization. Successor attestation `goals-session-v5.json` executes the shared lifecycle across software architecture, structured research, operational planning, and writing production, including a true close/reopen SQLite restart; successor blind result `blind-goals-session-v5.json` retains OI-034 as satisfied against the unchanged denominator.
-3. Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path.
+3. COMPLETE — Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path. The executable applicability boundary fails closed on missing evidence, changed baseline identity, changed requirements, and unknown dependency endpoints; changed evidence invalidates only its downstream closure. Attestation `planning-lifecycle-v1.json` and blind result `blind-planning-lifecycle-v1.json` independently advance OI-033.
 4. Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation.
 
 Finding closures: OI-006, OI-012, OI-033, OI-034.
 
-Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle-v2.json`. The two-domain lifecycle proves governed drift and graph consumption, explicit correction across restart/provider replacement, material-only input/default behavior, and contract-bound migration with fail-closed incompatible reinterpretation. OI-033 and OI-034 remain unresolved.
+Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle-v2.json`. The two-domain lifecycle proves governed drift and graph consumption, explicit correction across restart/provider replacement, material-only input/default behavior, and contract-bound migration with fail-closed incompatible reinterpretation. Successor attestation `planning-lifecycle-v1.json` exercises direct fast-path selection, architected baseline creation, two-slice reuse, exact dependency-closure invalidation, and unrelated-slice reuse. Blind result `blind-planning-lifecycle-v1.json`, digest `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d`, independently evaluates OI-033 as satisfied against the unchanged 38-claim denominator; totals are 29 satisfied and 9 indeterminate. OI-034 remains satisfied from the Goals successor result.
 
 ## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY WAVES 17-22
 
@@ -535,6 +535,7 @@ Implemented in this reopened wave:
 - canonical multi-machine export/import/reconciliation result `blind-portable-state-v1.json` (OI-009 satisfied)
 - encrypted immutable Goals session checkpoint attestation `goals-session-v1.json` and successor Cluster-A attestation `cluster-a-runtime-v45.json`
 - successor Goals four-domain lifecycle attestation `goals-session-v5.json` and blind result `blind-goals-session-v5.json`; OI-034 remains satisfied and the unchanged 38-claim denominator records 28 satisfied / 10 indeterminate
+- successor Goals attestation `goals-session-v6.json` rebinds the changed development package without weakening prior evidence; blind result `blind-planning-lifecycle-v1.json` closes OI-033 and records 29 satisfied / 9 indeterminate against the unchanged 38-claim denominator
 
 ## Completion calculation
 

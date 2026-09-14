@@ -1,11 +1,11 @@
 # Praxis 2 Whole-System Original-Goal Conformance
 
-- Date: 2026-09-13
+- Date: 2026-09-14
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-behavioral-profile-v2.json`
-- Latest frozen result digest: `sha256:48101fc78022413985534e1b07eead8e7b7217bc4c04ea733502f6268a422645`
+- Latest accepted remediation result: `docs/research/conformance/blind-planning-lifecycle-v1.json`
+- Latest frozen result digest: `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d`
 
 ## Method and denominator
 
@@ -195,15 +195,27 @@ Provider substitution adds a bounded in-memory implementation that advertises on
 PLAN-001 must use the current, explicitly transitioned 38-claim denominator plus every finding closure, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.
 
 The Goals lifecycle checkpoint then received successor execution attestation
-`docs/research/conformance/attestations/goals-session-v5.json`. Its semantic
+`docs/research/conformance/attestations/goals-session-v6.json`. Its semantic
 fixture executes the same Intent-through-Baseline responsibilities for software
 architecture, structured research, operational planning, and writing, while
 the repository tests retain a true close/reopen SQLite checkpoint restart,
 encrypted checkpoint persistence, digest validation, immutable checkpoint
 versions, completion refusal without a valid baseline, and atomic rejection of
-failed baseline finalization. The blind successor
-`docs/research/conformance/blind-goals-session-v5.json`
-was frozen without loading the qualification oracle and retains OI-034 as
-satisfied at 28 satisfied / 10 indeterminate against the unchanged 38-claim
-denominator. This closes the Wave 22 Goals lifecycle item only; final release
-qualification remains open for the other unresolved claims and gates.
+failed baseline finalization. The prior blind successor
+`docs/research/conformance/blind-goals-session-v5.json` remains immutable; the
+v6 attestation rebinds the changed development package and the planning
+successor blind result below retains OI-034 as satisfied against the unchanged
+38-claim denominator.
+
+The planning lifecycle then received executable applicability and dependency
+closure semantics under SPEC-013. The new lifecycle selects the direct fast
+path for narrow deterministic work, creates a reusable baseline for material
+work, reuses that baseline across slices, and propagates changed evidence only
+through downstream artifact dependencies. Missing evidence, changed baseline or
+requirements identity, and unknown dependency endpoints fail closed. The
+successor execution attestation is
+`docs/research/conformance/attestations/planning-lifecycle-v1.json`; the blind
+result `docs/research/conformance/blind-planning-lifecycle-v1.json` is frozen at
+`sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d` and
+independently advances OI-033. Totals are now 29 satisfied and 9 indeterminate;
+the denominator and all unrelated finding states are unchanged.

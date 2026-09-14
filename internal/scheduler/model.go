@@ -63,6 +63,19 @@ type ResourceState struct {
 	Exclusive bool
 }
 
+// ResourceLease is authoritative runtime coordination state. It is distinct
+// from security capability leases and is intended to survive process restart.
+type ResourceLease struct {
+	ID          string
+	SliceID     string
+	AttemptID   string
+	ResourceKey string
+	Capacity    int64
+	AcquiredAt  time.Time
+	ExpiresAt   *time.Time
+	ReleasedAt  *time.Time
+}
+
 func (r ResourceState) Available(req ResourceRequirement) bool {
 	if r.Key != req.Key || r.Capacity < 0 || r.Allocated < 0 || r.Allocated > r.Capacity {
 		return false

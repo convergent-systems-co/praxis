@@ -55,6 +55,13 @@ A `ResourceLease` SHALL contain at minimum:
 
 Resource leases are runtime coordination state and SHALL be distinguishable from security `CapabilityLease` records.
 
+The authoritative scheduler store SHALL persist resource capacities and leases.
+Multi-resource acquisition SHALL order requirements by stable resource key,
+expire stale leases within the admission transaction, and insert all requested
+leases atomically. A denied request SHALL retain no partial lease. Restart
+MUST recover only unexpired, unreleased leases; runtime mutex state is not
+authority.
+
 Resource leases SHALL be recoverable after runtime restart; correctness cannot depend solely on in-memory mutex state.
 
 ## Quota model

@@ -5,7 +5,7 @@ import "github.com/convergent-systems-co/praxis/pkg/contracts"
 func Invocation() contracts.InvocationContract {
 	return contracts.InvocationContract{
 		Version: "1", PackageID: "praxis.package.goals", PackageVersion: "0.1.0",
-		GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", EntryPointID: "goals",
+		GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0", EntryPointID: "goals",
 		Aliases: []string{"goals", "design"},
 		Options: []contracts.InvocationOption{
 			{Name: "rigor", Type: "enum", Default: "auto", Description: "auto, direct, structured, or rigorous"},
@@ -23,7 +23,7 @@ func Invocation() contracts.InvocationContract {
 func GoalDriveInvocation() contracts.InvocationContract {
 	return contracts.InvocationContract{
 		Version: "1", PackageID: "praxis.package.goals", PackageVersion: "0.1.0",
-		GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", EntryPointID: "goal-drive",
+		GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0", EntryPointID: "goal-drive",
 		Aliases: []string{"goal-drive"},
 		Options: []contracts.InvocationOption{
 			{Name: "goal", Type: "string", Description: "literal Goal text"},

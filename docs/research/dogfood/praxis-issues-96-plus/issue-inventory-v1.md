@@ -74,3 +74,13 @@ branch are bounded capabilities, not a claim that issue execution is now
 user-facing or complete. Verified package activation/dispatch, provider
 installation, Goal persistence from the CLI, and end-to-end issue execution
 remain required by #103.
+
+## Dogfood finding DF-004
+
+Invocation normalization is now implemented, but production Goal-drive
+activation cannot yet persist a newly supplied Goal/session: the repository
+has no configured production key-wrapper/provider exposed to the public CLI.
+The existing encrypted GoalStore correctly refuses durable writes without that
+authority. No plaintext or caller-controlled substitute was introduced.
+Key-provider configuration, verified package dispatch, and durable Goal
+creation remain prerequisites for end-to-end dogfood execution.

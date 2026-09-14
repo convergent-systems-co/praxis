@@ -154,6 +154,14 @@ Add architecture-from-intent / inversion review so implementation location canno
 
 Integrate with Goal/design review and governed learning. Include both universal-mechanism and genuinely domain-specific counterexamples.
 
+ADR-061 and SPEC-024 define the post-release boundary. The first implementation
+is an advisory, evidence-bound evaluator with fail-closed provenance checks;
+integration into interactive Goals and governed retrospective learning remains
+a follow-on consumer task. Qualification must prove that implementation
+location alone cannot establish ownership, that universal mechanisms require
+separate policy evidence, and that domain-specific counterexamples prevent
+over-generalization without promoting themselves.
+
 ### #97 — Retrospective learning from Praxis construction history
 
 Build content-addressed retrospective episodes from Praxis 2 construction history and require blind derivation of generalized lessons before oracle comparison.

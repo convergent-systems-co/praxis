@@ -10,7 +10,7 @@ release defect by this inventory.
 
 | Issue | Root capability | Dependency/interaction | Initial disposition |
 |---|---|---|---|
-| #96 Architectural inversion review | architecture-from-intent and governed learning | informs #97 and every architecture-bearing slice | ready for architecture review |
+| #96 Architectural inversion review | architecture-from-intent and governed learning | informs #97 and every architecture-bearing slice | implementation slice in progress; interactive/learning consumers remain |
 | #97 Retrospective learning from construction history | historical episode replay and candidate learning | depends on governed evaluation/promotion; consumes #96 review evidence | blocked on a bounded corpus/learning entry surface |
 | #98 Supervision-aware output policy | evidence projection and semantic presentation | should consume durable evidence; interacts with #100 and #97 | blocked on supervision/evidence projection authority |
 | #99 Release documentation and architecture guide | user-facing release documentation | release candidate already contains the documentation set; issue remains open pending repository-level acceptance | ready for issue acceptance review |
@@ -85,3 +85,13 @@ durable writes without that authority. No plaintext or caller-controlled
 substitute was introduced. Verified package dispatch, external key-provider
 configuration, and durable Goal creation remain prerequisites for end-to-end
 dogfood execution.
+
+## #96 implementation checkpoint
+
+ADR-061 and SPEC-024 define and implement the first architecture-from-intent
+review boundary in `internal/architecturereview`. Its result is advisory and
+preserves evidence references; it does not grant ownership, promotion, or
+execution authority. Targeted qualification covers universal mechanism,
+domain-specific counterexample, implementation-location-only reasoning, and
+fail-closed evidence validation. Integration into the interactive Goals graph
+and retrospective learning remains open work for this issue.

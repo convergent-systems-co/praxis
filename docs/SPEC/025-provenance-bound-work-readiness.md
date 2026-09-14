@@ -23,6 +23,14 @@ Unknown kinds, unknown provenance, missing source identity/digest, self-edges,
 and inferred hard dependencies fail closed. Completing a prerequisite changes
 readiness only through the durable completion state supplied to the evaluator.
 
+Runnable candidates SHALL carry identity, completion state, stable priority
+and sequence, source reference, source digest, and non-model provenance. The
+controller SHALL select only incomplete candidates whose authoritative hard
+dependencies are ready. It SHALL order ready candidates by ascending priority,
+then ascending sequence, and SHALL fail closed when multiple candidates tie on
+both fields. Input order, issue-number order, model proposals, or weaker
+relationship kinds SHALL NOT mint selection authority.
+
 ## Acceptance evidence
 
 Tests SHALL prove that authoritative hard dependencies block and unblock work,

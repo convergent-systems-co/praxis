@@ -151,3 +151,15 @@ The reporting boundary must project controller-owned outcome, progress, and
 publication separately and must not claim parent Goal advancement without a
 separate authoritative Goal transition. This is post-release control-plane
 work; it does not alter progress predicates or reopen v2.0.0.
+
+## Dogfood finding DF-008 — native runnable-unit selection boundary
+
+Independent inspection confirms that the current Goal-drive controller accepts
+`ChildObjective` from its caller and performs no selection from durable Goal or
+roadmap state. The provenance-bound readiness evaluator exists, but no native
+selector consumed it; the recent verification-only turns therefore did not
+demonstrate that all work was blocked. The capability belongs to the #103
+Goal-drive control plane. A provider-neutral selector primitive now validates
+candidate provenance, applies authoritative hard-dependency readiness, orders
+by durable priority/sequence, and fails closed on ambiguity; native durable
+candidate loading and command dispatch remain separate #103 work.

@@ -66,6 +66,10 @@ and fail-closed authority behavior. It must also prove that supervised mode
 terminates after one persisted progressed checkpoint, while only explicit
 continuous mode permits bounded repetition.
 
+The controller must consume a provenance-bound runnable candidate set and
+select one unit deterministically by readiness, priority, and sequence;
+ambiguous or insufficient authoritative state must fail closed.
+
 Human-facing invocation summaries must project the durable turn record without
 conflating verification activity with progress: `NO_PROGRESS` and unchanged
 checkpoints must not be summarized as publication or parent Goal advancement.

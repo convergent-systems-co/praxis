@@ -25,9 +25,11 @@ requires durable authoritative provenance. Every persisted edge binds its
 source reference and source digest; missing or ambiguous provenance fails
 closed.
 
-The controller owns readiness evaluation from these typed edges. It may report
-model proposals as unresolved context, but it must not use them to authorize or
-deny deterministic work selection.
+The controller owns readiness evaluation and runnable-unit selection from
+durable candidate records bound to provenance. Selection uses stable priority
+and sequence fields; equal ready candidates fail closed as ambiguous. It may
+report model proposals as unresolved context, but it must not use them to
+authorize or deny deterministic work selection.
 
 ## Consequences
 

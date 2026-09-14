@@ -27,6 +27,7 @@ A post-release issue may therefore have one of three dispositions:
 6. Issue completion is not equivalent to product-goal completion; each wave has its own integration and qualification gate.
 7. Do not re-open the frozen PLAN-001 OI denominator for post-release features unless evidence proves an original-intent decomposition error and the governed denominator-transition process is followed.
 8. Executor optimization, learned routing, and token management may never outrank capability, security, evidence, or explicit transport/API policy.
+9. Work selection may block only on provenance-bound authoritative hard-dependency edges; consumer, interaction, advisory, and model-proposed relationships remain non-blocking context until governed.
 
 ## Wave P0: Release follow-through and terminology
 
@@ -77,6 +78,9 @@ The first post-release foundation slice implements the versioned provider-neutra
 `ExecutionTarget` contract in `pkg/contracts`, including transport/API policy
 conflict checks. Deterministic eligibility merging, routing evidence, and
 concrete executor surfaces remain subsequent #102 work.
+
+Relationship semantics for readiness are governed separately by ADR-062 and
+SPEC-025; #102 interactions with #100/#101 are not thereby hard prerequisites.
 
 Deliverables:
 

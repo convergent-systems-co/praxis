@@ -11,13 +11,13 @@ release defect by this inventory.
 | Issue | Root capability | Dependency/interaction | Initial disposition |
 |---|---|---|---|
 | #96 Architectural inversion review | architecture-from-intent and governed learning | informs #97 and every architecture-bearing slice | implementation slice in progress; interactive/learning consumers remain |
-| #97 Retrospective learning from construction history | historical episode replay and candidate learning | depends on governed evaluation/promotion; consumes #96 review evidence | blocked on a bounded corpus/learning entry surface |
+| #97 Retrospective learning from construction history | historical episode replay and candidate learning | hard dependency on governed evaluation/promotion; consumes #96 review evidence | blocked on a bounded corpus/learning entry surface |
 | #98 Supervision-aware output policy | evidence projection and semantic presentation | should consume durable evidence; interacts with #100 and #97 | blocked on supervision/evidence projection authority |
 | #99 Release documentation and architecture guide | user-facing release documentation | release candidate already contains the documentation set; acceptance evidence persisted in `issue-99-acceptance-v1.md` | acceptance checkpoint complete; issue closure remains external |
-| #100 Supervision/conformance TUI | read-only status projection | depends on durable run/evidence projection and benefits from #103 ledger | blocked on parent-goal/controller status contract |
-| #101 First-party Goals and Develop bundles | domain packages and multi-agent scheduling | depends on Goals/Baseline, executors, evidence, resources, and policies; interacts with #102/#103 | blocked on native Goal/controller surface |
-| #102 Governed executor affinity/routing | provider-neutral routing targets and budgets | interacts with #101 and #100; requires ADR/SPEC reconciliation | foundation slice in progress; concrete routing remains |
-| #103 Shared GoalInput and native `goal-drive` | deterministic parent-goal controller, Git sync, progress, ledger | highest-leverage prerequisite for #100/#101 and dogfood execution itself | current objective; architecture work required before implementation |
+| #100 Supervision/conformance TUI | read-only status projection | hard dependency on #98; consumer relationship with #103 ledger | blocked on supervision/presentation authority |
+| #101 First-party Goals and Develop bundles | domain packages and multi-agent scheduling | hard dependencies on #102/#103 plus Goals/Baseline, evidence, resources, and policies | blocked on native Goal/controller surface |
+| #102 Governed executor affinity/routing | provider-neutral routing targets and budgets | consumer/interaction relationships with #101/#100; requires ADR/SPEC reconciliation | foundation slice in progress; concrete routing remains |
+| #103 Shared GoalInput and native `goal-drive` | deterministic parent-goal controller, Git sync, progress, ledger | hard prerequisite for #101; consumer relationship with #100 | blocked on production key/provider authority |
 
 ## Dependency-aware selection
 
@@ -32,6 +32,16 @@ silently copied into that branch again.
 No issue is currently marked parallel-safe for implementation. #96 and the
 release-level acceptance review for #99 are parallel-safe analysis/review
 activities, not permission to modify the release candidate.
+
+## Dogfood finding DF-006 — inferred dependency collapse
+
+The prior selection rationale treated several roadmap relationships as
+equivalent blocking dependencies without durable edge provenance. The roadmap
+actually distinguishes hard dependencies from consumers/interactions and
+possible learning inputs. This is a Praxis Goal-drive readiness defect, not a
+finding that the #102 unit itself was invalid. ADR-062 and SPEC-025 now make
+the distinction executable: only authoritative hard-dependency edges block;
+model proposals and weaker relationships cannot silently do so.
 
 ## Dogfood finding DF-001
 

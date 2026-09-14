@@ -94,6 +94,11 @@ principal-wide or policy-wide revocation remains with those registries. An
 already attached immutable baseline and completed work remain auditable and are
 not rewritten by later revocation.
 
+Revoke and consume transitions use one database transaction and a shared lock
+on the exact request/source record. Commit order is the durable authority
+timeline; a pre-commit crash produces neither transition, and retries reload
+effective authority. In-process mutexes are not the authority mechanism.
+
 ## Consequences
 
 Inference can improve liveness by proposing decomposition without minting

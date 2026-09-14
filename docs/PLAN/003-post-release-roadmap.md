@@ -108,7 +108,9 @@ only an exact durable approval and derive its authority fields from the bound
 request/decision; successor-baseline attachment remains separate.
 Exact authority decisions may be invalidated only by immutable revocation
 evidence; acceptance and attachment must fail closed after effective
-revocation, while historical records remain retained.
+revocation, while historical records remain retained. Revoke/consume writes
+must share a database transaction and source-record lock so commit order is
+the recoverable authority timeline.
 
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or

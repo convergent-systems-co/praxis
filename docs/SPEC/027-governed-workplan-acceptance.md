@@ -110,6 +110,12 @@ the revocation effective time, and revocation records SHALL not expire. The
 acceptance and successor-attachment transitions SHALL revalidate effective
 authority. Principal-wide and policy-wide revocation remain the responsibility
 of their governing registries and cannot be inferred from a decision record.
+Revocation persistence and each authority-bearing acceptance/attachment write
+SHALL lock the same existing request/source record in one SQLite transaction.
+The transaction that commits first defines the durable ordering: a committed
+revocation prevents a later consume; a committed consume is historically
+valid before a later revocation. A crash before commit leaves no transition;
+retry re-evaluates the effective record rather than reusing an earlier read.
 
 Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an

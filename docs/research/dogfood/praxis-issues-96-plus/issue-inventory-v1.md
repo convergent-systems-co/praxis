@@ -412,3 +412,18 @@ scoped to one decision. Principal/policy-wide revocation remains with its
 existing authority registry, and already-attached immutable baselines are not
 rewritten. Atomic cross-record revoke/consume transactions and public
 supervision remain later integration seams.
+
+## Dogfood finding DF-021 — atomic revoke/consume ordering
+
+DF-020 exposed a check-then-act race: acceptance and successor attachment
+loaded effective authority before independently persisting their immutable
+records, while revocation was persisted separately. A revoke could therefore
+commit between validation and authority-bearing commit.
+
+The bounded correction makes revocation, acceptance, and authority-bound
+attachment use SQLite transactions with a shared lock on the exact existing
+request/source record. The first committed transition defines the durable
+ordering; a later revoke cannot retroactively invalidate a committed consume,
+and a committed revoke blocks later consumption. Crash-before-commit leaves no
+new transition and retry reloads effective state. Cross-registry principal or
+policy revocation coordination remains outside this exact-decision slice.

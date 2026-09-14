@@ -62,19 +62,26 @@ func (r Repository) Save(ctx context.Context, baseline goals.GoalBaseline, creat
 	if err != nil {
 		return goals.GoalBaseline{}, fmt.Errorf("encode Goal Baseline: %w", err)
 	}
+	record, err := r.goalBaselineRecord(ctx, baseline, payload, digest, createdAt, expiresAt)
+	if err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if err := r.Store.PutSecureBlob(ctx, record); err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("persist Goal Baseline: %w", err)
+	}
+	return baseline, nil
+}
+
+func (r Repository) goalBaselineRecord(ctx context.Context, baseline goals.GoalBaseline, payload []byte, digest string, createdAt time.Time, expiresAt *time.Time) (state.SecureBlobRecord, error) {
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
 	}
 	aad := state.SecureBlobAAD(baselineNamespace, baseline.ID, baseline.Version, digest)
 	envelope, err := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, payload, aad)
 	if err != nil {
-		return goals.GoalBaseline{}, fmt.Errorf("encrypt Goal Baseline: %w", err)
+		return state.SecureBlobRecord{}, fmt.Errorf("encrypt Goal Baseline: %w", err)
 	}
-	record := state.SecureBlobRecord{Namespace: baselineNamespace, ObjectID: baseline.ID, ObjectVersion: baseline.Version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}
-	if err := r.Store.PutSecureBlob(ctx, record); err != nil {
-		return goals.GoalBaseline{}, fmt.Errorf("persist Goal Baseline: %w", err)
-	}
-	return baseline, nil
+	return state.SecureBlobRecord{Namespace: baselineNamespace, ObjectID: baseline.ID, ObjectVersion: baseline.Version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}, nil
 }
 
 func (r Repository) Load(ctx context.Context, id, version string, now time.Time) (goals.GoalBaseline, error) {
@@ -142,11 +149,31 @@ func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, source
 	successor.Digest = ""
 	successor.PredecessorDigest = source.Digest
 	successor.WorkPlan = &plan
-	saved, err := r.Save(ctx, successor, createdAt, expiresAt)
+	if err := successor.Validate(); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	digest, err := successor.ComputeDigest()
+	if err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	successor.Digest = digest
+	payload, err := json.Marshal(successor)
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("encode successor Goal Baseline: %w", err)
+	}
+	record, err := r.goalBaselineRecord(ctx, successor, payload, digest, createdAt, expiresAt)
+	if err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if plan.AuthorityRequestID != "" {
+		err = r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, plan.AuthorityRequestID, plan.AuthorityRequestVersion, baselineNamespace, sourceID, sourceVersion)
+	} else {
+		err = r.Store.PutSecureBlob(ctx, record)
+	}
 	if err != nil {
 		return goals.GoalBaseline{}, fmt.Errorf("persist successor Goal Baseline: %w", err)
 	}
-	return saved, nil
+	return successor, nil
 }
 
 // SaveSession persists an immutable interruption checkpoint. The caller owns
@@ -423,7 +450,21 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	} else if !errors.Is(loadErr, state.ErrSecureBlobNotFound) && !errors.Is(loadErr, state.ErrSecureBlobExpired) {
 		return contracts.WorkPlan{}, fmt.Errorf("check existing authority-backed acceptance: %w", loadErr)
 	}
-	return r.SaveAcceptedWorkPlan(ctx, proposal.ID, request.ProposalVersion, accepted, acceptance, acceptanceVersion, createdAt, expiresAt)
+	plan, err := contracts.AcceptWorkPlan(proposal, accepted, acceptance)
+	if err != nil {
+		return contracts.WorkPlan{}, err
+	}
+	payload, err := json.Marshal(acceptedWorkPlanRecord{Proposal: proposal, Review: review, Decision: acceptance, Plan: plan})
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("encode authority-backed acceptance: %w", err)
+	}
+	if err := r.putWorkPlanBlobUnlessRevoked(ctx, workPlanAcceptanceNamespace, acceptanceRef, acceptanceVersion, payload, createdAt, expiresAt, request.ID, request.Version, authorityRequestNamespace, request.ID, request.Version); err != nil {
+		if errors.Is(err, state.ErrAuthorityRevoked) {
+			return contracts.WorkPlan{}, ErrAuthorityDecisionRevoked
+		}
+		return contracts.WorkPlan{}, fmt.Errorf("persist authority-backed acceptance: %w", err)
+	}
+	return plan, nil
 }
 
 func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, version string, now time.Time) (contracts.WorkPlan, error) {
@@ -458,6 +499,9 @@ func (r Repository) SaveAuthorityRevocation(ctx context.Context, requestID, requ
 	if expiresAt != nil {
 		return errors.New("authority revocation cannot expire")
 	}
+	if revocation.EffectiveAt.After(time.Now().UTC()) {
+		return errors.New("authority revocation cannot become effective in the future")
+	}
 	decision, err := r.LoadAuthorityDecisionEvidence(ctx, requestID, requestVersion, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("load authority decision for revocation: %w", err)
@@ -469,7 +513,7 @@ func (r Repository) SaveAuthorityRevocation(ctx context.Context, requestID, requ
 	if err != nil {
 		return fmt.Errorf("encode authority revocation: %w", err)
 	}
-	if err := r.putWorkPlanBlob(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt); err != nil {
+	if err := r.putWorkPlanBlobWithLock(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt, authorityRequestNamespace, requestID, requestVersion); err != nil {
 		return fmt.Errorf("persist authority revocation: %w", err)
 	}
 	return nil
@@ -690,6 +734,34 @@ func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, ve
 		return fmt.Errorf("encrypt WorkPlan record: %w", err)
 	}
 	return r.Store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt})
+}
+
+func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, lockNamespace, lockID, lockVersion string) error {
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	digest := payloadDigest(payload)
+	aad := state.SecureBlobAAD(namespace, objectID, version, digest)
+	envelope, err := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, payload, aad)
+	if err != nil {
+		return fmt.Errorf("encrypt authority-bound WorkPlan record: %w", err)
+	}
+	record := state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}
+	return r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, requestID, requestVersion, lockNamespace, lockID, lockVersion)
+}
+
+func (r Repository) putWorkPlanBlobWithLock(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, lockNamespace, lockID, lockVersion string) error {
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	digest := payloadDigest(payload)
+	aad := state.SecureBlobAAD(namespace, objectID, version, digest)
+	envelope, err := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, payload, aad)
+	if err != nil {
+		return fmt.Errorf("encrypt locked WorkPlan record: %w", err)
+	}
+	record := state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}
+	return r.Store.PutSecureBlobWithLock(ctx, record, lockNamespace, lockID, lockVersion)
 }
 
 func (r Repository) loadWorkPlanBlob(ctx context.Context, namespace, objectID, version string, now time.Time) ([]byte, state.SecureBlobRecord, error) {

@@ -16,6 +16,7 @@ import (
 var (
 	ErrSecureBlobNotFound = errors.New("secure blob not found")
 	ErrSecureBlobExpired  = errors.New("secure blob expired")
+	ErrAuthorityRevoked   = errors.New("authority revoked")
 )
 
 type Sensitivity string
@@ -108,6 +109,92 @@ func (s *Store) PutSecureBlob(ctx context.Context, record SecureBlobRecord) erro
 		return fmt.Errorf("insert secure blob: %w", err)
 	}
 	return nil
+}
+
+// PutSecureBlobWithLock serializes an immutable write with other authority
+// transitions that lock the same existing source record. The lock is held in
+// the database transaction, not process memory, and therefore survives
+// restart and coordinates multiple processes using the same SQLite store.
+func (s *Store) PutSecureBlobWithLock(ctx context.Context, record SecureBlobRecord, lockNamespace, lockID, lockVersion string) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if err := record.Validate(); err != nil {
+		return err
+	}
+	if lockNamespace == "" || lockID == "" || lockVersion == "" {
+		return errors.New("secure blob lock identity is required")
+	}
+	envelopeJSON, err := json.Marshal(record.Envelope)
+	if err != nil {
+		return fmt.Errorf("encode secure blob envelope: %w", err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin secure blob transition: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, lockNamespace, lockID, lockVersion); err != nil {
+		return fmt.Errorf("lock secure blob source: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
+		return fmt.Errorf("insert locked secure blob: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit secure blob transition: %w", err)
+	}
+	return nil
+}
+
+// PutSecureBlobUnlessRevoked atomically locks the source authority record,
+// checks the immutable revocation namespace, and writes the new record. A
+// revoke and this operation therefore have one durable SQLite ordering.
+func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, lockNamespace, lockID, lockVersion string) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if err := record.Validate(); err != nil {
+		return err
+	}
+	if revocationNamespace == "" || requestID == "" || requestVersion == "" {
+		return errors.New("authority revocation lookup identity is required")
+	}
+	if lockNamespace == "" || lockID == "" || lockVersion == "" {
+		return errors.New("secure blob lock identity is required")
+	}
+	envelopeJSON, err := json.Marshal(record.Envelope)
+	if err != nil {
+		return fmt.Errorf("encode secure blob envelope: %w", err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin authority transition: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, lockNamespace, lockID, lockVersion); err != nil {
+		return fmt.Errorf("lock authority source: %w", err)
+	}
+	var revoked int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, revocationNamespace, requestID, requestVersion).Scan(&revoked); err != nil {
+		return fmt.Errorf("check authority revocation: %w", err)
+	}
+	if revoked != 0 {
+		return ErrAuthorityRevoked
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
+		return fmt.Errorf("insert authority-bound secure blob: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit authority transition: %w", err)
+	}
+	return nil
+}
+
+func nullableTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func (s *Store) GetSecureBlob(ctx context.Context, namespace, objectID, version string, now time.Time) (SecureBlobRecord, error) {

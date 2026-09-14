@@ -20,10 +20,10 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "9" {
-		t.Fatalf("expected schema version 9, got %s", version)
+	if version != "10" {
+		t.Fatalf("expected schema version 10, got %s", version)
 	}
-	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql", "0008_verified_package_artifacts.sql", "0009_package_rollback_receipts.sql"} {
+	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql", "0008_verified_package_artifacts.sql", "0009_package_rollback_receipts.sql", "0010_plugin_supervisor_snapshots.sql"} {
 		assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='`+migration+`'`, 1)
 	}
 

@@ -15,6 +15,37 @@ type ProcessControl interface {
 	Terminate(ctx context.Context, instance InstanceIdentity) error
 }
 
+// SupervisorSnapshot is durable lifecycle state. Runtime advertisement is
+// deliberately absent: a restored instance must perform a fresh handshake
+// before it can re-enter the registry.
+type SupervisorSnapshot struct {
+	Provider            ProviderSnapshot
+	Launch              LaunchSnapshot
+	ConsecutiveFailures int
+	LastFailureAt       time.Time
+	LastStartAt         time.Time
+}
+
+type ProviderSnapshot struct {
+	Manifest  Manifest
+	Identity  InstanceIdentity
+	State     State
+	Isolation IsolationProfile
+	Priority  int
+}
+
+type LaunchSnapshot struct {
+	Executable        []byte
+	Entrypoint        string
+	SocketPath        string
+	RequiredIsolation []IsolationProperty
+}
+
+type SupervisorPersistence interface {
+	LoadSupervisorSnapshots(context.Context) ([]SupervisorSnapshot, error)
+	SaveSupervisorSnapshot(context.Context, SupervisorSnapshot) error
+}
+
 type SupervisorPolicy struct {
 	MaxConsecutiveFailures int
 	RestartBackoff         time.Duration
@@ -34,17 +65,58 @@ type Supervisor struct {
 	registry *Registry
 	process  ProcessControl
 	policy   SupervisorPolicy
+	persist  SupervisorPersistence
 	entries  map[string]supervisedInstance
 }
 
 func NewSupervisor(registry *Registry, process ProcessControl, policy SupervisorPolicy) (*Supervisor, error) {
+	return newSupervisor(registry, process, policy, nil, context.Background())
+}
+
+func NewPersistentSupervisor(ctx context.Context, registry *Registry, process ProcessControl, policy SupervisorPolicy, persist SupervisorPersistence) (*Supervisor, error) {
+	if persist == nil {
+		return nil, errors.New("supervisor persistence is required")
+	}
+	return newSupervisor(registry, process, policy, persist, ctx)
+}
+
+func newSupervisor(registry *Registry, process ProcessControl, policy SupervisorPolicy, persist SupervisorPersistence, ctx context.Context) (*Supervisor, error) {
 	if registry == nil || process == nil {
 		return nil, errors.New("plugin registry and process control are required")
 	}
 	if policy.MaxConsecutiveFailures < 0 || policy.RestartBackoff < 0 {
 		return nil, errors.New("invalid supervisor policy")
 	}
-	return &Supervisor{registry: registry, process: process, policy: policy, entries: map[string]supervisedInstance{}}, nil
+	s := &Supervisor{registry: registry, process: process, policy: policy, persist: persist, entries: map[string]supervisedInstance{}}
+	if persist == nil {
+		return s, nil
+	}
+	snapshots, err := persist.LoadSupervisorSnapshots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load supervisor snapshots: %w", err)
+	}
+	for _, snapshot := range snapshots {
+		provider := Provider{Manifest: snapshot.Provider.Manifest, Identity: snapshot.Provider.Identity, State: snapshot.Provider.State, Isolation: snapshot.Provider.Isolation, Priority: snapshot.Provider.Priority}
+		// A process cannot be presumed alive across runtime restart. Ready,
+		// degraded, or starting snapshots become stopped and require handshake.
+		if provider.State == StateReady || provider.State == StateDegraded || provider.State == StateStarting {
+			provider.State = StateStopped
+		}
+		launch := LaunchSpec{Provider: provider, Executable: append([]byte(nil), snapshot.Launch.Executable...), Entrypoint: snapshot.Launch.Entrypoint, SocketPath: snapshot.Launch.SocketPath, RequiredIsolation: append([]IsolationProperty(nil), snapshot.Launch.RequiredIsolation...)}
+		s.entries[provider.Identity.InstanceID] = supervisedInstance{Provider: provider, Launch: launch, ConsecutiveFailures: snapshot.ConsecutiveFailures, LastFailureAt: snapshot.LastFailureAt, LastStartAt: snapshot.LastStartAt}
+	}
+	return s, nil
+}
+
+func snapshotOf(entry supervisedInstance) SupervisorSnapshot {
+	return SupervisorSnapshot{Provider: ProviderSnapshot{Manifest: entry.Provider.Manifest, Identity: entry.Provider.Identity, State: entry.Provider.State, Isolation: entry.Provider.Isolation, Priority: entry.Provider.Priority}, Launch: LaunchSnapshot{Executable: append([]byte(nil), entry.Launch.Executable...), Entrypoint: entry.Launch.Entrypoint, SocketPath: entry.Launch.SocketPath, RequiredIsolation: append([]IsolationProperty(nil), entry.Launch.RequiredIsolation...)}, ConsecutiveFailures: entry.ConsecutiveFailures, LastFailureAt: entry.LastFailureAt, LastStartAt: entry.LastStartAt}
+}
+
+func (s *Supervisor) persistEntry(ctx context.Context, entry supervisedInstance) error {
+	if s.persist == nil {
+		return nil
+	}
+	return s.persist.SaveSupervisorSnapshot(ctx, snapshotOf(entry))
 }
 
 func (s *Supervisor) Register(provider Provider) error {
@@ -73,8 +145,12 @@ func (s *Supervisor) RegisterLaunch(spec LaunchSpec) error {
 		return fmt.Errorf("provider state %q cannot be supervised for start", provider.State)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.entries[provider.Identity.InstanceID] = supervisedInstance{Provider: provider, Launch: spec}
+	entry := s.entries[provider.Identity.InstanceID]
+	s.mu.Unlock()
+	if err := s.persistEntry(context.Background(), entry); err != nil {
+		return fmt.Errorf("persist supervised launch: %w", err)
+	}
 	return nil
 }
 
@@ -111,6 +187,9 @@ func (s *Supervisor) Start(ctx context.Context, instanceID string, now time.Time
 	entry.LastStartAt = now
 	s.entries[instanceID] = entry
 	s.mu.Unlock()
+	if err := s.persistEntry(context.Background(), entry); err != nil {
+		return fmt.Errorf("persist plugin start: %w", err)
+	}
 
 	if err := s.process.Start(ctx, entry.Launch); err != nil {
 		s.RecordFailure(context.Background(), instanceID, now)
@@ -147,6 +226,9 @@ func (s *Supervisor) MarkReady(instanceID string, handshake HandshakeResult) err
 	entry.Provider.Priority = priority
 	entry.ConsecutiveFailures = 0
 	s.entries[instanceID] = entry
+	if err := s.persistEntry(context.Background(), entry); err != nil {
+		return fmt.Errorf("persist plugin readiness: %w", err)
+	}
 	return s.registry.Register(entry.Provider)
 }
 
@@ -174,6 +256,9 @@ func (s *Supervisor) RecordFailure(ctx context.Context, instanceID string, now t
 	s.entries[instanceID] = entry
 	s.registry.Remove(instanceID)
 	s.mu.Unlock()
+	if err := s.persistEntry(context.Background(), entry); err != nil {
+		return fmt.Errorf("persist plugin failure: %w", err)
+	}
 
 	if err := s.process.Terminate(ctx, entry.Provider.Identity); err != nil {
 		return fmt.Errorf("terminate failed plugin: %w", err)
@@ -192,6 +277,9 @@ func (s *Supervisor) Revoke(ctx context.Context, instanceID string) error {
 	s.entries[instanceID] = entry
 	s.registry.Remove(instanceID)
 	s.mu.Unlock()
+	if err := s.persistEntry(context.Background(), entry); err != nil {
+		return fmt.Errorf("persist plugin revocation: %w", err)
+	}
 	if err := s.process.Terminate(ctx, entry.Provider.Identity); err != nil {
 		return fmt.Errorf("terminate revoked plugin: %w", err)
 	}

@@ -13,6 +13,30 @@ type fakeProcessControl struct {
 	startErr   error
 }
 
+type fakeSupervisorPersistence struct{ snapshots []SupervisorSnapshot }
+
+func (f *fakeSupervisorPersistence) LoadSupervisorSnapshots(context.Context) ([]SupervisorSnapshot, error) {
+	return append([]SupervisorSnapshot(nil), f.snapshots...), nil
+}
+
+func (f *fakeSupervisorPersistence) SaveSupervisorSnapshot(_ context.Context, snapshot SupervisorSnapshot) error {
+	f.snapshots = []SupervisorSnapshot{snapshot}
+	return nil
+}
+
+func TestPersistentSupervisorRestoresLaunchButRequiresFreshHandshake(t *testing.T) {
+	provider := fixtureProvider("persistent", StateReady, map[IsolationProperty]EnforcementState{IsolationFilesystem: Enforced}, 1)
+	persist := &fakeSupervisorPersistence{snapshots: []SupervisorSnapshot{{Provider: ProviderSnapshot{Manifest: provider.Manifest, Identity: provider.Identity, State: StateReady, Isolation: provider.Isolation, Priority: provider.Priority}, Launch: LaunchSnapshot{Executable: []byte("verified"), Entrypoint: "plugin", SocketPath: "/tmp/plugin.sock"}}}}
+	s, err := NewPersistentSupervisor(context.Background(), NewRegistry(), &fakeProcessControl{}, SupervisorPolicy{}, persist)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, ok := s.State(provider.Identity.InstanceID)
+	if !ok || state != StateStopped {
+		t.Fatalf("restored runtime must require a fresh start/handshake, got %q %v", state, ok)
+	}
+}
+
 func (f *fakeProcessControl) Start(_ context.Context, _ LaunchSpec) error {
 	f.starts++
 	return f.startErr

@@ -33,6 +33,13 @@ The core SHALL reject requests whose authenticated instance identity does not ma
 
 Restart creates a new instance identity unless the contract explicitly defines continuity. Leases SHALL state whether they survive restart; default is no for privileged runtime leases.
 
+Supervisor launch bindings, failure counters, quarantine, and revocation SHALL
+be persisted in authoritative state. Runtime `starting`, `ready`, and
+`degraded` state is normalized to `stopped` after supervisor restart. Runtime
+advertisement, readiness evidence, and leases are never restored as durable
+authority; a fresh process/session must complete handshake and policy checks
+before registry publication.
+
 ## Transport
 
 Canonical plugin RPC uses the ADR-029 gRPC/Protocol Buffers boundary. The core sends an expected instance/artifact/session identity and supported protocol range; the connected plugin returns its independently asserted identity, protocol range, advertised operations, and readiness. Core validation compares that response to the verified package definition and launched instance before registry publication. The request cannot manufacture the plugin's advertisement. The protocol SHALL support unary request/response, bounded bidirectional streaming, deadlines, cancellation, health/readiness, structured errors, and authenticated instance context.

@@ -99,12 +99,18 @@ on the exact request/source record. Commit order is the durable authority
 timeline; a pre-commit crash produces neither transition, and retries reload
 effective authority. In-process mutexes are not the authority mechanism.
 
-The generic decision also carries an exact authority reference and generation
-version. GoalStore accepts a decision only through an authoritative generation
-validator; it never treats `AuthorityDigest` or a principal name as proof that
-a broader policy/principal grant remains active. Missing generation validation
-fails closed. Cross-registry implementations own their durable generation and
-revocation state and must use the same effective-ordering contract.
+The generic decision also carries an exact authority reference, generation
+version, and generation digest. The encrypted GoalStore provides the minimal
+durable generation registry for this contract: an immutable active generation
+record is bound to principal, scope, provenance, and effective time, while a
+separate immutable invalidation record marks that exact generation revoked or
+superseded. GoalStore never treats `AuthorityDigest` or a principal name as
+proof that a broader grant remains active. Decision issuance, exact revocation,
+acceptance, attachment, and generation invalidation serialize on the same
+generation record; the first committed transition defines durable ordering.
+Missing generation validation, stale-generation replay, and legacy unbound
+decisions fail closed. More capable external policy registries may implement
+the same validator contract later, but are not required by this foundation.
 
 ## Consequences
 

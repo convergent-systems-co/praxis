@@ -439,6 +439,24 @@ The bounded correction adds exact authority reference/version fields and a
 fail-closed `AuthorityGenerationValidator` seam to the acceptance boundary.
 Decision-backed acceptance now requires that validator to confirm the current
 broader generation; legacy unbound decisions remain historical but cannot enter
-the cross-registry path. The actual principal/policy registry integration and
-its shared transaction/event ordering remain the next governed owner; no
-current-Goal authority was created.
+the cross-registry path. No current-Goal authority was created.
+
+## Dogfood finding DF-023 — durable authority-generation integration
+
+DF-022 established the validator seam but left no production durable registry
+for the principal/policy generation it was required to validate. The bounded
+closure adds a minimal encrypted GoalStore registry: active generation records
+bind exact reference/version, digest, principal, scope, provenance, and
+effective time; immutable invalidation records bind the exact generation and
+record revocation or supersession without rewriting history.
+
+Decision issuance, exact-decision revocation, acceptance, successor-baseline
+attachment, and generation invalidation now serialize on the same generation
+record in SQLite. The transaction that commits first defines effective
+authority ordering. A generation invalidated before a decision or consume
+commit blocks that transition; a committed transition remains historical before
+a later invalidation. Restart reloads the generation and invalidation records,
+and legacy unbound decisions remain historical only. Tests cover stale
+generation rejection, supersession, old-decision replay, immutable historical
+retention, and restart recovery. No authority was created for the current
+dogfood Goal.

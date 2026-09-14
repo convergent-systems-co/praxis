@@ -17,6 +17,60 @@ const (
 	AuthorityRequestInvalidated AuthorityRequestStatus = "invalidated"
 )
 
+type AuthorityGenerationState string
+
+const (
+	AuthorityGenerationActive AuthorityGenerationState = "active"
+)
+
+type AuthorityGeneration struct {
+	Ref              string                   `json:"ref"`
+	Version          string                   `json:"version"`
+	Digest           string                   `json:"digest"`
+	Principal        PrincipalRef             `json:"principal"`
+	Scope            string                   `json:"scope"`
+	ProvenanceRef    string                   `json:"provenance_ref"`
+	ProvenanceDigest string                   `json:"provenance_digest"`
+	State            AuthorityGenerationState `json:"state"`
+	EffectiveAt      time.Time                `json:"effective_at"`
+}
+
+func (g AuthorityGeneration) Validate() error {
+	if g.Ref == "" || g.Version == "" || g.Digest == "" || g.Scope == "" || g.ProvenanceRef == "" || g.ProvenanceDigest == "" || g.EffectiveAt.IsZero() {
+		return errors.New("authority generation identity, scope, provenance, and effective time are required")
+	}
+	if err := g.Principal.Validate(); err != nil {
+		return err
+	}
+	if g.State != AuthorityGenerationActive {
+		return fmt.Errorf("authority generation is not active: %q", g.State)
+	}
+	return nil
+}
+
+type AuthorityGenerationInvalidation struct {
+	Ref                 string       `json:"ref"`
+	Version             string       `json:"version"`
+	GenerationDigest    string       `json:"generation_digest"`
+	InvalidationRef     string       `json:"invalidation_ref"`
+	InvalidationVersion string       `json:"invalidation_version"`
+	Kind                string       `json:"kind"`
+	SupersededBy        string       `json:"superseded_by,omitempty"`
+	InvalidatedBy       PrincipalRef `json:"invalidated_by"`
+	EffectiveAt         time.Time    `json:"effective_at"`
+	Reason              string       `json:"reason"`
+}
+
+func (i AuthorityGenerationInvalidation) Validate(generation AuthorityGeneration) error {
+	if i.Ref != generation.Ref || i.Version != generation.Version || i.GenerationDigest != generation.Digest || i.InvalidationRef == "" || i.InvalidationVersion == "" || i.Kind == "" || i.EffectiveAt.IsZero() || i.Reason == "" {
+		return errors.New("authority generation invalidation does not bind the exact generation")
+	}
+	if i.Kind != "revoked" && i.Kind != "superseded" {
+		return fmt.Errorf("unknown authority generation invalidation %q", i.Kind)
+	}
+	return i.InvalidatedBy.Validate()
+}
+
 type AuthorityDecisionOutcome string
 
 const (
@@ -75,19 +129,20 @@ func (r AuthorityRequest) Digest() (string, error) {
 }
 
 type AuthorityDecision struct {
-	RequestID        string                   `json:"request_id"`
-	RequestVersion   string                   `json:"request_version"`
-	RequestDigest    string                   `json:"request_digest"`
-	DecisionRef      string                   `json:"decision_ref"`
-	DecisionVersion  string                   `json:"decision_version"`
-	DecidedBy        PrincipalRef             `json:"decided_by"`
-	AuthorityRef     string                   `json:"authority_ref"`
-	AuthorityVersion string                   `json:"authority_version"`
-	GrantedScope     string                   `json:"granted_scope"`
-	Outcome          AuthorityDecisionOutcome `json:"outcome"`
-	AuthorityDigest  string                   `json:"authority_digest"`
-	IssuedAt         time.Time                `json:"issued_at"`
-	ExpiresAt        *time.Time               `json:"expires_at,omitempty"`
+	RequestID                 string                   `json:"request_id"`
+	RequestVersion            string                   `json:"request_version"`
+	RequestDigest             string                   `json:"request_digest"`
+	DecisionRef               string                   `json:"decision_ref"`
+	DecisionVersion           string                   `json:"decision_version"`
+	DecidedBy                 PrincipalRef             `json:"decided_by"`
+	AuthorityRef              string                   `json:"authority_ref"`
+	AuthorityVersion          string                   `json:"authority_version"`
+	AuthorityGenerationDigest string                   `json:"authority_generation_digest"`
+	GrantedScope              string                   `json:"granted_scope"`
+	Outcome                   AuthorityDecisionOutcome `json:"outcome"`
+	AuthorityDigest           string                   `json:"authority_digest"`
+	IssuedAt                  time.Time                `json:"issued_at"`
+	ExpiresAt                 *time.Time               `json:"expires_at,omitempty"`
 }
 
 func (d AuthorityDecision) Digest() (string, error) {

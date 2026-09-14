@@ -18,15 +18,6 @@ type wrapper struct {
 	key  []byte
 }
 
-type authorityGenerationFixture struct{}
-
-func (authorityGenerationFixture) ValidateAuthorityGeneration(_ context.Context, decision contracts.AuthorityDecision, _ time.Time) error {
-	if decision.AuthorityRef != "policy:goal-acceptance" || decision.AuthorityVersion != "7" {
-		return errors.New("stale authority generation")
-	}
-	return nil
-}
-
 func (w *wrapper) Capabilities(context.Context, string) (praxiscrypto.Capabilities, error) {
 	return w.caps, nil
 }
@@ -367,7 +358,6 @@ func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t 
 
 func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
-	repo.AuthorityGeneration = authorityGenerationFixture{}
 	ctx := context.Background()
 	proposal, _, accepted := workPlanProposalFixture()
 	proposalDigest, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil)
@@ -383,11 +373,14 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
+	if err := repo.SaveAuthorityGeneration(ctx, contracts.AuthorityGeneration{Ref: "policy:goal-acceptance", Version: "7", Digest: "sha256:generation-7", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: request.RequestedScope, ProvenanceRef: "policy:goal-acceptance", ProvenanceDigest: "sha256:policy-source", State: contracts.AuthorityGenerationActive, EffectiveAt: time.Now().UTC()}, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
 	requestDigest, err := request.Digest()
 	if err != nil {
 		t.Fatal(err)
 	}
-	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-accept-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, AuthorityRef: "policy:goal-acceptance", AuthorityVersion: "7", GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator", IssuedAt: time.Now().UTC()}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-accept-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, AuthorityRef: "policy:goal-acceptance", AuthorityVersion: "7", AuthorityGenerationDigest: "sha256:generation-7", GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator", IssuedAt: time.Now().UTC()}
 	if err := repo.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -438,6 +431,45 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	}
 	if _, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, rejectedRequest.ID, rejectedRequest.Version, accepted, "acceptance-rejected", "1", time.Now().UTC(), nil); err == nil {
 		t.Fatal("rejected authority decision became executable acceptance")
+	}
+}
+
+func TestRepositoryAuthorityGenerationInvalidationSurvivesRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authority.db")
+	ctx := context.Background()
+	keyWrapper := &wrapper{caps: praxiscrypto.Capabilities{PQ: true}}
+	db, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	now := time.Now().UTC()
+	generation := contracts.AuthorityGeneration{Ref: "policy:restart", Version: "4", Digest: "sha256:generation-4", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: "goal:goal-1/proposal-1", ProvenanceRef: "policy:restart", ProvenanceDigest: "sha256:policy-4", State: contracts.AuthorityGenerationActive, EffectiveAt: now}
+	if err := repo.SaveAuthorityGeneration(ctx, generation, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	decision := contracts.AuthorityDecision{AuthorityRef: generation.Ref, AuthorityVersion: generation.Version, AuthorityGenerationDigest: generation.Digest, DecidedBy: generation.Principal, GrantedScope: generation.Scope}
+	invalidation := contracts.AuthorityGenerationInvalidation{Ref: generation.Ref, Version: generation.Version, GenerationDigest: generation.Digest, InvalidationRef: "policy-restart-revoke", InvalidationVersion: "1", Kind: "superseded", SupersededBy: "5", InvalidatedBy: generation.Principal, EffectiveAt: now, Reason: "policy generation advanced"}
+	if err := repo.SaveAuthorityGenerationInvalidation(ctx, invalidation, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.ValidateAuthorityGeneration(ctx, decision, now); err == nil {
+		t.Fatal("superseded authority generation remained effective")
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopenedDB, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopenedDB.Close()
+	reopened := Repository{Store: state.New(reopenedDB), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	if _, err := reopened.LoadAuthorityGeneration(ctx, generation.Ref, generation.Version, now); err != nil {
+		t.Fatalf("historical generation was not retained: %v", err)
+	}
+	if err := reopened.ValidateAuthorityGeneration(ctx, decision, now); err == nil {
+		t.Fatal("restart resurrected superseded authority generation")
 	}
 }
 

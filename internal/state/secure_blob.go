@@ -149,7 +149,7 @@ func (s *Store) PutSecureBlobWithLock(ctx context.Context, record SecureBlobReco
 // PutSecureBlobUnlessRevoked atomically locks the source authority record,
 // checks the immutable revocation namespace, and writes the new record. A
 // revoke and this operation therefore have one durable SQLite ordering.
-func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, lockNamespace, lockID, lockVersion string) error {
+func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {
 	if s == nil || s.db == nil {
 		return errors.New("state store is required")
 	}
@@ -174,12 +174,18 @@ func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlo
 	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, lockNamespace, lockID, lockVersion); err != nil {
 		return fmt.Errorf("lock authority source: %w", err)
 	}
-	var revoked int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, revocationNamespace, requestID, requestVersion).Scan(&revoked); err != nil {
-		return fmt.Errorf("check authority revocation: %w", err)
-	}
-	if revoked != 0 {
-		return ErrAuthorityRevoked
+	for _, check := range []struct{ namespace, id, version string }{{revocationNamespace, requestID, requestVersion}, {additionalRevocationNamespace, additionalID, additionalVersion}} {
+		namespace, id, version := check.namespace, check.id, check.version
+		if namespace == "" {
+			continue
+		}
+		var revoked int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, id, version).Scan(&revoked); err != nil {
+			return fmt.Errorf("check authority revocation: %w", err)
+		}
+		if revoked != 0 {
+			return ErrAuthorityRevoked
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
 		return fmt.Errorf("insert authority-bound secure blob: %w", err)

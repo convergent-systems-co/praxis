@@ -108,11 +108,16 @@ only an exact durable approval and derive its authority fields from the bound
 request/decision; successor-baseline attachment remains separate.
 Exact authority decisions may be invalidated only by immutable revocation
 evidence; acceptance and attachment must fail closed after effective
-revocation, while historical records remain retained. Revoke/consume writes
-must share a database transaction and source-record lock so commit order is
-the recoverable authority timeline. Decisions must additionally bind an exact
-authority generation and fail closed when the cross-registry validator is
-absent or reports supersession/revocation.
+revocation, while historical records remain retained. The encrypted GoalStore
+now supplies the minimal durable authority-generation registry: immutable
+generation records bind reference/version, principal, scope, provenance, and
+effective time; immutable invalidation records mark exact generations revoked
+or superseded. Decision issuance, exact revocation, acceptance, attachment,
+and generation invalidation share the generation record's SQLite transaction
+lock, so commit order is the recoverable authority timeline. Decisions must
+bind the exact generation digest; stale, legacy-unbound, or unavailable
+generation validation fails closed. A future external policy registry may
+implement the same validator boundary without changing GoalStore semantics.
 
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or

@@ -119,9 +119,17 @@ retry re-evaluates the effective record rather than reusing an earlier read.
 
 The acceptance boundary SHALL fail closed when no validator for the referenced
 authority generation is available; an opaque authority digest is not a
-substitute for current generation validation. Legacy decisions without that
-binding remain historical evidence but cannot authorize the cross-registry
-acceptance path.
+substitute for current generation validation. The minimal durable validator
+stores an immutable active generation bound to authority reference, version,
+digest, principal, scope, provenance, and effective time, plus a separate
+immutable exact-generation invalidation record for revocation or supersession.
+Decision issuance, exact revocation, acceptance, attachment, and invalidation
+SHALL share the generation record's SQLite transaction lock. Commit order is
+the durable ordering: invalidation committed first blocks a later decision or
+consume, while a committed consume remains historical authority before a later
+invalidation. Retries SHALL reload effective generation state. Legacy decisions
+without exact generation binding remain historical evidence and SHALL NOT
+authorize current acceptance.
 
 Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an

@@ -23,6 +23,8 @@ const workPlanReviewNamespace = "work_plan_review"
 const authorityRequestNamespace = "authority_request"
 const authorityDecisionNamespace = "authority_decision"
 const authorityRevocationNamespace = "authority_revocation"
+const authorityGenerationNamespace = "authority_generation"
+const authorityGenerationInvalidationNamespace = "authority_generation_invalidation"
 
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
 
@@ -173,7 +175,7 @@ func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, source
 		return goals.GoalBaseline{}, err
 	}
 	if plan.AuthorityRequestID != "" {
-		err = r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, plan.AuthorityRequestID, plan.AuthorityRequestVersion, baselineNamespace, sourceID, sourceVersion)
+		err = r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, plan.AuthorityRequestID, plan.AuthorityRequestVersion, authorityGenerationInvalidationNamespace, plan.AuthorityRef, plan.AuthorityVersion, authorityGenerationNamespace, plan.AuthorityRef, plan.AuthorityVersion)
 	} else {
 		err = r.Store.PutSecureBlob(ctx, record)
 	}
@@ -412,10 +414,14 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	if authorityDecision.Outcome != contracts.AuthorityApprove {
 		return contracts.WorkPlan{}, fmt.Errorf("authority decision outcome %q cannot authorize WorkPlan acceptance", authorityDecision.Outcome)
 	}
-	if authorityDecision.AuthorityRef == "" || authorityDecision.AuthorityVersion == "" || r.AuthorityGeneration == nil {
+	validator := r.AuthorityGeneration
+	if validator == nil {
+		validator = r
+	}
+	if authorityDecision.AuthorityRef == "" || authorityDecision.AuthorityVersion == "" || authorityDecision.AuthorityGenerationDigest == "" {
 		return contracts.WorkPlan{}, errors.New("authority generation validation is required for cross-registry acceptance")
 	}
-	if err := r.AuthorityGeneration.ValidateAuthorityGeneration(ctx, authorityDecision, time.Now().UTC()); err != nil {
+	if err := validator.ValidateAuthorityGeneration(ctx, authorityDecision, time.Now().UTC()); err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("validate authority generation: %w", err)
 	}
 	proposal, err := r.LoadWorkPlanProposal(ctx, request.ProposalID, request.ProposalVersion, time.Now().UTC())
@@ -446,7 +452,7 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 		AcceptanceRef: acceptanceRef, AcceptanceDigest: authorityAcceptanceDigest(request, authorityDecision, acceptanceRef, acceptanceVersion),
 		AcceptedBy: authorityDecision.DecidedBy, AuthorityScope: authorityDecision.GrantedScope,
 		AuthorityRequestID: request.ID, AuthorityRequestVersion: request.Version,
-		AuthorityDecisionRef: authorityDecision.DecisionRef, AuthorityDecisionVersion: authorityDecision.DecisionVersion,
+		AuthorityDecisionRef: authorityDecision.DecisionRef, AuthorityDecisionVersion: authorityDecision.DecisionVersion, AuthorityVersion: authorityDecision.AuthorityVersion, AuthorityGenerationDigest: authorityDecision.AuthorityGenerationDigest,
 		ReviewRef: request.ReviewRef, ReviewVersion: request.ReviewVersion, ReviewDigest: request.ReviewDigest, Mode: mode,
 	}
 	if existing, loadErr := r.LoadAcceptedWorkPlan(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC()); loadErr == nil {
@@ -471,7 +477,7 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("encode authority-backed acceptance: %w", err)
 	}
-	if err := r.putWorkPlanBlobUnlessRevoked(ctx, workPlanAcceptanceNamespace, acceptanceRef, acceptanceVersion, payload, createdAt, expiresAt, request.ID, request.Version, authorityRequestNamespace, request.ID, request.Version); err != nil {
+	if err := r.putWorkPlanBlobUnlessRevoked(ctx, workPlanAcceptanceNamespace, acceptanceRef, acceptanceVersion, payload, createdAt, expiresAt, request.ID, request.Version, authorityDecision.AuthorityRef, authorityDecision.AuthorityVersion, authorityGenerationNamespace, authorityDecision.AuthorityRef, authorityDecision.AuthorityVersion); err != nil {
 		if errors.Is(err, state.ErrAuthorityRevoked) {
 			return contracts.WorkPlan{}, ErrAuthorityDecisionRevoked
 		}
@@ -526,7 +532,11 @@ func (r Repository) SaveAuthorityRevocation(ctx context.Context, requestID, requ
 	if err != nil {
 		return fmt.Errorf("encode authority revocation: %w", err)
 	}
-	if err := r.putWorkPlanBlobWithLock(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt, authorityRequestNamespace, requestID, requestVersion); err != nil {
+	lockNamespace, lockID, lockVersion := authorityRequestNamespace, requestID, requestVersion
+	if decision.AuthorityRef != "" && decision.AuthorityVersion != "" {
+		lockNamespace, lockID, lockVersion = authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion
+	}
+	if err := r.putWorkPlanBlobWithLock(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt, lockNamespace, lockID, lockVersion); err != nil {
 		return fmt.Errorf("persist authority revocation: %w", err)
 	}
 	return nil
@@ -669,6 +679,15 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 	if err := decision.Validate(request, time.Now().UTC()); err != nil {
 		return err
 	}
+	if decision.AuthorityRef != "" || decision.AuthorityVersion != "" || decision.AuthorityGenerationDigest != "" {
+		validator := r.AuthorityGeneration
+		if validator == nil {
+			validator = r
+		}
+		if err := validator.ValidateAuthorityGeneration(ctx, decision, time.Now().UTC()); err != nil {
+			return fmt.Errorf("validate issuing authority generation: %w", err)
+		}
+	}
 	if existing, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
 		left, _ := json.Marshal(existing)
 		right, _ := json.Marshal(decision)
@@ -683,8 +702,14 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 	if err != nil {
 		return fmt.Errorf("encode authority decision: %w", err)
 	}
-	if err := r.putWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt); err != nil {
-		return fmt.Errorf("persist authority decision: %w", err)
+	var persistErr error
+	if decision.AuthorityRef != "" && decision.AuthorityVersion != "" && decision.AuthorityGenerationDigest != "" {
+		persistErr = r.putWorkPlanBlobUnlessRevoked(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt, requestID, requestVersion, decision.AuthorityRef, decision.AuthorityVersion, authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion)
+	} else {
+		persistErr = r.putWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt)
+	}
+	if persistErr != nil {
+		return fmt.Errorf("persist authority decision: %w", persistErr)
 	}
 	return nil
 }
@@ -736,6 +761,72 @@ func (r Repository) validateWorkPlanStore() error {
 	return r.Sensitivity.Validate()
 }
 
+func (r Repository) SaveAuthorityGeneration(ctx context.Context, generation contracts.AuthorityGeneration, createdAt time.Time, expiresAt *time.Time) error {
+	if err := generation.Validate(); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(generation)
+	if err != nil {
+		return fmt.Errorf("encode authority generation: %w", err)
+	}
+	return r.putWorkPlanBlob(ctx, authorityGenerationNamespace, generation.Ref, generation.Version, payload, createdAt, expiresAt)
+}
+
+func (r Repository) LoadAuthorityGeneration(ctx context.Context, ref, version string, now time.Time) (contracts.AuthorityGeneration, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityGenerationNamespace, ref, version, now)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	var generation contracts.AuthorityGeneration
+	if err := json.Unmarshal(payload, &generation); err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("decode authority generation: %w", err)
+	}
+	if generation.Ref != ref || generation.Version != version || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.AuthorityGeneration{}, errors.New("authority generation identity or digest mismatch")
+	}
+	if err := generation.Validate(); err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	return generation, nil
+}
+
+func (r Repository) SaveAuthorityGenerationInvalidation(ctx context.Context, invalidation contracts.AuthorityGenerationInvalidation, createdAt time.Time, expiresAt *time.Time) error {
+	if expiresAt != nil || invalidation.EffectiveAt.After(time.Now().UTC()) {
+		return errors.New("authority generation invalidation must be immediate and non-expiring")
+	}
+	generation, err := r.LoadAuthorityGeneration(ctx, invalidation.Ref, invalidation.Version, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if err := invalidation.Validate(generation); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(invalidation)
+	if err != nil {
+		return fmt.Errorf("encode authority generation invalidation: %w", err)
+	}
+	return r.putWorkPlanBlobWithLock(ctx, authorityGenerationInvalidationNamespace, invalidation.Ref, invalidation.Version, payload, createdAt, expiresAt, authorityGenerationNamespace, invalidation.Ref, invalidation.Version)
+}
+
+func (r Repository) ValidateAuthorityGeneration(ctx context.Context, decision contracts.AuthorityDecision, now time.Time) error {
+	if decision.AuthorityRef == "" || decision.AuthorityVersion == "" || decision.AuthorityGenerationDigest == "" {
+		return errors.New("authority decision lacks exact generation binding")
+	}
+	generation, err := r.LoadAuthorityGeneration(ctx, decision.AuthorityRef, decision.AuthorityVersion, now)
+	if err != nil {
+		return err
+	}
+	if generation.Digest != decision.AuthorityGenerationDigest || generation.Principal != decision.DecidedBy || generation.Scope != decision.GrantedScope {
+		return errors.New("authority decision does not match current authority generation")
+	}
+	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
+		return errors.New("authority generation is revoked or superseded")
+	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+		return err
+	}
+	return nil
+}
+
 func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time) error {
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
@@ -749,7 +840,7 @@ func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, ve
 	return r.Store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt})
 }
 
-func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, lockNamespace, lockID, lockVersion string) error {
+func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
 	}
@@ -760,7 +851,7 @@ func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace,
 		return fmt.Errorf("encrypt authority-bound WorkPlan record: %w", err)
 	}
 	record := state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}
-	return r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, requestID, requestVersion, lockNamespace, lockID, lockVersion)
+	return r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, requestID, requestVersion, authorityGenerationInvalidationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion)
 }
 
 func (r Repository) putWorkPlanBlobWithLock(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, lockNamespace, lockID, lockVersion string) error {

@@ -312,6 +312,12 @@ This closes an identity-safe provider primitive but does not change OI-024,
 which still requires runtime cancellation propagation, quota inheritance,
 retry governance, crash recovery, and complete end-to-end evidence.
 
+Supervisor runtime cleanup now prefers that exact slice/attempt boundary when
+the provider exposes it; retained lease IDs remain the restart-fencing record.
+Stop, revocation, launch failure, and observed-exit paths therefore cannot
+release a sibling attempt through a stale or reconstructed lease list. This is
+one OI-024 mediation increment, not OI-024 closure.
+
 Successor blind result `blind-plugin-scheduler-substrate-v1.json` is frozen at
 `sha256:6c55874cf8d9290c7b3285c2826f40c0d843440f4cd2430dcb35116db3da7b57`.
 It independently retains 25 satisfied and 13 indeterminate claims; no oracle
@@ -405,6 +411,27 @@ contradicted findings. Post-freeze qualification
 `package-supervisor-oracle-qualification-v15.json` retains the historical
 OI-002 false-negative control, so this checkpoint does not close the oracle
 gate or release qualification.
+
+The current child-objective checkpoint re-ran the focused plugin/scheduler/
+state/provider race suite and full `go test ./...` successfully. Blind result
+v16 was independently frozen from the current v42/v36/v36 execution
+attestations at
+`sha256:4c25c82b65ef059243125c1823038805dfc55dbe85f86e3bc22ac41798cae9cb`;
+it retains 25 satisfied and 13 indeterminate claims with zero unsupported or
+contradicted findings. Post-freeze qualification
+`package-supervisor-oracle-qualification-v16.json` again records only the
+retained historical OI-002 false-negative control. The supervisor/scheduler
+lease child objective is checkpointed, while OI-024 and the broader release
+qualification remain open.
+
+The exact-attempt runtime cleanup increment refreshed source-bound execution
+attestations `cluster-a-runtime-v43.json`, `package-lifecycle-v37.json`, and
+`portable-state-v37.json`. Blind result v17 was then frozen at
+`sha256:de4f72643b7e8de7572fe1907b8d38a59d82d194a638df8cfaf663b8456978ed`
+with 25 satisfied and 13 indeterminate claims, zero unsupported or
+contradicted findings. Post-freeze qualification
+`package-supervisor-oracle-qualification-v17.json` retains the historical
+OI-002 false-negative control; OI-024 and release qualification remain open.
 
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 

@@ -9,9 +9,10 @@
 3. If admission is denied, the launcher SHALL NOT be invoked and the prior
    lifecycle state SHALL remain authoritative.
 4. Successful attempts SHALL release their scheduler leases on launch failure,
-   explicit stop, revocation, or unexpected process exit. Release SHALL use
-   scheduler idempotence and SHALL NOT make a revoked or failed plugin
-   routable again.
+   explicit stop, revocation, or unexpected process exit. Runtime cleanup SHALL
+   prefer the authoritative exact slice/attempt release boundary when exposed;
+   otherwise it MAY use the retained lease IDs through an idempotent provider
+   operation. Release SHALL NOT make a revoked or failed plugin routable again.
 5. Supervisor snapshots SHALL retain the exact lease IDs for an active
    attempt. Supervisor restart SHALL not resurrect a runtime process or its
    ephemeral attempt identity; it SHALL release the retained lease IDs and

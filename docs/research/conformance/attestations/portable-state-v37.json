@@ -1,0 +1,46 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-attest-cache",
+    "GOPATH=/private/tmp/praxis-attest-gopath",
+    "GOMODCACHE=/private/tmp/praxis-attest-mod",
+    "go",
+    "test",
+    "-v",
+    "./internal/eventstore",
+    "./internal/packagecatalog",
+    "./internal/plugin",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/sync",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T10:16:15.919352Z",
+  "finished_at": "2026-09-14T10:16:16.865287Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/portable-state-v37.log",
+  "output_digest": "sha256:2c09c64f1d34c4007a2e6f750d0ebd8217c8db60f64a06cca4afba0696304136",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:5f094bb09ca3a123fd91f09e790c3edd730f99ab3f511dc34e35cc78db2e2ab4",
+    "internal/state": "sha256:8a94cca2080b19af0496d9701a82aafac2db234293380e748d1c0db66823a1a9",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/sync": "sha256:65c89409deffbca8818b4e3cacb0b6cc15b770f1cb878b8608044f3c4f65c439",
+    "pkg/contracts": "sha256:e8e18702a1880a26dcd8a971cb1baec031a193b73204ddcd56c51b8320155fcd"
+  },
+  "observations": [
+    "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart",
+    "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed",
+    "TestPortableImportReplayRejectsAuthorityActorMismatch",
+    "TestRuntimeAuthorityIsNotReusableOnImport",
+    "TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt",
+    "TestSchedulerResourceLeaseCancellationReleasesOnlyExactAttempt",
+    "TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements",
+    "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:0a9d33da3bc506511a78ae80c5e9538061369d74451a00bbf85e3b92b1a5c221"
+}

@@ -36,11 +36,14 @@ type fakeSupervisorPersistence struct {
 }
 
 type fakeSupervisorResourceLeaser struct {
-	acquires   int
-	releases   int
-	leaseErr   error
-	releaseErr error
-	leases     []scheduler.ResourceLease
+	acquires        int
+	releases        int
+	attemptReleases int
+	lastSliceID     string
+	lastAttemptID   string
+	leaseErr        error
+	releaseErr      error
+	leases          []scheduler.ResourceLease
 }
 
 func (f *fakeSupervisorResourceLeaser) AcquireSchedulerResourceLeases(_ context.Context, sliceID, attemptID string, requirements []scheduler.ResourceRequirement, now time.Time, expiry *time.Time) ([]scheduler.ResourceLease, error) {
@@ -74,6 +77,14 @@ func (f *fakeSupervisorResourceLeaser) AcquireSchedulerResourceLeases(_ context.
 
 func (f *fakeSupervisorResourceLeaser) ReleaseSchedulerResourceLeases(context.Context, []string, time.Time) error {
 	f.releases++
+	return f.releaseErr
+}
+
+func (f *fakeSupervisorResourceLeaser) ReleaseSchedulerResourceLeasesForAttempt(_ context.Context, sliceID, attemptID string, _ time.Time) error {
+	f.releases++
+	f.attemptReleases++
+	f.lastSliceID = sliceID
+	f.lastAttemptID = attemptID
 	return f.releaseErr
 }
 
@@ -396,6 +407,9 @@ func TestSupervisorResourceAdmissionGatesProcessAndReleasesOnStop(t *testing.T) 
 	}
 	if leaser.releases != 1 {
 		t.Fatalf("stop must release the process attempt lease, got %d releases", leaser.releases)
+	}
+	if leaser.attemptReleases != 1 || leaser.lastSliceID != p.Identity.InstanceID || leaser.lastAttemptID == "" {
+		t.Fatalf("stop must release the exact scheduler attempt, got slice=%q attempt=%q count=%d", leaser.lastSliceID, leaser.lastAttemptID, leaser.attemptReleases)
 	}
 }
 

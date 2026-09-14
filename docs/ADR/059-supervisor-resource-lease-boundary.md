@@ -27,6 +27,12 @@ leases bound to the exact instance, runtime-session attempt, resource keys, and
 requested capacities. A partial, duplicate, or foreign response is not
 admission authority and fails closed before process launch.
 
+Runtime cleanup uses the scheduler's exact slice/attempt cancellation boundary
+when the authoritative provider exposes it. The retained lease IDs remain
+required for restart fencing and compatibility with providers that only expose
+idempotent ID release; runtime cancellation must not reconstruct authority from
+caller-controlled or stale lease lists.
+
 ## Consequences
 
 - A process cannot consume resources without an atomic scheduler admission.

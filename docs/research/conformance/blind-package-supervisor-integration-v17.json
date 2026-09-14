@@ -1,0 +1,1538 @@
+{
+  "version": "v2",
+  "goal_digest": "sha256:ec813f71fe19f7e546d53774132bbb7133ca9195004e7a8496f4079fa7249353",
+  "source_set_digest": "sha256:ed486a680e4035e99751e02800399154ffbc9d3ebed98a7d2faea8280ed209c8",
+  "claim_set_digest": "sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0",
+  "evidence_digest": "sha256:4ef948e245e03a057adc6fb5c1aa1b95f8d322c75c9c057a42c492f8ca43ea54",
+  "claims": [
+    {
+      "id": "OI-001",
+      "statement": "persistent agents retain identity and lineage across model or provider replacement",
+      "required_evidence": [
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-001:4-5;ADR-003;ADR-010"
+    },
+    {
+      "id": "OI-002",
+      "statement": "persistent agents execute versioned operational graphs around bounded inference points",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-004"
+    },
+    {
+      "id": "OI-003",
+      "statement": "goal resolution selects, adapts, composes, creates, or bounds a process from goal and context",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-001:6;ADR-005"
+    },
+    {
+      "id": "OI-004",
+      "statement": "learning converts repeated successful inference into evaluated lower-inference behavior",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-001:1-2;ADR-006;ADR-007"
+    },
+    {
+      "id": "OI-005",
+      "statement": "superseded prompt instructions retire when deterministic mechanisms replace them",
+      "required_evidence": [
+        "runtime_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "behavior",
+      "source_ref": "ADR-007"
+    },
+    {
+      "id": "OI-006",
+      "statement": "preferences resolve deterministically by authority and scope and react to explicit correction and drift",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-008;ADR-014;ADR-023"
+    },
+    {
+      "id": "OI-007",
+      "statement": "durable memory is typed and selectively retrieved without unbounded prompt growth",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-001:10;ADR-009"
+    },
+    {
+      "id": "OI-008",
+      "statement": "agent generations are immutable append-only lineage with runtime-derived introspection and rollback",
+      "required_evidence": [
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-010"
+    },
+    {
+      "id": "OI-009",
+      "statement": "canonical local state exports, imports, and reconciles across machines without last-writer-wins loss",
+      "required_evidence": [
+        "integration_test",
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-011;ADR-024;ADR-027"
+    },
+    {
+      "id": "OI-010",
+      "statement": "behavioral change uses a separate candidate generation, independent evaluation, governed promotion, and rollback",
+      "required_evidence": [
+        "integration_test",
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-012;ADR-022"
+    },
+    {
+      "id": "OI-011",
+      "statement": "catalog packages bootstrap reusable behavior without importing private personalized state",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-013;ADR-017;ADR-021"
+    },
+    {
+      "id": "OI-012",
+      "statement": "preference contracts seed only material choices and migrate without silent reinterpretation",
+      "required_evidence": [
+        "runtime_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "behavior",
+      "source_ref": "ADR-014"
+    },
+    {
+      "id": "OI-013",
+      "statement": "reasoning tiers and executor selection remain model-independent and observable",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-015;ADR-018"
+    },
+    {
+      "id": "OI-014",
+      "statement": "routing uses demonstrated capability evidence without overriding eligibility or authority",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-016"
+    },
+    {
+      "id": "OI-015",
+      "statement": "cross-agent learning transfers generalized scoped artifacts rather than raw episodic memory",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-017;ADR-021"
+    },
+    {
+      "id": "OI-016",
+      "statement": "longitudinal evaluation detects regressions, repeated inference, variance, and model-portability failures",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-018"
+    },
+    {
+      "id": "OI-017",
+      "statement": "contradictory evidence can fork or demote deterministic behavior back toward inference",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-019"
+    },
+    {
+      "id": "OI-018",
+      "statement": "core execution, authority, evidence, and learning remain domain-neutral while overlays extend domain semantics",
+      "required_evidence": [
+        "code"
+      ],
+      "behavioral": false,
+      "critical": true,
+      "class": "structural",
+      "criticality": "critical",
+      "required_stage": "contract",
+      "source_ref": "ADR-002;ADR-020"
+    },
+    {
+      "id": "OI-019",
+      "statement": "distributed packages have immutable provenance, signatures, capability review, and explicit trust decisions",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-025"
+    },
+    {
+      "id": "OI-020",
+      "statement": "behavioral profiles distinguish declared, inherited, observed, measured, and confirmed evidence",
+      "required_evidence": [
+        "runtime_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "behavior",
+      "source_ref": "ADR-026"
+    },
+    {
+      "id": "OI-021",
+      "statement": "the Go core supervises language-neutral out-of-process plugins with negotiated lifecycle, streaming, cancellation, and recovery",
+      "required_evidence": [
+        "integration_test",
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-028;ADR-029"
+    },
+    {
+      "id": "OI-022",
+      "statement": "canonical versioned contracts preserve stable identity, scope inheritance, compatibility, and migrations",
+      "required_evidence": [
+        "code",
+        "schema_test"
+      ],
+      "behavioral": false,
+      "critical": true,
+      "class": "structural",
+      "criticality": "critical",
+      "required_stage": "contract",
+      "source_ref": "ADR-030;ADR-036"
+    },
+    {
+      "id": "OI-023",
+      "statement": "authoritative events and projections support replay, checkpoint recovery, and causal observability after restart",
+      "required_evidence": [
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-031;ADR-032"
+    },
+    {
+      "id": "OI-024",
+      "statement": "slice scheduling uses ordered leases with bounded starvation, cancellation release, and recovery semantics",
+      "required_evidence": [
+        "integration_test",
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-034"
+    },
+    {
+      "id": "OI-025",
+      "statement": "every mutation and external effect traverses one command boundary with durable idempotent outcomes",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-031;ADR-035"
+    },
+    {
+      "id": "OI-026",
+      "statement": "client-neutral invocation contracts execute consistently across adapters and unavailable optional affordances degrade safely",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-037"
+    },
+    {
+      "id": "OI-027",
+      "statement": "authoritative actions are enforced deterministically below the LLM and fail closed when required mediation is absent",
+      "required_evidence": [
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-038"
+    },
+    {
+      "id": "OI-028",
+      "statement": "workspace intelligence incrementally indexes authoritative sources and emits bounded fresh evidence context",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-039"
+    },
+    {
+      "id": "OI-029",
+      "statement": "untrusted content can influence proposals but cannot authorize actions or silently become authoritative memory",
+      "required_evidence": [
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-040"
+    },
+    {
+      "id": "OI-030",
+      "statement": "plugin capability denial is backed by effective process, filesystem, network, credential, and resource isolation",
+      "required_evidence": [
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-041"
+    },
+    {
+      "id": "OI-031",
+      "statement": "approval binds canonical action intent and is atomically revalidated and consumed at the side-effect commit boundary",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-042"
+    },
+    {
+      "id": "OI-032",
+      "statement": "cryptographic profiles perform agile PQ-preferred signing and key establishment without silent downgrade and preserve rotation",
+      "required_evidence": [
+        "integration_test",
+        "security_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-043"
+    },
+    {
+      "id": "OI-033",
+      "statement": "planning rigor is progressive and reusable baselines drive dependency-aware delta planning",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-044"
+    },
+    {
+      "id": "OI-034",
+      "statement": "the domain-neutral Goals graph interactively compiles original intent, uncertainty, decisions, models, specifications, and plans into a reusable baseline",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-045"
+    },
+    {
+      "id": "OI-035",
+      "statement": "installed packages atomically add and remove validated client-visible commands without rebuilding the core",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-046"
+    },
+    {
+      "id": "OI-036",
+      "statement": "runtime services use semantic authoritative-state provider contracts and fail closed on provider capability mismatch",
+      "required_evidence": [
+        "integration_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "integration",
+      "source_ref": "ADR-047"
+    },
+    {
+      "id": "OI-037",
+      "statement": "pure graph, agent, and mixed packages install, activate, update, and roll back as universal distribution units",
+      "required_evidence": [
+        "integration_test",
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-048"
+    },
+    {
+      "id": "OI-038",
+      "statement": "domain-configured resource pressure can govern durable graph handoff and resume while preserving run, agent, and evidence identity",
+      "required_evidence": [
+        "restart_test"
+      ],
+      "behavioral": true,
+      "critical": true,
+      "class": "behavioral",
+      "criticality": "critical",
+      "required_stage": "lifecycle",
+      "source_ref": "ADR-001:3-5,11;ADR-003;ADR-004;ADR-020;ADR-031;ADR-034"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "adaptive-routing-integration#OI-013",
+      "claim_id": "OI-013",
+      "kind": "integration_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "adaptive-routing-integration#OI-014",
+      "claim_id": "OI-014",
+      "kind": "integration_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "adaptive-routing-security#OI-014",
+      "claim_id": "OI-014",
+      "kind": "security_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-definition#OI-001",
+      "claim_id": "OI-001",
+      "kind": "runtime_test",
+      "subject": "internal/agent/definition_test.go",
+      "ref": "internal/agent/definition_test.go",
+      "digest": "sha256:46df7e34c704767bd0fc9bd16347747301bc2a7d4998eab78e4592f028ba14bb",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-lineage-runtime#OI-008",
+      "claim_id": "OI-008",
+      "kind": "restart_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-memory#OI-007",
+      "claim_id": "OI-007",
+      "kind": "security_test",
+      "subject": "internal/agent/memory_test.go",
+      "ref": "internal/agent/memory_test.go",
+      "digest": "sha256:c7f7b122d2aade6747eb5f05cae92ec86d5612022c13db1bec81f475f1646a4a",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-memory#OI-029",
+      "claim_id": "OI-029",
+      "kind": "security_test",
+      "subject": "internal/agent/memory_test.go",
+      "ref": "internal/agent/memory_test.go",
+      "digest": "sha256:c7f7b122d2aade6747eb5f05cae92ec86d5612022c13db1bec81f475f1646a4a",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-memory-runtime#OI-007",
+      "claim_id": "OI-007",
+      "kind": "integration_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-operational-runtime#OI-002",
+      "claim_id": "OI-002",
+      "kind": "integration_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "agent-runtime-restart#OI-001",
+      "claim_id": "OI-001",
+      "kind": "restart_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "approval-commit#OI-031",
+      "claim_id": "OI-031",
+      "kind": "security_test",
+      "subject": "internal/state/authorized_transition_test.go",
+      "ref": "docs/research/conformance/attestations/authority-effect-commit.json",
+      "digest": "sha256:46672f5259422d7ea4ccfe3dcd3b25d8ae2bffd6c402e4e948e450bd57e0416b",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "behavioral-profile-lifecycle#OI-020",
+      "claim_id": "OI-020",
+      "kind": "runtime_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "canonical-contracts#OI-018",
+      "claim_id": "OI-018",
+      "kind": "code",
+      "subject": "pkg/contracts",
+      "ref": "pkg/contracts",
+      "digest": "sha256:a8b64761b304114f70db85bc620d3935f35795907ba0f9d048bdd2fffc79c12e",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "canonical-contracts#OI-022",
+      "claim_id": "OI-022",
+      "kind": "code",
+      "subject": "pkg/contracts",
+      "ref": "pkg/contracts",
+      "digest": "sha256:a8b64761b304114f70db85bc620d3935f35795907ba0f9d048bdd2fffc79c12e",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "catalog-bootstrap-lifecycle#OI-011",
+      "claim_id": "OI-011",
+      "kind": "integration_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/package-lifecycle-v37.json",
+      "digest": "sha256:0d3ff2842f0e22ca6e2f685244eb795a72b1ababe80b68f7d49fbdc0b02007ac",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "catalog-contribution-privacy#OI-011",
+      "claim_id": "OI-011",
+      "kind": "security_test",
+      "subject": "internal/packagecatalog",
+      "ref": "docs/research/conformance/attestations/package-lifecycle-v37.json",
+      "digest": "sha256:0d3ff2842f0e22ca6e2f685244eb795a72b1ababe80b68f7d49fbdc0b02007ac",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "client-enforcement#OI-026",
+      "claim_id": "OI-026",
+      "kind": "security_test",
+      "subject": "internal/client/enforcement_test.go",
+      "ref": "internal/client/enforcement_test.go",
+      "digest": "sha256:b52472f490ca8c9c179e41bd499c6f6a667b685ce5a833de4d9883be49160fc3",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "client-enforcement#OI-027",
+      "claim_id": "OI-027",
+      "kind": "security_test",
+      "subject": "internal/client/enforcement_test.go",
+      "ref": "internal/client/enforcement_test.go",
+      "digest": "sha256:b52472f490ca8c9c179e41bd499c6f6a667b685ce5a833de4d9883be49160fc3",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "contradiction-demotion-runtime#OI-017",
+      "claim_id": "OI-017",
+      "kind": "integration_test",
+      "subject": "internal/learning",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "cross-agent-transfer-integration#OI-015",
+      "claim_id": "OI-015",
+      "kind": "integration_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "cross-agent-transfer-security#OI-015",
+      "claim_id": "OI-015",
+      "kind": "security_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "crypto-profiles#OI-032",
+      "claim_id": "OI-032",
+      "kind": "security_test",
+      "subject": "internal/crypto",
+      "ref": "internal/crypto",
+      "digest": "sha256:b9ccd48bb10ad57882af82943bc863fd95c83d35a9070da080764fd486e0dffa",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "distributed-package-local-authority#OI-019",
+      "claim_id": "OI-019",
+      "kind": "security_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/package-lifecycle-v37.json",
+      "digest": "sha256:0d3ff2842f0e22ca6e2f685244eb795a72b1ababe80b68f7d49fbdc0b02007ac",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "distributed-package-trust-lifecycle#OI-019",
+      "claim_id": "OI-019",
+      "kind": "integration_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/package-lifecycle-v37.json",
+      "digest": "sha256:0d3ff2842f0e22ca6e2f685244eb795a72b1ababe80b68f7d49fbdc0b02007ac",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "dynamic-package-cli#OI-035",
+      "claim_id": "OI-035",
+      "kind": "integration_test",
+      "subject": "internal/state/package_registry_test.go",
+      "ref": "internal/state/package_registry_test.go",
+      "digest": "sha256:29dbd0a5db6338101e9a5be3d2c07c6ea681b4d084de6f297808b0badf61a502",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "dynamic-package-cli#OI-037",
+      "claim_id": "OI-037",
+      "kind": "integration_test",
+      "subject": "internal/state/package_registry_test.go",
+      "ref": "internal/state/package_registry_test.go",
+      "digest": "sha256:29dbd0a5db6338101e9a5be3d2c07c6ea681b4d084de6f297808b0badf61a502",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "effect-approval-commit#OI-031",
+      "claim_id": "OI-031",
+      "kind": "integration_test",
+      "subject": "internal/effect/coordinator_test.go",
+      "ref": "docs/research/conformance/attestations/authority-effect-commit.json",
+      "digest": "sha256:46672f5259422d7ea4ccfe3dcd3b25d8ae2bffd6c402e4e948e450bd57e0416b",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "effect-coordinator#OI-025",
+      "claim_id": "OI-025",
+      "kind": "integration_test",
+      "subject": "internal/effect/coordinator_test.go",
+      "ref": "internal/effect/coordinator_test.go",
+      "digest": "sha256:be0044b837c5612108b0ac9f463d4a2b63d10b2ab92a50ffad5058444e5391d4",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "event-recovery#OI-023",
+      "claim_id": "OI-023",
+      "kind": "restart_test",
+      "subject": "internal/state/run_control_integration_test.go",
+      "ref": "docs/research/conformance/attestations/runtime-state-recovery.json",
+      "digest": "sha256:2a5f3cfffade2a75f4dd9329166b179fc2c8815c34da41a702797e5894b46fb7",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "executor-routing#OI-013",
+      "claim_id": "OI-013",
+      "kind": "integration_test",
+      "subject": "tests/test_executor_registry.py",
+      "ref": "tests/test_executor_registry.py",
+      "digest": "sha256:c7d5f5e46addb68dfda0bac151533649b475c1fec79fc287cb2aac9d3e54cc4d",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "executor-routing#OI-014",
+      "claim_id": "OI-014",
+      "kind": "integration_test",
+      "subject": "tests/test_executor_registry.py",
+      "ref": "tests/test_executor_registry.py",
+      "digest": "sha256:c7d5f5e46addb68dfda0bac151533649b475c1fec79fc287cb2aac9d3e54cc4d",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "goal-process-discovery-runtime#OI-003",
+      "claim_id": "OI-003",
+      "kind": "integration_test",
+      "subject": "internal/processresolver",
+      "ref": "docs/research/conformance/attestations/goal-process-discovery.json",
+      "digest": "sha256:36c76a3a8a15e18c0f5cf4be90ba2f3c38adf91fe95708389cce495a6762bae4",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "goals-runtime#OI-034",
+      "claim_id": "OI-034",
+      "kind": "integration_test",
+      "subject": "packages/goals",
+      "ref": "packages/goals",
+      "digest": "sha256:7819a7f0fa81ea48b0fbfa2c769ade1ac24cecd4b0b61f7c2f235edd361401f8",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "learning-extraction-runtime#OI-004",
+      "claim_id": "OI-004",
+      "kind": "integration_test",
+      "subject": "internal/learning",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "learning-promotion#OI-010",
+      "claim_id": "OI-010",
+      "kind": "integration_test",
+      "subject": "internal/learning",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "learning-restart#OI-010",
+      "claim_id": "OI-010",
+      "kind": "restart_test",
+      "subject": "internal/learning",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "longitudinal-evaluation-runtime#OI-016",
+      "claim_id": "OI-016",
+      "kind": "integration_test",
+      "subject": "internal/state",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "planning-runtime#OI-033",
+      "claim_id": "OI-033",
+      "kind": "integration_test",
+      "subject": "packages/develop/runtime_test.go",
+      "ref": "packages/develop/runtime_test.go",
+      "digest": "sha256:fe2fc06440eab42c8fb85f8307cab167643d06c4fcceb4b05573959305361f98",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "plugin-isolation#OI-030",
+      "claim_id": "OI-030",
+      "kind": "security_test",
+      "subject": "internal/plugin/isolation_test.go",
+      "ref": "internal/plugin/isolation_test.go",
+      "digest": "sha256:91aad1b50f9782be08a023ea0b7dcb3071dc79ceea6e9aab420bcded859a81c9",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "plugin-lifecycle#OI-021",
+      "claim_id": "OI-021",
+      "kind": "integration_test",
+      "subject": "internal/plugin/supervisor_test.go",
+      "ref": "internal/plugin/supervisor_test.go",
+      "digest": "sha256:e36814f949624714bed8a72fc3e4958548ec5e0bb5494ca8459221c2f433d599",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "portable-state-integration#OI-009",
+      "claim_id": "OI-009",
+      "kind": "integration_test",
+      "subject": "internal/sync",
+      "ref": "docs/research/conformance/attestations/portable-state-v37.json",
+      "digest": "sha256:0a9d33da3bc506511a78ae80c5e9538061369d74451a00bbf85e3b92b1a5c221",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "portable-state-restart#OI-009",
+      "claim_id": "OI-009",
+      "kind": "restart_test",
+      "subject": "internal/sync",
+      "ref": "docs/research/conformance/attestations/portable-state-v37.json",
+      "digest": "sha256:0a9d33da3bc506511a78ae80c5e9538061369d74451a00bbf85e3b92b1a5c221",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "preference-drift-runtime#OI-006",
+      "claim_id": "OI-006",
+      "kind": "integration_test",
+      "subject": "internal/agent",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "preference-migration-runtime#OI-012",
+      "claim_id": "OI-012",
+      "kind": "runtime_test",
+      "subject": "internal/preference",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "preference-resolution#OI-006",
+      "claim_id": "OI-006",
+      "kind": "runtime_test",
+      "subject": "internal/preference/resolver_test.go",
+      "ref": "internal/preference/resolver_test.go",
+      "digest": "sha256:7ddfa687fb1470502799825913dd8126ee62d5cec8003937fb059ccaa0be5ebc",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "preference-resolution#OI-012",
+      "claim_id": "OI-012",
+      "kind": "runtime_test",
+      "subject": "internal/preference/resolver_test.go",
+      "ref": "internal/preference/resolver_test.go",
+      "digest": "sha256:7ddfa687fb1470502799825913dd8126ee62d5cec8003937fb059ccaa0be5ebc",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "projection-replay#OI-023",
+      "claim_id": "OI-023",
+      "kind": "restart_test",
+      "subject": "internal/projection/run_projection_test.go",
+      "ref": "docs/research/conformance/attestations/runtime-state-recovery.json",
+      "digest": "sha256:2a5f3cfffade2a75f4dd9329166b179fc2c8815c34da41a702797e5894b46fb7",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "prompt-retirement-runtime#OI-005",
+      "claim_id": "OI-005",
+      "kind": "runtime_test",
+      "subject": "internal/learning",
+      "ref": "docs/research/conformance/attestations/cluster-a-runtime-v43.json",
+      "digest": "sha256:5674e68872ca49a27c76bf5b96e33c387d60297a0d2ec94499bfa2fa96963a72",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "resource-continuation-runtime#OI-038",
+      "claim_id": "OI-038",
+      "kind": "restart_test",
+      "subject": "internal/state/continuation_integration_test.go",
+      "ref": "docs/research/conformance/attestations/resource-continuation-v2.json",
+      "digest": "sha256:917de67605f68eb7f83e2e1249320d8634639aa4f006d6897c2bd080fd429b63",
+      "stage": "lifecycle",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "scheduler-queue#OI-024",
+      "claim_id": "OI-024",
+      "kind": "integration_test",
+      "subject": "internal/scheduler/queue_test.go",
+      "ref": "internal/scheduler/queue_test.go",
+      "digest": "sha256:6e1ffa4af301c5043743b9e2286070bbac791a3bb7a7778976bbe1e747675d1e",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "schema-conformance#OI-022",
+      "claim_id": "OI-022",
+      "kind": "schema_test",
+      "subject": "tests/test_valid_contracts.py",
+      "ref": "tests/test_valid_contracts.py",
+      "digest": "sha256:20c04a2f0fa380770182c34d94d5401c05ff7acb34b2abf94d0bfcf3d0410f16",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "state-provider#OI-036",
+      "claim_id": "OI-036",
+      "kind": "integration_test",
+      "subject": "internal/stateprovider",
+      "ref": "docs/research/conformance/attestations/portable-state-v37.json",
+      "digest": "sha256:0a9d33da3bc506511a78ae80c5e9538061369d74451a00bbf85e3b92b1a5c221",
+      "stage": "integration",
+      "supports": true,
+      "contradicts": false
+    },
+    {
+      "id": "workspace-runtime#OI-028",
+      "claim_id": "OI-028",
+      "kind": "integration_test",
+      "subject": "plugins/workspace",
+      "ref": "plugins/workspace",
+      "digest": "sha256:eb9f975f667088331bcc597b78ba47f0a0cde01dc5dc856e6e9966cb10433c7e",
+      "stage": "contract",
+      "supports": true,
+      "contradicts": false
+    }
+  ],
+  "findings": [
+    {
+      "claim_id": "OI-001",
+      "statement": "persistent agents retain identity and lineage across model or provider replacement",
+      "source_ref": "ADR-001:4-5;ADR-003;ADR-010",
+      "status": "satisfied",
+      "evidence_ids": [
+        "agent-definition#OI-001",
+        "agent-runtime-restart#OI-001"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-002",
+      "statement": "persistent agents execute versioned operational graphs around bounded inference points",
+      "source_ref": "ADR-004",
+      "status": "satisfied",
+      "evidence_ids": [
+        "agent-operational-runtime#OI-002"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-003",
+      "statement": "goal resolution selects, adapts, composes, creates, or bounds a process from goal and context",
+      "source_ref": "ADR-001:6;ADR-005",
+      "status": "satisfied",
+      "evidence_ids": [
+        "goal-process-discovery-runtime#OI-003"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-004",
+      "statement": "learning converts repeated successful inference into evaluated lower-inference behavior",
+      "source_ref": "ADR-001:1-2;ADR-006;ADR-007",
+      "status": "satisfied",
+      "evidence_ids": [
+        "learning-extraction-runtime#OI-004"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-005",
+      "statement": "superseded prompt instructions retire when deterministic mechanisms replace them",
+      "source_ref": "ADR-007",
+      "status": "satisfied",
+      "evidence_ids": [
+        "prompt-retirement-runtime#OI-005"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-006",
+      "statement": "preferences resolve deterministically by authority and scope and react to explicit correction and drift",
+      "source_ref": "ADR-008;ADR-014;ADR-023",
+      "status": "satisfied",
+      "evidence_ids": [
+        "preference-drift-runtime#OI-006",
+        "preference-resolution#OI-006"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-007",
+      "statement": "durable memory is typed and selectively retrieved without unbounded prompt growth",
+      "source_ref": "ADR-001:10;ADR-009",
+      "status": "satisfied",
+      "evidence_ids": [
+        "agent-memory#OI-007",
+        "agent-memory-runtime#OI-007"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-008",
+      "statement": "agent generations are immutable append-only lineage with runtime-derived introspection and rollback",
+      "source_ref": "ADR-010",
+      "status": "satisfied",
+      "evidence_ids": [
+        "agent-lineage-runtime#OI-008"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-009",
+      "statement": "canonical local state exports, imports, and reconciles across machines without last-writer-wins loss",
+      "source_ref": "ADR-011;ADR-024;ADR-027",
+      "status": "satisfied",
+      "evidence_ids": [
+        "portable-state-integration#OI-009",
+        "portable-state-restart#OI-009"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-010",
+      "statement": "behavioral change uses a separate candidate generation, independent evaluation, governed promotion, and rollback",
+      "source_ref": "ADR-012;ADR-022",
+      "status": "satisfied",
+      "evidence_ids": [
+        "learning-promotion#OI-010",
+        "learning-restart#OI-010"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-011",
+      "statement": "catalog packages bootstrap reusable behavior without importing private personalized state",
+      "source_ref": "ADR-013;ADR-017;ADR-021",
+      "status": "satisfied",
+      "evidence_ids": [
+        "catalog-bootstrap-lifecycle#OI-011",
+        "catalog-contribution-privacy#OI-011"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-012",
+      "statement": "preference contracts seed only material choices and migrate without silent reinterpretation",
+      "source_ref": "ADR-014",
+      "status": "satisfied",
+      "evidence_ids": [
+        "preference-migration-runtime#OI-012",
+        "preference-resolution#OI-012"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-013",
+      "statement": "reasoning tiers and executor selection remain model-independent and observable",
+      "source_ref": "ADR-015;ADR-018",
+      "status": "satisfied",
+      "evidence_ids": [
+        "adaptive-routing-integration#OI-013",
+        "executor-routing#OI-013"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-014",
+      "statement": "routing uses demonstrated capability evidence without overriding eligibility or authority",
+      "source_ref": "ADR-016",
+      "status": "satisfied",
+      "evidence_ids": [
+        "adaptive-routing-integration#OI-014",
+        "adaptive-routing-security#OI-014",
+        "executor-routing#OI-014"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-015",
+      "statement": "cross-agent learning transfers generalized scoped artifacts rather than raw episodic memory",
+      "source_ref": "ADR-017;ADR-021",
+      "status": "satisfied",
+      "evidence_ids": [
+        "cross-agent-transfer-integration#OI-015",
+        "cross-agent-transfer-security#OI-015"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-016",
+      "statement": "longitudinal evaluation detects regressions, repeated inference, variance, and model-portability failures",
+      "source_ref": "ADR-018",
+      "status": "satisfied",
+      "evidence_ids": [
+        "longitudinal-evaluation-runtime#OI-016"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-017",
+      "statement": "contradictory evidence can fork or demote deterministic behavior back toward inference",
+      "source_ref": "ADR-019",
+      "status": "satisfied",
+      "evidence_ids": [
+        "contradiction-demotion-runtime#OI-017"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-018",
+      "statement": "core execution, authority, evidence, and learning remain domain-neutral while overlays extend domain semantics",
+      "source_ref": "ADR-002;ADR-020",
+      "status": "satisfied",
+      "evidence_ids": [
+        "canonical-contracts#OI-018"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-019",
+      "statement": "distributed packages have immutable provenance, signatures, capability review, and explicit trust decisions",
+      "source_ref": "ADR-025",
+      "status": "satisfied",
+      "evidence_ids": [
+        "distributed-package-local-authority#OI-019",
+        "distributed-package-trust-lifecycle#OI-019"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-020",
+      "statement": "behavioral profiles distinguish declared, inherited, observed, measured, and confirmed evidence",
+      "source_ref": "ADR-026",
+      "status": "satisfied",
+      "evidence_ids": [
+        "behavioral-profile-lifecycle#OI-020"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-021",
+      "statement": "the Go core supervises language-neutral out-of-process plugins with negotiated lifecycle, streaming, cancellation, and recovery",
+      "source_ref": "ADR-028;ADR-029",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "plugin-lifecycle#OI-021"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-022",
+      "statement": "canonical versioned contracts preserve stable identity, scope inheritance, compatibility, and migrations",
+      "source_ref": "ADR-030;ADR-036",
+      "status": "satisfied",
+      "evidence_ids": [
+        "canonical-contracts#OI-022",
+        "schema-conformance#OI-022"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-023",
+      "statement": "authoritative events and projections support replay, checkpoint recovery, and causal observability after restart",
+      "source_ref": "ADR-031;ADR-032",
+      "status": "satisfied",
+      "evidence_ids": [
+        "event-recovery#OI-023",
+        "projection-replay#OI-023"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-024",
+      "statement": "slice scheduling uses ordered leases with bounded starvation, cancellation release, and recovery semantics",
+      "source_ref": "ADR-034",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "scheduler-queue#OI-024"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-025",
+      "statement": "every mutation and external effect traverses one command boundary with durable idempotent outcomes",
+      "source_ref": "ADR-031;ADR-035",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "effect-coordinator#OI-025"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-026",
+      "statement": "client-neutral invocation contracts execute consistently across adapters and unavailable optional affordances degrade safely",
+      "source_ref": "ADR-037",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "client-enforcement#OI-026"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-027",
+      "statement": "authoritative actions are enforced deterministically below the LLM and fail closed when required mediation is absent",
+      "source_ref": "ADR-038",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "client-enforcement#OI-027"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-028",
+      "statement": "workspace intelligence incrementally indexes authoritative sources and emits bounded fresh evidence context",
+      "source_ref": "ADR-039",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "workspace-runtime#OI-028"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-029",
+      "statement": "untrusted content can influence proposals but cannot authorize actions or silently become authoritative memory",
+      "source_ref": "ADR-040",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "agent-memory#OI-029"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-030",
+      "statement": "plugin capability denial is backed by effective process, filesystem, network, credential, and resource isolation",
+      "source_ref": "ADR-041",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "plugin-isolation#OI-030"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-031",
+      "statement": "approval binds canonical action intent and is atomically revalidated and consumed at the side-effect commit boundary",
+      "source_ref": "ADR-042",
+      "status": "satisfied",
+      "evidence_ids": [
+        "approval-commit#OI-031",
+        "effect-approval-commit#OI-031"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-032",
+      "statement": "cryptographic profiles perform agile PQ-preferred signing and key establishment without silent downgrade and preserve rotation",
+      "source_ref": "ADR-043",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "crypto-profiles#OI-032"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-033",
+      "statement": "planning rigor is progressive and reusable baselines drive dependency-aware delta planning",
+      "source_ref": "ADR-044",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "planning-runtime#OI-033"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-034",
+      "statement": "the domain-neutral Goals graph interactively compiles original intent, uncertainty, decisions, models, specifications, and plans into a reusable baseline",
+      "source_ref": "ADR-045",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "goals-runtime#OI-034"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-035",
+      "statement": "installed packages atomically add and remove validated client-visible commands without rebuilding the core",
+      "source_ref": "ADR-046",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "dynamic-package-cli#OI-035"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-036",
+      "statement": "runtime services use semantic authoritative-state provider contracts and fail closed on provider capability mismatch",
+      "source_ref": "ADR-047",
+      "status": "satisfied",
+      "evidence_ids": [
+        "state-provider#OI-036"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-037",
+      "statement": "pure graph, agent, and mixed packages install, activate, update, and roll back as universal distribution units",
+      "source_ref": "ADR-048",
+      "status": "indeterminate",
+      "evidence_ids": [
+        "dynamic-package-cli#OI-037"
+      ],
+      "reason": "evidence exists but does not establish every required behavior and lifecycle level",
+      "critical": true
+    },
+    {
+      "claim_id": "OI-038",
+      "statement": "domain-configured resource pressure can govern durable graph handoff and resume while preserving run, agent, and evidence identity",
+      "source_ref": "ADR-001:3-5,11;ADR-003;ADR-004;ADR-020;ADR-031;ADR-034",
+      "status": "satisfied",
+      "evidence_ids": [
+        "resource-continuation-runtime#OI-038"
+      ],
+      "reason": "all required admissible evidence supports the goal claim",
+      "critical": true
+    }
+  ],
+  "conformant": false,
+  "frozen_at": "2026-09-14T10:16:23Z",
+  "digest": "sha256:de4f72643b7e8de7572fe1907b8d38a59d82d194a638df8cfaf663b8456978ed"
+}

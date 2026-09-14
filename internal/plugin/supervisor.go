@@ -66,6 +66,14 @@ type ResourceLeaser interface {
 	ReleaseSchedulerResourceLeases(context.Context, []string, time.Time) error
 }
 
+// ResourceAttemptReleaser is the preferred cancellation boundary when the
+// authoritative provider can release by the exact slice/attempt identity.
+// Lease IDs remain part of the durable snapshot for restart fencing, but a
+// runtime cleanup path must not depend on a caller rebuilding that list.
+type ResourceAttemptReleaser interface {
+	ReleaseSchedulerResourceLeasesForAttempt(context.Context, string, string, time.Time) error
+}
+
 type supervisedInstance struct {
 	Provider            Provider
 	Launch              LaunchSpec
@@ -626,6 +634,17 @@ func (s *Supervisor) releaseResources(ctx context.Context, entry supervisedInsta
 	if s.policy.ResourceLeaser == nil || len(entry.resourceLeases) == 0 {
 		return nil
 	}
+	if releaser, ok := s.policy.ResourceLeaser.(ResourceAttemptReleaser); ok {
+		sliceID := entry.Provider.Identity.InstanceID
+		attemptID := entry.resourceLeases[0].AttemptID
+		if sliceID == "" || attemptID == "" {
+			return errors.New("scheduler lease attempt identity is required")
+		}
+		if err := releaser.ReleaseSchedulerResourceLeasesForAttempt(ctx, sliceID, attemptID, now); err != nil {
+			return err
+		}
+		return s.clearReleasedResources(entry)
+	}
 	ids := make([]string, 0, len(entry.resourceLeases))
 	for _, lease := range entry.resourceLeases {
 		ids = append(ids, lease.ID)
@@ -633,16 +652,24 @@ func (s *Supervisor) releaseResources(ctx context.Context, entry supervisedInsta
 	if err := s.policy.ResourceLeaser.ReleaseSchedulerResourceLeases(ctx, ids, now); err != nil {
 		return err
 	}
+	return s.clearReleasedResources(entry)
+}
+
+func (s *Supervisor) clearReleasedResources(entry supervisedInstance) error {
 	// Do not retain already-released authority in the in-memory or durable
 	// snapshot. The identity check prevents a late cleanup from clearing a
 	// replacement attempt's leases.
+	ids := make([]string, 0, len(entry.resourceLeases))
+	for _, lease := range entry.resourceLeases {
+		ids = append(ids, lease.ID)
+	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	current, ok := s.entries[entry.Provider.Identity.InstanceID]
 	if ok && sameLeaseIDs(current.resourceLeases, ids) {
 		current.resourceLeases = nil
 		s.entries[entry.Provider.Identity.InstanceID] = current
 	}
-	s.mu.Unlock()
 	return nil
 }
 

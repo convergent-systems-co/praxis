@@ -2,8 +2,10 @@ package distribution
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -45,7 +47,11 @@ func (r Resolver) Resolve(ctx context.Context, root Release, rootArtifact []byte
 
 	var walk func(Release, []byte, string, string) (packagecatalog.VerifiedPackage, map[string]packagecatalog.VerifiedPackage, error)
 	walk = func(release Release, artifact []byte, sourceKind, sourceRef string) (packagecatalog.VerifiedPackage, map[string]packagecatalog.VerifiedPackage, error) {
-		manifest := release.Manifest
+		manifest, err := authoritativeReleaseManifest(release)
+		if err != nil {
+			return packagecatalog.VerifiedPackage{}, nil, err
+		}
+		release.Manifest = manifest
 		identity := packagecatalog.Dependency{PackageID: manifest.PackageID, Version: manifest.Version, Digest: manifest.ContentDigest, SourceKind: sourceKind, SourceRef: sourceRef}
 		if prior, ok := identities[manifest.PackageID]; ok {
 			if prior.Version != identity.Version || prior.Digest != identity.Digest {
@@ -80,9 +86,14 @@ func (r Resolver) Resolve(ctx context.Context, root Release, rootArtifact []byte
 			if err != nil {
 				return packagecatalog.VerifiedPackage{}, nil, fmt.Errorf("resolve dependency %q: %w", lock.PackageID, err)
 			}
-			if depRelease.Manifest.PackageID != lock.PackageID || depRelease.Manifest.Version != lock.Version || depRelease.Manifest.ContentDigest != lock.Digest {
+			depManifest, err := authoritativeReleaseManifest(depRelease)
+			if err != nil {
+				return packagecatalog.VerifiedPackage{}, nil, fmt.Errorf("resolve dependency %q: %w", lock.PackageID, err)
+			}
+			if depManifest.PackageID != lock.PackageID || depManifest.Version != lock.Version || depManifest.ContentDigest != lock.Digest {
 				return packagecatalog.VerifiedPackage{}, nil, fmt.Errorf("resolved dependency %q does not match immutable lock", lock.PackageID)
 			}
+			depRelease.Manifest = depManifest
 			depArtifact, err := adapter.FetchArtifact(ctx, depRelease)
 			if err != nil {
 				return packagecatalog.VerifiedPackage{}, nil, fmt.Errorf("fetch dependency %q: %w", lock.PackageID, err)
@@ -117,6 +128,31 @@ func (r Resolver) Resolve(ctx context.Context, root Release, rootArtifact []byte
 		return Resolution{}, err
 	}
 	return Resolution{Root: verifiedRoot, Dependencies: dependencies, Order: order}, nil
+}
+
+// authoritativeReleaseManifest prevents an adapter-owned decoded convenience
+// value from becoming a second interpretation of the signed manifest bytes.
+// Dependency traversal and verification must observe one semantic manifest.
+func authoritativeReleaseManifest(release Release) (packagecatalog.Manifest, error) {
+	if len(release.ManifestBytes) == 0 {
+		return packagecatalog.Manifest{}, errors.New("release manifest bytes are required")
+	}
+	var decoded packagecatalog.Manifest
+	if err := json.Unmarshal(release.ManifestBytes, &decoded); err != nil {
+		return packagecatalog.Manifest{}, fmt.Errorf("decode authoritative release manifest: %w", err)
+	}
+	if err := decoded.Validate(); err != nil {
+		return packagecatalog.Manifest{}, fmt.Errorf("authoritative release manifest: %w", err)
+	}
+	declaredBytes, err := json.Marshal(release.Manifest)
+	if err != nil {
+		return packagecatalog.Manifest{}, fmt.Errorf("encode adapter release manifest: %w", err)
+	}
+	var declared packagecatalog.Manifest
+	if err := json.Unmarshal(declaredBytes, &declared); err != nil || !reflect.DeepEqual(declared, decoded) {
+		return packagecatalog.Manifest{}, errors.New("adapter release manifest differs from authoritative signed manifest bytes")
+	}
+	return decoded, nil
 }
 
 func cloneVerifiedPackages(in map[string]packagecatalog.VerifiedPackage) map[string]packagecatalog.VerifiedPackage {

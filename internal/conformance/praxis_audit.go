@@ -109,9 +109,9 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v17.json"
-	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v12.json"
-	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v12.json"
+	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v18.json"
+	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v13.json"
+	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v13.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -137,6 +137,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "portable-state-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/sync", ClaimIDs: []string{"OI-009"}, AttestationRef: portableStateAttestation, Observation: "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart"},
 		{ID: "catalog-bootstrap-lifecycle", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-011"}, AttestationRef: packageLifecycleAttestation, Observation: "TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart"},
 		{ID: "catalog-contribution-privacy", Kind: "security_test", Stage: StageIntegration, Ref: "internal/packagecatalog", ClaimIDs: []string{"OI-011"}, AttestationRef: packageLifecycleAttestation, Observation: "TestCatalogContributionRequiresGovernedGeneralizedPublication"},
+		{ID: "distributed-package-trust-lifecycle", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-019"}, AttestationRef: packageLifecycleAttestation, Observation: "TestDistributedPackageTrustBindsCatalogResolutionReviewAndLocalAuthorityAcrossRestart"},
+		{ID: "distributed-package-local-authority", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state", ClaimIDs: []string{"OI-019"}, AttestationRef: packageLifecycleAttestation, Observation: "TestVerificationCannotMintActivationAuthority"},
 		{ID: "executor-routing", Kind: "integration_test", Stage: StageBehavior, Ref: "tests/test_executor_registry.py", ClaimIDs: []string{"OI-013", "OI-014"}},
 		{ID: "adaptive-routing-integration", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-013", "OI-014"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains"},
 		{ID: "adaptive-routing-security", Kind: "security_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-014"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains"},

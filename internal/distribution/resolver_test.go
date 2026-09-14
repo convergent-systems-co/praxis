@@ -107,6 +107,11 @@ func TestResolverRejectsLockMismatchCycleAndUnavailableTransport(t *testing.T) {
 	if _, err := resolver.Resolve(context.Background(), a, artifactA); err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Fatalf("dependency cycle did not fail deterministically: %v", err)
 	}
+	splitAuthority := a
+	splitAuthority.Manifest.Capabilities = []string{"adapter-selected-capability"}
+	if _, err := resolver.Resolve(context.Background(), splitAuthority, artifactA); err == nil || !strings.Contains(err.Error(), "differs from authoritative signed manifest") {
+		t.Fatalf("adapter-owned decoded manifest became a second package authority: %v", err)
+	}
 
 	badRoot := signedRelease(t, private, "catalog", "root", "pkg/root", "1", []byte("root"), nil, []packagecatalog.Dependency{{PackageID: "pkg/b", Version: "1", Digest: "sha256:not-the-artifact", SourceKind: "catalog", SourceRef: "b"}})
 	if _, err := resolver.Resolve(context.Background(), badRoot, []byte("root")); err == nil || !strings.Contains(err.Error(), "immutable lock") {

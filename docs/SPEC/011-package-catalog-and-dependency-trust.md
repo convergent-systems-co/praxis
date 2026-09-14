@@ -84,7 +84,7 @@ A lock MAY carry a source-kind/source-reference locator pair so a replaceable ca
 
 The resolver SHALL detect cycles, incompatible constraints, duplicate/conflicting identities, and digest mismatches.
 
-Resolution walks dependency-first in deterministic package-identity order, rechecks every adapter result against the signed exact ID/version/content digest, verifies every signature and typed artifact, and binds the transitive verified evidence/capability surface into the root verification. Different catalog transports use the same resolver and trust boundary. A catalog response, source locator, or popularity signal cannot override a lock or mint verification.
+Resolution walks dependency-first in deterministic package-identity order, rechecks every adapter result against the signed exact ID/version/content digest, verifies every signature and typed artifact, and binds the transitive verified evidence/capability surface into the root verification. Dependency traversal derives from the manifest bytes covered by the signature. If an adapter also supplies a decoded convenience manifest, semantic disagreement with those bytes fails closed rather than creating a second identity, dependency, capability, or enforcement authority. Different catalog transports use the same resolver and trust boundary. A catalog response, source locator, or popularity signal cannot override a lock or mint verification.
 
 Dependencies MAY supply graphs, agents, plugins, templates, or mixed content without changing lock semantics.
 

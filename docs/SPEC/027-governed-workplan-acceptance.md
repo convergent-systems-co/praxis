@@ -69,6 +69,15 @@ authority evidence, and issue/expiry metadata. Requests are pending state, not
 execution authority; decisions are structured records and cannot be minted by
 natural-language model output.
 
+Goal-drive SHALL query pending requests for the exact active Goal Baseline
+generation only after deterministic readiness finds no authorized runnable
+child. It SHALL surface the structured request payload as an
+authority-required control-plane result; displaying a request, recommendation,
+or alternative is not a decision. A blocked or authority-waiting child SHALL
+not suppress an unrelated runnable sibling. A request with a persisted
+decision SHALL not be surfaced again as pending, while expired, stale,
+conflicting, or insufficient decisions remain non-authorizing and fail closed.
+
 ## Lifecycle and recovery
 
 The accepted WorkPlan SHALL be embedded in the digest-bound immutable Goal
@@ -88,6 +97,9 @@ Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an
 accepted set exists, ADR-062/SPEC-025 alone determine child readiness and
 selection; one blocked child SHALL not suppress a ready sibling.
+Approval, rejection, revision, deferral, and insufficient-authority decisions
+remain durable outcomes consumed only by their authority-bearing transition;
+Goal-drive does not interpret them as execution authority.
 
 ## Acceptance evidence
 

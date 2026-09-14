@@ -61,8 +61,12 @@ func (r SecureBlobRecord) Validate() error {
 	if r.Namespace == "" || r.ObjectID == "" || r.ObjectVersion == "" || r.ObjectDigest == "" {
 		return errors.New("secure blob namespace, object id, version, and digest are required")
 	}
-	if err := r.Sensitivity.Validate(); err != nil { return err }
-	if err := r.CryptoProfile.Validate(); err != nil { return err }
+	if err := r.Sensitivity.Validate(); err != nil {
+		return err
+	}
+	if err := r.CryptoProfile.Validate(); err != nil {
+		return err
+	}
 	if r.Envelope.Version == "" || len(r.Envelope.Ciphertext) == 0 {
 		return errors.New("secure blob requires encrypted envelope content")
 	}
@@ -73,7 +77,9 @@ func (r SecureBlobRecord) Validate() error {
 	if !bytes.Equal(r.Envelope.AAD, expectedAAD) {
 		return errors.New("secure blob envelope is not bound to record identity/digest")
 	}
-	if r.CreatedAt.IsZero() { return errors.New("secure blob creation time is required") }
+	if r.CreatedAt.IsZero() {
+		return errors.New("secure blob creation time is required")
+	}
 	if r.ExpiresAt != nil && !r.ExpiresAt.After(r.CreatedAt) {
 		return errors.New("secure blob expiry must be after creation")
 	}
@@ -83,40 +89,123 @@ func (r SecureBlobRecord) Validate() error {
 // PutSecureBlob persists ciphertext-only immutable versioned state. There is no
 // plaintext storage path in this table/API.
 func (s *Store) PutSecureBlob(ctx context.Context, record SecureBlobRecord) error {
-	if s == nil || s.db == nil { return errors.New("state store is required") }
-	if err := record.Validate(); err != nil { return err }
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if err := record.Validate(); err != nil {
+		return err
+	}
 	envelopeJSON, err := json.Marshal(record.Envelope)
-	if err != nil { return fmt.Errorf("encode secure blob envelope: %w", err) }
+	if err != nil {
+		return fmt.Errorf("encode secure blob envelope: %w", err)
+	}
 	var expires any
-	if record.ExpiresAt != nil { expires = record.ExpiresAt.UTC().Format(time.RFC3339Nano) }
+	if record.ExpiresAt != nil {
+		expires = record.ExpiresAt.UTC().Format(time.RFC3339Nano)
+	}
 	_, err = s.db.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), expires)
-	if err != nil { return fmt.Errorf("insert secure blob: %w", err) }
+	if err != nil {
+		return fmt.Errorf("insert secure blob: %w", err)
+	}
 	return nil
 }
 
 func (s *Store) GetSecureBlob(ctx context.Context, namespace, objectID, version string, now time.Time) (SecureBlobRecord, error) {
-	if s == nil || s.db == nil { return SecureBlobRecord{}, errors.New("state store is required") }
-	if namespace == "" || objectID == "" || version == "" { return SecureBlobRecord{}, errors.New("secure blob lookup identity is required") }
+	if s == nil || s.db == nil {
+		return SecureBlobRecord{}, errors.New("state store is required")
+	}
+	if namespace == "" || objectID == "" || version == "" {
+		return SecureBlobRecord{}, errors.New("secure blob lookup identity is required")
+	}
 	var r SecureBlobRecord
 	var sensitivity, profile, created string
 	var envelopeJSON []byte
 	var expires sql.NullString
 	err := s.db.QueryRowContext(ctx, `SELECT object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, objectID, version).Scan(&r.ObjectDigest, &sensitivity, &profile, &envelopeJSON, &created, &expires)
-	if errors.Is(err, sql.ErrNoRows) { return SecureBlobRecord{}, ErrSecureBlobNotFound }
-	if err != nil { return SecureBlobRecord{}, fmt.Errorf("load secure blob: %w", err) }
+	if errors.Is(err, sql.ErrNoRows) {
+		return SecureBlobRecord{}, ErrSecureBlobNotFound
+	}
+	if err != nil {
+		return SecureBlobRecord{}, fmt.Errorf("load secure blob: %w", err)
+	}
 	r.Namespace, r.ObjectID, r.ObjectVersion = namespace, objectID, version
 	r.Sensitivity = Sensitivity(sensitivity)
 	r.CryptoProfile = contracts.CryptoProfile(profile)
-	if err := json.Unmarshal(envelopeJSON, &r.Envelope); err != nil { return SecureBlobRecord{}, fmt.Errorf("decode secure blob envelope: %w", err) }
+	if err := json.Unmarshal(envelopeJSON, &r.Envelope); err != nil {
+		return SecureBlobRecord{}, fmt.Errorf("decode secure blob envelope: %w", err)
+	}
 	r.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
-	if err != nil { return SecureBlobRecord{}, fmt.Errorf("parse secure blob creation time: %w", err) }
+	if err != nil {
+		return SecureBlobRecord{}, fmt.Errorf("parse secure blob creation time: %w", err)
+	}
 	if expires.Valid {
 		t, err := time.Parse(time.RFC3339Nano, expires.String)
-		if err != nil { return SecureBlobRecord{}, fmt.Errorf("parse secure blob expiry: %w", err) }
+		if err != nil {
+			return SecureBlobRecord{}, fmt.Errorf("parse secure blob expiry: %w", err)
+		}
 		r.ExpiresAt = &t
-		if now.IsZero() { now = time.Now().UTC() }
-		if !now.Before(t) { return SecureBlobRecord{}, ErrSecureBlobExpired }
+		if now.IsZero() {
+			now = time.Now().UTC()
+		}
+		if !now.Before(t) {
+			return SecureBlobRecord{}, ErrSecureBlobExpired
+		}
 	}
-	if err := r.Validate(); err != nil { return SecureBlobRecord{}, fmt.Errorf("stored secure blob failed validation: %w", err) }
+	if err := r.Validate(); err != nil {
+		return SecureBlobRecord{}, fmt.Errorf("stored secure blob failed validation: %w", err)
+	}
 	return r, nil
+}
+
+// ListSecureBlobs returns immutable records for a namespace in stable identity
+// order. Callers still decrypt and validate each record through their owning
+// contract; this method exposes no plaintext.
+func (s *Store) ListSecureBlobs(ctx context.Context, namespace string, now time.Time) ([]SecureBlobRecord, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("state store is required")
+	}
+	if namespace == "" {
+		return nil, errors.New("secure blob namespace is required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace=? ORDER BY object_id,object_version`, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("list secure blobs: %w", err)
+	}
+	defer rows.Close()
+	var records []SecureBlobRecord
+	for rows.Next() {
+		var r SecureBlobRecord
+		var sensitivity, profile, created string
+		var envelopeJSON []byte
+		var expires sql.NullString
+		if err := rows.Scan(&r.ObjectID, &r.ObjectVersion, &r.ObjectDigest, &sensitivity, &profile, &envelopeJSON, &created, &expires); err != nil {
+			return nil, fmt.Errorf("scan secure blob: %w", err)
+		}
+		r.Namespace, r.Sensitivity, r.CryptoProfile = namespace, Sensitivity(sensitivity), contracts.CryptoProfile(profile)
+		if err := json.Unmarshal(envelopeJSON, &r.Envelope); err != nil {
+			return nil, fmt.Errorf("decode secure blob envelope: %w", err)
+		}
+		r.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+		if err != nil {
+			return nil, fmt.Errorf("parse secure blob creation time: %w", err)
+		}
+		if expires.Valid {
+			t, parseErr := time.Parse(time.RFC3339Nano, expires.String)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse secure blob expiry: %w", parseErr)
+			}
+			r.ExpiresAt = &t
+		}
+		if r.ExpiresAt != nil && (now.IsZero() || !now.Before(*r.ExpiresAt)) {
+			continue
+		}
+		if err := r.Validate(); err != nil {
+			return nil, fmt.Errorf("listed secure blob failed validation: %w", err)
+		}
+		records = append(records, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
 }

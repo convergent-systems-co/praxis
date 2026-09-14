@@ -405,6 +405,47 @@ func (r Repository) LoadAuthorityRequest(ctx context.Context, id, version string
 	return request, nil
 }
 
+// PendingAuthorityRequests returns only pending requests bound to one exact
+// Goal generation. Ordering is stable and request identity is preserved.
+func (r Repository) PendingAuthorityRequests(ctx context.Context, goalID, goalVersion string, now time.Time) ([]contracts.AuthorityRequest, error) {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return nil, err
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, authorityRequestNamespace, now)
+	if err != nil {
+		return nil, err
+	}
+	var pending []contracts.AuthorityRequest
+	for _, record := range records {
+		aad := state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest)
+		payload, err := r.Crypto.Open(ctx, record.Envelope, aad)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt authority request: %w", err)
+		}
+		var request contracts.AuthorityRequest
+		if err := json.Unmarshal(payload, &request); err != nil {
+			return nil, fmt.Errorf("decode authority request: %w", err)
+		}
+		if request.ID != record.ObjectID || request.Version != record.ObjectVersion || request.BaselineID != goalID || request.BaselineVersion != goalVersion {
+			continue
+		}
+		if request.Status == contracts.AuthorityRequestPending {
+			_, decisionErr := r.Store.GetSecureBlob(ctx, authorityDecisionNamespace, request.ID, request.Version, now)
+			if decisionErr == nil {
+				continue
+			}
+			if !errors.Is(decisionErr, state.ErrSecureBlobNotFound) && !errors.Is(decisionErr, state.ErrSecureBlobExpired) {
+				return nil, decisionErr
+			}
+			if _, err := request.Digest(); err != nil {
+				return nil, err
+			}
+			pending = append(pending, request)
+		}
+	}
+	return pending, nil
+}
+
 type authorityDecisionRecord struct {
 	Request  contracts.AuthorityRequest  `json:"request"`
 	Decision contracts.AuthorityDecision `json:"decision"`

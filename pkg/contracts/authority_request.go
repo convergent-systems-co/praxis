@@ -20,10 +20,11 @@ const (
 type AuthorityDecisionOutcome string
 
 const (
-	AuthorityApprove AuthorityDecisionOutcome = "approve"
-	AuthorityReject  AuthorityDecisionOutcome = "reject"
-	AuthorityRevise  AuthorityDecisionOutcome = "revise"
-	AuthorityDefer   AuthorityDecisionOutcome = "defer"
+	AuthorityApprove      AuthorityDecisionOutcome = "approve"
+	AuthorityReject       AuthorityDecisionOutcome = "reject"
+	AuthorityRevise       AuthorityDecisionOutcome = "revise"
+	AuthorityDefer        AuthorityDecisionOutcome = "defer"
+	AuthorityInsufficient AuthorityDecisionOutcome = "insufficient_authority"
 )
 
 // AuthorityRequest is generic pending governance state. It describes the
@@ -102,7 +103,7 @@ func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) err
 		return errors.New("authority decision principal is not a governance authority")
 	}
 	switch d.Outcome {
-	case AuthorityApprove, AuthorityReject, AuthorityRevise, AuthorityDefer:
+	case AuthorityApprove, AuthorityReject, AuthorityRevise, AuthorityDefer, AuthorityInsufficient:
 	default:
 		return fmt.Errorf("unknown authority decision outcome %q", d.Outcome)
 	}

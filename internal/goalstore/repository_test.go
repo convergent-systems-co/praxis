@@ -308,6 +308,10 @@ func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t 
 	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
+	pending, err := repo.PendingAuthorityRequests(ctx, request.BaselineID, request.BaselineVersion, time.Now().UTC())
+	if err != nil || len(pending) != 1 || pending[0].ID != request.ID {
+		t.Fatalf("pending request was not discoverable: %+v err=%v", pending, err)
+	}
 	requestDigest, err := request.Digest()
 	if err != nil {
 		t.Fatal(err)
@@ -316,6 +320,10 @@ func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t 
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator-authority", IssuedAt: now}
 	if err := repo.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, now, nil); err != nil {
 		t.Fatal(err)
+	}
+	pending, err = repo.PendingAuthorityRequests(ctx, request.BaselineID, request.BaselineVersion, time.Now().UTC())
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("resolved request remained pending: %+v err=%v", pending, err)
 	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)

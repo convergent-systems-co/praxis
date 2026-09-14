@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/convergent-systems-co/praxis/packages/goals"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -15,6 +16,16 @@ var (
 	ErrSupervisedTerminated   = errors.New("supervised Goal-drive invocation terminated after its persisted checkpoint")
 	ErrInvocationModeMismatch = errors.New("Goal-drive invocation mode cannot change across turns")
 )
+
+type AuthorityRequestReader interface {
+	PendingAuthorityRequests(context.Context, string, string, time.Time) ([]contracts.AuthorityRequest, error)
+}
+
+type AuthorityRequiredError struct{ Requests []contracts.AuthorityRequest }
+
+func (e *AuthorityRequiredError) Error() string {
+	return fmt.Sprintf("Goal-drive authority required for %d pending request(s)", len(e.Requests))
+}
 
 type Worker interface {
 	Execute(context.Context, WorkerRequest) (WorkerResult, error)
@@ -49,10 +60,11 @@ type TurnRequest struct {
 }
 
 type Controller struct {
-	Ledger          Ledger
-	Worker          Worker
-	Providers       *Registry
-	NoProgressLimit int
+	Ledger            Ledger
+	Worker            Worker
+	Providers         *Registry
+	AuthorityRequests AuthorityRequestReader
+	NoProgressLimit   int
 }
 
 func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecord, error) {
@@ -87,6 +99,15 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		}
 		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
 		if err != nil {
+			if errors.Is(err, contracts.ErrNoRunnableWork) && c.AuthorityRequests != nil {
+				pending, readErr := c.AuthorityRequests.PendingAuthorityRequests(ctx, req.GoalID, req.GoalVersion, time.Now().UTC())
+				if readErr != nil {
+					return nil, TurnRequest{}, fmt.Errorf("load pending authority: %w", readErr)
+				}
+				if len(pending) > 0 {
+					return nil, TurnRequest{}, &AuthorityRequiredError{Requests: pending}
+				}
+			}
 			return nil, TurnRequest{}, err
 		}
 		req.ChildObjective = candidate.ID

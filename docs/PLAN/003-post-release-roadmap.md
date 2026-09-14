@@ -98,7 +98,12 @@ proposal is generated from prose and no review grants execution authority.
 Authority insufficiency is a generic durable request/decision boundary. Pending
 requests preserve affected, transitively blocked, and unrelated runnable work;
 structured decisions bind the exact request and least scope. Public human UX
-and controller consumption remain subsequent surfaces.
+remains a subsequent surface. The bounded controller
+projection now reads requests for the exact active Goal generation only after
+deterministic selection reports no runnable work; it returns the structured
+authority-required result and continues to allow unrelated runnable siblings.
+Decision consumption by WorkPlan acceptance and a complete public supervision
+surface remain separate follow-on work.
 
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or

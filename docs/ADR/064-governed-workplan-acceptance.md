@@ -69,6 +69,13 @@ Requirement or authority changes create a successor baseline and invalidate
 WorkPlans whose baseline digest no longer matches. Partial blockers remain
 child-level readiness state; unresolved acceptance decisions are surfaced as
 authority insufficiency and do not block unrelated accepted siblings.
+Goal-drive surfaces pending requests only after its deterministic selector finds
+no authorized runnable child for the exact active baseline generation. The
+structured result includes the durable request and its bound evidence; it is a
+supervision projection, not an implicit notification grant or decision. A
+persisted decision removes that request from the pending projection, while
+expired, stale, conflicting, or insufficient decisions remain fail-closed until
+the governed acceptance transition consumes a valid approval.
 
 ## Consequences
 

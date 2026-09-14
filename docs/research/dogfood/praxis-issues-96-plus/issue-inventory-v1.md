@@ -360,3 +360,21 @@ conflicting replay. Model principals and over-scoped decisions fail closed.
 No authority request or decision was created for the current dogfood Goal, and
 acceptance/attachment do not yet consume this generic decision through public
 UX or Goal-drive.
+
+## Dogfood finding DF-018 — pending authority is a controller-visible stop
+
+DF-017 left an operational liveness gap: durable authority requests could be
+persisted and replayed, but Goal-drive had no production-facing read boundary
+that surfaced an unresolved request when no authorized runnable child
+remained. Treating that state as ordinary no-work would hide the smallest
+required human/policy decision; surfacing it before selection would incorrectly
+interrupt unrelated runnable siblings.
+
+The bounded correction adds a Goal-drive authority-request reader and a
+structured `AuthorityRequiredError`. For the exact Goal/baseline generation,
+the controller consults pending requests only after deterministic readiness
+returns no runnable work. A persisted decision suppresses duplicate pending
+surfacing; the request remains immutable and no decision is created for the
+current dogfood Goal. Tests cover blocked-only escalation and continuation of
+an unrelated ready sibling. Acceptance/decision consumption and public UX
+remain separate seams.

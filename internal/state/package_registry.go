@@ -35,6 +35,11 @@ func IsReservedCoreCommand(name string) bool {
 	return ok
 }
 
+func digestPackageBytes(body []byte) string {
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
 type RegisteredInvocation struct {
 	Contract       contracts.InvocationContract
 	ContentDigest  string
@@ -46,6 +51,7 @@ type RegisteredContent struct {
 	PackageVersion string
 	PackageDigest  string
 	Content        packagecatalog.ContentRef
+	ArtifactBytes  []byte
 }
 
 // ActivatePackage atomically consumes exact local authority, records immutable
@@ -142,15 +148,19 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	}
 	activationSum := sha256.Sum256([]byte(verification.ID + "\x00" + request.ApprovalID))
 	activationID := "package-activation:sha256:" + hex.EncodeToString(activationSum[:])
-	if _, err := tx.ExecContext(ctx, `INSERT INTO package_activation_receipts(activation_id,package_id,package_version,content_digest,verification_id,verification_json,manifest_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		activationID, manifest.PackageID, manifest.Version, manifest.ContentDigest, verification.ID, verificationJSON, request.Package.ManifestBytes(), signatureJSON, intentJSON, intentDigest, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, stamp); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO package_activation_receipts(activation_id,package_id,package_version,content_digest,verification_id,verification_json,manifest_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at,artifact_bytes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		activationID, manifest.PackageID, manifest.Version, manifest.ContentDigest, verification.ID, verificationJSON, request.Package.ManifestBytes(), signatureJSON, intentJSON, intentDigest, request.ApprovalID, request.Intent.Actor.ID, request.Intent.Actor.Kind, stamp, request.Package.ArtifactBytes()); err != nil {
 		return fmt.Errorf("persist package activation receipt: %w", err)
 	}
 
 	for _, content := range manifest.Contents {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO package_contents(package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,compatibility,active,registered_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)
-			ON CONFLICT(package_id,package_version,content_digest,kind,content_id,content_version) DO UPDATE SET artifact_digest=excluded.artifact_digest,artifact_ref=excluded.artifact_ref,compatibility=excluded.compatibility,active=1,registered_at=excluded.registered_at`,
-			manifest.PackageID, manifest.Version, manifest.ContentDigest, content.Kind, content.ID, content.Version, content.Digest, content.Artifact, nullable(content.Compatibility), stamp); err != nil {
+		artifactBytes, err := request.Package.ContentBytes(content)
+		if err != nil {
+			return fmt.Errorf("load verified package content %s/%s@%s: %w", content.Kind, content.ID, content.Version, err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO package_contents(package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,compatibility,active,registered_at,artifact_bytes) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)
+			ON CONFLICT(package_id,package_version,content_digest,kind,content_id,content_version) DO UPDATE SET artifact_digest=excluded.artifact_digest,artifact_ref=excluded.artifact_ref,compatibility=excluded.compatibility,active=1,registered_at=excluded.registered_at,artifact_bytes=excluded.artifact_bytes`,
+			manifest.PackageID, manifest.Version, manifest.ContentDigest, content.Kind, content.ID, content.Version, content.Digest, content.Artifact, nullable(content.Compatibility), stamp, artifactBytes); err != nil {
 			return fmt.Errorf("register package content %s/%s@%s: %w", content.Kind, content.ID, content.Version, err)
 		}
 	}
@@ -300,7 +310,7 @@ func (s *Store) ActiveContents(ctx context.Context, kind packagecatalog.ContentK
 	if kind == "" {
 		return nil, errors.New("content kind is required")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,'') FROM package_contents WHERE active=1 AND kind=? ORDER BY content_id,content_version`, kind)
+	rows, err := s.db.QueryContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,''),artifact_bytes FROM package_contents WHERE active=1 AND kind=? ORDER BY content_id,content_version`, kind)
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +318,11 @@ func (s *Store) ActiveContents(ctx context.Context, kind packagecatalog.ContentK
 	var out []RegisteredContent
 	for rows.Next() {
 		var item RegisteredContent
-		if err := rows.Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility); err != nil {
+		if err := rows.Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility, &item.ArtifactBytes); err != nil {
 			return nil, err
+		}
+		if digestPackageBytes(item.ArtifactBytes) != item.Content.Digest {
+			return nil, fmt.Errorf("persisted package content %s/%s@%s digest mismatch", item.Content.Kind, item.Content.ID, item.Content.Version)
 		}
 		out = append(out, item)
 	}
@@ -321,8 +334,14 @@ func (s *Store) ResolveContent(ctx context.Context, kind packagecatalog.ContentK
 		return RegisteredContent{}, errors.New("content kind, id, and version are required")
 	}
 	var item RegisteredContent
-	err := s.db.QueryRowContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,'') FROM package_contents WHERE active=1 AND kind=? AND content_id=? AND content_version=?`, kind, id, version).Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility)
-	return item, err
+	err := s.db.QueryRowContext(ctx, `SELECT package_id,package_version,content_digest,kind,content_id,content_version,artifact_digest,artifact_ref,COALESCE(compatibility,''),artifact_bytes FROM package_contents WHERE active=1 AND kind=? AND content_id=? AND content_version=?`, kind, id, version).Scan(&item.PackageID, &item.PackageVersion, &item.PackageDigest, &item.Content.Kind, &item.Content.ID, &item.Content.Version, &item.Content.Digest, &item.Content.Artifact, &item.Content.Compatibility, &item.ArtifactBytes)
+	if err != nil {
+		return RegisteredContent{}, err
+	}
+	if digestPackageBytes(item.ArtifactBytes) != item.Content.Digest {
+		return RegisteredContent{}, errors.New("persisted package content artifact digest mismatch")
+	}
+	return item, nil
 }
 
 func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (RegisteredInvocation, error) {

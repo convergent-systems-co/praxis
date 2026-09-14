@@ -1,6 +1,9 @@
 package state
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -13,13 +16,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/kernel"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 func fixturePackage(id, version, digest, alias string) packagecatalog.Manifest {
-	artifactSum := sha256.Sum256([]byte("package-artifact:" + id + "@" + version))
-	digest = "sha256:" + hex.EncodeToString(artifactSum[:])
 	return packagecatalog.Manifest{
 		ContractVersion: packagecatalog.ManifestContractCurrentVersion(),
 		PackageID:       id, Version: version, ContentDigest: digest,
@@ -33,11 +35,54 @@ func fixturePackage(id, version, digest, alias string) packagecatalog.Manifest {
 	}
 }
 
-func fixtureActivationRequest(t *testing.T, ctx context.Context, db *sql.DB, manifest packagecatalog.Manifest, now time.Time) (packagecatalog.Manifest, packagecatalog.ActivationRequest) {
+func fixturePackageArtifact(t *testing.T, manifest *packagecatalog.Manifest) []byte {
 	t.Helper()
-	artifact := []byte("package-artifact:" + manifest.PackageID + "@" + manifest.Version)
+	if len(manifest.Contents) == 0 {
+		artifact := []byte("package-artifact:" + manifest.PackageID + "@" + manifest.Version)
+		sum := sha256.Sum256(artifact)
+		manifest.ContentDigest = "sha256:" + hex.EncodeToString(sum[:])
+		return artifact
+	}
+	var archive bytes.Buffer
+	gz := gzip.NewWriter(&archive)
+	tw := tar.NewWriter(gz)
+	for i := range manifest.Contents {
+		content := &manifest.Contents[i]
+		var body []byte
+		if content.Kind == packagecatalog.ContentGraph {
+			graph := kernel.GraphDef{ID: content.ID, Version: content.Version, EntryNode: "done", Nodes: []kernel.NodeDef{{ID: "done", Class: kernel.NodeTerminal, TerminalState: kernel.RunSucceeded}}}
+			var err error
+			body, err = json.Marshal(graph)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			body = []byte(string(content.Kind) + ":" + content.ID + "@" + content.Version)
+		}
+		sum := sha256.Sum256(body)
+		content.Digest = "sha256:" + hex.EncodeToString(sum[:])
+		if err := tw.WriteHeader(&tar.Header{Name: content.Artifact, Mode: 0o644, Size: int64(len(body))}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	artifact := archive.Bytes()
 	sum := sha256.Sum256(artifact)
 	manifest.ContentDigest = "sha256:" + hex.EncodeToString(sum[:])
+	return artifact
+}
+
+func fixtureActivationRequest(t *testing.T, ctx context.Context, db *sql.DB, manifest packagecatalog.Manifest, now time.Time) (packagecatalog.Manifest, packagecatalog.ActivationRequest) {
+	t.Helper()
+	artifact := fixturePackageArtifact(t, &manifest)
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +167,7 @@ func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if content.PackageID != m.PackageID || content.Content.Digest != "sha256:graph-1.0.0" {
+	if content.PackageID != m.PackageID || len(content.ArtifactBytes) == 0 || content.Content.Digest != digestPackageBytes(content.ArtifactBytes) {
 		t.Fatalf("wrong graph registration: %#v", content)
 	}
 	transitionFixturePackage(t, ctx, db, s, m, packagecatalog.TransitionDisable, time.Now().UTC())
@@ -131,6 +176,41 @@ func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	}
 	if _, err := s.ResolveContent(ctx, packagecatalog.ContentGraph, "example/pkg.graph", "1.0.0"); err == nil {
 		t.Fatal("disabled package graph must disappear")
+	}
+}
+
+func TestVerifiedGraphArtifactSurvivesActivationAndRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := New(db)
+	manifest := activateFixturePackage(t, ctx, db, store, fixturePackage("research/graph", "1", "", "investigate"), time.Now().UTC())
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	graph, content, err := New(db).ResolveGraph(ctx, "research/graph.graph", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graph.ID != "research/graph.graph" || graph.Version != "1" || content.PackageDigest != manifest.ContentDigest || digestPackageBytes(content.ArtifactBytes) != content.Content.Digest {
+		t.Fatalf("restart did not reconstruct exact executable graph generation: graph=%+v content=%+v", graph, content)
+	}
+	if _, _, err := New(db).ResolveGraph(ctx, "research/graph.graph", "other"); err == nil {
+		t.Fatal("graph resolution must remain pinned to the installed content version")
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE package_contents SET artifact_bytes=? WHERE package_id=? AND kind=?`, []byte("tampered"), manifest.PackageID, packagecatalog.ContentGraph); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := New(db).ResolveGraph(ctx, "research/graph.graph", "1"); err == nil {
+		t.Fatal("persisted content corruption must fail before graph decoding")
 	}
 }
 
@@ -276,6 +356,9 @@ func TestPackageVerificationAuthorityAndRegistrationsSurviveRestart(t *testing.T
 	receipt := receipts[0]
 	if receipt.Verification.ID != wantVerificationID || receipt.IntentDigest != wantIntentDigest || receipt.ApprovalID != request.ApprovalID || receipt.Authority != request.Intent.Actor {
 		t.Fatalf("restart lost verification/authority lineage: %#v", receipt)
+	}
+	if digestPackageBytes(receipt.ManifestBytes) != receipt.Verification.ManifestDigest || digestPackageBytes(receipt.ArtifactBytes) != receipt.Verification.ArtifactDigest {
+		t.Fatal("restart lost exact manifest/artifact bytes behind verification evidence")
 	}
 	resolved, err := replayed.ResolveInvocationAlias(ctx, "deliver")
 	if err != nil {

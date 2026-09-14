@@ -83,7 +83,7 @@ func (r sqlitePackageRegistry) ActiveContents(ctx context.Context, kind packagec
 	}
 	out := make([]RegisteredContent, 0, len(items))
 	for _, item := range items {
-		out = append(out, RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content})
+		out = append(out, RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content, ArtifactBytes: append([]byte(nil), item.ArtifactBytes...)})
 	}
 	return out, nil
 }
@@ -92,7 +92,7 @@ func (r sqlitePackageRegistry) ResolveContent(ctx context.Context, kind packagec
 	if err != nil {
 		return RegisteredContent{}, err
 	}
-	return RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content}, nil
+	return RegisteredContent{PackageID: item.PackageID, PackageVersion: item.PackageVersion, PackageDigest: item.PackageDigest, Content: item.Content, ArtifactBytes: append([]byte(nil), item.ArtifactBytes...)}, nil
 }
 func (r sqlitePackageRegistry) InstalledPackages(ctx context.Context) ([]InstalledPackage, error) {
 	items, err := r.store.InstalledPackages(ctx)

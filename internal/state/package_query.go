@@ -25,6 +25,7 @@ type PackageActivationReceipt struct {
 	ContentDigest  string
 	Verification   packagecatalog.VerificationEvidence
 	ManifestBytes  []byte
+	ArtifactBytes  []byte
 	Signature      packagecatalog.SignatureEnvelope
 	Intent         contracts.ActionIntent
 	IntentDigest   string
@@ -87,7 +88,7 @@ func (s *Store) PackageActivationReceipts(ctx context.Context, packageID string)
 	if s == nil || s.db == nil || packageID == "" {
 		return nil, errors.New("state store and package id are required")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT activation_id,package_id,package_version,content_digest,verification_json,manifest_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at FROM package_activation_receipts WHERE package_id=? ORDER BY activated_at,activation_id`, packageID)
+	rows, err := s.db.QueryContext(ctx, `SELECT activation_id,package_id,package_version,content_digest,verification_json,manifest_bytes,artifact_bytes,signature_json,activation_intent_json,activation_intent_digest,approval_id,authority_id,authority_kind,activated_at FROM package_activation_receipts WHERE package_id=? ORDER BY activated_at,activation_id`, packageID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (s *Store) PackageActivationReceipts(ctx context.Context, packageID string)
 		var item PackageActivationReceipt
 		var verificationJSON, signatureJSON, intentJSON []byte
 		var stamp string
-		if err := rows.Scan(&item.ActivationID, &item.PackageID, &item.PackageVersion, &item.ContentDigest, &verificationJSON, &item.ManifestBytes, &signatureJSON, &intentJSON, &item.IntentDigest, &item.ApprovalID, &item.Authority.ID, &item.Authority.Kind, &stamp); err != nil {
+		if err := rows.Scan(&item.ActivationID, &item.PackageID, &item.PackageVersion, &item.ContentDigest, &verificationJSON, &item.ManifestBytes, &item.ArtifactBytes, &signatureJSON, &intentJSON, &item.IntentDigest, &item.ApprovalID, &item.Authority.ID, &item.Authority.Kind, &stamp); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(verificationJSON, &item.Verification); err != nil {
@@ -105,6 +106,9 @@ func (s *Store) PackageActivationReceipts(ctx context.Context, packageID string)
 		}
 		if err := packagecatalog.ValidateVerificationEvidence(item.Verification); err != nil {
 			return nil, fmt.Errorf("invalid package verification receipt: %w", err)
+		}
+		if digestPackageBytes(item.ManifestBytes) != item.Verification.ManifestDigest || digestPackageBytes(item.ArtifactBytes) != item.Verification.ArtifactDigest {
+			return nil, errors.New("package activation receipt bytes do not match verification evidence")
 		}
 		if err := json.Unmarshal(signatureJSON, &item.Signature); err != nil {
 			return nil, fmt.Errorf("decode package signature receipt: %w", err)

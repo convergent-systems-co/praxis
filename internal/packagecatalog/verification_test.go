@@ -1,6 +1,9 @@
 package packagecatalog
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -13,6 +16,17 @@ import (
 )
 
 func verifiedFixture(t *testing.T, manifest Manifest, artifact []byte, dependencies map[string]VerifiedPackage) VerifiedPackage {
+	t.Helper()
+	input, verifier := signedVerificationInput(t, manifest, artifact)
+	input.ResolvedDependencies = dependencies
+	verified, err := VerifyPackage(input, []SignatureVerifier{verifier})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return verified
+}
+
+func signedVerificationInput(t *testing.T, manifest Manifest, artifact []byte) (VerificationInput, Ed25519Verifier) {
 	t.Helper()
 	manifest.ContentDigest = bytesDigest(artifact)
 	manifestBytes, err := json.Marshal(manifest)
@@ -30,15 +44,38 @@ func verifiedFixture(t *testing.T, manifest Manifest, artifact []byte, dependenc
 	proof := SignatureProof{Algorithm: SignatureAlgorithmEd25519, KeyID: "publisher-key"}
 	proof.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(private, envelope.Statement()))
 	envelope.Proofs = []SignatureProof{proof}
-	verified, err := VerifyPackage(VerificationInput{
+	input := VerificationInput{
 		ManifestBytes: manifestBytes, ArtifactBytes: artifact, Signature: envelope,
-		ResolvedDependencies: dependencies, SourceKind: "fixture-catalog", SourceRef: manifest.PackageID + "@" + manifest.Version,
+		SourceKind: "fixture-catalog", SourceRef: manifest.PackageID + "@" + manifest.Version,
 		VerifiedAt: time.Date(2026, 9, 13, 17, 0, 0, 0, time.UTC),
-	}, []SignatureVerifier{Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"publisher-key": pub}}})
-	if err != nil {
+	}
+	return input, Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"publisher-key": pub}}
+}
+
+func testBundle(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	gz := gzip.NewWriter(&out)
+	tw := tar.NewWriter(gz)
+	for _, name := range []string{"graphs/research.json", "plugins/provider"} {
+		body, ok := files[name]
+		if !ok {
+			continue
+		}
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	return verified
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
 }
 
 func TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities(t *testing.T) {
@@ -98,6 +135,39 @@ func TestVerifiedPackageAccessorsCannotMutateSealedEvidence(t *testing.T) {
 	}
 	if got := verified.Signature().Proofs[0].KeyID; got != "publisher-key" {
 		t.Fatalf("signature mutated through accessor: %s", got)
+	}
+}
+
+func TestVerifyPackageBindsTypedContentToExactArchiveBytes(t *testing.T) {
+	graph := []byte(`{"ID":"research.graph","Version":"1"}`)
+	plugin := []byte("executable-provider")
+	artifact := testBundle(t, map[string][]byte{"graphs/research.json": graph, "plugins/provider": plugin})
+	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "mixed/research", Version: "1", Contents: []ContentRef{
+		{Kind: ContentGraph, ID: "research.graph", Version: "1", Digest: bytesDigest(graph), Artifact: "graphs/research.json"},
+		{Kind: ContentPlugin, ID: "research.provider", Version: "1", Digest: bytesDigest(plugin), Artifact: "plugins/provider"},
+	}}
+	verified := verifiedFixture(t, manifest, artifact, nil)
+	got, err := verified.ContentBytes(manifest.Contents[0])
+	if err != nil || !bytes.Equal(got, graph) {
+		t.Fatalf("verified graph bytes not retained: %q %v", got, err)
+	}
+	got[0] ^= 0xff
+	if err := verified.Validate(); err != nil {
+		t.Fatalf("returned content view mutated sealed package: %v", err)
+	}
+
+	wrong := manifest
+	wrong.Contents = append([]ContentRef(nil), manifest.Contents...)
+	wrong.Contents[0].Digest = bytesDigest([]byte("other graph"))
+	input, verifier := signedVerificationInput(t, wrong, artifact)
+	if _, err := VerifyPackage(input, []SignatureVerifier{verifier}); err == nil {
+		t.Fatal("valid signature over a false content digest must not verify the package")
+	}
+
+	missing := testBundle(t, map[string][]byte{"graphs/research.json": graph})
+	input, verifier = signedVerificationInput(t, manifest, missing)
+	if _, err := VerifyPackage(input, []SignatureVerifier{verifier}); err == nil {
+		t.Fatal("signed archive missing a manifest-declared plugin must fail closed")
 	}
 }
 

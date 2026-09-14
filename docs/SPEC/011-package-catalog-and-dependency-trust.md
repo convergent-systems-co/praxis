@@ -24,6 +24,7 @@ Distribution location or signature validity SHALL NOT be treated as execution au
 10. Active CLI/client entry points derive from installed package `InvocationContract`s under SPEC-015.
 11. Verification evidence is content-addressed and binds the exact downloaded manifest bytes, artifact bytes, signature envelope, verified dependency evidence, transitive capability request, enforcement request, source, and time. A caller-authored `verified` field cannot mint it.
 12. Local activation authority binds the exact verification evidence and reviewed capability/enforcement surface. The authority is consumed in the same transaction that records the durable activation receipt and publishes registries.
+13. Archive verification binds every typed content reference to exact regular-file bytes, rejects missing, mismatched, duplicate-path, unsafe-path, special-file, and unmanifested archive entries, and preserves those bytes as evidence rather than interpreting registration metadata as deployed behavior.
 
 ## Package content model
 
@@ -107,6 +108,8 @@ Verification alone SHALL NOT transition to authorized/active.
 The runtime activation boundary SHALL accept a verifier-minted package capability plus an exact intent-bound approval. It SHALL NOT accept a bare manifest. Replay SHALL retain the original manifest bytes, signature envelope, verification evidence, activation intent, authority identity, and approval identity so the decision remains auditable after restart.
 
 Activation SHALL publish all typed registries required by the package (graph, agent-definition, plugin definition, invocation) atomically from the runtime/user perspective.
+
+When typed contents exist, the signed artifact SHALL be a gzip tar whose regular-file surface exactly matches the manifest content inventory. Core validates canonical relative paths, archive entry type, per-content digest, and inventory completeness without assigning domain meaning to the bytes. Activation persists the verified archive and individual content bytes atomically. Restart resolution rechecks the content digest before decoding a graph/agent/plugin-specific contract; metadata-only registration is not executable package evidence. Pre-release rows created before artifact retention cannot manufacture missing bytes during migration and therefore fail closed if selected for execution.
 
 Package signature, verification-evidence, and activation-intent formats are durable versioned contracts governed by first-class version registries. Compatibility behavior belongs to that metadata; unknown or rejected versions fail closed and consumers do not carry historical-version lists.
 

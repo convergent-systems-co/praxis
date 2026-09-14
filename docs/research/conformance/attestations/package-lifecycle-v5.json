@@ -1,0 +1,49 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./cmd/praxis",
+    "./internal/distribution",
+    "./internal/packagecatalog",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T00:26:07.255397Z",
+  "finished_at": "2026-09-14T00:26:08.411154Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-lifecycle-v5.log",
+  "output_digest": "sha256:8de56b7b66770b185603c93b5f7ce722d0ba6c11d65dd7ffde890f9a0fb8a3cf",
+  "source_digests": {
+    "cmd/praxis": "sha256:f30bd4e217ca306280399ac4ea26f3a3c36f30525c2e44741c46d5e967fa2768",
+    "internal/distribution": "sha256:5185b2677c60a23c43afa6f312877c9e4bbf4e156a2ca22322b2a1b2e62f4f8a",
+    "internal/packagecatalog": "sha256:dd82c4526641dbb89cac32c5a9a561c14d063375a3e16dc869af93235eb0a542",
+    "internal/state": "sha256:99d21467c78e48345c96ad59f310828d05a5aedc39c3db4758979c7e02d6e0d1",
+    "internal/stateprovider": "sha256:d291ee5baa5ddfd223b89e1c8dcf7d79df02bf9ce77cf9340dae34eec1524b96",
+    "migrations/sqlite": "sha256:3ca75daf46a5f1f898a65d1945aed00cfb9592c3022079a03367cacb6449893d",
+    "pkg/contracts": "sha256:b81e5917f34071db703b4bddc3a5bbc82661bb4c687bd7f945e14679cc31e76e"
+  },
+  "observations": [
+    "TestContractUpgradeChangesOwningDefinitionAndMigrationOnly",
+    "TestGovernedDisableAndRemovePreserveHistoryAcrossRestart",
+    "TestInvocationContractUsesOwningCompatibilityPolicy",
+    "TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic",
+    "TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity",
+    "TestPackageContractVersionsAreRegistryGovernedAndFailClosed",
+    "TestPackageTransitionCannotChangeOperationAfterApproval",
+    "TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration",
+    "TestPackageVerificationAuthorityAndRegistrationsSurviveRestart",
+    "TestVerificationCannotMintActivationAuthority",
+    "TestVerifiedGraphArtifactSurvivesActivationAndRestart",
+    "TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities",
+    "TestVerifyPackageBindsTypedContentToExactArchiveBytes",
+    "TestVersionCatalogRejectsDuplicateSemanticOwnership"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:618a68ba5bce43676a57781533e86446c0dc99bc1c4df777f27225dcda30c890"
+}

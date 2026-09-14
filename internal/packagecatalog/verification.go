@@ -55,6 +55,8 @@ type VerifiedPackage struct {
 	manifest      Manifest
 	evidence      VerificationEvidence
 	manifestBytes []byte
+	artifactBytes []byte
+	artifactFiles map[string][]byte
 	signature     SignatureEnvelope
 	sealed        bool
 }
@@ -64,6 +66,17 @@ func (v VerifiedPackage) Evidence() VerificationEvidence {
 	return cloneVerificationEvidence(v.evidence)
 }
 func (v VerifiedPackage) ManifestBytes() []byte { return append([]byte(nil), v.manifestBytes...) }
+func (v VerifiedPackage) ArtifactBytes() []byte { return append([]byte(nil), v.artifactBytes...) }
+func (v VerifiedPackage) ContentBytes(content ContentRef) ([]byte, error) {
+	if err := content.Validate(); err != nil {
+		return nil, err
+	}
+	body, ok := v.artifactFiles[content.Artifact]
+	if !ok || bytesDigest(body) != content.Digest {
+		return nil, errors.New("verified package does not contain exact content artifact")
+	}
+	return append([]byte(nil), body...), nil
+}
 func (v VerifiedPackage) Signature() SignatureEnvelope {
 	out := v.signature
 	out.Proofs = append([]SignatureProof(nil), v.signature.Proofs...)
@@ -78,6 +91,13 @@ func (v VerifiedPackage) Validate() error {
 	}
 	if bytesDigest(v.manifestBytes) != v.evidence.ManifestDigest || v.signature.ManifestDigest != v.evidence.ManifestDigest || v.signature.ArtifactDigest != v.evidence.ArtifactDigest {
 		return errors.New("package verification bytes and signature do not bind the evidence")
+	}
+	if bytesDigest(v.artifactBytes) != v.evidence.ArtifactDigest {
+		return errors.New("package verification artifact bytes do not bind the evidence")
+	}
+	files, err := verifyBundleContents(v.manifest, v.artifactBytes)
+	if err != nil || !reflect.DeepEqual(files, v.artifactFiles) {
+		return errors.New("package verification content inventory differs from immutable artifact bytes")
 	}
 	var decoded Manifest
 	if err := json.Unmarshal(v.manifestBytes, &decoded); err != nil || !reflect.DeepEqual(decoded, v.manifest) {
@@ -134,6 +154,10 @@ func VerifyPackage(input VerificationInput, verifiers []SignatureVerifier) (Veri
 	if err := VerifySignature(input.Signature, verifiers, input.AllowPQFallback); err != nil {
 		return VerifiedPackage{}, err
 	}
+	artifactFiles, err := verifyBundleContents(manifest, input.ArtifactBytes)
+	if err != nil {
+		return VerifiedPackage{}, err
+	}
 
 	dependencies := make(map[string]Manifest, len(input.ResolvedDependencies))
 	dependencyEvidenceIDs := make([]string, 0, len(input.ResolvedDependencies))
@@ -172,7 +196,7 @@ func VerifyPackage(input VerificationInput, verifiers []SignatureVerifier) (Veri
 	if err != nil {
 		return VerifiedPackage{}, err
 	}
-	return VerifiedPackage{manifest: manifest, evidence: evidence, manifestBytes: append([]byte(nil), input.ManifestBytes...), signature: input.Signature, sealed: true}, nil
+	return VerifiedPackage{manifest: manifest, evidence: evidence, manifestBytes: append([]byte(nil), input.ManifestBytes...), artifactBytes: append([]byte(nil), input.ArtifactBytes...), artifactFiles: artifactFiles, signature: input.Signature, sealed: true}, nil
 }
 
 func freezeVerificationEvidence(e VerificationEvidence) (VerificationEvidence, error) {

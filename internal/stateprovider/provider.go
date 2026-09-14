@@ -57,6 +57,7 @@ type RegisteredContent struct {
 	PackageVersion string
 	PackageDigest  string
 	Content        packagecatalog.ContentRef
+	ArtifactBytes  []byte
 }
 
 type InstalledPackage struct {

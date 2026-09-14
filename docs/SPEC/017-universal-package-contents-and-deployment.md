@@ -17,6 +17,7 @@ Define one immutable package format that can distribute graphs, persistent-agent
 5. Installing content registers definitions; it does not grant runtime authority.
 6. Agent definition installation does not overwrite local agent identity, memory, lineage, or learned state.
 7. Package update preserves prior immutable generations for rollback according to policy.
+8. A content reference is deployable only when its exact digest-bound bytes were verified from the signed package archive and durably retained; a type/ID/path row alone is not implementation evidence.
 
 ## Content reference
 
@@ -81,6 +82,8 @@ After artifact verification and authorization review, activation SHALL atomicall
 The same transaction SHALL consume the exact intent-bound local approval and persist a content-addressed activation receipt. A bare manifest, signature-valid package, caller-selected trust enum, or command-line acceptance flag is not activation authority.
 
 If any required content fails validation or registration collision checks, the previous active generation remains unchanged.
+
+The install transaction SHALL retain both the signed archive bytes and each manifest-selected content body. On resolution after restart, the runtime SHALL verify the stored body against the immutable content digest before decoding or executing it. Archive paths are canonical relative paths; traversal, links/special files, duplicate paths, missing declared files, and unmanifested regular files fail closed.
 
 ## Update
 

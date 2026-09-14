@@ -163,7 +163,7 @@ Plugin wire-contract progress: repository/tag/history review classifies the orig
 
 Capability-set review: ADR-055 evaluates manifest declaration, handshake advertisement, provider availability, routing, and lease authority as distinct facts. The signed manifest is a reviewed upper bound; a handshake-validated session may expose a safe subset, while any extra capability fails closed. A provider cannot publish caller-selected availability or `ready` state: supervisor publication requires the exact validated handshake result, and only its ephemeral advertised set is routable. Restart requires fresh validation and stale lease/session binding remains denied. The equality audit retained exact relations for signed bytes, dependency closures, AAD, and bound identity; it did not loosen them mechanically. Successor attestations v21/v16/v16 preserve source-affected accepted evidence. This remains enabling runtime substrate, not a finding closure.
 
-Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v26/v21/v21 preserve source-affected accepted evidence. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
+Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v27/v22/v22 preserve source-affected accepted evidence. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
 
 Verified launch-boundary progress: `ResolvedPlugin.LaunchSpec` now carries the
 exact digest-verified executable bytes reconstructed from active package state
@@ -184,7 +184,8 @@ and host-enforced isolation evidence remain required.
 Durable scheduler progress: ADR-057 and SQLite migration 0011 add an
 authoritative resource-capacity/lease ledger. Deterministic ordered requests
 expire stale leases and acquire all resources atomically; denied requests keep
-no partial prefix, and expiry is recovered after database restart. This is
+no partial prefix, and explicit recovery fences expired leases for durable
+observability across database restart. This is
 admission substrate only: cancellation propagation, quota inheritance, retry
 governance, child-work mediation, and complete OI-024 evidence remain open.
 

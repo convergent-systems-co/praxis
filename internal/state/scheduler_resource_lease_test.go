@@ -35,6 +35,10 @@ func TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart(t *testing.T) {
 	if _, err := store.AcquireSchedulerResourceLeases(ctx, "slice-2", "attempt-1", []scheduler.ResourceRequirement{{Key: "gpu", Capacity: 1, Exclusive: true}, {Key: "cpu", Capacity: 1}}, now, nil); err != ErrResourceUnavailable {
 		t.Fatalf("expected atomic denial without partial lease, got %v", err)
 	}
+	recovered, err := store.RecoverSchedulerResourceLeases(ctx, now.Add(2*time.Minute))
+	if err != nil || len(recovered) != 2 {
+		t.Fatalf("expected both expired leases to be recovered, got %d %v", len(recovered), err)
+	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -45,6 +49,6 @@ func TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart(t *testing.T) {
 	defer db.Close()
 	store = New(db)
 	if _, err := store.AcquireSchedulerResourceLeases(ctx, "slice-3", "attempt-1", []scheduler.ResourceRequirement{{Key: "gpu", Capacity: 1, Exclusive: true}}, now.Add(2*time.Minute), nil); err != nil {
-		t.Fatalf("expired lease did not recover after restart: %v", err)
+		t.Fatalf("recovered lease did not become available after restart: %v", err)
 	}
 }

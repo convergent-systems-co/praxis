@@ -113,6 +113,62 @@ func (s *Store) ReleaseSchedulerResourceLeases(ctx context.Context, leaseIDs []s
 	return tx.Commit()
 }
 
+// RecoverSchedulerResourceLeases fences expired active leases and returns the
+// recovered records for durable observability. Recovery is idempotent.
+func (s *Store) RecoverSchedulerResourceLeases(ctx context.Context, now time.Time) ([]scheduler.ResourceLease, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("state store is required")
+	}
+	now = now.UTC()
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT lease_id,slice_id,attempt_id,resource_key,capacity,acquired_at,expires_at FROM scheduler_resource_leases WHERE released_at IS NULL AND expires_at IS NOT NULL AND expires_at<=? ORDER BY lease_id`, now.Format(time.RFC3339Nano))
+	if err != nil {
+		return nil, err
+	}
+	var recovered []scheduler.ResourceLease
+	for rows.Next() {
+		var lease scheduler.ResourceLease
+		var acquired, expiry string
+		if err := rows.Scan(&lease.ID, &lease.SliceID, &lease.AttemptID, &lease.ResourceKey, &lease.Capacity, &acquired, &expiry); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		lease.AcquiredAt, err = time.Parse(time.RFC3339Nano, acquired)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		expired, err := time.Parse(time.RFC3339Nano, expiry)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		lease.ExpiresAt = &expired
+		recovered = append(recovered, lease)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if len(recovered) == 0 {
+		return recovered, tx.Commit()
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE scheduler_resource_leases SET released_at=? WHERE released_at IS NULL AND expires_at IS NOT NULL AND expires_at<=?`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	released := now
+	for i := range recovered {
+		recovered[i].ReleasedAt = &released
+	}
+	return recovered, nil
+}
+
 func boolInt(v bool) int {
 	if v {
 		return 1

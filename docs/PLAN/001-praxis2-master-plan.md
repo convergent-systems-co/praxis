@@ -200,6 +200,11 @@ effects. Unknown outcomes retain reconciliation evidence and fail closed in
 the classifier. This is not OI-025 closure: canonical mediation of every
 mutation/effect surface and external reconciliation execution remain open.
 
+Successor blind result `blind-plugin-scheduler-effect-substrate-v1.json` is
+frozen at `sha256:0de28bd90011ba2680ce03a703427e00249a4291add9f47c210f3318370dee55` after the effect substrate change; it retains
+25 satisfied and 13 indeterminate claims without oracle access. The report is
+discovery evidence only and does not close OI-025.
+
 Package contract/transition progress: a contract-family catalog now rejects duplicate semantic ownership, and named package manifest, signature, verification, activation, deployment, transition, and rollback policies are the only current-version sources. Package release version remains distinct from manifest schema version; client invocation schema is owned by its separate client-contract catalog; SQLite receipt state evolves through migrations. Governed disable/remove operations bind exact generation and operation to an independently persisted approval, atomically withdraw active contents/aliases, retain receipts across restart, and reject caller mutation without consuming authority. OI findings remain open until resolution, privacy, plugin lifecycle, graph dispatch, and whole-lifecycle evidence are complete.
 
 Rollback progress: core derives the exact dependency-first target closure from retained manifests, binds both current generation preconditions and target IDs/versions/digests to a rollback-specific contract and approval, revalidates retained manifest/artifact/signature/verification/content/invocation evidence, and restores the complete closure atomically. Successor generations remain immutable `rolled_back` history, client aliases follow the restored generation after SQLite restart, mutated targets preserve approval, and an unaffected active dependent blocks an incompatible generation switch. This is lifecycle substrate; findings remain open pending plugin/privacy/client-dispatch integration and independent whole-package evaluation.

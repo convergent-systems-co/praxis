@@ -77,10 +77,11 @@ remain required by #103.
 
 ## Dogfood finding DF-004
 
-Invocation normalization is now implemented, but production Goal-drive
-activation cannot yet persist a newly supplied Goal/session: the repository
-has no configured production key-wrapper/provider exposed to the public CLI.
-The existing encrypted GoalStore correctly refuses durable writes without that
-authority. No plaintext or caller-controlled substitute was introduced.
-Key-provider configuration, verified package dispatch, and durable Goal
-creation remain prerequisites for end-to-end dogfood execution.
+Invocation normalization and an explicit key-provider registry are now
+implemented, but production Goal-drive activation cannot yet persist a newly
+supplied Goal/session: no OS/external production key-wrapper is configured or
+exposed to the public CLI. The existing encrypted GoalStore correctly refuses
+durable writes without that authority. No plaintext or caller-controlled
+substitute was introduced. Verified package dispatch, external key-provider
+configuration, and durable Goal creation remain prerequisites for end-to-end
+dogfood execution.

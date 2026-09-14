@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -26,7 +28,11 @@ func (f *fakeSupervisorPersistence) SaveSupervisorSnapshot(_ context.Context, sn
 
 func TestPersistentSupervisorRestoresLaunchButRequiresFreshHandshake(t *testing.T) {
 	provider := fixtureProvider("persistent", StateReady, map[IsolationProperty]EnforcementState{IsolationFilesystem: Enforced}, 1)
-	persist := &fakeSupervisorPersistence{snapshots: []SupervisorSnapshot{{Provider: ProviderSnapshot{Manifest: provider.Manifest, Identity: provider.Identity, State: StateReady, Isolation: provider.Isolation, Priority: provider.Priority}, Launch: LaunchSnapshot{Executable: []byte("verified"), Entrypoint: "plugin", SocketPath: "/tmp/plugin.sock"}}}}
+	bytes := []byte("verified")
+	digest := sha256.Sum256(bytes)
+	provider.Manifest.ArtifactDigest = "sha256:" + hex.EncodeToString(digest[:])
+	provider.Identity.ArtifactDigest = provider.Manifest.ArtifactDigest
+	persist := &fakeSupervisorPersistence{snapshots: []SupervisorSnapshot{{Provider: ProviderSnapshot{Manifest: provider.Manifest, Identity: provider.Identity, State: StateReady, Isolation: provider.Isolation, Priority: provider.Priority}, Launch: LaunchSnapshot{Executable: bytes, Entrypoint: provider.Manifest.Entrypoint, SocketPath: "/tmp/plugin.sock"}}}}
 	s, err := NewPersistentSupervisor(context.Background(), NewRegistry(), &fakeProcessControl{}, SupervisorPolicy{}, persist)
 	if err != nil {
 		t.Fatal(err)

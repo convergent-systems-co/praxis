@@ -103,6 +103,14 @@ func newSupervisor(registry *Registry, process ProcessControl, policy Supervisor
 			provider.State = StateStopped
 		}
 		launch := LaunchSpec{Provider: provider, Executable: append([]byte(nil), snapshot.Launch.Executable...), Entrypoint: snapshot.Launch.Entrypoint, SocketPath: snapshot.Launch.SocketPath, RequiredIsolation: append([]IsolationProperty(nil), snapshot.Launch.RequiredIsolation...)}
+		if err := provider.Identity.ValidateAgainst(provider.Manifest); err != nil {
+			return nil, fmt.Errorf("validate persisted plugin %q: %w", provider.Identity.InstanceID, err)
+		}
+		if len(launch.Executable) != 0 {
+			if err := launch.Validate(); err != nil {
+				return nil, fmt.Errorf("validate persisted launch %q: %w", provider.Identity.InstanceID, err)
+			}
+		}
 		s.entries[provider.Identity.InstanceID] = supervisedInstance{Provider: provider, Launch: launch, ConsecutiveFailures: snapshot.ConsecutiveFailures, LastFailureAt: snapshot.LastFailureAt, LastStartAt: snapshot.LastStartAt}
 	}
 	return s, nil

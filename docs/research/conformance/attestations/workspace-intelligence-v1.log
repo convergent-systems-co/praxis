@@ -1,0 +1,28 @@
+=== RUN   TestContextPackRespectsAllBudgets
+--- PASS: TestContextPackRespectsAllBudgets (0.00s)
+=== RUN   TestContextPackPrefersHigherScore
+--- PASS: TestContextPackPrefersHigherScore (0.00s)
+=== RUN   TestDiscoverFilesExcludesConfiguredDirectory
+--- PASS: TestDiscoverFilesExcludesConfiguredDirectory (0.00s)
+=== RUN   TestDiscoverFilesEnforcesFileLimit
+--- PASS: TestDiscoverFilesEnforcesFileLimit (0.00s)
+=== RUN   TestEvidenceFreshnessTracksDigest
+--- PASS: TestEvidenceFreshnessTracksDigest (0.00s)
+=== RUN   TestIndexDetectsContentChange
+--- PASS: TestIndexDetectsContentChange (0.00s)
+=== RUN   TestIndexUnchangedFileReportsNoChange
+--- PASS: TestIndexUnchangedFileReportsNoChange (0.00s)
+=== RUN   TestResolveAuthorizedPathRejectsSymlinkEscape
+--- PASS: TestResolveAuthorizedPathRejectsSymlinkEscape (0.00s)
+=== RUN   TestResolveAuthorizedPathAllowsContainedFile
+--- PASS: TestResolveAuthorizedPathAllowsContainedFile (0.00s)
+=== RUN   TestAuthorizeReleaseRejectsSensitiveDestinationMismatch
+--- PASS: TestAuthorizeReleaseRejectsSensitiveDestinationMismatch (0.00s)
+=== RUN   TestAuthorizeReleaseRequiresPQWhenPolicyDemands
+--- PASS: TestAuthorizeReleaseRequiresPQWhenPolicyDemands (0.00s)
+=== RUN   TestSearchTextReturnsExactEvidence
+--- PASS: TestSearchTextReturnsExactEvidence (0.00s)
+=== RUN   TestSearchTextHonorsMatchLimit
+--- PASS: TestSearchTextHonorsMatchLimit (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/plugins/workspace	0.265s

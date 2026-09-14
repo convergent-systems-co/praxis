@@ -534,6 +534,13 @@ requires machine-verifiable client enforcement before execution. Unknown
 enforcement and unmediated bypass paths fail closed; a model proposal is never
 treated as an authorization result.
 
+OI-028 is satisfied in `blind-workspace-intelligence-v1.json`, digest
+`sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`.
+Workspace indexing detects content changes and preserves fresh evidence by
+file digest; path resolution rejects symlink escapes, context packs enforce
+bounded bytes/tokens/items, and sensitive or PQ-required release conditions
+fail closed.
+
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
@@ -591,6 +598,7 @@ Implemented in this reopened wave:
 - untrusted-content boundary attestation `untrusted-content-boundary-v1.json` and blind result `blind-untrusted-content-boundary-v1.json`; OI-029 is satisfied and the unchanged 38-claim denominator records 33 satisfied / 5 indeterminate
 - client-surface equivalence attestation `client-surface-v1.json` and blind result `blind-client-surface-v1.json`; OI-026 is satisfied and the unchanged 38-claim denominator records 34 satisfied / 4 indeterminate
 - below-LLM mediation attestation `mediation-gate-v1.json` and blind result `blind-mediation-gate-v1.json`; OI-027 is satisfied and the unchanged 38-claim denominator records 35 satisfied / 3 indeterminate
+- Workspace Intelligence attestation `workspace-intelligence-v1.json` and blind result `blind-workspace-intelligence-v1.json`; OI-028 is satisfied and the unchanged 38-claim denominator records 36 satisfied / 2 indeterminate
 
 ## Completion calculation
 

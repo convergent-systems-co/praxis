@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-mediation-gate-v1.json`
-- Latest frozen result digest: `sha256:deea0c57dfdf8b14281d5c598e43095547cf94ecfc34e67fcb2a83818a56f814`
+- Latest accepted remediation result: `docs/research/conformance/blind-workspace-intelligence-v1.json`
+- Latest frozen result digest: `sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`
 
 ## Method and denominator
 
@@ -287,3 +287,13 @@ frozen at
 `sha256:deea0c57dfdf8b14281d5c598e43095547cf94ecfc34e67fcb2a83818a56f814`
 and independently advances OI-027. Totals are now 35 satisfied and 3
 indeterminate; OI-025, OI-028, and OI-030 remain open.
+
+Workspace Intelligence then received successor execution attestation
+`docs/research/conformance/attestations/workspace-intelligence-v1.json`.
+Incremental digest freshness, symlink path isolation, bounded context-pack
+assembly, and sensitive/PQ-required release denial are exercised together.
+The blind result `docs/research/conformance/blind-workspace-intelligence-v1.json`
+is frozen at
+`sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`
+and independently advances OI-028. Totals are now 36 satisfied and 2
+indeterminate; OI-025 and OI-030 remain open.

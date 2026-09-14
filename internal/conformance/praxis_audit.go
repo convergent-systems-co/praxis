@@ -118,6 +118,7 @@ const (
 	trustBoundaryAttestation      = "docs/research/conformance/attestations/untrusted-content-boundary-v1.json"
 	clientSurfaceAttestation      = "docs/research/conformance/attestations/client-surface-v1.json"
 	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v1.json"
+	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -172,6 +173,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "mediation-gate", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/mediation", ClaimIDs: []string{"OI-027"}, AttestationRef: mediationAttestation, Observation: "TestAuthorizeRequiresDeterministicClientMediation"},
 		{ID: "mediation-gate-security", Kind: "security_test", Stage: StageIntegration, Ref: "internal/mediation", ClaimIDs: []string{"OI-027"}, AttestationRef: mediationAttestation, Observation: "TestAuthorizeFailsClosedForUnknownOrBypassableMediation"},
 		{ID: "workspace-runtime", Kind: "integration_test", Stage: StageBehavior, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}},
+		{ID: "workspace-intelligence-lifecycle", Kind: "integration_test", Stage: StageIntegration, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}, AttestationRef: workspaceAttestation, Observation: "TestIndexDetectsContentChange"},
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
 		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
 		{ID: "crypto-profiles", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestKeyLifecycleRotationRevocationAndHistoricalVerification"},

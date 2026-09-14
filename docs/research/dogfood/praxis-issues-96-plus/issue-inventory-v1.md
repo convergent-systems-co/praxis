@@ -119,8 +119,9 @@ The first provider-neutral `ExecutionTarget` contract is implemented in
 `pkg/contracts` and rejects unknown versions, conflicting profile constraints,
 and forbidden metered-API fallback. It intentionally does not select a
 provider, expose model names as core identity, or claim concrete executor
-availability. Deterministic eligibility merging and routing evidence remain
-open #102 work.
+availability. A deterministic authority-aware merge now preserves stronger
+prohibitions and rejects conflicting hard policies; executor eligibility and
+routing evidence remain open #102 work.
 
 ## #99 acceptance checkpoint
 

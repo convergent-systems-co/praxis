@@ -79,6 +79,10 @@ The first post-release foundation slice implements the versioned provider-neutra
 conflict checks. Deterministic eligibility merging, routing evidence, and
 concrete executor surfaces remain subsequent #102 work.
 
+The merge foundation now applies deterministic authority ordering, conservative
+transport intersection, and non-relaxable API/prohibition policy. Executor
+eligibility discovery and durable selection evidence remain subsequent work.
+
 Relationship semantics for readiness are governed separately by ADR-062 and
 SPEC-025; #102 interactions with #100/#101 are not thereby hard prerequisites.
 

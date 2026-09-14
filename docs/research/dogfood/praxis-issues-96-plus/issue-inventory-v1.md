@@ -141,3 +141,13 @@ durable invocation identity and explicit supervised/continuous mode semantics:
 supervised mode terminates after one progressed checkpoint; a new invocation is
 required for the next unit; only explicit continuous mode permits bounded
 repetition. The finding remains post-release and does not reopen v2.0.0.
+
+## Dogfood finding DF-007 — invocation reporting fidelity
+
+The controller correctly classifies an unchanged supervised turn as
+`NO_PROGRESS`, but a prior human-facing report described verification activity
+against an unchanged repository HEAD as a successful checkpoint invocation.
+The reporting boundary must project controller-owned outcome, progress, and
+publication separately and must not claim parent Goal advancement without a
+separate authoritative Goal transition. This is post-release control-plane
+work; it does not alter progress predicates or reopen v2.0.0.

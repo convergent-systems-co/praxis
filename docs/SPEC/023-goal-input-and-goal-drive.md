@@ -48,6 +48,16 @@ Worker output SHALL be advisory evidence. `CONTINUE`, a natural-language
 claim, a model/provider identity, or an unverified commit SHALL not authorize a
 new turn or mark a Goal complete.
 
+Any human-facing invocation summary SHALL be a projection of controller-owned
+ledger facts and SHALL report outcome, validated progress, and checkpoint
+publication separately. `NO_PROGRESS`, an unchanged repository identity,
+verification activity, worker checkpoint-looking evidence, or a passing test
+SHALL NOT be reported as a published checkpoint or parent Goal advancement.
+When a validated local checkpoint is retained without publication, the summary
+SHALL say so explicitly. A bounded child turn SHALL report parent Goal
+advancement as unclaimed unless a separate authoritative Goal transition was
+persisted.
+
 ## Repository state machine
 
 Before a repository-backed turn, the controller SHALL classify at least:

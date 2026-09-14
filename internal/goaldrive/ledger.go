@@ -38,24 +38,25 @@ const (
 // turn. Worker prose is not stored as authority; these fields are verified
 // control-plane facts and references to independently stored evidence.
 type TurnRecord struct {
-	GoalID             string        `json:"goal_id"`
-	GoalVersion        string        `json:"goal_version"`
-	InvocationID       string        `json:"invocation_id"`
-	Mode               ExecutionMode `json:"mode"`
-	TurnID             string        `json:"turn_id"`
-	ChildObjective     string        `json:"child_objective"`
-	GraphID            string        `json:"graph_id"`
-	GraphVersion       string        `json:"graph_version"`
-	AgentID            string        `json:"agent_id,omitempty"`
-	ExecutorID         string        `json:"executor_id,omitempty"`
-	StartHead          string        `json:"start_head,omitempty"`
-	EndHead            string        `json:"end_head,omitempty"`
-	Outcome            Outcome       `json:"outcome"`
-	Progress           bool          `json:"progress"`
-	CheckpointEvidence []string      `json:"checkpoint_evidence,omitempty"`
-	RetryOf            string        `json:"retry_of,omitempty"`
-	Blocker            string        `json:"blocker,omitempty"`
-	CreatedAt          time.Time     `json:"created_at"`
+	GoalID              string        `json:"goal_id"`
+	GoalVersion         string        `json:"goal_version"`
+	InvocationID        string        `json:"invocation_id"`
+	Mode                ExecutionMode `json:"mode"`
+	TurnID              string        `json:"turn_id"`
+	ChildObjective      string        `json:"child_objective"`
+	GraphID             string        `json:"graph_id"`
+	GraphVersion        string        `json:"graph_version"`
+	AgentID             string        `json:"agent_id,omitempty"`
+	ExecutorID          string        `json:"executor_id,omitempty"`
+	StartHead           string        `json:"start_head,omitempty"`
+	EndHead             string        `json:"end_head,omitempty"`
+	Outcome             Outcome       `json:"outcome"`
+	Progress            bool          `json:"progress"`
+	CheckpointPublished bool          `json:"checkpoint_published"`
+	CheckpointEvidence  []string      `json:"checkpoint_evidence,omitempty"`
+	RetryOf             string        `json:"retry_of,omitempty"`
+	Blocker             string        `json:"blocker,omitempty"`
+	CreatedAt           time.Time     `json:"created_at"`
 }
 
 func (r TurnRecord) validate() error {
@@ -72,6 +73,9 @@ func (r TurnRecord) validate() error {
 	}
 	if r.Outcome == OutcomeNoProgress && r.Progress {
 		return errors.New("NO_PROGRESS turn cannot claim progress")
+	}
+	if r.CheckpointPublished && !r.Progress {
+		return errors.New("checkpoint publication requires validated progress")
 	}
 	if r.Outcome == OutcomeComplete && !r.Progress {
 		return errors.New("COMPLETE turn requires progress evidence")

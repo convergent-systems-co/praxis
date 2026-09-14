@@ -51,6 +51,11 @@ Provider adapters remain thin and replaceable. Substituting Codex, Claude, a
 local executor, or another eligible provider cannot change Goal identity,
 policy, evidence requirements, or termination authority.
 
+Human-facing invocation summaries are projections of controller-owned turn
+records. They must distinguish validated progress from checkpoint publication,
+and must never infer parent Goal advancement from verification activity,
+worker evidence, or an unchanged repository identity.
+
 ## Consequences
 
 The first-party Goals/Develop bundles and supervision surfaces can consume one

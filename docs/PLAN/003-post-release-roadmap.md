@@ -66,6 +66,10 @@ and fail-closed authority behavior. It must also prove that supervised mode
 terminates after one persisted progressed checkpoint, while only explicit
 continuous mode permits bounded repetition.
 
+Human-facing invocation summaries must project the durable turn record without
+conflating verification activity with progress: `NO_PROGRESS` and unchanged
+checkpoints must not be summarized as publication or parent Goal advancement.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs

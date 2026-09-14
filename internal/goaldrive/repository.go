@@ -101,6 +101,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 		return blocked, err
 	}
+	record.CheckpointPublished = record.Progress
 	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
 		return TurnRecord{}, err
 	}

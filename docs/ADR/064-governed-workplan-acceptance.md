@@ -77,6 +77,15 @@ persisted decision removes that request from the pending projection, while
 expired, stale, conflicting, or insufficient decisions remain fail-closed until
 the governed acceptance transition consumes a valid approval.
 
+That consumption is owned by the GoalStore acceptance boundary. It must reload
+the exact request, decision, proposal, and acceptable review; require an
+approval outcome and exact Goal/baseline/proposal/review bindings; and derive
+the WorkPlanAcceptance authority fields from the durable decision. Rejected,
+revised, deferred, or insufficient outcomes cannot produce an accepted
+WorkPlan. Repeating the same acceptance identity with the same resulting plan
+is idempotent; reuse against another generation or proposal fails closed.
+Successor-baseline attachment remains a separate transition.
+
 ## Consequences
 
 Inference can improve liveness by proposing decomposition without minting

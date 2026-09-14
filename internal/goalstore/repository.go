@@ -347,6 +347,72 @@ func (r Repository) SaveAcceptedWorkPlan(ctx context.Context, proposalID, propos
 	return plan, nil
 }
 
+// SaveAcceptedWorkPlanFromAuthorityDecision is the authority-bearing bridge
+// from a durable generic decision to the WorkPlan acceptance record. It
+// reloads every bound record and derives acceptance authority from the exact
+// approved request; callers cannot substitute a conversational approval or
+// widen the decision scope. Successor-baseline attachment remains separate.
+func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Context, requestID, requestVersion string, accepted contracts.WorkPlan, acceptanceRef, acceptanceVersion string, createdAt time.Time, expiresAt *time.Time) (contracts.WorkPlan, error) {
+	if acceptanceRef == "" || acceptanceVersion == "" {
+		return contracts.WorkPlan{}, errors.New("authority-backed acceptance identity is required")
+	}
+	request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, time.Now().UTC())
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("load authority request for acceptance: %w", err)
+	}
+	authorityDecision, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC())
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("load authority decision for acceptance: %w", err)
+	}
+	if authorityDecision.Outcome != contracts.AuthorityApprove {
+		return contracts.WorkPlan{}, fmt.Errorf("authority decision outcome %q cannot authorize WorkPlan acceptance", authorityDecision.Outcome)
+	}
+	proposal, err := r.LoadWorkPlanProposal(ctx, request.ProposalID, request.ProposalVersion, time.Now().UTC())
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("load proposal for authority-backed acceptance: %w", err)
+	}
+	proposalDigest, err := proposal.Digest()
+	if err != nil {
+		return contracts.WorkPlan{}, err
+	}
+	if proposal.ID != request.ProposalID || proposal.GoalID != request.BaselineID || proposal.GoalVersion != request.BaselineVersion || proposal.BaselineDigest != request.BaselineDigest || proposalDigest != request.ProposalDigest {
+		return contracts.WorkPlan{}, fmt.Errorf("authority request proposal binding is stale or mismatched: %w", contracts.ErrUnacceptedWorkPlan)
+	}
+	review, err := r.LoadWorkPlanReview(ctx, request.ReviewRef, request.ReviewVersion, time.Now().UTC())
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("load review for authority-backed acceptance: %w", err)
+	}
+	if review.ProposalDigest != request.ProposalDigest || review.BaselineDigest != request.BaselineDigest || review.ReviewDigest != request.ReviewDigest || review.Status != contracts.ReviewAcceptableForAuthority {
+		return contracts.WorkPlan{}, fmt.Errorf("authority request review binding is stale or unacceptable: %w", contracts.ErrUnacceptedWorkPlan)
+	}
+	mode := "policy"
+	if authorityDecision.DecidedBy.Kind == "human" {
+		mode = "human"
+	}
+	acceptance := contracts.WorkPlanAcceptance{
+		ProposalDigest: proposalDigest, BaselineDigest: request.BaselineDigest,
+		AuthorityRef: request.RequestedAuthority, AuthorityDigest: authorityDecision.AuthorityDigest,
+		AcceptanceRef: acceptanceRef, AcceptanceDigest: authorityAcceptanceDigest(request, authorityDecision, acceptanceRef, acceptanceVersion),
+		AcceptedBy: authorityDecision.DecidedBy, AuthorityScope: authorityDecision.GrantedScope,
+		ReviewRef: request.ReviewRef, ReviewVersion: request.ReviewVersion, ReviewDigest: request.ReviewDigest, Mode: mode,
+	}
+	if existing, loadErr := r.LoadAcceptedWorkPlan(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC()); loadErr == nil {
+		candidate, candidateErr := contracts.AcceptWorkPlan(proposal, accepted, acceptance)
+		if candidateErr != nil {
+			return contracts.WorkPlan{}, candidateErr
+		}
+		candidatePayload, _ := json.Marshal(candidate)
+		existingPayload, _ := json.Marshal(existing)
+		if bytes.Equal(candidatePayload, existingPayload) {
+			return existing, nil
+		}
+		return contracts.WorkPlan{}, errors.New("conflicting authority-backed acceptance already exists")
+	} else if !errors.Is(loadErr, state.ErrSecureBlobNotFound) && !errors.Is(loadErr, state.ErrSecureBlobExpired) {
+		return contracts.WorkPlan{}, fmt.Errorf("check existing authority-backed acceptance: %w", loadErr)
+	}
+	return r.SaveAcceptedWorkPlan(ctx, proposal.ID, request.ProposalVersion, accepted, acceptance, acceptanceVersion, createdAt, expiresAt)
+}
+
 func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, version string, now time.Time) (contracts.WorkPlan, error) {
 	payload, record, err := r.loadWorkPlanBlob(ctx, workPlanAcceptanceNamespace, acceptanceRef, version, now)
 	if err != nil {
@@ -367,6 +433,18 @@ func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, ver
 		return contracts.WorkPlan{}, fmt.Errorf("validate accepted WorkPlan: %w", err)
 	}
 	return plan, nil
+}
+
+func authorityAcceptanceDigest(request contracts.AuthorityRequest, decision contracts.AuthorityDecision, acceptanceRef, acceptanceVersion string) string {
+	payload, _ := json.Marshal(struct {
+		RequestDigest, DecisionRef, DecisionVersion, AcceptanceRef, AcceptanceVersion string
+	}{requestDigestOrEmpty(request), decision.DecisionRef, decision.DecisionVersion, acceptanceRef, acceptanceVersion})
+	return payloadDigest(payload)
+}
+
+func requestDigestOrEmpty(request contracts.AuthorityRequest) string {
+	digest, _ := request.Digest()
+	return digest
 }
 
 // SaveAuthorityRequest records a pending governance question without granting

@@ -102,8 +102,10 @@ remains a subsequent surface. The bounded controller
 projection now reads requests for the exact active Goal generation only after
 deterministic selection reports no runnable work; it returns the structured
 authority-required result and continues to allow unrelated runnable siblings.
-Decision consumption by WorkPlan acceptance and a complete public supervision
-surface remain separate follow-on work.
+Public supervision remains a separate follow-on surface. The acceptance
+boundary must consume
+only an exact durable approval and derive its authority fields from the bound
+request/decision; successor-baseline attachment remains separate.
 
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or

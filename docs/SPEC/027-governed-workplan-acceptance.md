@@ -78,6 +78,16 @@ not suppress an unrelated runnable sibling. A request with a persisted
 decision SHALL not be surfaced again as pending, while expired, stale,
 conflicting, or insufficient decisions remain non-authorizing and fail closed.
 
+The authority-bearing acceptance transition SHALL reload the exact pending
+request and its decision, require an `approve` outcome, and re-load the exact
+proposal and acceptable review named by that request. It SHALL verify the
+proposal Goal/baseline generation and all request digests before deriving a
+`WorkPlanAcceptance`; it SHALL derive principal, authority digest, scope,
+review bindings, and acceptance mode from the durable decision rather than
+caller or model text. Other outcomes SHALL remain non-executable. Repeating
+the same acceptance identity and exact resulting plan MAY be idempotent, but a
+different proposal, baseline, scope, or decision SHALL fail closed.
+
 ## Lifecycle and recovery
 
 The accepted WorkPlan SHALL be embedded in the digest-bound immutable Goal
@@ -100,6 +110,10 @@ selection; one blocked child SHALL not suppress a ready sibling.
 Approval, rejection, revision, deferral, and insufficient-authority decisions
 remain durable outcomes consumed only by their authority-bearing transition;
 Goal-drive does not interpret them as execution authority.
+
+Decision consumption SHALL be distinct from successor-baseline attachment.
+The acceptance record retains the request/decision-linked authority evidence;
+attachment later reloads that accepted record and the exact source baseline.
 
 ## Acceptance evidence
 

@@ -378,3 +378,21 @@ surfacing; the request remains immutable and no decision is created for the
 current dogfood Goal. Tests cover blocked-only escalation and continuation of
 an unrelated ready sibling. Acceptance/decision consumption and public UX
 remain separate seams.
+
+## Dogfood finding DF-019 — authority decision consumption
+
+DF-018 established pending-authority surfacing, but audit of the acceptance
+path found that `AcceptWorkPlan` and `SaveAcceptedWorkPlan` accepted a
+caller-supplied `WorkPlanAcceptance` without loading the generic durable
+`AuthorityDecision`. Persistence therefore proved that a decision existed but
+did not prove that the authority-bearing transition consumed the exact request,
+proposal, baseline, and review it authorized.
+
+The bounded correction adds a GoalStore transition that reloads the exact
+request/decision/proposal/review, requires durable approval, derives acceptance
+authority from that decision, rejects other outcomes and stale bindings, and
+allows only identical acceptance replay. It does not attach a WorkPlan to a
+Goal Baseline or create records for the current dogfood Goal. Expiry is
+enforced by decision loading; revocation remains an external authority-state
+integration seam because the current immutable decision contract has no
+revocation registry.

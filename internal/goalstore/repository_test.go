@@ -355,6 +355,64 @@ func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t 
 	}
 }
 
+func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	ctx := context.Background()
+	proposal, _, accepted := workPlanProposalFixture()
+	proposalDigest, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	review := workPlanReviewFixture(proposal)
+	if err := repo.SaveWorkPlanReview(ctx, proposal.ID, "1", review, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	reviewDigest := review.ReviewDigest
+	request := contracts.AuthorityRequest{ID: "request-accept-1", Version: "1", BaselineID: proposal.GoalID, BaselineVersion: proposal.GoalVersion, BaselineDigest: proposal.BaselineDigest, ProposalID: proposal.ID, ProposalVersion: "1", ProposalDigest: proposalDigest, ReviewRef: review.ReviewRef, ReviewVersion: "1", ReviewDigest: reviewDigest, RequestedAuthority: "workplan.accept", RequestedScope: "goal:goal-1/proposal-1", Reason: "material decomposition requires explicit authority", Status: contracts.AuthorityRequestPending}
+	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	requestDigest, err := request.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-accept-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator", IssuedAt: time.Now().UTC()}
+	if err := repo.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	acceptedPlan, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, request.ID, request.Version, accepted, "acceptance-authority-1", "1", time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acceptedPlan.AcceptedBy.ID != decision.DecidedBy.ID || acceptedPlan.AuthorityDigest != decision.AuthorityDigest || acceptedPlan.BaselineDigest != request.BaselineDigest {
+		t.Fatalf("decision evidence was not consumed into acceptance: %+v", acceptedPlan)
+	}
+	replayed, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, request.ID, request.Version, accepted, "acceptance-authority-1", "1", time.Now().UTC(), nil)
+	if err != nil || replayed.AcceptanceRef != acceptedPlan.AcceptanceRef {
+		t.Fatalf("identical authority-backed acceptance was not idempotent: %+v err=%v", replayed, err)
+	}
+	rejectedRequest := request
+	rejectedRequest.ID = "request-reject-1"
+	rejectedRequestDigest, err := rejectedRequest.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.SaveAuthorityRequest(ctx, rejectedRequest, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	rejected := decision
+	rejected.RequestID = rejectedRequest.ID
+	rejected.RequestDigest = rejectedRequestDigest
+	rejected.DecisionRef = "decision-reject-1"
+	rejected.Outcome = contracts.AuthorityReject
+	if err := repo.SaveAuthorityDecision(ctx, rejectedRequest.ID, rejectedRequest.Version, rejected, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, rejectedRequest.ID, rejectedRequest.Version, accepted, "acceptance-rejected", "1", time.Now().UTC(), nil); err == nil {
+		t.Fatal("rejected authority decision became executable acceptance")
+	}
+}
+
 func TestRepositoryAttachAcceptedWorkPlanCreatesBoundSuccessor(t *testing.T) {
 	repo, db := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
 	ctx := context.Background()

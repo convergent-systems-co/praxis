@@ -3,6 +3,8 @@ package goals
 import (
 	"errors"
 	"fmt"
+
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 type Rigor string
@@ -23,10 +25,10 @@ const (
 type DecisionStatus string
 
 const (
-	DecisionUnresolved DecisionStatus = "unresolved"
+	DecisionUnresolved  DecisionStatus = "unresolved"
 	DecisionProvisional DecisionStatus = "provisional"
-	DecisionResolved DecisionStatus = "resolved"
-	DecisionSuperseded DecisionStatus = "superseded"
+	DecisionResolved    DecisionStatus = "resolved"
+	DecisionSuperseded  DecisionStatus = "superseded"
 	DecisionInvalidated DecisionStatus = "invalidated"
 )
 
@@ -67,6 +69,10 @@ type GoalBaseline struct {
 	ValidityPredicates []string
 	Rigor              Rigor
 	RecommendationMode RecommendationMode
+	// WorkPlan is optional because a Goal may be newly created or still in
+	// planning. When present it is the accepted executable decomposition; it is
+	// never inferred from prose, PlanRef, or model output.
+	WorkPlan *contracts.WorkPlan
 }
 
 func (b GoalBaseline) Validate() error {
@@ -83,10 +89,19 @@ func (b GoalBaseline) Validate() error {
 	default:
 		return fmt.Errorf("invalid recommendation mode %q", b.RecommendationMode)
 	}
+	if b.WorkPlan != nil {
+		if err := b.WorkPlan.Validate(); err != nil {
+			return fmt.Errorf("invalid accepted work plan: %w", err)
+		}
+	}
 	seen := map[string]struct{}{}
 	for _, d := range b.Decisions {
-		if d.ID == "" || d.Statement == "" { return errors.New("decision id and statement are required") }
-		if _, ok := seen[d.ID]; ok { return fmt.Errorf("duplicate decision %q", d.ID) }
+		if d.ID == "" || d.Statement == "" {
+			return errors.New("decision id and statement are required")
+		}
+		if _, ok := seen[d.ID]; ok {
+			return fmt.Errorf("duplicate decision %q", d.ID)
+		}
 		seen[d.ID] = struct{}{}
 		if d.AutoAccepted && b.RecommendationMode != RecommendationDelegated {
 			return fmt.Errorf("decision %q cannot be auto-accepted outside delegated recommendation mode", d.ID)

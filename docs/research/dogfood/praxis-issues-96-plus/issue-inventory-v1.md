@@ -228,3 +228,21 @@ source HEAD was expected. This evidence must not be reported as production
 Goal progress. Real provider-backed repository execution remains governed by
 DF-003/#103 and requires the registered worker, durable state provider, and
 repository adapter path.
+
+## Dogfood finding DF-011 — accepted decomposition materialization boundary
+
+Recovery of the durable parent Goal and #103 audit found no accepted child
+records beyond the externally blocked public/provider boundary. This absence was
+not evidence that all #103 requirements were blocked or complete: Goal Baseline
+persisted intent, criteria, and `PlanRef`, while the controller accepted
+candidate records only from its caller. No production path materialized an
+authoritative child set from a Goal Baseline.
+
+The gap belongs to the #103 Goal-drive control plane. ADR-063 and SPEC-026 now
+define an optional digest-bound `WorkPlan` on the immutable baseline and a
+controller-owned materialization bridge. Only that accepted plan can produce
+selector input; model proposals, prose, and plan references cannot mint
+runnable children. The current dogfood baseline has no WorkPlan, so no #103
+child is legitimately runnable and no child was fabricated. Public ingestion,
+key/provider authority, and provider-backed execution remain unresolved #103
+obligations rather than being reassigned.

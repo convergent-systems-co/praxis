@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/convergent-systems-co/praxis/packages/goals"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -44,6 +45,7 @@ type TurnRequest struct {
 	Mode                                                                                        ExecutionMode
 	WorkCandidates                                                                              []contracts.WorkCandidate
 	WorkRelationships                                                                           []contracts.WorkRelationship
+	GoalBaseline                                                                                *goals.GoalBaseline
 }
 
 type Controller struct {
@@ -76,6 +78,13 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		return nil, TurnRequest{}, fmt.Errorf("unsupported Goal-drive execution mode %q", req.Mode)
 	}
 	if req.ChildObjective == "" {
+		if len(req.WorkCandidates) == 0 && req.GoalBaseline != nil {
+			candidates, relationships, err := MaterializeGoalWork(*req.GoalBaseline)
+			if err != nil {
+				return nil, TurnRequest{}, err
+			}
+			req.WorkCandidates, req.WorkRelationships = candidates, relationships
+		}
 		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
 		if err != nil {
 			return nil, TurnRequest{}, err

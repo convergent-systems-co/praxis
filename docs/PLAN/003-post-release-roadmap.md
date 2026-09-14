@@ -28,6 +28,7 @@ A post-release issue may therefore have one of three dispositions:
 7. Do not re-open the frozen PLAN-001 OI denominator for post-release features unless evidence proves an original-intent decomposition error and the governed denominator-transition process is followed.
 8. Executor optimization, learned routing, and token management may never outrank capability, security, evidence, or explicit transport/API policy.
 9. Work selection may block only on provenance-bound authoritative hard-dependency edges; consumer, interaction, advisory, and model-proposed relationships remain non-blocking context until governed.
+10. Durable Goal requirements must not be inferred into executable children. An accepted, digest-bound decomposition is required before Goal-drive can materialize selector input; absent decomposition fails closed as authority insufficiency.
 
 ## Wave P0: Release follow-through and terminology
 
@@ -69,6 +70,12 @@ continuous mode permits bounded repetition.
 The controller must consume a provenance-bound runnable candidate set and
 select one unit deterministically by readiness, priority, and sequence;
 ambiguous or insufficient authoritative state must fail closed.
+
+The accepted decomposition supplying that set is an optional digest-bound
+`WorkPlan` on the Goal Baseline. Goal-drive may materialize only that persisted
+plan; it must not infer child objectives from Goal prose, success criteria, or
+`PlanRef`. Public ingestion and provider-backed execution remain separate
+#103 obligations.
 
 Parent readiness must retain child-level blocked evidence and derive
 `runnable`, `blocked`, or `complete` from the full authoritative candidate set;

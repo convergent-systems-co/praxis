@@ -1,0 +1,22 @@
+{
+  "goal_id": "dogfood-praxis-issues-96-plus",
+  "baseline_id": "dogfood-praxis-issues-96-plus",
+  "baseline_version": "1",
+  "baseline_digest": "sha256:0c954f080a9f03a2f403de94b9c6278699a1ef8a579c59347e6155a45c1f3a6b",
+  "stage": "complete",
+  "original_intent": "Process open Praxis GitHub issues #96 and higher through Praxis itself, respecting dependencies, architecture authority, qualification boundaries, and the immutable v2.0.0 release candidate.",
+  "qualified_source_sha": "c5c5e7937b5d1c7562a72d90d761cd630baf7369",
+  "release_candidate_sha": "d87aba192d257dc2df8642ab48bc281f6a33249b",
+  "goal_graph": {
+    "id": "praxis.package.goals.default",
+    "version": "0.1.0"
+  },
+  "evidence": [
+    "internal/goalstore/dogfood_parent_test.go",
+    "docs/research/dogfood/praxis-issues-96-plus/issue-inventory-v1.md",
+    "github:convergent-systems-co/praxis/issues/96-103"
+  ],
+  "dogfood_finding": "DF-001",
+  "persisted_by": "internal/goalstore.Repository",
+  "qualification_context": "post-release dogfood; not v2.0.0 release authority"
+}

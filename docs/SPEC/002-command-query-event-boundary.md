@@ -110,6 +110,12 @@ Failure of any required check SHALL prevent the side effect.
 
 If Praxis cannot prove whether an external side effect occurred, the effect SHALL enter `unknown_outcome`.
 
+The authoritative effect store SHALL persist dispatch attempts, observed
+outcomes, and reconciliation evidence. Recovery SHALL enumerate pending,
+dispatched, and unknown records from authoritative state after restart. An
+unknown outcome SHALL remain non-success until an explicit reconciliation or a
+verified idempotent retry transition is recorded.
+
 Praxis SHALL reconcile before retrying a non-idempotent effect.
 
 A retry SHALL NOT be issued merely because the executor did not receive confirmation.

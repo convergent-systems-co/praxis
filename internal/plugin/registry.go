@@ -15,6 +15,18 @@ type Provider struct {
 	State     State
 	Isolation IsolationProfile
 	Priority  int
+
+	// Runtime availability is installed only by ValidateHandshake. It is not a
+	// caller-assertable provider property and it is intentionally ephemeral:
+	// every new runtime session must re-advertise before publication.
+	advertisedCapabilities []string
+	advertisementValidated bool
+}
+
+// AdvertisedCapabilities returns the validated availability evidence used for
+// routing. It is not a capability grant.
+func (p Provider) AdvertisedCapabilities() []string {
+	return append([]string(nil), p.advertisedCapabilities...)
 }
 
 func (p Provider) Validate() error {
@@ -26,6 +38,12 @@ func (p Provider) Validate() error {
 	}
 	if p.State != StateReady && p.State != StateDegraded {
 		return fmt.Errorf("provider state %q is not dispatchable", p.State)
+	}
+	if !p.advertisementValidated {
+		return errors.New("dispatchable provider lacks handshake-validated runtime advertisement")
+	}
+	if err := validateCapabilityAdvertisement(p.Manifest.Capabilities, p.advertisedCapabilities); err != nil {
+		return fmt.Errorf("provider capability advertisement: %w", err)
 	}
 	return nil
 }
@@ -80,7 +98,7 @@ func (r *Registry) Resolve(capability string, requiredIsolation []IsolationPrope
 			// for new work unless a future policy explicitly allows it.
 			continue
 		}
-		if !containsString(provider.Manifest.Capabilities, capability) {
+		if !containsString(provider.advertisedCapabilities, capability) {
 			continue
 		}
 		required := append([]IsolationProperty(nil), provider.Manifest.RequiredIsolation...)

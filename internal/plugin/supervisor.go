@@ -65,12 +65,18 @@ func (s *Supervisor) Register(provider Provider) error {
 }
 
 func (s *Supervisor) Start(ctx context.Context, instanceID string, now time.Time) error {
-	if now.IsZero() { now = time.Now().UTC() }
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
 	s.mu.Lock()
 	entry, ok := s.entries[instanceID]
-	if !ok { s.mu.Unlock(); return errors.New("plugin instance is not supervised") }
+	if !ok {
+		s.mu.Unlock()
+		return errors.New("plugin instance is not supervised")
+	}
 	if entry.Provider.State == StateQuarantined || entry.Provider.State == StateRevoked {
-		s.mu.Unlock(); return errors.New("quarantined/revoked plugin cannot start")
+		s.mu.Unlock()
+		return errors.New("quarantined/revoked plugin cannot start")
 	}
 	if s.policy.MaxConsecutiveFailures > 0 && entry.ConsecutiveFailures >= s.policy.MaxConsecutiveFailures {
 		entry.Provider.State = StateQuarantined
@@ -80,9 +86,13 @@ func (s *Supervisor) Start(ctx context.Context, instanceID string, now time.Time
 		return errors.New("plugin failure threshold reached; quarantined")
 	}
 	if !entry.LastFailureAt.IsZero() && s.policy.RestartBackoff > 0 && now.Sub(entry.LastFailureAt) < s.policy.RestartBackoff {
-		s.mu.Unlock(); return errors.New("plugin restart backoff active")
+		s.mu.Unlock()
+		return errors.New("plugin restart backoff active")
 	}
-	if err := ValidateTransition(entry.Provider.State, StateStarting); err != nil { s.mu.Unlock(); return err }
+	if err := ValidateTransition(entry.Provider.State, StateStarting); err != nil {
+		s.mu.Unlock()
+		return err
+	}
 	entry.Provider.State = StateStarting
 	entry.LastStartAt = now
 	s.entries[instanceID] = entry
@@ -95,30 +105,58 @@ func (s *Supervisor) Start(ctx context.Context, instanceID string, now time.Time
 	return nil
 }
 
-func (s *Supervisor) MarkReady(instanceID string) error {
+// MarkReady publishes only the result of a just-completed validated handshake.
+// A launch definition, a package declaration, or a caller-selected state cannot
+// publish a routable provider by itself.
+func (s *Supervisor) MarkReady(instanceID string, handshake HandshakeResult) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.entries[instanceID]
-	if !ok { return errors.New("plugin instance is not supervised") }
-	if err := ValidateTransition(entry.Provider.State, StateReady); err != nil { return err }
+	if !ok {
+		return errors.New("plugin instance is not supervised")
+	}
+	if handshake.Provider.Identity != entry.Provider.Identity {
+		return errors.New("handshake provider identity does not match supervised launch")
+	}
+	if handshake.Provider.Manifest.ID != entry.Provider.Manifest.ID || handshake.Provider.Manifest.Version != entry.Provider.Manifest.Version || handshake.Provider.Manifest.ArtifactDigest != entry.Provider.Manifest.ArtifactDigest {
+		return errors.New("handshake provider manifest does not match supervised launch")
+	}
+	if !handshake.Provider.advertisementValidated {
+		return errors.New("supervisor requires handshake-validated runtime advertisement")
+	}
+	if err := ValidateTransition(entry.Provider.State, StateReady); err != nil {
+		return err
+	}
+	priority := entry.Provider.Priority
+	entry.Provider = handshake.Provider
 	entry.Provider.State = StateReady
+	entry.Provider.Priority = priority
 	entry.ConsecutiveFailures = 0
 	s.entries[instanceID] = entry
 	return s.registry.Register(entry.Provider)
 }
 
 func (s *Supervisor) RecordFailure(ctx context.Context, instanceID string, now time.Time) error {
-	if now.IsZero() { now = time.Now().UTC() }
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
 	s.mu.Lock()
 	entry, ok := s.entries[instanceID]
-	if !ok { s.mu.Unlock(); return errors.New("plugin instance is not supervised") }
+	if !ok {
+		s.mu.Unlock()
+		return errors.New("plugin instance is not supervised")
+	}
 	entry.ConsecutiveFailures++
 	entry.LastFailureAt = now
 	if entry.Provider.State != StateFailed {
-		if CanTransition(entry.Provider.State, StateFailed) { entry.Provider.State = StateFailed }
+		if CanTransition(entry.Provider.State, StateFailed) {
+			entry.Provider.State = StateFailed
+		}
 	}
 	quarantine := s.policy.MaxConsecutiveFailures > 0 && entry.ConsecutiveFailures >= s.policy.MaxConsecutiveFailures
-	if quarantine { entry.Provider.State = StateQuarantined }
+	if quarantine {
+		entry.Provider.State = StateQuarantined
+	}
 	s.entries[instanceID] = entry
 	s.registry.Remove(instanceID)
 	s.mu.Unlock()
@@ -132,7 +170,10 @@ func (s *Supervisor) RecordFailure(ctx context.Context, instanceID string, now t
 func (s *Supervisor) Revoke(ctx context.Context, instanceID string) error {
 	s.mu.Lock()
 	entry, ok := s.entries[instanceID]
-	if !ok { s.mu.Unlock(); return errors.New("plugin instance is not supervised") }
+	if !ok {
+		s.mu.Unlock()
+		return errors.New("plugin instance is not supervised")
+	}
 	entry.Provider.State = StateRevoked
 	s.entries[instanceID] = entry
 	s.registry.Remove(instanceID)
@@ -144,8 +185,11 @@ func (s *Supervisor) Revoke(ctx context.Context, instanceID string) error {
 }
 
 func (s *Supervisor) State(instanceID string) (State, bool) {
-	s.mu.Lock(); defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	entry, ok := s.entries[instanceID]
-	if !ok { return "", false }
+	if !ok {
+		return "", false
+	}
 	return entry.Provider.State, true
 }

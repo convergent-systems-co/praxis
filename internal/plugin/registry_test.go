@@ -54,7 +54,8 @@ func TestRegistryResolutionDoesNotTreatAdvertisementAsAuthority(t *testing.T) {
 	}
 	// Registry exposes no dispatch/authorization method. A caller receives only
 	// provider metadata and must separately pass the lease/capability boundary.
-	if providers[0].Manifest.Capabilities[0] != "workspace.search.text" {
+	advertised := providers[0].AdvertisedCapabilities()
+	if len(advertised) != 1 || advertised[0] != "workspace.search.text" {
 		t.Fatal("unexpected advertised capability")
 	}
 }
@@ -98,12 +99,27 @@ func fixtureProvider(id string, state State, isolation map[IsolationProperty]Enf
 		Capabilities: []string{"workspace.search.text"}, RequiredIsolation: []IsolationProperty{IsolationFilesystem},
 		Publisher: "test", ArtifactDigest: "sha256:" + id,
 	}
-	return Provider{
-		Manifest: manifest,
-		Identity: InstanceIdentity{
-			InstanceID: id + "-instance", PluginID: id, PluginVersion: "1.0.0",
-			ArtifactDigest: "sha256:" + id, RuntimeSession: "session-1",
-		},
-		State: state, Isolation: IsolationProfile{Properties: isolation}, Priority: priority,
+	identity := InstanceIdentity{
+		InstanceID: id + "-instance", PluginID: id, PluginVersion: "1.0.0",
+		ArtifactDigest: "sha256:" + id, RuntimeSession: "session-1",
+	}
+	result, err := ValidateHandshake(ProtocolRange{Min: "1", Max: "1"}, Handshake{
+		Manifest: manifest, Identity: identity, Isolation: IsolationProfile{Properties: isolation},
+		AdvertisedCapabilities: []string{"workspace.search.text"}, Protocol: ProtocolRange{Min: "1", Max: "1"},
+	})
+	if err != nil {
+		panic(err)
+	}
+	provider := result.Provider
+	provider.State = state
+	provider.Priority = priority
+	return provider
+}
+
+func TestRegistryRejectsCallerConstructedAvailability(t *testing.T) {
+	provider := fixtureProvider("provider", StateReady, map[IsolationProperty]EnforcementState{IsolationFilesystem: Enforced}, 1)
+	provider.advertisementValidated = false
+	if err := NewRegistry().Register(provider); err == nil {
+		t.Fatal("caller-constructed runtime availability must not become routable")
 	}
 }

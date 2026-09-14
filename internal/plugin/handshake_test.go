@@ -50,11 +50,38 @@ func TestHandshakeRejectsUndeclaredCapability(t *testing.T) {
 	}
 }
 
-func TestHandshakeRejectsMissingDeclaredCapability(t *testing.T) {
+func TestHandshakePermitsUnavailableManifestCapabilityWithoutMakingItRoutable(t *testing.T) {
 	h := validHandshakeFixture()
-	h.AdvertisedCapabilities = nil
-	if _, err := ValidateHandshake(ProtocolRange{Min: "1", Max: "3"}, h); err == nil {
-		t.Fatal("runtime must advertise declared capability set")
+	h.Manifest.Capabilities = append(h.Manifest.Capabilities, "workspace.write")
+	result, err := ValidateHandshake(ProtocolRange{Min: "1", Max: "3"}, h)
+	if err != nil {
+		t.Fatalf("a runtime may advertise a supported subset: %v", err)
+	}
+	result.Provider.State = StateReady
+	registry := NewRegistry()
+	if err := registry.Register(result.Provider); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Resolve("workspace.search.text", nil); err != nil {
+		t.Fatalf("advertised capability must remain routable: %v", err)
+	}
+	if _, err := registry.Resolve("workspace.write", nil); !errors.Is(err, ErrNoEligibleProvider) {
+		t.Fatalf("manifest-only capability must not become runtime availability: %v", err)
+	}
+}
+
+func TestHandshakeRejectsDuplicateOrEmptyAdvertisement(t *testing.T) {
+	for name, capabilities := range map[string][]string{
+		"duplicate": {"workspace.search.text", "workspace.search.text"},
+		"empty":     {""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := validHandshakeFixture()
+			h.AdvertisedCapabilities = capabilities
+			if _, err := ValidateHandshake(ProtocolRange{Min: "1", Max: "3"}, h); err == nil {
+				t.Fatal("invalid advertisement must fail closed")
+			}
+		})
 	}
 }
 

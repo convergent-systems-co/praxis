@@ -44,8 +44,8 @@ func ValidateTransition(from, to State) error {
 }
 
 type FailureWindow struct {
-	Failures       int
-	MaxFailures    int
+	Failures    int
+	MaxFailures int
 }
 
 func (w FailureWindow) ShouldQuarantine() bool {

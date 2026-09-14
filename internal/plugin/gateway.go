@@ -69,7 +69,7 @@ func (g Gateway) Dispatch(ctx context.Context, req DispatchRequest) ([]byte, err
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	capReq := capability.Request{Principal:req.Principal, Capability:req.Capability, Operation:req.Operation, Scope:req.Scope, Now:now}
+	capReq := capability.Request{Principal: req.Principal, Capability: req.Capability, Operation: req.Operation, Scope: req.Scope, Now: now}
 	if err := g.LeaseConsumer.ConsumePluginLease(ctx, req.Binding, selected.Identity, capReq, now); err != nil {
 		return nil, fmt.Errorf("plugin capability denied at authoritative dispatch boundary: %w", err)
 	}

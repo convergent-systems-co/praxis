@@ -22,19 +22,22 @@ type RequestedPrivilege struct {
 }
 
 type Manifest struct {
-	ContractVersion          string               `json:"contract_version"`
-	ID                       string               `json:"id"`
-	Version                  string               `json:"version"`
-	ProtocolMin              string               `json:"protocol_min"`
-	ProtocolMax              string               `json:"protocol_max"`
-	Entrypoint               string               `json:"entrypoint"`
-	ExecutableContentID      string               `json:"executable_content_id"`
-	ExecutableContentVersion string               `json:"executable_content_version"`
-	Capabilities             []string             `json:"capabilities,omitempty"`
-	RequestedPrivileges      []RequestedPrivilege `json:"requested_privileges,omitempty"`
-	RequiredIsolation        []IsolationProperty  `json:"required_isolation,omitempty"`
-	Publisher                string               `json:"publisher,omitempty"`
-	ArtifactDigest           string               `json:"artifact_digest"`
+	ContractVersion          string `json:"contract_version"`
+	ID                       string `json:"id"`
+	Version                  string `json:"version"`
+	ProtocolMin              string `json:"protocol_min"`
+	ProtocolMax              string `json:"protocol_max"`
+	Entrypoint               string `json:"entrypoint"`
+	ExecutableContentID      string `json:"executable_content_id"`
+	ExecutableContentVersion string `json:"executable_content_version"`
+	// Capabilities is the signed upper bound of capability identities this
+	// executable generation may advertise. Runtime availability may be a
+	// subset; actual authority still requires a separately governed lease.
+	Capabilities        []string             `json:"capabilities,omitempty"`
+	RequestedPrivileges []RequestedPrivilege `json:"requested_privileges,omitempty"`
+	RequiredIsolation   []IsolationProperty  `json:"required_isolation,omitempty"`
+	Publisher           string               `json:"publisher,omitempty"`
+	ArtifactDigest      string               `json:"artifact_digest"`
 }
 
 func (m Manifest) Validate() error {

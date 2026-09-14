@@ -1,7 +1,7 @@
 # SPEC-007: Plugin, Capability, and Isolation Runtime
 
 - Status: Draft
-- Governing ADRs: 016, 028, 029, 038, 040, 041, 042, 043, 054
+- Governing ADRs: 016, 028, 029, 038, 040, 041, 042, 043, 054, 055
 - Depends on: SPEC-001, SPEC-002, SPEC-003, SPEC-005, SPEC-006
 
 ## Purpose
@@ -40,6 +40,8 @@ Canonical plugin RPC uses the ADR-029 gRPC/Protocol Buffers boundary. The core s
 The current `praxis.v1.PraxisPlugin` schema is the first supported durable plugin wire contract. The earlier checked-in handshake skeleton was pre-release, had no generated or external consumer, and is intentionally unsupported. Its displaced protobuf field numbers/names remain reserved under ADR-054. Wire-schema evolution is separate from the protocol range advertised during handshake: protocol overlap cannot authorize parsing an incompatible wire schema.
 
 The plugin's response is evidence, not acceptance authority. Core validation derives the negotiated protocol and only later authority may publish the provider or mint capability leases. Neither readiness nor an advertised capability is a grant.
+
+The signed manifest capability set is the permitted/supported upper bound for its exact executable generation. A runtime instance MAY advertise a subset reflecting platform, configuration, or degraded availability, but MUST NOT advertise outside that bound. The validated provider retains the actual instance advertisement and only that set is routable. Use-specific package/graph/profile policy decides whether missing capabilities prevent use. Manifest declaration, runtime advertisement, demonstrated competence, eligibility, and granted leases remain distinct.
 
 Transport identity alone is not authorization.
 

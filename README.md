@@ -80,6 +80,7 @@ The Python command runs a seven-node example, persists `run-state.json` and an a
 - [Package and distribution reference](docs/distribution.md)
 - [Security and authority model](docs/security.md)
 - [Development guide](CONTRIBUTING.md)
+- [Developer command interface](docs/development.md)
 - [Release notes](RELEASE_NOTES.md)
 
 Engineering authority remains in [`docs/ADR`](docs/ADR), [`docs/SPEC`](docs/SPEC), and [`docs/PLAN`](docs/PLAN). Those files explain why the system is shaped this way; the guides above explain how to use the shipped surfaces.

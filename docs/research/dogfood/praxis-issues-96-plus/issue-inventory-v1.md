@@ -540,3 +540,20 @@ and legacy unbound decisions remain historical only. Tests cover stale
 generation rejection, supersession, old-decision replay, immutable historical
 retention, and restart recovery. No authority was created for the current
 dogfood Goal.
+
+## Dogfood finding DF-029 — release-builder/macOS cgo boundary
+
+The repository Makefile's `package` target correctly delegates to the existing
+`scripts/build-release.sh`, but qualification of that wrapper exposed an
+existing release-tooling defect. The builder sets `CGO_ENABLED=0` for every
+target. The Darwin build therefore includes the `darwin` platform registration
+but excludes the cgo-backed Security.framework Keychain implementation, and
+fails with `undefined: NewMacOSKeychainBackend` before producing archives.
+
+This is not permission to add a weaker Keychain implementation, disable the
+macOS backend, or treat a non-Darwin artifact as macOS qualification. It is a
+deferred packaging/release-tooling seam: the builder needs a governed strategy
+for producing Darwin artifacts with the native backend (or an explicitly
+qualified platform build process) while preserving the existing crypto
+boundary. No release artifact, protected branch, or historical evidence was
+modified.

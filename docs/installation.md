@@ -9,6 +9,12 @@ The qualified release has two installable surfaces:
 
 The first release does not provide a hosted installer, package-manager formula, or managed cloud service. Use a release archive when published, or build the exact qualified source checkout as described below.
 
+For a repository checkout, the optional [developer command interface](development.md)
+provides safe wrappers such as `make build`, `make test`, `make doctor`, and the
+explicit `make key-bootstrap`/`make init` first-run sequence. Make is a POSIX
+developer convenience and is not required by the Praxis runtime; Windows users
+should use the Go commands or release archive instructions below.
+
 ## Build the Go binary from the qualified source
 
 ```bash

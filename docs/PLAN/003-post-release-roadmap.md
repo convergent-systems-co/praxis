@@ -152,6 +152,14 @@ and implemented for at least one supported platform; platform adapters and
 portable age-compatible wrapping are separate bounded work, not permission to
 use fake providers or weaken protection.
 
+The macOS implementation slice adds a direct Security.framework Keychain
+backend for Intel and Apple Silicon behind `BootstrapBackend`. It uses a
+Keychain-held random 256-bit wrapping key, existing AES-GCM envelope semantics,
+explicit platform binding, and a non-secret material hash that rejects same
+identity item substitution. Live Keychain qualification remains environment
+dependent: an environment returning Keychain authorization/unavailability
+must fail closed and cannot be treated as successful bootstrap evidence.
+
 Do not mark #103 complete from this slice alone. Completion still requires the
 native invocation/dispatch and authority-backed acceptance obligations recorded
 in the dogfood qualification audit; missing external provider/key authority

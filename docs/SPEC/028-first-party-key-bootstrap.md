@@ -16,9 +16,10 @@ Registration and capability discovery MUST NOT grant policy, execution, or
 authority rights.
 
 `BootstrapRecord` is metadata-only and MUST bind provider ID, opaque key ID and
-version, owner, purpose, requested crypto profile, actual security level,
-platform, architecture, and creation time. Only its digest may be placed in
-generic evidence when needed. Raw keys, recovery secrets, private signing keys,
+version, a non-secret hash binding of the provider-held key material, owner,
+purpose, requested crypto profile, actual security level, platform, architecture,
+and creation time. Only its digest may be placed in generic evidence when
+needed. Raw keys, recovery secrets, private signing keys,
 KEKs, and DEKs MUST NOT enter Git, GoalStore records, logs, prompts, summaries,
 or ledger payloads.
 

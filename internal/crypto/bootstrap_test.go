@@ -21,7 +21,7 @@ func (b *bootstrapTestBackend) SecurityLevel(context.Context) (SecurityLevel, er
 }
 func (b *bootstrapTestBackend) Available(context.Context) error { return b.available }
 func (b *bootstrapTestBackend) Bootstrap(context.Context, BootstrapRequest) (BootstrapRecord, KeyWrapper, error) {
-	return BootstrapRecord{Version: BootstrapRecordVersion, ProviderID: b.id, KeyID: "goal-kek", KeyVersion: "1", Owner: "user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible, SecurityLevel: SecurityPlatformProtected, Platform: "test", Architecture: "test", CreatedAt: time.Unix(1, 0).UTC()}, &fakeWrapper{caps: Capabilities{Classical: true}}, nil
+	return BootstrapRecord{Version: BootstrapRecordVersion, ProviderID: b.id, KeyID: "goal-kek", KeyVersion: "1", KeyMaterialHash: "sha256:" + "0000000000000000000000000000000000000000000000000000000000000000", Owner: "user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible, SecurityLevel: SecurityPlatformProtected, Platform: "test", Architecture: "test", CreatedAt: time.Unix(1, 0).UTC()}, &fakeWrapper{caps: Capabilities{Classical: true}}, nil
 }
 func (b *bootstrapTestBackend) Open(context.Context, BootstrapRecord) (KeyWrapper, error) {
 	b.opened++

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -49,6 +50,7 @@ type BootstrapRecord struct {
 	ProviderID      string
 	KeyID           string
 	KeyVersion      string
+	KeyMaterialHash string
 	Owner           string
 	Purpose         string
 	Profile         contracts.CryptoProfile
@@ -73,6 +75,9 @@ func (r BootstrapRecord) Validate() error {
 	}
 	if r.Platform == "" || r.Architecture == "" || r.CreatedAt.IsZero() {
 		return errors.New("bootstrap record platform, architecture, and creation time are required")
+	}
+	if len(r.KeyMaterialHash) != len("sha256:")+64 || !strings.HasPrefix(r.KeyMaterialHash, "sha256:") {
+		return errors.New("bootstrap record key material hash is invalid")
 	}
 	return nil
 }

@@ -254,6 +254,18 @@ fail-closed registry. No OS backend, portable vault, credential, or key was
 fabricated. Native runtime remains blocked pending an audited backend and its
 restart/rotation/migration evidence.
 
+## Dogfood finding DF-027 — macOS Keychain backend qualification boundary
+
+The first native backend is implemented in `internal/crypto/keychain_darwin.go`
+using Security.framework directly. It supports explicit bootstrap, Keychain
+reopen, AES-GCM DEK wrapping, platform/key binding, and fail-closed missing or
+substituted material. The current Apple Silicon execution environment returns
+OSStatus `100001` while adding a Keychain item, so live bootstrap/restart
+qualification is skipped as unavailable rather than replaced with a file,
+passphrase, SSH, or shell fallback. Intel cross-compilation succeeds; native
+runtime construction and live backend evidence remain incomplete until a
+Keychain-authorized macOS environment is available.
+
 ## Dogfood finding DF-010 — parent blocker granularity
 
 The selector already handles partial blocking correctly when given an

@@ -19,8 +19,9 @@ Praxis will use an explicit, crypto-agile bootstrap boundary. A selected
 metadata-only `BootstrapRecord` plus a `KeyWrapper`; secret key material stays
 inside that backend. The record binds provider, opaque key identity/version,
 owner, purpose, requested profile, security level, platform, architecture, and
-creation metadata. Its digest is safe for evidence; its secret material is not
-part of the record.
+creation metadata. A non-secret hash binds the provider-held material to the
+record so same-identity Keychain substitution fails closed. Its digest is safe
+for evidence; its secret material is not part of the record.
 
 The bootstrap registry never selects a backend implicitly, grants governance
 authority, or falls back to a weaker backend. Missing, locked, corrupted, or

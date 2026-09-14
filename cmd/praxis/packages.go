@@ -138,6 +138,28 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "dependency_resolution": resolution.Order, "review": review})
+	case "rollback":
+		if len(args) != 1 {
+			return errors.New("usage: praxis rollback <package-id>")
+		}
+		db, err := openPackageDB(ctx)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		approvalID, actorID, actorKind := os.Getenv("PRAXIS_PACKAGE_APPROVAL_ID"), os.Getenv("PRAXIS_AUTHORITY_ID"), os.Getenv("PRAXIS_AUTHORITY_KIND")
+		if approvalID == "" || actorID == "" || actorKind == "" {
+			return errors.New("PRAXIS_PACKAGE_APPROVAL_ID, PRAXIS_AUTHORITY_ID, and PRAXIS_AUTHORITY_KIND are required for package rollback")
+		}
+		store := state.New(db)
+		request, err := store.PreparePackageRollback(ctx, args[0], approvalID, contracts.PrincipalRef{ID: actorID, Kind: actorKind})
+		if err != nil {
+			return err
+		}
+		if err := store.RollbackPackage(ctx, request, time.Now().UTC()); err != nil {
+			return err
+		}
+		return printJSON(map[string]any{"package_id": args[0], "state": "rolled_back", "target": request.Targets[len(request.Targets)-1], "closure": request.Targets})
 	case "disable", "uninstall":
 		if len(args) != 1 {
 			return fmt.Errorf("usage: praxis %s <package-id>", command)

@@ -20,10 +20,10 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "8" {
-		t.Fatalf("expected schema version 8, got %s", version)
+	if version != "9" {
+		t.Fatalf("expected schema version 9, got %s", version)
 	}
-	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql", "0008_verified_package_artifacts.sql"} {
+	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql", "0008_verified_package_artifacts.sql", "0009_package_rollback_receipts.sql"} {
 		assertScalarInt(t, db, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='`+migration+`'`, 1)
 	}
 
@@ -58,6 +58,7 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0006_governed_package_activation.sql'`, 1)
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0007_governed_package_transitions.sql'`, 1)
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0008_verified_package_artifacts.sql'`, 1)
+	assertScalarInt(t, second, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name='0009_package_rollback_receipts.sql'`, 1)
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM pragma_table_info('package_contents') WHERE name='artifact_bytes'`, 1)
 	assertScalarInt(t, second, `SELECT COUNT(*) FROM pragma_table_info('package_activation_receipts') WHERE name='artifact_bytes'`, 1)
 	var boundInstanceColumns int

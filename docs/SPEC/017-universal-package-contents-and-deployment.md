@@ -102,6 +102,8 @@ Update SHALL compare old/new:
 
 Capability/enforcement/crypto expansion follows reauthorization policy. Existing persistent agent identities are never replaced merely because their source definition updated.
 
+Rollback SHALL derive the retained dependency-first closure from immutable installed manifests, bind both current preconditions and exact target generations to a rollback-specific approval, validate retained verification/content/invocation evidence, and switch the closure atomically. It SHALL restore only package registrations: consumed approval, capability lease, plugin instance, and agent identity state are not rewound. An unaffected active package that requires a conflicting dependency generation blocks rollback.
+
 ## Uninstall
 
 Uninstall SHALL remove/deactivate discoverable active registrations and prevent new execution from removed content. Historical event/run/agent lineage needed for audit/replay remains unless separately deleted under explicit retention policy.

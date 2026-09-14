@@ -178,6 +178,30 @@ func approveAgentInstantiation(t *testing.T, ctx context.Context, db *sql.DB, re
 	}
 }
 
+func deployFixtureClosure(t *testing.T, ctx context.Context, db *sql.DB, store *Store, version string, now time.Time) (packagecatalog.Manifest, packagecatalog.Manifest) {
+	t.Helper()
+	dependencyManifest, dependency := fixtureVerifiedPackage(t, fixturePackage("shared/evidence", version, "pending", "evidence-"+version), nil, now)
+	rootManifest := fixturePackage("research/root", version, "pending", "research-"+version)
+	rootManifest.Dependencies = []packagecatalog.Dependency{{PackageID: dependencyManifest.PackageID, Version: dependencyManifest.Version, Digest: dependencyManifest.ContentDigest}}
+	rootManifest, root := fixtureVerifiedPackage(t, rootManifest, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, now)
+	actor := contracts.PrincipalRef{ID: "deployment-owner", Kind: "user"}
+	request, err := packagecatalog.NewDeploymentRequest(root, map[string]packagecatalog.VerifiedPackage{dependencyManifest.PackageID: dependency}, actor, "approval:deploy:"+version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeployPackages(ctx, request, now); err != nil {
+		t.Fatal(err)
+	}
+	return dependencyManifest, rootManifest
+}
+
 func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	ctx := context.Background()
 	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
@@ -356,6 +380,128 @@ func TestSinglePackageActivationCannotBypassDependencyDeployment(t *testing.T) {
 	}
 	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:root-only'`, 1)
 	assertScalarInt(t, db, `SELECT COUNT(*) FROM installed_packages`, 0)
+}
+
+func TestGovernedPackageRollbackRestoresExactClosureAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := New(db)
+	now := time.Date(2026, 9, 14, 3, 0, 0, 0, time.UTC)
+	v1Dependency, v1Root := deployFixtureClosure(t, ctx, db, store, "1", now)
+	_, _ = deployFixtureClosure(t, ctx, db, store, "2", now.Add(time.Minute))
+	actor := contracts.PrincipalRef{ID: "rollback-owner", Kind: "user"}
+	request, err := store.PreparePackageRollback(ctx, v1Root.PackageID, "approval:rollback", actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := request.Targets; len(got) != 2 || got[0].PackageID != v1Dependency.PackageID || got[0].Version != "1" || got[1].PackageID != v1Root.PackageID || got[1].Version != "1" {
+		t.Fatalf("rollback did not derive the exact retained dependency-first closure: %+v", got)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	mutated := request
+	mutated.Targets = append([]packagecatalog.PackageIdentity(nil), request.Targets...)
+	mutated.Targets[0].Version = "attacker-selected"
+	if err := store.RollbackPackage(ctx, mutated, now.Add(2*time.Minute)); err == nil {
+		t.Fatal("caller-selected rollback target crossed the exact intent boundary")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:rollback'`, 1)
+	if err := store.RollbackPackage(ctx, request, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store = New(db)
+	for _, expected := range []packagecatalog.Manifest{v1Dependency, v1Root} {
+		active, err := store.ActivePackage(ctx, expected.PackageID)
+		if err != nil || active.Manifest.Version != "1" || active.Manifest.ContentDigest != expected.ContentDigest {
+			t.Fatalf("rollback target did not remain active after restart: expected=%+v got=%+v err=%v", expected, active, err)
+		}
+	}
+	if _, err := store.ResolveInvocationAlias(ctx, "research-1"); err != nil {
+		t.Fatalf("rollback did not restore prior client registration: %v", err)
+	}
+	if _, err := store.ResolveInvocationAlias(ctx, "research-2"); err == nil {
+		t.Fatal("rollback left successor client registration active")
+	}
+	assertScalarInt(t, db, `SELECT COUNT(*) FROM installed_packages WHERE state='rolled_back' AND package_version='2'`, 2)
+	receipts, err := store.PackageRollbackReceipts(ctx, "research/root")
+	if err != nil || len(receipts) != 1 || receipts[0].Request.Intent.Actor != actor || receipts[0].Request.Targets[len(receipts[0].Request.Targets)-1].ContentDigest != v1Root.ContentDigest {
+		t.Fatalf("rollback authority/target evidence did not replay after restart: receipts=%+v err=%v", receipts, err)
+	}
+}
+
+func TestPackageGenerationChangeCannotBreakActiveDependentLock(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	now := time.Now().UTC()
+	v1Dependency, _ := deployFixtureClosure(t, ctx, db, store, "1", now)
+	v2Manifest, v2Request := fixtureActivationRequest(t, ctx, db, fixturePackage(v1Dependency.PackageID, "2", "pending", "evidence-2"), now.Add(time.Minute))
+	err = store.ActivatePackage(ctx, v2Request, now.Add(time.Minute))
+	if err == nil || !strings.Contains(err.Error(), "required by active package") {
+		t.Fatalf("generation change broke an active dependent lock: %v", err)
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:shared/evidence:2'`, 1)
+	active, err := store.ActivePackage(ctx, v1Dependency.PackageID)
+	if err != nil || active.Manifest.Version != "1" || active.Manifest.ContentDigest != v1Dependency.ContentDigest || active.Manifest.ContentDigest == v2Manifest.ContentDigest {
+		t.Fatalf("failed incompatible update changed dependency authority: active=%+v err=%v", active, err)
+	}
+}
+
+func TestRollbackRejectsCorruptedRetainedEvidenceWithoutConsumingAuthority(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	now := time.Now().UTC()
+	_, v1Root := deployFixtureClosure(t, ctx, db, store, "1", now)
+	_, _ = deployFixtureClosure(t, ctx, db, store, "2", now.Add(time.Minute))
+	actor := contracts.PrincipalRef{ID: "rollback-owner", Kind: "user"}
+	request, err := store.PreparePackageRollback(ctx, v1Root.PackageID, "approval:corrupt-rollback", actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := request.Intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO approvals(approval_id,approver_id,approver_kind,intent_digest,issued_at,remaining_uses) VALUES(?,?,?,?,?,1)`, request.ApprovalID, actor.ID, actor.Kind, digest, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE package_activation_receipts SET artifact_bytes=? WHERE package_id=? AND package_version='1'`, []byte("corrupted-retained-artifact"), v1Root.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RollbackPackage(ctx, request, now.Add(2*time.Minute)); err == nil {
+		t.Fatal("corrupted retained evidence was reactivated")
+	}
+	assertScalarInt(t, db, `SELECT remaining_uses FROM approvals WHERE approval_id='approval:corrupt-rollback'`, 1)
+	active, err := store.ActivePackage(ctx, v1Root.PackageID)
+	if err != nil || active.Manifest.Version != "2" {
+		t.Fatalf("failed rollback changed active root: active=%+v err=%v", active, err)
+	}
 }
 
 func TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract(t *testing.T) {

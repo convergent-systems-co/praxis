@@ -16,7 +16,7 @@ import (
 )
 
 var reservedCoreCommands = map[string]struct{}{
-	"discover": {}, "info": {}, "install": {}, "update": {}, "disable": {}, "uninstall": {},
+	"discover": {}, "info": {}, "install": {}, "update": {}, "rollback": {}, "disable": {}, "uninstall": {},
 	"list": {}, "help": {}, "status": {}, "resume": {}, "cancel": {},
 	"doctor": {}, "version": {},
 }
@@ -79,6 +79,11 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
 		return err
 	}
+	manifest := request.Package.Manifest()
+	singleTarget := map[string]packagecatalog.PackageIdentity{manifest.PackageID: {PackageID: manifest.PackageID, Version: manifest.Version, ContentDigest: manifest.ContentDigest}}
+	if err := validateActiveDependencyCompatibilityTx(ctx, tx, singleTarget, singleTarget); err != nil {
+		return err
+	}
 	if err := activateVerifiedPackageTx(ctx, tx, request.Package, request.Intent, intentDigest, request.ApprovalID, now); err != nil {
 		return err
 	}
@@ -108,12 +113,50 @@ func (s *Store) DeployPackages(ctx context.Context, request packagecatalog.Deplo
 	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
 		return err
 	}
+	targets := make(map[string]packagecatalog.PackageIdentity, len(request.Packages))
+	for _, pkg := range request.Packages {
+		manifest := pkg.Manifest()
+		targets[manifest.PackageID] = packagecatalog.PackageIdentity{PackageID: manifest.PackageID, Version: manifest.Version, ContentDigest: manifest.ContentDigest}
+	}
+	if err := validateActiveDependencyCompatibilityTx(ctx, tx, targets, targets); err != nil {
+		return err
+	}
 	for _, pkg := range request.Packages {
 		if err := activateVerifiedPackageTx(ctx, tx, pkg, request.Intent, intentDigest, request.ApprovalID, now); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
+}
+
+func validateActiveDependencyCompatibilityTx(ctx context.Context, tx *sql.Tx, targets map[string]packagecatalog.PackageIdentity, affected map[string]packagecatalog.PackageIdentity) error {
+	rows, err := tx.QueryContext(ctx, `SELECT package_id,manifest_json FROM installed_packages WHERE state='active'`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var packageID string
+		var manifestJSON []byte
+		if err := rows.Scan(&packageID, &manifestJSON); err != nil {
+			return err
+		}
+		if _, changing := affected[packageID]; changing {
+			continue
+		}
+		var manifest packagecatalog.Manifest
+		if err := json.Unmarshal(manifestJSON, &manifest); err != nil {
+			return fmt.Errorf("decode active dependent %q: %w", packageID, err)
+		}
+		for _, dependency := range manifest.Dependencies {
+			_, changing := affected[dependency.PackageID]
+			target, retained := targets[dependency.PackageID]
+			if changing && (!retained || dependency.Version != target.Version || dependency.Digest != target.ContentDigest) {
+				return fmt.Errorf("package generation %s@%s is required by active package %q", dependency.PackageID, dependency.Version, packageID)
+			}
+		}
+	}
+	return rows.Err()
 }
 
 func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatalog.VerifiedPackage, intent contracts.ActionIntent, intentDigest, approvalID string, now time.Time) error {

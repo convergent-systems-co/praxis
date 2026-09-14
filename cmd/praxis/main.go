@@ -39,7 +39,7 @@ func run(args []string) error {
 	switch args[0] {
 	case "status":
 		return runStatus(args[1:])
-	case "discover", "info", "install", "update", "disable", "uninstall", "list":
+	case "discover", "info", "install", "update", "rollback", "disable", "uninstall", "list":
 		return runPackageCommand(args[0], args[1:])
 	case "doctor":
 		return runDoctor(args[1:])

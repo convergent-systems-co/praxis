@@ -48,6 +48,12 @@ func (unsupportedPackageRegistry) DeployPackages(context.Context, packagecatalog
 func (unsupportedPackageRegistry) TransitionPackage(context.Context, packagecatalog.TransitionRequest, time.Time) error {
 	return errors.New("provider does not support atomic package activation")
 }
+func (unsupportedPackageRegistry) PreparePackageRollback(context.Context, string, string, contracts.PrincipalRef) (packagecatalog.RollbackRequest, error) {
+	return packagecatalog.RollbackRequest{}, errors.New("provider does not support package rollback")
+}
+func (unsupportedPackageRegistry) RollbackPackage(context.Context, packagecatalog.RollbackRequest, time.Time) error {
+	return errors.New("provider does not support package rollback")
+}
 func (unsupportedPackageRegistry) ActiveInvocations(context.Context) ([]RegisteredInvocation, error) {
 	return nil, errors.New("provider does not support package registry")
 }

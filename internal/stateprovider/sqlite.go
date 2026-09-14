@@ -69,6 +69,12 @@ func (r sqlitePackageRegistry) DeployPackages(ctx context.Context, request packa
 func (r sqlitePackageRegistry) TransitionPackage(ctx context.Context, request packagecatalog.TransitionRequest, now time.Time) error {
 	return r.store.TransitionPackage(ctx, request, now)
 }
+func (r sqlitePackageRegistry) PreparePackageRollback(ctx context.Context, packageID, approvalID string, actor contracts.PrincipalRef) (packagecatalog.RollbackRequest, error) {
+	return r.store.PreparePackageRollback(ctx, packageID, approvalID, actor)
+}
+func (r sqlitePackageRegistry) RollbackPackage(ctx context.Context, request packagecatalog.RollbackRequest, now time.Time) error {
+	return r.store.RollbackPackage(ctx, request, now)
+}
 func (r sqlitePackageRegistry) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error) {
 	items, err := r.store.ActiveInvocations(ctx)
 	if err != nil {

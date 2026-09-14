@@ -41,6 +41,50 @@ type PackageTransitionReceipt struct {
 	TransitionedAt time.Time
 }
 
+type PackageRollbackReceipt struct {
+	RollbackID   string
+	Request      packagecatalog.RollbackRequest
+	IntentDigest string
+	RolledBackAt time.Time
+}
+
+func (s *Store) PackageRollbackReceipts(ctx context.Context, packageID string) ([]PackageRollbackReceipt, error) {
+	if s == nil || s.db == nil || packageID == "" {
+		return nil, errors.New("state store and package id are required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT rollback_id,request_json,intent_digest,authority_id,authority_kind,rolled_back_at FROM package_rollback_receipts WHERE root_package_id=? ORDER BY rolled_back_at,rollback_id`, packageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PackageRollbackReceipt
+	for rows.Next() {
+		var item PackageRollbackReceipt
+		var requestJSON []byte
+		var authority contracts.PrincipalRef
+		var stamp string
+		if err := rows.Scan(&item.RollbackID, &requestJSON, &item.IntentDigest, &authority.ID, &authority.Kind, &stamp); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(requestJSON, &item.Request); err != nil {
+			return nil, fmt.Errorf("decode package rollback receipt: %w", err)
+		}
+		if err := item.Request.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid package rollback receipt: %w", err)
+		}
+		digest, err := item.Request.Intent.Digest()
+		if err != nil || digest != item.IntentDigest || item.Request.Intent.Actor != authority {
+			return nil, errors.New("package rollback receipt authority or intent digest mismatch")
+		}
+		item.RolledBackAt, err = time.Parse(time.RFC3339Nano, stamp)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) PackageTransitionReceipts(ctx context.Context, packageID string) ([]PackageTransitionReceipt, error) {
 	if s == nil || s.db == nil || packageID == "" {
 		return nil, errors.New("state store and package id are required")
@@ -115,6 +159,9 @@ func (s *Store) PackageActivationReceipts(ctx context.Context, packageID string)
 		}
 		if err := item.Signature.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid package signature receipt: %w", err)
+		}
+		if digestPackageBytes(signatureJSON) != item.Verification.SignatureEnvelopeDigest {
+			return nil, errors.New("package activation signature bytes do not match verification evidence")
 		}
 		if err := json.Unmarshal(intentJSON, &item.Intent); err != nil {
 			return nil, fmt.Errorf("decode package activation intent: %w", err)

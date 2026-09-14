@@ -29,6 +29,10 @@ var (
 		Contract: "package.transition_intent", CurrentVersion: "v1",
 		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
 	}
+	packageRollbackIntentPolicy = contracts.ContractVersionPolicy{
+		Contract: "package.rollback_intent", CurrentVersion: "v1",
+		Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}},
+	}
 
 	manifestContractVersions        = packageVersionCatalog.MustRegister(manifestContractPolicy, nil)
 	signatureEnvelopeVersions       = packageVersionCatalog.MustRegister(signatureEnvelopePolicy, nil)
@@ -36,6 +40,7 @@ var (
 	activationIntentVersions        = packageVersionCatalog.MustRegister(activationIntentPolicy, nil)
 	deploymentIntentVersions        = packageVersionCatalog.MustRegister(deploymentIntentPolicy, nil)
 	packageTransitionIntentVersions = packageVersionCatalog.MustRegister(packageTransitionIntentPolicy, nil)
+	packageRollbackIntentVersions   = packageVersionCatalog.MustRegister(packageRollbackIntentPolicy, nil)
 )
 
 func SignatureEnvelopeCurrentVersion() string { return signatureEnvelopeVersions.CurrentVersion() }

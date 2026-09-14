@@ -138,9 +138,11 @@ worker contract and concrete Git repository adapter with a durable SQLite
 ledger. The reusable supervised runtime now recovers an exact `goal-id` plus
 `goal-version`, loads the immutable baseline through GoalStore, materializes
 only its accepted WorkPlan, resolves a setup-registered worker, and executes
-one controller-owned Git-backed turn. It must not imply that external
-Codex/Claude credentials or a public `goal-drive` command are configured;
-those remain separate #103 authority and invocation work.
+one controller-owned Git-backed turn. The native CLI now routes `goal-drive`
+through the same parser and fails closed at runtime construction rather than
+presenting normalized options as execution. External Codex/Claude credentials,
+durable key-wrapper construction, and public provider registration remain
+separate #103 integration work.
 
 Do not mark #103 complete from this slice alone. Completion still requires the
 native invocation/dispatch and authority-backed acceptance obligations recorded

@@ -56,6 +56,9 @@ func runDynamicInvocation(ctx context.Context, args []string, getenv func(string
 	if err != nil {
 		return err
 	}
+	if out.EntryPointID == "goal-drive" {
+		return dispatchGoalDrive(ctx, out, getenv)
+	}
 	encoded, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err

@@ -219,10 +219,29 @@ supervised controller turn through the real Git adapter and restart-readable
 ledger. A local explicit-argv worker provides executable integration evidence;
 it does not fabricate external provider credentials or current-Goal authority.
 
-The native CLI still resolves the registered `goal-drive` contract without
-dispatching it, and public provider/key registration, no-push orchestration,
-multi-turn control, and current-Goal accepted decomposition remain separate
-#103 seams. No WorkPlan or authority was created for the current dogfood Goal.
+The native CLI now routes the registered `goal-drive` entry point through the
+same invocation parser and fails closed at the runtime-construction boundary;
+it no longer presents normalized contract options as if they were execution.
+Public provider/key registration, no-push orchestration, multi-turn control,
+and current-Goal accepted decomposition remain separate #103 seams. No
+WorkPlan or authority was created for the current dogfood Goal.
+
+## Dogfood finding DF-025 — native CLI dispatch dependency boundary
+
+Issue #103 owns the native `praxis goal-drive` command; #104 owns the thin
+`/praxis run` surface; #105 owns repeated supervised/continuous mode
+composition. Repository inspection showed that the CLI's dynamic path only
+resolved an installed contract and emitted normalized options. It did not
+construct GoalStore, authority, provider, repository, controller, or ledger
+dependencies.
+
+The bounded correction routes `goal-drive` through the shared Goal-drive parser
+and fails closed at that boundary instead of reporting contract resolution as
+execution. The remaining blocker is concrete: the Go CLI has no first-party
+durable key-wrapper construction or provider registration surface from which it
+can safely build the DF-024 runtime. External credentials and current-Goal
+authority were not fabricated. The proven runtime remains available to a
+setup-configured host that injects those dependencies.
 
 ## Dogfood finding DF-010 — parent blocker granularity
 

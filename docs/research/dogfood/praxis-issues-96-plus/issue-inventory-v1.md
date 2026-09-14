@@ -63,3 +63,12 @@ release, not permission to edit historical evidence or a v2.0.0 release defect.
 
 Evidence: full `go test ./...` at the pre-relocation checkpoint and the passing
 non-conformance regression/vet run at dogfood commit `5f415d8`.
+
+## Dogfood finding DF-003
+
+The repository still has no registered Codex/Claude worker provider and no
+public `praxis goal-drive` command. The provider-neutral explicit-argv adapter
+implemented in the isolated dogfood branch is therefore a bounded internal
+capability, not a claim that issue execution is now user-facing or complete.
+Provider registration, package invocation wiring, Goal persistence from the
+CLI, and end-to-end issue execution remain required by #103.

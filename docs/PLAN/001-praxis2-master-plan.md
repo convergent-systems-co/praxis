@@ -163,7 +163,7 @@ Plugin wire-contract progress: repository/tag/history review classifies the orig
 
 Capability-set review: ADR-055 evaluates manifest declaration, handshake advertisement, provider availability, routing, and lease authority as distinct facts. The signed manifest is a reviewed upper bound; a handshake-validated session may expose a safe subset, while any extra capability fails closed. A provider cannot publish caller-selected availability or `ready` state: supervisor publication requires the exact validated handshake result, and only its ephemeral advertised set is routable. Restart requires fresh validation and stale lease/session binding remains denied. The equality audit retained exact relations for signed bytes, dependency closures, AAD, and bound identity; it did not loosen them mechanically. Successor attestations v21/v16/v16 preserve source-affected accepted evidence. This remains enabling runtime substrate, not a finding closure.
 
-Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v30/v25/v25 preserve source-affected accepted evidence. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
+Out-of-process transport progress: a separate executable fixture now uses the canonical Unix-socket gRPC service and exercises runtime-bound handshake identity, authority-derived protocol selection, unary execution, bidirectional streaming, deadline cancellation, crash observation, and fresh instance/session restart rejection. Successor attestations v32/v27/v27 preserve source-affected accepted evidence. The local launcher now binds process bookkeeping and termination to the exact runtime session and reports unexpected exits to the durable supervisor; wrong-session termination fails closed. The transport remains a substrate: package executable materialization, supervisor durable lifecycle/recovery, lease persistence integration, and effective OS isolation are still required before OI-021/OI-030/OI-037 closure.
 
 Verified launch-boundary progress: `ResolvedPlugin.LaunchSpec` now carries the
 exact digest-verified executable bytes reconstructed from active package state
@@ -173,6 +173,75 @@ materializes only those bytes, strips ambient environment, and fails closed when
 required isolation lacks an enforcer. This is an integration prerequisite, not
 closure of OI-021/OI-030/OI-037: durable supervisor recovery, lease persistence,
 real package update/revocation, and effective OS isolation remain outstanding.
+
+The local launcher now also passes the exact verified plugin identity, artifact
+digest, instance, and runtime session as explicit launch context, and an exit
+observer reports reaped child failures to the supervisor. Unexpected crash or
+external termination therefore removes routability and persists `failed` (or
+policy-derived `quarantined`) state without assuming a dead process can still be
+terminated. An end-to-end local-process qualification now proves an actual child
+exit is durably persisted as `failed` and removed from routability, under the
+race detector. This closes a lifecycle substrate gap but is not standalone OI
+closure; handshake, lease, restart, update/revocation, and effective isolation
+still require integrated evidence.
+
+Restart normalization is now durable: a persistent supervisor writes the
+authoritative `stopped` state back when it fences a previously runtime-only
+`starting`, `ready`, or `degraded` snapshot. Failed launches also clear their
+exit observer before recording failure, so an absent child cannot retain
+lifecycle authority over a later runtime generation. A launch error now
+records durable failure without attempting termination of an absent child, so
+the original error remains observable and cleanup cannot mask it. Successor
+blind result `blind-package-supervisor-integration-v4.json` is frozen against
+the refreshed source-affected attestations with the same 25 satisfied / 13
+indeterminate claims. Post-freeze evaluation of the withheld historical oracle
+reports one false negative because its retained positive-control expectation
+still marks OI-002 unsupported; release oracle qualification therefore remains
+open (`package-supervisor-oracle-qualification-v4.json`).
+
+Explicit stop is now an authoritative lifecycle boundary: the supervisor
+detaches exit observation, removes routability, persists `draining`, terminates
+the exact runtime identity, and persists `stopped`; termination failure is
+retained as `failed` for recovery. This supports clean replacement/update and
+shutdown without misclassifying expected termination as a crash. Successor
+attestations `cluster-a-runtime-v33.json`, `package-lifecycle-v28.json`, and
+`portable-state-v28.json` bind the changed plugin source, and frozen blind
+result `blind-package-supervisor-integration-v5.json` retains 25 satisfied / 13
+indeterminate claims. Its post-freeze withheld-oracle qualification remains
+open with the same historical OI-002 false negative.
+
+The revocation boundary now validates lifecycle transitions, detaches runtime
+observers before authority withdrawal, and distinguishes durable revocation
+from best-effort process termination. Stopped, failed, and quarantined
+instances revoke without attempting to terminate an absent child; a live
+instance remains durably revoked even when termination fails. Successor
+attestations `cluster-a-runtime-v35.json`, `package-lifecycle-v30.json`, and
+`portable-state-v30.json` bind this change. Frozen blind result
+`blind-package-supervisor-integration-v6.json` retains 25 satisfied / 13
+indeterminate claims; its post-freeze qualification
+`package-supervisor-oracle-qualification-v6.json` still records the retained
+historical OI-002 false negative, so release oracle qualification remains
+open.
+
+Successor blind freeze `blind-package-supervisor-integration-v7.json`, digest
+`sha256:1027a9ffba14f8f7a7b66986d77a52f44b7b353ed2491628b25a961a17a773fa`,
+reconciles the current source and successor execution attestations and retains
+25 satisfied / 13 indeterminate claims with zero unsupported or contradicted
+claims. Post-freeze qualification `package-supervisor-oracle-qualification-v7.json`
+still records the historical OI-002 false negative, so oracle qualification is
+not yet a release gate pass.
+
+The lease-release persistence review found and corrected a stale-snapshot bug:
+failure and unexpected-exit paths now persist the post-release authoritative
+entry, while a release error preserves lease IDs durably for restart recovery.
+Regression tests cover both paths under the race detector. Successor execution
+attestation `cluster-a-runtime-v38.json` binds the corrected plugin, agent,
+state, and transfer sources; `portable-state-v32.json` and
+`package-lifecycle-v32.json` refresh their shared plugin source binding.
+Frozen blind result `blind-package-supervisor-integration-v8.json` retains 25
+satisfied / 13 indeterminate claims, and
+`package-supervisor-oracle-qualification-v8.json` retains the historical
+OI-002 false negative. Release qualification remains open.
 
 Package-to-supervisor integration progress: an activated mixed package now
 resolves its exact executable bytes into a persistent supervisor launch binding,
@@ -200,6 +269,49 @@ observability across database restart. This is
 admission substrate only: cancellation propagation, quota inheritance, retry
 governance, child-work mediation, and complete OI-024 evidence remain open.
 
+Supervisor admission integration: ADR-059 and SPEC-022 bind policy-owned
+scheduler requirements to each supervised process attempt. The supervisor
+acquires the complete resource set before launch and releases it on launch
+failure, explicit stop, revocation, or unexpected exit; denied admission does
+not invoke the launcher or change the prior lifecycle state. This closes a
+runtime mediation prerequisite but not OI-024, pending cancellation, quota,
+retry, crash-recovery, and complete end-to-end evidence.
+
+Admission response hardening: the supervisor now independently validates that
+the authoritative leaser returned exactly one positive-capacity lease per
+requested resource key, bound to the exact instance and runtime-session
+attempt with the requested capacity. Partial, duplicate, or foreign lease
+responses fail closed before process launch and trigger best-effort release of
+returned IDs. This closes a leaser-response authority gap but does not change
+OI-024, which still requires cancellation, quota inheritance, retry
+governance, crash recovery, and complete end-to-end evidence.
+
+Lease-recovery hardening: supervisor snapshots now retain exact scheduler
+lease IDs. Restart fences every abandoned attempt, including leases without a
+TTL, and persists the normalized snapshot before a replacement can start;
+replacement and cleanup cannot silently discard unreleasable authority. This
+closes a restart/replacement safety gap in the admission substrate but does
+not change OI-024, which still requires cancellation propagation, quota
+inheritance, retry governance, and complete end-to-end evidence.
+
+Scheduler retry hardening: authoritative admission now treats the exact
+slice/attempt identity as an idempotency key. A retry after a lost response
+returns the existing complete lease set without allocating a duplicate;
+partial or changed requirement sets for an active attempt fail closed. The
+focused scheduler/provider and supervisor evidence was re-executed into
+successor attestations v40/v34/v34. This closes duplicate-admission ambiguity
+but does not change OI-024, which still requires cancellation propagation,
+quota inheritance, retry governance beyond admission, and complete end-to-end
+evidence.
+
+Scheduler cancellation hardening: the SQLite provider now exposes an
+authoritative, idempotent release boundary keyed by the exact slice and
+attempt identity. Cancellation does not depend on a caller-reconstructed
+lease-ID list and cannot release a sibling attempt sharing the same slice.
+This closes an identity-safe provider primitive but does not change OI-024,
+which still requires runtime cancellation propagation, quota inheritance,
+retry governance, crash recovery, and complete end-to-end evidence.
+
 Successor blind result `blind-plugin-scheduler-substrate-v1.json` is frozen at
 `sha256:6c55874cf8d9290c7b3285c2826f40c0d843440f4cd2430dcb35116db3da7b57`.
 It independently retains 25 satisfied and 13 indeterminate claims; no oracle
@@ -216,6 +328,52 @@ frozen at `sha256:0de28bd90011ba2680ce03a703427e00249a4291add9f47c210f3318370dee
 25 satisfied and 13 indeterminate claims without oracle access. The report is
 discovery evidence only and does not close OI-025.
 
+The reconciled successor blind result `blind-package-supervisor-integration-v10.json`
+is frozen at `sha256:a069f72f9ac0422ccac120e0aa01fa2e0ffa5f139bd30ca472f15827addac94d`.
+It retains 25 satisfied and 13 indeterminate claims with zero unsupported or
+contradicted findings. Post-freeze qualification against the withheld
+historical oracle is recorded in
+`package-supervisor-oracle-qualification-v10.json`; it still has one retained
+false negative for the historical OI-002 positive control, so the oracle gate
+and release qualification remain open.
+
+Successor execution attestations `cluster-a-runtime-v42.json`,
+`package-lifecycle-v36.json`, and `portable-state-v36.json` re-execute the
+source-affected suites after the supervisor recovery proof was added. The
+new observations prove that an unexpected-exit release failure retains the
+exact lease IDs in durable failed state for restart recovery and that
+cancellation release is isolated to the exact scheduler attempt. This
+strengthens the lease-recovery/cancellation evidence without changing the
+38-claim blind denominator; the next blind result must be frozen from these
+attestations before any oracle comparison.
+
+Blind result `blind-package-supervisor-integration-v11.json` is now frozen at
+`sha256:2fe3501b6ecc48dca9570648b546fce048ef937b1e70fca831e687e7f950fbaf`.
+It independently retains 25 satisfied and 13 indeterminate claims with zero
+unsupported or contradicted findings. The post-freeze withheld-oracle result
+`package-supervisor-oracle-qualification-v11.json` still exposes the retained
+historical OI-002 false-negative control, so oracle and release qualification
+remain open.
+
+Successor blind result `blind-package-supervisor-integration-v12.json` is
+frozen at `sha256:da8ef32363b72f39a18dbc1e49d15c4de764108c55efdda56868041521e88be3`.
+It binds the current v41/v35/v35 execution-attestation inventory while
+retaining the unchanged 38-claim denominator: 25 satisfied and 13
+indeterminate, with zero unsupported or contradicted findings. The withheld
+oracle was loaded only after that freeze; qualification
+`package-supervisor-oracle-qualification-v12.json` still records the retained
+historical OI-002 false negative, so release qualification remains open.
+
+Successor attestations v42/v36/v36 bind the exact-attempt cancellation
+provider test and refreshed state source. Blind result
+`blind-package-supervisor-integration-v13.json`, digest
+`sha256:2e3799f30df57955ed1acd06821ff5dec91abeb8ffecf042fa697fa20ddaf92`,
+retains 25 satisfied and 13 indeterminate claims with zero unsupported or
+contradicted findings. Post-freeze qualification
+`package-supervisor-oracle-qualification-v13.json` still records the retained
+historical OI-002 false-negative control, so release qualification remains
+open.
+
 Package contract/transition progress: a contract-family catalog now rejects duplicate semantic ownership, and named package manifest, signature, verification, activation, deployment, transition, and rollback policies are the only current-version sources. Package release version remains distinct from manifest schema version; client invocation schema is owned by its separate client-contract catalog; SQLite receipt state evolves through migrations. Governed disable/remove operations bind exact generation and operation to an independently persisted approval, atomically withdraw active contents/aliases, retain receipts across restart, and reject caller mutation without consuming authority. OI findings remain open until resolution, privacy, plugin lifecycle, graph dispatch, and whole-lifecycle evidence are complete.
 
 Rollback progress: core derives the exact dependency-first target closure from retained manifests, binds both current generation preconditions and target IDs/versions/digests to a rollback-specific contract and approval, revalidates retained manifest/artifact/signature/verification/content/invocation evidence, and restores the complete closure atomically. Successor generations remain immutable `rolled_back` history, client aliases follow the restored generation after SQLite restart, mutated targets preserve approval, and an unaffected active dependent blocks an incompatible generation switch. This is lifecycle substrate; findings remain open pending plugin/privacy/client-dispatch integration and independent whole-package evaluation.
@@ -227,6 +385,26 @@ Dependency-deployment progress: a transport-neutral resolver walks signed exact 
 Dynamic-client progress: the stable CLI resolves only the active persisted invocation registry and now emits exact package ID/version/digest plus graph ID/version. Valid-but-digest-mismatched registry bytes, stale aliases after update, and disabled aliases after restart fail closed; a disabled exact generation remains selectable for separately authorized removal. This establishes registry/client lifecycle semantics but does not yet prove graph dispatch or all client adapters, so OI-035 remains open.
 
 Agent-definition progress: package-owned agent definitions now carry contract-owned version metadata and exact graph bindings. The state-provider boundary re-resolves digest-bound definition/graph bytes, compares an exact local identity/owner/governance intent, consumes persisted approval, and appends the initial agent generation atomically. Software-delivery and research packages instantiate independent identities that reconstruct through the agent runtime after SQLite restart; caller mutation leaves both approval and event state untouched. Generic agent creation no longer labels caller observations `user_confirmed`. OI-037 remains open pending complete dependency deployment, update/rollback, plugin lifecycle, and whole-package evidence.
+
+Blind result v14 was independently re-frozen from the current v42/v36/v36
+execution attestations at the recovered repository state. It retains 25
+satisfied and 13 indeterminate claims with zero unsupported or contradicted
+findings (`sha256:d7b78f1984cf4ab27ef69a1ccff03fb56f39335f5016670d6072f6d1e993bf80`).
+Post-freeze qualification remains non-passing only because the withheld
+historical positive-control expectation for OI-002 is intentionally retained
+as one false negative; no current claim status was promoted by the oracle.
+Release qualification therefore remains open.
+
+Successor execution attestations v42/v36/v36 were re-executed after the
+source-affecting supervisor/process qualification change, and full `go test
+./...` plus the focused race suite passed. Blind result v15 was then frozen
+against those current attestations at
+`sha256:844b342a2c6860dbd952dcb91f65e7883a441afc8c61dc5c88582248a36d346a`;
+it retains 25 satisfied and 13 indeterminate claims with zero unsupported or
+contradicted findings. Post-freeze qualification
+`package-supervisor-oracle-qualification-v15.json` retains the historical
+OI-002 false-negative control, so this checkpoint does not close the oracle
+gate or release qualification.
 
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +16,59 @@ func launchFixtureProvider() Provider {
 	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), ID: "launch", Version: "1", ProtocolMin: "1", ProtocolMax: "1", Entrypoint: "fixture", ExecutableContentID: "launch.executable", ExecutableContentVersion: "1", ArtifactDigest: "placeholder"}
 	identity.ArtifactDigest = manifest.ArtifactDigest
 	return Provider{Manifest: manifest, Identity: identity, State: StateInstalled, Isolation: IsolationProfile{Properties: map[IsolationProperty]EnforcementState{}}}
+}
+
+func TestLocalProcessControlBindsIdentityAndReportsExit(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "launch-context")
+	bytes := []byte("#!/bin/sh\nprintf '%s|%s|%s|%s|%s' \"$PRAXIS_PLUGIN_SOCKET\" \"$PRAXIS_PLUGIN_ID\" \"$PRAXIS_PLUGIN_VERSION\" \"$PRAXIS_PLUGIN_INSTANCE\" \"$PRAXIS_PLUGIN_SESSION\" > \"$PRAXIS_PLUGIN_SOCKET\"\nexit 23\n")
+	digest := sha256.Sum256(bytes)
+	provider := launchFixtureProvider()
+	provider.Manifest.ArtifactDigest = "sha256:" + hex.EncodeToString(digest[:])
+	provider.Identity.ArtifactDigest = provider.Manifest.ArtifactDigest
+	spec := LaunchSpec{Provider: provider, Executable: bytes, Entrypoint: "fixture", SocketPath: output}
+	control := NewLocalProcessControl()
+	exited := make(chan error, 1)
+	control.SetExitHandler(provider.Identity, func(err error) { exited <- err })
+	if err := control.Start(context.Background(), spec); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-exited:
+		if err == nil {
+			t.Fatal("non-zero plugin exit must be reported")
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("plugin exit was not observed")
+	}
+	contents, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := output + "|launch|1|launch-instance|launch-session"
+	if string(contents) != want {
+		t.Fatalf("launch identity mismatch: got %q want %q", contents, want)
+	}
+}
+
+func TestLocalProcessControlTerminationRequiresExactRuntimeSession(t *testing.T) {
+	bytes := []byte("#!/bin/sh\nsleep 5\n")
+	digest := sha256.Sum256(bytes)
+	provider := launchFixtureProvider()
+	provider.Manifest.ArtifactDigest = "sha256:" + hex.EncodeToString(digest[:])
+	provider.Identity.ArtifactDigest = provider.Manifest.ArtifactDigest
+	spec := LaunchSpec{Provider: provider, Executable: bytes, Entrypoint: "fixture", SocketPath: filepath.Join(t.TempDir(), "unused")}
+	control := NewLocalProcessControl()
+	if err := control.Start(context.Background(), spec); err != nil {
+		t.Fatal(err)
+	}
+	wrongSession := provider.Identity
+	wrongSession.RuntimeSession = "different-session"
+	if err := control.Terminate(context.Background(), wrongSession); err == nil {
+		t.Fatal("termination with a different runtime session must fail closed")
+	}
+	if err := control.Terminate(context.Background(), provider.Identity); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation(t *testing.T) {
@@ -57,7 +112,7 @@ func TestLocalProcessControlMaterializesOnlyVerifiedBytesAndTerminates(t *testin
 	deadline := time.Now().Add(time.Second)
 	for {
 		control.mu.Lock()
-		_, running := control.process[provider.Identity.InstanceID]
+		_, running := control.process[processKey(provider.Identity)]
 		control.mu.Unlock()
 		if running {
 			break

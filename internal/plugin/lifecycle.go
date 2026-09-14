@@ -19,19 +19,20 @@ const (
 )
 
 func CanTransition(from, to State) bool {
-	if from == StateRevoked || from == StateQuarantined {
+	if from == StateRevoked {
 		return false
 	}
 	allowed := map[State]map[State]bool{
-		StateDiscovered: {StateVerified: true, StateRevoked: true},
-		StateVerified:   {StateInstalled: true, StateRevoked: true},
-		StateInstalled:  {StateStarting: true, StateRevoked: true},
-		StateStarting:   {StateReady: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
-		StateReady:      {StateDegraded: true, StateDraining: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
-		StateDegraded:   {StateReady: true, StateDraining: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
-		StateDraining:   {StateStopped: true, StateFailed: true, StateRevoked: true},
-		StateStopped:    {StateStarting: true, StateRevoked: true},
-		StateFailed:     {StateStarting: true, StateQuarantined: true, StateRevoked: true},
+		StateDiscovered:  {StateVerified: true, StateRevoked: true},
+		StateVerified:    {StateInstalled: true, StateRevoked: true},
+		StateInstalled:   {StateStarting: true, StateRevoked: true},
+		StateStarting:    {StateReady: true, StateDraining: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
+		StateReady:       {StateDegraded: true, StateDraining: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
+		StateDegraded:    {StateReady: true, StateDraining: true, StateFailed: true, StateQuarantined: true, StateRevoked: true},
+		StateDraining:    {StateStopped: true, StateFailed: true, StateRevoked: true},
+		StateStopped:     {StateStarting: true, StateRevoked: true},
+		StateFailed:      {StateStarting: true, StateQuarantined: true, StateRevoked: true},
+		StateQuarantined: {StateRevoked: true},
 	}
 	return allowed[from][to]
 }

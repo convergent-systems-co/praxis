@@ -2,7 +2,7 @@
   "version": "v1",
   "command": [
     "env",
-    "GOCACHE=/tmp/praxis-go-cache",
+    "GOCACHE=/tmp/praxis2-gocache",
     "go",
     "test",
     "-v",
@@ -13,11 +13,11 @@
     "./internal/transfer"
   ],
   "working_directory": ".",
-  "started_at": "2026-09-14T04:22:03.441061Z",
-  "finished_at": "2026-09-14T04:22:05.026432Z",
+  "started_at": "2026-09-14T07:12:03.630198Z",
+  "finished_at": "2026-09-14T07:12:10.214393Z",
   "exit_code": 0,
   "output_ref": "docs/research/conformance/attestations/cluster-a-runtime-v30.log",
-  "output_digest": "sha256:1daa2b693751ceeca35608b652d6cddb3dc4457fd1599f4659f9d2bee1338cbe",
+  "output_digest": "sha256:0a92fd497d921c94448253c85a013f26db36977007051e502975db2be9ec40ac",
   "source_digests": {
     "internal/adaptation": "sha256:cd9f31271af3c28d673aa58b0baefabe644c573e9d6cf3db15e3304d15943c19",
     "internal/agent": "sha256:dcb55a7b41e9d7a05ed6f5ac1b35c88a18bc26cc6274281f542822368c988827",
@@ -25,7 +25,7 @@
     "internal/kernel": "sha256:c65e6b6a68689db1ea38e203a40864da95112b2b7b811d8aa9aa3a350e0b576a",
     "internal/learning": "sha256:2e182c24a5f320ad51a03da794a5c5daecc2cee6744e6f826fa36db605ac6651",
     "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
-    "internal/plugin": "sha256:4fd7f019a2a3397f022f0033aa895da3cfa91ac363a38877314ebe2e09e4c568",
+    "internal/plugin": "sha256:233f0a56b074d0130f3886662461fbe00e592c50c4b61bb9f85912ceba56b6da",
     "internal/preference": "sha256:c458c16c018e63f5154c60171c88c1ce65d8067ae6960e616fc451f06f2ea80c",
     "internal/state": "sha256:e34e63228bd02ca04b44f65da315e93ef1044ebf65119104cf364890deb420f4",
     "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
@@ -48,5 +48,5 @@
     "TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart"
   ],
   "platform": "darwin/arm64",
-  "digest": "sha256:7ad779b5ed6f46cb202aa23c8363110c4ae34a3cb5c1984e4fb20d2731eb4b36"
+  "digest": "sha256:59ce391545e020ddaad7975b4d6cad624e77049cd95e834db80293fdb02cb0c6"
 }

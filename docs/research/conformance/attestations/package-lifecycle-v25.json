@@ -2,7 +2,7 @@
   "version": "v1",
   "command": [
     "env",
-    "GOCACHE=/tmp/praxis-go-cache",
+    "GOCACHE=/tmp/praxis2-gocache",
     "go",
     "test",
     "-v",
@@ -17,17 +17,17 @@
     "./pkg/contracts"
   ],
   "working_directory": ".",
-  "started_at": "2026-09-14T04:22:05.827835Z",
-  "finished_at": "2026-09-14T04:22:06.446544Z",
+  "started_at": "2026-09-14T07:12:10.29663Z",
+  "finished_at": "2026-09-14T07:12:12.373109Z",
   "exit_code": 0,
   "output_ref": "docs/research/conformance/attestations/package-lifecycle-v25.log",
-  "output_digest": "sha256:10dd91c0d75e5cede7d3c3118d7c7946fd18a3debaecc0f86a6c1393c6912ef9",
+  "output_digest": "sha256:5da6cb939d6049c917780eac920cceb6a78daef0bed330d0a1dfadc052c0c513",
   "source_digests": {
     "cmd/praxis": "sha256:ffe87758d9741ebc1c18e7312bc29571879c72f8fa9d24c6fb4c1b6405fe79c0",
     "internal/agent": "sha256:dcb55a7b41e9d7a05ed6f5ac1b35c88a18bc26cc6274281f542822368c988827",
     "internal/distribution": "sha256:32889e31e3624dbdc2395a1a5540a1f60d585b5365ca35fbc5893019ba360ec7",
     "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
-    "internal/plugin": "sha256:4fd7f019a2a3397f022f0033aa895da3cfa91ac363a38877314ebe2e09e4c568",
+    "internal/plugin": "sha256:233f0a56b074d0130f3886662461fbe00e592c50c4b61bb9f85912ceba56b6da",
     "internal/state": "sha256:e34e63228bd02ca04b44f65da315e93ef1044ebf65119104cf364890deb420f4",
     "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
     "internal/transfer": "sha256:521260c083540d90a77423d64dfc9d2e00ab66026405d2d9b0de5a515082d14c",
@@ -75,5 +75,5 @@
     "TestVersionCatalogRejectsDuplicateSemanticOwnership"
   ],
   "platform": "darwin/arm64",
-  "digest": "sha256:81aee9ac595d175e64ae53614b7ef156e5f615e348b8a137f6ef0f8fe7f70077"
+  "digest": "sha256:eebf530c23deb2ee13117fa67e7d411163c2f66142de6aa4e3a19967fb825a5d"
 }

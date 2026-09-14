@@ -1,4 +1,4 @@
-go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.org/x/net/@v/v0.58.0.info300232264.tmp: operation not permitted
+go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.org/x/net/@v/v0.58.0.info163975437.tmp: operation not permitted
 === RUN   TestInstantiateDefinitionCreatesIndependentLocalAgents
 --- PASS: TestInstantiateDefinitionCreatesIndependentLocalAgents (0.00s)
 === RUN   TestInstantiateDefinitionRejectsNonAgentContent
@@ -15,14 +15,14 @@ go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.or
 === RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery
 === RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research
 --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart (0.04s)
-    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery (0.02s)
+    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery (0.03s)
     --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research (0.02s)
 === RUN   TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection
 --- PASS: TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection (0.00s)
 === RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains
 === RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery
 === RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research
---- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains (0.04s)
+--- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains (0.03s)
     --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery (0.02s)
     --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research (0.02s)
 === RUN   TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement
@@ -34,7 +34,7 @@ go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.or
 === RUN   TestOperationalGraphFailsClosedWhenAgentRoleIsMissing
 --- PASS: TestOperationalGraphFailsClosedWhenAgentRoleIsMissing (0.00s)
 PASS
-ok  	github.com/convergent-systems-co/praxis/internal/agent	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/agent	0.633s
 === RUN   TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart
 --- PASS: TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart (0.00s)
 === RUN   TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle
@@ -74,11 +74,11 @@ ok  	github.com/convergent-systems-co/praxis/internal/agent	(cached)
 === RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains
 === RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery
 === RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research
---- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains (0.02s)
-    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery (0.01s)
+--- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains (0.03s)
+    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery (0.02s)
     --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research (0.01s)
 PASS
-ok  	github.com/convergent-systems-co/praxis/internal/learning	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/learning	1.207s
 === RUN   TestPreferenceReplayRejectsAuthorityActorMismatch
 --- PASS: TestPreferenceReplayRejectsAuthorityActorMismatch (0.00s)
 === RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains
@@ -96,7 +96,7 @@ ok  	github.com/convergent-systems-co/praxis/internal/learning	(cached)
 === RUN   TestNarrowerScopeWinsWithinSameAuthority
 --- PASS: TestNarrowerScopeWinsWithinSameAuthority (0.00s)
 PASS
-ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/preference	0.872s
 === RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart
 === RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery
 === RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research
@@ -112,7 +112,7 @@ ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
 === RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart
 === RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package
 === RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package
---- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.03s)
+--- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.02s)
     --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package (0.01s)
     --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package (0.01s)
 === RUN   TestResourceHandoffDenialDoesNotMutateRun
@@ -126,7 +126,7 @@ ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
 === RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart
 === RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery
 === RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research
---- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart (0.03s)
+--- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart (0.02s)
     --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery (0.01s)
     --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research (0.01s)
 === RUN   TestResolvedPluginLaunchSpecBindsExactVerifiedPackageBytes
@@ -208,7 +208,7 @@ ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
 === RUN   TestSecureBlobRoundTripStoresNoPlaintextColumn
 --- PASS: TestSecureBlobRoundTripStoresNoPlaintextColumn (0.01s)
 === RUN   TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity
---- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.02s)
+--- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.01s)
 === RUN   TestSecureBlobIsImmutableByVersion
 --- PASS: TestSecureBlobIsImmutableByVersion (0.01s)
 === RUN   TestSecureBlobExpiryFailsClosed
@@ -226,11 +226,11 @@ ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
 === RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains
 === RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery
 === RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research
---- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains (0.02s)
+--- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains (0.01s)
     --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery (0.01s)
     --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research (0.01s)
 === RUN   TestCrossAgentTransferRetainsRejectedPrivacyCandidate
 --- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.01s)
 PASS
-ok  	github.com/convergent-systems-co/praxis/internal/state	0.882s
+ok  	github.com/convergent-systems-co/praxis/internal/state	1.926s
 ?   	github.com/convergent-systems-co/praxis/internal/transfer	[no test files]

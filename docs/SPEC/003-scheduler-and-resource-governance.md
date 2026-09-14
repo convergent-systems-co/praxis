@@ -64,6 +64,12 @@ authority.
 
 Resource leases SHALL be recoverable after runtime restart; correctness cannot depend solely on in-memory mutex state.
 
+The authoritative state provider SHALL expose cancellation release by the exact
+Slice ID and execution attempt ID. The operation SHALL be idempotent, release
+only active leases for that identity, and avoid requiring a caller to
+reconstruct a lease-ID list. A sibling attempt sharing the Slice ID SHALL
+remain unaffected.
+
 ## Quota model
 
 Praxis SHALL support hierarchical deterministic quotas at appropriate scopes such as runtime, user, package, graph, agent, run, Slice, plugin, executor, workspace, and destination/provider.

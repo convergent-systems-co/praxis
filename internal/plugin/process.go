@@ -23,6 +23,14 @@ type LaunchSpec struct {
 	RequiredIsolation []IsolationProperty
 }
 
+// ProcessExitObserver lets a supervisor turn an unexpected child exit into
+// authoritative lifecycle state. Implementations may invoke the handler
+// after the child has already been reaped; the supervisor must not assume the
+// process can still be terminated at that point.
+type ProcessExitObserver interface {
+	SetExitHandler(instance InstanceIdentity, handler func(error))
+}
+
 func (spec LaunchSpec) Validate() error {
 	if err := spec.Provider.Identity.ValidateAgainst(spec.Provider.Manifest); err != nil {
 		return fmt.Errorf("launch provider: %w", err)
@@ -52,13 +60,29 @@ func (spec LaunchSpec) Validate() error {
 // caller environment. It intentionally refuses required isolation until a
 // platform enforcer is supplied; process separation alone is not sandboxing.
 type LocalProcessControl struct {
-	mu      sync.Mutex
-	process map[string]*exec.Cmd
-	paths   map[string]string
+	mu       sync.Mutex
+	process  map[string]*exec.Cmd
+	paths    map[string]string
+	handlers map[string]func(error)
 }
 
 func NewLocalProcessControl() *LocalProcessControl {
-	return &LocalProcessControl{process: map[string]*exec.Cmd{}, paths: map[string]string{}}
+	return &LocalProcessControl{process: map[string]*exec.Cmd{}, paths: map[string]string{}, handlers: map[string]func(error){}}
+}
+
+func (control *LocalProcessControl) SetExitHandler(instance InstanceIdentity, handler func(error)) {
+	control.mu.Lock()
+	defer control.mu.Unlock()
+	key := processKey(instance)
+	if handler == nil {
+		delete(control.handlers, key)
+		return
+	}
+	control.handlers[key] = handler
+}
+
+func processKey(instance InstanceIdentity) string {
+	return instance.InstanceID + "\x00" + instance.RuntimeSession
 }
 
 func (control *LocalProcessControl) Start(ctx context.Context, spec LaunchSpec) error {
@@ -83,23 +107,50 @@ func (control *LocalProcessControl) Start(ctx context.Context, spec LaunchSpec) 
 		return fmt.Errorf("materialize verified plugin: %w", err)
 	}
 	command := exec.CommandContext(ctx, path)
-	command.Env = []string{"PRAXIS_PLUGIN_SOCKET=" + spec.SocketPath}
+	// Identity is authoritative launch context, not caller-controlled plugin
+	// content. Supplying it explicitly lets the child prove the exact binding
+	// during handshake without inheriting ambient host environment.
+	command.Env = []string{
+		"PRAXIS_PLUGIN_SOCKET=" + spec.SocketPath,
+		"PRAXIS_PLUGIN_ID=" + spec.Provider.Identity.PluginID,
+		"PRAXIS_PLUGIN_VERSION=" + spec.Provider.Identity.PluginVersion,
+		"PRAXIS_PLUGIN_INSTANCE=" + spec.Provider.Identity.InstanceID,
+		"PRAXIS_PLUGIN_DIGEST=" + spec.Provider.Identity.ArtifactDigest,
+		"PRAXIS_PLUGIN_SESSION=" + spec.Provider.Identity.RuntimeSession,
+	}
 	if err := command.Start(); err != nil {
 		_ = os.RemoveAll(directory)
 		return fmt.Errorf("start verified plugin: %w", err)
 	}
 	control.mu.Lock()
-	control.process[spec.Provider.Identity.InstanceID] = command
-	control.paths[spec.Provider.Identity.InstanceID] = directory
+	key := processKey(spec.Provider.Identity)
+	control.process[key] = command
+	control.paths[key] = directory
 	control.mu.Unlock()
 	go func() {
-		_ = command.Wait()
+		err := command.Wait()
 		control.mu.Lock()
-		delete(control.process, spec.Provider.Identity.InstanceID)
-		dir := control.paths[spec.Provider.Identity.InstanceID]
-		delete(control.paths, spec.Provider.Identity.InstanceID)
+		key := processKey(spec.Provider.Identity)
+		// A stale reaper must never remove or report against a newer process
+		// using the same map slot. Runtime session is part of the authoritative
+		// process identity, and the command pointer closes the remaining race.
+		current, currentOK := control.process[key]
+		if currentOK && current == command {
+			delete(control.process, key)
+			dir := control.paths[key]
+			delete(control.paths, key)
+			handler := control.handlers[key]
+			delete(control.handlers, key)
+			control.mu.Unlock()
+			_ = os.RemoveAll(dir)
+			if handler != nil {
+				handler(err)
+			}
+			return
+		}
 		control.mu.Unlock()
-		_ = os.RemoveAll(dir)
+		// The replacement owns the directory and handler now. The stale
+		// process has no lifecycle authority after its slot was replaced.
 	}()
 	return nil
 }
@@ -109,7 +160,7 @@ func (control *LocalProcessControl) Terminate(_ context.Context, instance Instan
 		return errors.New("local process control is required")
 	}
 	control.mu.Lock()
-	command, ok := control.process[instance.InstanceID]
+	command, ok := control.process[processKey(instance)]
 	control.mu.Unlock()
 	if !ok {
 		return errors.New("plugin process is not running")

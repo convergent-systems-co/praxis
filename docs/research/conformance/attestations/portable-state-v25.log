@@ -1,6 +1,6 @@
-go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.org/x/net/@v/v0.58.0.info454015856.tmp: operation not permitted
+go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.org/x/net/@v/v0.58.0.info585992913.tmp: operation not permitted
 === RUN   TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart
---- PASS: TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart (0.04s)
+--- PASS: TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart (0.03s)
 === RUN   TestRuntimeAuthorityIsNotReusableOnImport
 --- PASS: TestRuntimeAuthorityIsNotReusableOnImport (0.00s)
 === RUN   TestAgentGenerationIsPortableVersioned
@@ -8,7 +8,7 @@ go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/golang.or
 === RUN   TestPortableImportReplayRejectsAuthorityActorMismatch
 --- PASS: TestPortableImportReplayRejectsAuthorityActorMismatch (0.00s)
 PASS
-ok  	github.com/convergent-systems-co/praxis/internal/sync	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/sync	0.421s
 === RUN   TestSQLiteProviderAdvertisesRequiredLocalSemantics
 --- PASS: TestSQLiteProviderAdvertisesRequiredLocalSemantics (0.01s)
 === RUN   TestUnknownProviderCapabilityFailsClosed

@@ -1,0 +1,18 @@
+{
+  "frozen_result_digest": "sha256:1027a9ffba14f8f7a7b66986d77a52f44b7b353ed2491628b25a961a17a773fa",
+  "oracle_path": "internal/conformance/testdata/withheld_historical_oracle.json",
+  "score": {
+    "true_positives": 0,
+    "true_negatives": 0,
+    "false_positives": 0,
+    "false_negatives": 1,
+    "matches": [
+      {
+        "expectation_id": "historical-positive-control",
+        "claim_id": "OI-002",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      }
+    ]
+  }
+}

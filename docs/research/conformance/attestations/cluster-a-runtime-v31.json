@@ -1,0 +1,52 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/agent",
+    "./internal/learning",
+    "./internal/preference",
+    "./internal/state",
+    "./internal/transfer"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T07:26:45.334971Z",
+  "finished_at": "2026-09-14T07:26:47.314676Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/cluster-a-runtime-v31.log",
+  "output_digest": "sha256:3e8b1b1bf4f329d484ab02040513ef02aad826607e9c44d0e9d3577b4de9ac78",
+  "source_digests": {
+    "internal/adaptation": "sha256:cd9f31271af3c28d673aa58b0baefabe644c573e9d6cf3db15e3304d15943c19",
+    "internal/agent": "sha256:dcb55a7b41e9d7a05ed6f5ac1b35c88a18bc26cc6274281f542822368c988827",
+    "internal/inference": "sha256:b8c52e88de818294968b7c0cfdfe9ae20392beedf9c7ae738e45ed83af4eb53a",
+    "internal/kernel": "sha256:c65e6b6a68689db1ea38e203a40864da95112b2b7b811d8aa9aa3a350e0b576a",
+    "internal/learning": "sha256:2e182c24a5f320ad51a03da794a5c5daecc2cee6744e6f826fa36db605ac6651",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:300a30f67840b07cb4929ef58afd1fc17061cdd5d3662cfa14946e116073dfb1",
+    "internal/preference": "sha256:c458c16c018e63f5154c60171c88c1ce65d8067ae6960e616fc451f06f2ea80c",
+    "internal/state": "sha256:e34e63228bd02ca04b44f65da315e93ef1044ebf65119104cf364890deb420f4",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/transfer": "sha256:521260c083540d90a77423d64dfc9d2e00ab66026405d2d9b0de5a515082d14c",
+    "pkg/contracts": "sha256:e8e18702a1880a26dcd8a971cb1baec031a193b73204ddcd56c51b8320155fcd"
+  },
+  "observations": [
+    "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart",
+    "TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart",
+    "TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains",
+    "TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains",
+    "TestCrossAgentTransferRetainsRejectedPrivacyCandidate",
+    "TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains",
+    "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle",
+    "TestGenerationPromotionAndRollbackSurviveRestart",
+    "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains",
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement",
+    "TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware",
+    "TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains",
+    "TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:d6db2f03ca10a17d1d62f5d47f7be112f5f749c83b8ba5757aebf62cb21ab33e"
+}

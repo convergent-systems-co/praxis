@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-gocache",
+    "GOPATH=/private/tmp/praxis-gopath",
+    "go",
+    "test",
+    "-v",
+    "./internal/eventstore",
+    "./internal/packagecatalog",
+    "./internal/plugin",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/sync",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T08:53:33.31079Z",
+  "finished_at": "2026-09-14T08:53:36.155911Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/portable-state-v35.log",
+  "output_digest": "sha256:dedd32e7392fe49f93b105ba41d58f3f8a80f1e44994b85dbc512ecc4928e0ca",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:e17c969ca6caa4f0ccce2a29b72cb76645c990a795df394d14f66842e170aac8",
+    "internal/state": "sha256:c6b4b72afa8ee342e685c7b55eaf7309cc43d8ee5e70b5a882794725b1b9d1e4",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/sync": "sha256:65c89409deffbca8818b4e3cacb0b6cc15b770f1cb878b8608044f3c4f65c439",
+    "pkg/contracts": "sha256:e8e18702a1880a26dcd8a971cb1baec031a193b73204ddcd56c51b8320155fcd"
+  },
+  "observations": [
+    "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart",
+    "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed",
+    "TestPortableImportReplayRejectsAuthorityActorMismatch",
+    "TestRuntimeAuthorityIsNotReusableOnImport",
+    "TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt",
+    "TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements",
+    "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:33136a47dce734e021ccaa725fe3b99d708b7710711a68c9f6bbc77008f523fb"
+}

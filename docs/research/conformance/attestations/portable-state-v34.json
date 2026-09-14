@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-gocache",
+    "GOPATH=/private/tmp/praxis-gopath",
+    "go",
+    "test",
+    "-v",
+    "./internal/eventstore",
+    "./internal/packagecatalog",
+    "./internal/plugin",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/sync",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T08:44:07.185357Z",
+  "finished_at": "2026-09-14T08:44:10.208117Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/portable-state-v34.log",
+  "output_digest": "sha256:e4e5a22324b348ad09ff650ed869464e770c116dcea242ba99591b34226d0c3b",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:9d8c8bcd31200439600bdb5ba94f96dd02a1421803e74e9965e0221a455aba0d",
+    "internal/state": "sha256:c6b4b72afa8ee342e685c7b55eaf7309cc43d8ee5e70b5a882794725b1b9d1e4",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/sync": "sha256:65c89409deffbca8818b4e3cacb0b6cc15b770f1cb878b8608044f3c4f65c439",
+    "pkg/contracts": "sha256:e8e18702a1880a26dcd8a971cb1baec031a193b73204ddcd56c51b8320155fcd"
+  },
+  "observations": [
+    "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart",
+    "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed",
+    "TestPortableImportReplayRejectsAuthorityActorMismatch",
+    "TestRuntimeAuthorityIsNotReusableOnImport",
+    "TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt",
+    "TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements",
+    "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:6b3675273364d258749e832f0fcfd77a02859bf8e6de40745bbe8e43488b4c80"
+}

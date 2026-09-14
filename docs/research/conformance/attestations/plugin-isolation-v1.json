@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/plugin"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T15:02:18.49529Z",
+  "finished_at": "2026-09-14T15:02:18.680626Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/plugin-isolation-v1.log",
+  "output_digest": "sha256:d4ab8d25f253cc4898618db5c14698ff73eb809ca9e1c76aa8685037c26a5d23",
+  "source_digests": {
+    "internal/plugin": "sha256:5f094bb09ca3a123fd91f09e790c3edd730f99ab3f511dc34e35cc78db2e2ab4",
+    "internal/plugin/isolation_test.go": "sha256:84719c067be23027114670bb0a12094b785172618a480b5f9382fa0868c38850",
+    "internal/plugin/process_test.go": "sha256:66e622d3cc9b0e7bd220e3f08f3e49d7c6f08332628eb9c895e3457ec991711f"
+  },
+  "observations": [
+    "TestIsolationRequiredPropertiesMustAllBeEnforced",
+    "TestIsolationUnknownFailsClosed",
+    "TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:ca6dc53abfa972b04d3910c4307d2c94b2f6c8b309de9c12d29e136eaf2d32e3"
+}

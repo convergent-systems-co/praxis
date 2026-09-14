@@ -534,6 +534,12 @@ requires machine-verifiable client enforcement before execution. Unknown
 enforcement and unmediated bypass paths fail closed; a model proposal is never
 treated as an authorization result.
 
+OI-030 is satisfied in `blind-plugin-isolation-v1.json`, digest
+`sha256:07d302923ec9c7aaa49e3e364558b1fb8c7aee040e492fe591abed1878d8c577`.
+Isolation profiles require every declared property to be enforced, and the
+local process launcher rejects required isolation when no host enforcer exists;
+verified executable identity and runtime-bound process control remain intact.
+
 OI-028 is satisfied in `blind-workspace-intelligence-v1.json`, digest
 `sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`.
 Workspace indexing detects content changes and preserves fresh evidence by
@@ -599,6 +605,7 @@ Implemented in this reopened wave:
 - client-surface equivalence attestation `client-surface-v1.json` and blind result `blind-client-surface-v1.json`; OI-026 is satisfied and the unchanged 38-claim denominator records 34 satisfied / 4 indeterminate
 - below-LLM mediation attestation `mediation-gate-v1.json` and blind result `blind-mediation-gate-v1.json`; OI-027 is satisfied and the unchanged 38-claim denominator records 35 satisfied / 3 indeterminate
 - Workspace Intelligence attestation `workspace-intelligence-v1.json` and blind result `blind-workspace-intelligence-v1.json`; OI-028 is satisfied and the unchanged 38-claim denominator records 36 satisfied / 2 indeterminate
+- plugin isolation attestation `plugin-isolation-v1.json` and blind result `blind-plugin-isolation-v1.json`; OI-030 is satisfied and the unchanged 38-claim denominator records 37 satisfied / 1 indeterminate
 
 ## Completion calculation
 

@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-workspace-intelligence-v1.json`
-- Latest frozen result digest: `sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`
+- Latest accepted remediation result: `docs/research/conformance/blind-plugin-isolation-v1.json`
+- Latest frozen result digest: `sha256:07d302923ec9c7aaa49e3e364558b1fb8c7aee040e492fe591abed1878d8c577`
 
 ## Method and denominator
 
@@ -297,3 +297,13 @@ is frozen at
 `sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`
 and independently advances OI-028. Totals are now 36 satisfied and 2
 indeterminate; OI-025 and OI-030 remain open.
+
+Plugin isolation then received successor execution attestation
+`docs/research/conformance/attestations/plugin-isolation-v1.json`. Required
+properties must be enforced, and the local process launcher fails closed when
+the host cannot enforce them; exact verified executable bytes and runtime-bound
+process identity are also checked. The blind result
+`docs/research/conformance/blind-plugin-isolation-v1.json` is frozen at
+`sha256:07d302923ec9c7aaa49e3e364558b1fb8c7aee040e492fe591abed1878d8c577`
+and independently advances OI-030. Totals are now 37 satisfied and 1
+indeterminate; only OI-025 remains open.

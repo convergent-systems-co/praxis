@@ -1,0 +1,31 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "GOMODCACHE=/tmp/praxis-go-modcache",
+    "go",
+    "test",
+    "-v",
+    "./internal/plugin",
+    "-run",
+    "Test(OutOfProcessPluginHandshakeStreamingCancellationAndRestart|SupervisorPersistsUnexpectedExitFromLocalProcess)$"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T10:36:59.799994Z",
+  "finished_at": "2026-09-14T10:37:00.932502Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/plugin-lifecycle-v1.log",
+  "output_digest": "sha256:fc053e101fbd3a65880cdcf50e4ef875654216f7e9a184248a9d0ab2403d53cf",
+  "source_digests": {
+    "internal/plugin": "sha256:5f094bb09ca3a123fd91f09e790c3edd730f99ab3f511dc34e35cc78db2e2ab4",
+    "internal/plugin/grpc_process_integration_test.go": "sha256:48fd1c20ce3c45a6d12561192652e8a522d57bb2977ee0a500b3179b90230f76",
+    "internal/plugin/supervisor_test.go": "sha256:724bbd3b3db52716e29580f145ef108f2e7332c37ffef611e1c21319293d9102"
+  },
+  "observations": [
+    "TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart",
+    "TestSupervisorPersistsUnexpectedExitFromLocalProcess"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:338202d51061e77c366562accb36d650332bc15a3899366ebf905aecfedb65e4"
+}

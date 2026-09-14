@@ -433,10 +433,22 @@ contradicted findings. Post-freeze qualification
 `package-supervisor-oracle-qualification-v17.json` retains the historical
 OI-002 false-negative control; OI-024 and release qualification remain open.
 
+Wave 21 plugin lifecycle qualification is now attested in
+`plugin-lifecycle-v1.json`. The real out-of-process gRPC fixture proves
+authority-derived protocol negotiation, authenticated instance/session binding,
+unary and bidirectional streaming, deadline cancellation, crash observation,
+and rejection of a stale identity after restart; the supervisor recovery test
+proves an unexpected local-process exit is persisted as failed and removed
+from routability. Blind result v18 promotes OI-021 to satisfied, changing the
+current discovery result to 26 satisfied / 12 indeterminate with zero
+unsupported or contradicted claims. This closes the OI-021 evidence gate only;
+plugin isolation (OI-030), scheduler completion (OI-024), and release
+qualification remain open.
+
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 
 1. Attest event/projection/checkpoint replay and causal observability after restart.
-2. Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
+2. COMPLETE — Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
 3. Attest scheduler ordered acquisition, bounded starvation, cancellation release, lease expiry, and restart recovery.
 4. Prove every mutation/effect entry surface traverses canonical command, policy, capability, approval, and effect commit boundaries.
 5. Prove client degradation and required-mediation failure across supported adapters.
@@ -448,7 +460,12 @@ OI-002 false-negative control; OI-024 and release qualification remain open.
 
 Finding closures: OI-021, OI-023, OI-024, OI-025, OI-026, OI-027, OI-028, OI-029, OI-030, OI-031, OI-032, OI-038.
 
-Closure evidence: OI-023 and OI-031 are satisfied in `blind-attested-recovery-authority.json` by content-bound restart/replay and security/integration executions. OI-025 deliberately remains indeterminate because the narrower effect revalidation test does not prove complete mediation of every mutation/effect surface.
+Closure evidence: OI-021 is satisfied in blind result v18 by
+`plugin-lifecycle-v1.json`; OI-023 and OI-031 are satisfied in
+`blind-attested-recovery-authority.json` by content-bound restart/replay and
+security/integration executions. OI-025 deliberately remains indeterminate
+because the narrower effect revalidation test does not prove complete
+mediation of every mutation/effect surface.
 
 OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-delivery and research profiles use different opaque pressure signals and thresholds while the same core mechanism governs event-led checkpoint, handoff, SQLite restart, exact-reference resume, and run/agent/evidence identity preservation. Calibration remains package/profile policy.
 

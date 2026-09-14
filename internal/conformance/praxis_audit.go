@@ -112,6 +112,7 @@ const (
 	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v43.json"
 	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v37.json"
+	pluginLifecycleAttestation  = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -148,7 +149,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "behavioral-profile-lifecycle", Kind: "runtime_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-020"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains"},
 		{ID: "canonical-contracts", Kind: "code", Stage: StageContract, Ref: "pkg/contracts", ClaimIDs: []string{"OI-018", "OI-022"}},
 		{ID: "schema-conformance", Kind: "schema_test", Stage: StageContract, Ref: "tests/test_valid_contracts.py", ClaimIDs: []string{"OI-022"}},
-		{ID: "plugin-lifecycle", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/plugin/supervisor_test.go", ClaimIDs: []string{"OI-021"}},
+		{ID: "plugin-lifecycle-integration", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/plugin/grpc_process_integration_test.go", ClaimIDs: []string{"OI-021"}, AttestationRef: pluginLifecycleAttestation, Observation: "TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart"},
+		{ID: "plugin-lifecycle-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/plugin/supervisor_test.go", ClaimIDs: []string{"OI-021"}, AttestationRef: pluginLifecycleAttestation, Observation: "TestSupervisorPersistsUnexpectedExitFromLocalProcess"},
 		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestQualificationRunControlSurvivesSQLiteRestart"},
 		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestRunProjectionRebuildsFromAuthoritativeEvents"},
 		{ID: "scheduler-queue", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/scheduler/queue_test.go", ClaimIDs: []string{"OI-024"}},

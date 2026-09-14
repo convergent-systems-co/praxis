@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-untrusted-content-boundary-v1.json`
-- Latest frozen result digest: `sha256:95c68ef247dca2069418f45990ddc0f04e427112d66258e32ce83c42b1537178`
+- Latest accepted remediation result: `docs/research/conformance/blind-client-surface-v1.json`
+- Latest frozen result digest: `sha256:b4d41e9f764b9a36855bfc4f8b15a37e51f2ce230fd46825faa0caa390656e3e`
 
 ## Method and denominator
 
@@ -267,3 +267,13 @@ at `sha256:95c68ef247dca2069418f45990ddc0f04e427112d66258e32ce83c42b1537178`
 and independently advances OI-029 without claiming model-level prompt
 injection detection. Totals are now 33 satisfied and 5 indeterminate; OI-025,
 OI-026, OI-027, OI-028, and OI-030 remain open.
+
+The client-surface lifecycle then received successor execution attestation
+`docs/research/conformance/attestations/client-surface-v1.json`. Two adapter
+surfaces preserve the canonical package, graph, version, and entry-point
+semantics while explicitly omitting an unavailable optional presentation
+affordance; missing adapter identity fails closed. The blind result
+`docs/research/conformance/blind-client-surface-v1.json` is frozen at
+`sha256:b4d41e9f764b9a36855bfc4f8b15a37e51f2ce230fd46825faa0caa390656e3e`
+and independently advances OI-026. Totals are now 34 satisfied and 4
+indeterminate; OI-025, OI-027, OI-028, and OI-030 remain open.

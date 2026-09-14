@@ -520,6 +520,13 @@ or human authority, and cannot mint an action intent. This closes the
 content-to-proposal-to-memory-to-authority path without claiming prompt-level
 injection detection.
 
+OI-026 is satisfied in `blind-client-surface-v1.json`, digest
+`sha256:b4d41e9f764b9a36855bfc4f8b15a37e51f2ce230fd46825faa0caa390656e3e`.
+Two adapter surfaces produce the same package/graph/entry-point semantics;
+the richer adapter exposes an optional presentation affordance while the
+minimal adapter records that affordance as explicitly omitted. Missing adapter
+identity fails closed, and no adapter can change option meaning or authority.
+
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
@@ -575,6 +582,7 @@ Implemented in this reopened wave:
 - universal package lifecycle attestation `universal-package-lifecycle-v1.json` and blind result `blind-universal-package-lifecycle-v1.json`; OI-037 is satisfied and the unchanged 38-claim denominator records 31 satisfied / 7 indeterminate
 - crypto lifecycle attestation `crypto-lifecycle-v1.json` and blind result `blind-crypto-lifecycle-v1.json`; OI-032 is satisfied and the unchanged 38-claim denominator records 32 satisfied / 6 indeterminate
 - untrusted-content boundary attestation `untrusted-content-boundary-v1.json` and blind result `blind-untrusted-content-boundary-v1.json`; OI-029 is satisfied and the unchanged 38-claim denominator records 33 satisfied / 5 indeterminate
+- client-surface equivalence attestation `client-surface-v1.json` and blind result `blind-client-surface-v1.json`; OI-026 is satisfied and the unchanged 38-claim denominator records 34 satisfied / 4 indeterminate
 
 ## Completion calculation
 

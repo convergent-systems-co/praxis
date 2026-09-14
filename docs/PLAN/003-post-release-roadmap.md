@@ -73,6 +73,11 @@ Issue #102 is the execution-selection foundation for multi-agent first-party bun
 
 Architecture is governed by ADR-059 and SPEC-022.
 
+The first post-release foundation slice implements the versioned provider-neutral
+`ExecutionTarget` contract in `pkg/contracts`, including transport/API policy
+conflict checks. Deterministic eligibility merging, routing evidence, and
+concrete executor surfaces remain subsequent #102 work.
+
 Deliverables:
 
 - provider-neutral Execution Target contract;

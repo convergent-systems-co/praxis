@@ -37,6 +37,8 @@ Acceptance SHALL bind:
 - authoritative source reference and digest;
 - acceptance-record reference and digest;
 - accepting principal;
+- least-scope authority scope;
+- independent review reference and version;
 - independent review digest;
 - acceptance mode (`human` or `policy`).
 
@@ -49,6 +51,13 @@ Human approval SHALL be required for unresolved, ambiguous, material, or
 authority-sensitive decomposition unless an existing policy explicitly permits
 independent deterministic acceptance. Policy acceptance SHALL not be inferred
 from worker output, model confidence, or a passing test.
+
+The production acceptance boundary SHALL reload the referenced review and
+require its status to be `acceptable_for_authority_decision`, with exact
+proposal and baseline bindings. A review status, model/provider result, or
+caller-supplied digest alone SHALL never create acceptance authority.
+Acceptance and successor-baseline attachment remain separate durable
+transitions and SHALL survive restart without conversational state.
 
 ## Lifecycle and recovery
 

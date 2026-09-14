@@ -173,12 +173,17 @@ func workPlanProposalFixture() (contracts.WorkPlanProposal, contracts.WorkPlanAc
 	digest, _ := proposal.Digest()
 	decision := contracts.WorkPlanAcceptance{
 		ProposalDigest: digest, BaselineDigest: proposal.BaselineDigest,
-		AuthorityRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", AuthorityDigest: "sha256:authority",
+		AuthorityRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", AuthorityDigest: "sha256:authority", AuthorityScope: "goal:goal-1",
 		AcceptanceRef: "acceptance-1", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human-reviewer", Kind: "human"},
-		ReviewDigest: "sha256:review", Mode: "human",
+		ReviewRef: "review-1", ReviewVersion: "1", ReviewDigest: "sha256:review", Mode: "human",
 	}
 	accepted := contracts.WorkPlan{BaselineDigest: proposal.BaselineDigest, Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN, Requirements: proposal.Candidates[0].Requirements}}}
 	return proposal, decision, accepted
+}
+
+func workPlanReviewFixture(proposal contracts.WorkPlanProposal) contracts.WorkPlanProposalReview {
+	digest, _ := proposal.Digest()
+	return contracts.WorkPlanProposalReview{ProposalDigest: digest, BaselineDigest: proposal.BaselineDigest, ReviewRef: "review-1", ReviewDigest: "sha256:review", ReviewedBy: contracts.PrincipalRef{ID: "reviewer", Kind: "agent"}, ReviewerGeneration: "reviewer-generation-1", Status: contracts.ReviewAcceptableForAuthority, CoveredRequirements: []string{"req-1"}}
 }
 
 func TestRepositoryWorkPlanAcceptanceSurvivesRestartAndRejectsDuplicate(t *testing.T) {
@@ -197,6 +202,9 @@ func TestRepositoryWorkPlanAcceptanceSurvivesRestartAndRejectsDuplicate(t *testi
 	}
 	if proposalDigest == "" {
 		t.Fatal("proposal digest must be persisted")
+	}
+	if err := repo.SaveWorkPlanReview(ctx, proposal.ID, "1", workPlanReviewFixture(proposal), "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
@@ -270,6 +278,23 @@ func TestRepositoryWorkPlanReviewBindsProposalAndSurvivesRestart(t *testing.T) {
 	}
 }
 
+func TestRepositoryAcceptanceRejectsNonAcceptableReview(t *testing.T) {
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	ctx := context.Background()
+	proposal, decision, accepted := workPlanProposalFixture()
+	if _, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	review := workPlanReviewFixture(proposal)
+	review.Status = contracts.ReviewRevisionRequired
+	if err := repo.SaveWorkPlanReview(ctx, proposal.ID, "1", review, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.SaveAcceptedWorkPlan(ctx, proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err == nil {
+		t.Fatal("revision-required review became acceptance authority")
+	}
+}
+
 func TestRepositoryAttachAcceptedWorkPlanCreatesBoundSuccessor(t *testing.T) {
 	repo, db := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
 	ctx := context.Background()
@@ -285,6 +310,9 @@ func TestRepositoryAttachAcceptedWorkPlanCreatesBoundSuccessor(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveWorkPlanReview(ctx, proposal.ID, "1", workPlanReviewFixture(proposal), "1", time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
 	accepted.BaselineDigest = source.Digest

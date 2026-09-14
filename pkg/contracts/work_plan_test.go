@@ -45,7 +45,7 @@ func TestAcceptWorkPlanSeparatesProposalAndAcceptanceAndBindsBaseline(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	accepted, err := AcceptWorkPlan(proposal, WorkPlan{Candidates: []WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: ProvenancePLAN, Requirements: proposal.Candidates[0].Requirements}}}, WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:baseline", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "reviewer", Kind: "human"}, ReviewDigest: "sha256:review", Mode: "human"})
+	accepted, err := AcceptWorkPlan(proposal, WorkPlan{Candidates: []WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: ProvenancePLAN, Requirements: proposal.Candidates[0].Requirements}}}, WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:baseline", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AuthorityScope: "goal:goal", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "reviewer", Kind: "human"}, ReviewRef: "review:unit", ReviewVersion: "1", ReviewDigest: "sha256:review", Mode: "human"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestAcceptWorkPlanRejectsSelfAcceptanceAndStaleBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decision := WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:stale", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "actor", Kind: "model"}, ReviewDigest: "sha256:review", Mode: "policy"}
+	decision := WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:stale", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AuthorityScope: "goal:goal", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "actor", Kind: "model"}, ReviewRef: "review:unit", ReviewVersion: "1", ReviewDigest: "sha256:review", Mode: "policy"}
 	if _, err := AcceptWorkPlan(proposal, WorkPlan{Candidates: []WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: ProvenancePLAN}}}, decision); err == nil {
 		t.Fatal("stale/self-accepted proposal was authorized")
 	}
@@ -72,7 +72,7 @@ func TestAcceptWorkPlanRejectsModelAsIndependentPolicyAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decision := WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:baseline", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "model-2", Kind: "model"}, ReviewDigest: "sha256:review", Mode: "policy"}
+	decision := WorkPlanAcceptance{ProposalDigest: proposalDigest, BaselineDigest: "sha256:baseline", AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted", AuthorityScope: "goal:goal", AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance", AcceptedBy: PrincipalRef{ID: "model-2", Kind: "model"}, ReviewRef: "review:unit", ReviewVersion: "1", ReviewDigest: "sha256:review", Mode: "policy"}
 	if _, err := AcceptWorkPlan(proposal, WorkPlan{Candidates: []WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: ProvenancePLAN}}}, decision); err == nil {
 		t.Fatal("model was accepted as independent policy authority")
 	}

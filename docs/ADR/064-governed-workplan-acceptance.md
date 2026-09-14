@@ -30,6 +30,11 @@ authority boundaries, and expected evidence. Review status only determines
 whether the proposal is ready to be surfaced to acceptance authority; it never
 accepts, attaches, or activates the plan.
 
+The acceptance boundary must reload that exact acceptable review record and bind
+the authority's explicit least-scope scope to the proposal, source baseline,
+and review. A caller cannot promote a digest that is not present in the
+authoritative review store.
+
 Acceptance may be human or policy-governed. Human acceptance is required for
 ambiguous, material, or authority-sensitive decomposition unless an existing
 policy explicitly grants an independent deterministic authority to decide it.

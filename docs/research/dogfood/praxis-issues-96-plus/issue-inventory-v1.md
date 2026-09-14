@@ -323,3 +323,19 @@ non-executable.
 
 This does not create a proposal or review for the current dogfood Goal, invoke
 human/policy acceptance, attach a WorkPlan, or add provider execution.
+
+## Dogfood finding DF-016 — acceptance authority invocation boundary
+
+DF-015 persisted independent review but acceptance still trusted a caller's
+review digest without reloading the review record or checking its decision
+status. That left a gap between “review evidence exists” and “this proposal is
+eligible for authority decision.”
+
+The bounded correction makes acceptance reload the exact review reference and
+version, require `acceptable_for_authority_decision`, bind proposal/baseline/
+review digests, and require an explicit least-scope authority scope. Review
+evidence remains distinct from the human or policy acceptance principal;
+acceptance remains distinct from successor-baseline attachment. Tests cover
+missing/rejected review, immutable replay protection, and restart recovery.
+
+No acceptance authority or WorkPlan was created for the current dogfood Goal.

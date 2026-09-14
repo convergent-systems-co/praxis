@@ -45,6 +45,9 @@ type WorkPlanAcceptance struct {
 	AcceptanceRef    string       `json:"acceptance_ref"`
 	AcceptanceDigest string       `json:"acceptance_digest"`
 	AcceptedBy       PrincipalRef `json:"accepted_by"`
+	AuthorityScope   string       `json:"authority_scope"`
+	ReviewRef        string       `json:"review_ref"`
+	ReviewVersion    string       `json:"review_version"`
 	ReviewDigest     string       `json:"review_digest"`
 	Mode             string       `json:"mode"` // human or policy
 }
@@ -258,7 +261,7 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 	if decision.ProposalDigest != proposalDigest || decision.BaselineDigest != proposal.BaselineDigest {
 		return WorkPlan{}, fmt.Errorf("%w: proposal or baseline digest does not match acceptance", ErrUnacceptedWorkPlan)
 	}
-	if decision.AuthorityRef == "" || decision.AuthorityDigest == "" || decision.AcceptanceRef == "" || decision.AcceptanceDigest == "" || decision.ReviewDigest == "" {
+	if decision.AuthorityRef == "" || decision.AuthorityDigest == "" || decision.AuthorityScope == "" || decision.AcceptanceRef == "" || decision.AcceptanceDigest == "" || decision.ReviewRef == "" || decision.ReviewVersion == "" || decision.ReviewDigest == "" {
 		return WorkPlan{}, fmt.Errorf("%w: acceptance authority and independent review are required", ErrUnacceptedWorkPlan)
 	}
 	if err := decision.AcceptedBy.Validate(); err != nil {

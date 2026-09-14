@@ -249,9 +249,10 @@ func (r Repository) LoadWorkPlanProposal(ctx context.Context, id, version string
 }
 
 type acceptedWorkPlanRecord struct {
-	Proposal contracts.WorkPlanProposal   `json:"proposal"`
-	Decision contracts.WorkPlanAcceptance `json:"decision"`
-	Plan     contracts.WorkPlan           `json:"plan"`
+	Proposal contracts.WorkPlanProposal       `json:"proposal"`
+	Review   contracts.WorkPlanProposalReview `json:"review"`
+	Decision contracts.WorkPlanAcceptance     `json:"decision"`
+	Plan     contracts.WorkPlan               `json:"plan"`
 }
 
 type workPlanReviewRecord struct {
@@ -317,6 +318,14 @@ func (r Repository) SaveAcceptedWorkPlan(ctx context.Context, proposalID, propos
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("load proposal for acceptance: %w", err)
 	}
+	review, err := r.LoadWorkPlanReview(ctx, decision.ReviewRef, decision.ReviewVersion, time.Now().UTC())
+	if err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("load review for acceptance: %w", err)
+	}
+	proposalDigest, err := proposal.Digest()
+	if err != nil || review.ProposalDigest != proposalDigest || review.BaselineDigest != proposal.BaselineDigest || review.ReviewDigest != decision.ReviewDigest || review.Status != contracts.ReviewAcceptableForAuthority {
+		return contracts.WorkPlan{}, fmt.Errorf("%w: acceptance requires an exact acceptable independent review", contracts.ErrUnacceptedWorkPlan)
+	}
 	plan, err := contracts.AcceptWorkPlan(proposal, accepted, decision)
 	if err != nil {
 		return contracts.WorkPlan{}, err
@@ -324,7 +333,7 @@ func (r Repository) SaveAcceptedWorkPlan(ctx context.Context, proposalID, propos
 	if recordVersion == "" {
 		return contracts.WorkPlan{}, errors.New("work plan acceptance version is required")
 	}
-	record := acceptedWorkPlanRecord{Proposal: proposal, Decision: decision, Plan: plan}
+	record := acceptedWorkPlanRecord{Proposal: proposal, Review: review, Decision: decision, Plan: plan}
 	payload, err := json.Marshal(record)
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("encode accepted WorkPlan: %w", err)
@@ -346,6 +355,9 @@ func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, ver
 	}
 	if stored.Decision.AcceptanceRef != acceptanceRef || payloadDigest(payload) != record.ObjectDigest {
 		return contracts.WorkPlan{}, errors.New("accepted WorkPlan identity or record digest mismatch")
+	}
+	if err := stored.Review.Validate(stored.Proposal); err != nil || stored.Review.ReviewDigest != stored.Decision.ReviewDigest || stored.Review.Status != contracts.ReviewAcceptableForAuthority {
+		return contracts.WorkPlan{}, fmt.Errorf("%w: persisted acceptance review is not valid", contracts.ErrUnacceptedWorkPlan)
 	}
 	plan, err := contracts.AcceptWorkPlan(stored.Proposal, stored.Plan, stored.Decision)
 	if err != nil {

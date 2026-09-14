@@ -2,14 +2,14 @@
 
 - Date: 2026-09-14
 - Branch: `redesign/praxis2`
-- Status: critical conformance gaps discovered; remediation required
+- Status: blind conformance complete; release oracle qualification blocked by one historical false negative
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
 - Latest accepted remediation result: `docs/research/conformance/blind-praxis2-release-qualified-v1.json`
 - Latest frozen result digest: `sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03`
 
 ## Method and denominator
 
-The qualified discovery baseline contains 37 stable claims derived from ADR-001 through ADR-048. ADR-049, SPEC-018, PLAN-001, existing tests, current package structure, and the historical qualification omission were excluded as denominator sources. Every claim records its original source, statement, behavioral/structural class, criticality, required evidence classes, and required lifecycle maturity.
+The qualified discovery baseline began with 37 stable claims derived from ADR-001 through ADR-048. The controlled denominator transition added OI-038 from original ADR intent; the current frozen denominator contains 38 claims with claim-set digest `sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0`. ADR-049, SPEC-018, PLAN-001, existing tests, current package structure, and the historical qualification omission were excluded as denominator sources. Every claim records its original source, statement, behavioral/structural class, criticality, required evidence classes, and required lifecycle maturity.
 
 The implementation inventory was assembled separately from observable source, test, package, and runtime artifacts. Artifact bytes are content-digested. Test source is capped at `contract` maturity: the presence of a test cannot self-attest that it ran or that the tested behavior is integrated. Higher maturity requires a separate execution attestation.
 
@@ -325,3 +325,14 @@ frozen at
 `sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03`.
 All 38 critical original-intent claims are satisfied, with zero unsupported,
 indeterminate, or contradicted findings; the result is conformant.
+
+Post-freeze scoring was performed without mutating that blind result. The
+qualification artifact
+`docs/research/conformance/praxis2-release-oracle-qualification-v1.json`
+uses the immutable historical oracle
+`internal/conformance/testdata/withheld_historical_oracle.json` and records
+one false negative: its historical OI-002 expectation is `unsupported`, while
+the current blind result correctly finds OI-002 `satisfied`. Under PLAN-001's
+Wave 23 rule requiring zero false negatives, release qualification remains
+blocked pending an authoritative decision about versioning or superseding the
+historical oracle; the oracle itself has not been changed.

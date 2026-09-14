@@ -1,6 +1,6 @@
 # PLAN-001: Praxis 2 Master Delivery Plan
 
-- Status: REOPENED — GOAL CONFORMANCE
+- Status: BLOCKED — RELEASE ORACLE QUALIFICATION
 - Branch: `redesign/praxis2`
 - Architecture authority: `docs/ADR/*`
 - Implementation authority: `docs/SPEC/*`
@@ -565,7 +565,7 @@ Finding closures: OI-006, OI-012, OI-033, OI-034.
 
 Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle-v2.json`. The two-domain lifecycle proves governed drift and graph consumption, explicit correction across restart/provider replacement, material-only input/default behavior, and contract-bound migration with fail-closed incompatible reinterpretation. Successor attestation `planning-lifecycle-v1.json` exercises direct fast-path selection, architected baseline creation, two-slice reuse, exact dependency-closure invalidation, and unrelated-slice reuse. Blind result `blind-planning-lifecycle-v1.json`, digest `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d`, independently evaluates OI-033 as satisfied against the unchanged 38-claim denominator; totals are 29 satisfied and 9 indeterminate. OI-034 remains satisfied from the Goals successor result.
 
-## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY WAVES 17-22
+## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY HISTORICAL ORACLE QUALIFICATION
 
 1. Re-inventory implementation evidence without reading the oracle.
 2. Freeze a new content-addressed blind result against the current 38-claim denominator.
@@ -573,7 +573,7 @@ Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle
 4. Load and score the withheld oracle only after freeze; require no false negative.
 5. Run regression, adversarial/security, clean-install, restart/recovery, cross-provider, and full branch CI qualifications.
 6. Reconcile ADR/SPEC/PLAN/report links to exact evidence and frozen digests.
-7. Only after all gates pass may this plan return to COMPLETE and calculate 100% against the frozen denominator.
+7. Only after all gates pass may this plan return to COMPLETE and calculate 100% against the frozen denominator. The blind conformance gate is satisfied, but the current post-freeze qualification records one false negative because the immutable historical oracle expects OI-002 to remain unsupported after remediation.
 
 ## Current evidence
 
@@ -615,6 +615,7 @@ Implemented in this reopened wave:
 - plugin isolation attestation `plugin-isolation-v1.json` and blind result `blind-plugin-isolation-v1.json`; OI-030 is satisfied and the unchanged 38-claim denominator records 37 satisfied / 1 indeterminate
 - mutation/effect boundary attestation `mutation-boundary-v1.json` and blind result `blind-mutation-boundary-v1.json`; OI-025 is satisfied and the unchanged 38-claim denominator records 38 satisfied / 0 indeterminate
 - final blind whole-system release qualification `blind-praxis2-release-qualified-v1.json`; all 38 critical original-intent claims are satisfied with zero unsupported, indeterminate, or contradicted findings
+- post-freeze historical oracle qualification `praxis2-release-oracle-qualification-v1.json`; records 0 true positives, 0 true negatives, 0 false positives, and 1 false negative for the stale OI-002 expectation; release remains blocked under the current Wave 23 no-false-negative rule
 
 ## Completion calculation
 
@@ -622,4 +623,4 @@ No percentage is asserted while the blind audit is establishing the true denomin
 
 ## Definition of completion
 
-Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, and final CI/conformance evidence is green. The frozen release qualification `blind-praxis2-release-qualified-v1.json` satisfies this predicate.
+Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, the post-freeze oracle qualification has no false negatives under the authoritative oracle policy, and final CI/conformance evidence is green. The blind result satisfies the conformance predicate, but the current historical-oracle qualification does not satisfy the release predicate.

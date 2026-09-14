@@ -28,3 +28,17 @@ func TestOrderRunnableFIFOWithinEffectivePriority(t *testing.T) {
 		t.Fatalf("expected older slice first, got %s", ordered[0].Slice.ID)
 	}
 }
+
+func TestOrderRunnableBoundsStarvationUnderSustainedHigherPriorityLoad(t *testing.T) {
+	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
+	aging := time.Minute
+	items := []QueueItem{
+		{Slice: Slice{ID: "high", Priority: 10, CreatedAt: now}},
+		{Slice: Slice{ID: "aged-low", Priority: 1, CreatedAt: now.Add(-10 * aging)}},
+	}
+
+	ordered := OrderRunnable(items, now, aging)
+	if ordered[0].Slice.ID != "aged-low" {
+		t.Fatalf("aging must eventually admit lower-priority work, got %s", ordered[0].Slice.ID)
+	}
+}

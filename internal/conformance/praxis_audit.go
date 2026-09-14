@@ -109,10 +109,11 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation  = "docs/research/conformance/attestations/cluster-a-runtime-v43.json"
-	portableStateAttestation    = "docs/research/conformance/attestations/portable-state-v37.json"
-	packageLifecycleAttestation = "docs/research/conformance/attestations/package-lifecycle-v37.json"
-	pluginLifecycleAttestation  = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v43.json"
+	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
+	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
+	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v1.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -153,7 +154,8 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "plugin-lifecycle-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/plugin/supervisor_test.go", ClaimIDs: []string{"OI-021"}, AttestationRef: pluginLifecycleAttestation, Observation: "TestSupervisorPersistsUnexpectedExitFromLocalProcess"},
 		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestQualificationRunControlSurvivesSQLiteRestart"},
 		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestRunProjectionRebuildsFromAuthoritativeEvents"},
-		{ID: "scheduler-queue", Kind: "integration_test", Stage: StageBehavior, Ref: "internal/scheduler/queue_test.go", ClaimIDs: []string{"OI-024"}},
+		{ID: "scheduler-admission-and-fairness", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/scheduler", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestOrderRunnableBoundsStarvationUnderSustainedHigherPriorityLoad"},
+		{ID: "scheduler-lease-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"},
 		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025"}},
 		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
 		{ID: "client-enforcement", Kind: "security_test", Stage: StageBehavior, Ref: "internal/client/enforcement_test.go", ClaimIDs: []string{"OI-026", "OI-027"}},

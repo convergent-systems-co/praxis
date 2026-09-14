@@ -442,14 +442,26 @@ proves an unexpected local-process exit is persisted as failed and removed
 from routability. Blind result v18 promotes OI-021 to satisfied, changing the
 current discovery result to 26 satisfied / 12 indeterminate with zero
 unsupported or contradicted claims. This closes the OI-021 evidence gate only;
-plugin isolation (OI-030), scheduler completion (OI-024), and release
-qualification remain open.
+plugin isolation (OI-030) and release qualification remain open.
+
+Wave 21 scheduler qualification is now attested in
+`scheduler-lifecycle-v1.json`. The race-qualified scheduler/state suite proves
+deterministic ordered multi-resource admission, no partial allocation on
+denial, age-based starvation bounding, exact-attempt cancellation release,
+idempotent retry, lease expiry, and SQLite restart recovery. Fresh blind result
+v20 is frozen at
+`sha256:9fb61b6eef2242d7935d6e8d77f89196d2a0d2fe1b553eccba5770e12e684005`
+with 27 satisfied and 11 indeterminate claims, zero unsupported or
+contradicted findings; OI-024 is satisfied. Post-freeze qualification
+`package-supervisor-oracle-qualification-v20.json` retains the historical
+OI-002 false-negative control, so the oracle gate and release qualification
+remain open.
 
 ## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
 
 1. Attest event/projection/checkpoint replay and causal observability after restart.
 2. COMPLETE — Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
-3. Attest scheduler ordered acquisition, bounded starvation, cancellation release, lease expiry, and restart recovery.
+3. COMPLETE — Attest scheduler ordered acquisition, bounded starvation, cancellation release, lease expiry, and restart recovery.
 4. Prove every mutation/effect entry surface traverses canonical command, policy, capability, approval, and effect commit boundaries.
 5. Prove client degradation and required-mediation failure across supported adapters.
 6. Prove untrusted content remains data through proposal, memory, and authority paths.
@@ -466,6 +478,10 @@ Closure evidence: OI-021 is satisfied in blind result v18 by
 security/integration executions. OI-025 deliberately remains indeterminate
 because the narrower effect revalidation test does not prove complete
 mediation of every mutation/effect surface.
+
+OI-024 is satisfied in blind result v20 by
+`scheduler-lifecycle-v1.json`, which binds the scheduler and authoritative
+SQLite resource-provider execution to both integration and restart evidence.
 
 OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-delivery and research profiles use different opaque pressure signals and thresholds while the same core mechanism governs event-led checkpoint, handoff, SQLite restart, exact-reference resume, and run/agent/evidence identity preservation. Calibration remains package/profile policy.
 

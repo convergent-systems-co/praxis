@@ -13,6 +13,7 @@ import (
 // baseline. A model may propose candidates, but only a plan persisted with an
 // authority reference can be materialized for controller selection.
 type WorkPlan struct {
+	BaselineDigest   string             `json:"baseline_digest"`
 	AuthorityRef     string             `json:"authority_ref"`
 	AuthorityDigest  string             `json:"authority_digest"`
 	AcceptanceRef    string             `json:"acceptance_ref"`
@@ -50,7 +51,7 @@ type WorkPlanAcceptance struct {
 var ErrUnacceptedWorkPlan = errors.New("work plan is not an accepted authoritative decomposition")
 
 func (p WorkPlan) Validate() error {
-	if p.AuthorityRef == "" || p.AuthorityDigest == "" || p.AcceptanceRef == "" || p.AcceptanceDigest == "" || p.ProposalDigest == "" {
+	if p.BaselineDigest == "" || p.AuthorityRef == "" || p.AuthorityDigest == "" || p.AcceptanceRef == "" || p.AcceptanceDigest == "" || p.ProposalDigest == "" {
 		return fmt.Errorf("%w: authority, acceptance, and proposal bindings are required", ErrUnacceptedWorkPlan)
 	}
 	if err := p.AcceptedBy.Validate(); err != nil {
@@ -203,6 +204,7 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 			return WorkPlan{}, fmt.Errorf("%w: accepted relationship was not proposed", ErrUnacceptedWorkPlan)
 		}
 	}
+	accepted.BaselineDigest = proposal.BaselineDigest
 	accepted.AuthorityRef, accepted.AuthorityDigest = decision.AuthorityRef, decision.AuthorityDigest
 	accepted.AcceptanceRef, accepted.AcceptanceDigest = decision.AcceptanceRef, decision.AcceptanceDigest
 	accepted.AcceptedBy, accepted.ProposalDigest = decision.AcceptedBy, proposalDigest

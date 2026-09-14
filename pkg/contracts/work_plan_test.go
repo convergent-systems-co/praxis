@@ -4,7 +4,8 @@ import "testing"
 
 func acceptedPlan() WorkPlan {
 	return WorkPlan{
-		AuthorityRef: "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted",
+		BaselineDigest: "sha256:baseline",
+		AuthorityRef:   "docs/PLAN/example.md#unit", AuthorityDigest: "sha256:accepted",
 		AcceptanceRef: "acceptance:unit", AcceptanceDigest: "sha256:acceptance",
 		AcceptedBy: PrincipalRef{ID: "reviewer", Kind: "human"}, ProposalDigest: "sha256:proposal",
 		Candidates: []WorkCandidate{{ID: "unit", SourceRef: "docs/PLAN/example.md#unit", SourceDigest: "sha256:accepted", Provenance: ProvenancePLAN}},

@@ -84,6 +84,12 @@ attachment is implied by the store API. Those lifecycle entries remain
 separate #103 governance work and must preserve the ADR-064/SPEC-027
 proposer/reviewer/accepter boundary.
 
+The next governed foundation is baseline attachment: reload the exact accepted
+record and source baseline, then persist a successor generation with immutable
+predecessor/source-digest lineage. This operation must not create a mutable
+current pointer, infer a latest generation, or attach an accepted record to a
+different baseline.
+
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or
 unresolved acceptance is surfaced as authority insufficiency rather than

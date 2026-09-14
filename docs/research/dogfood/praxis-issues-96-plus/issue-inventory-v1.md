@@ -281,3 +281,24 @@ This does not create a producer, reviewer, human/policy decision surface, or
 successor Goal Baseline, and it does not make the current dogfood Goal
 runnable. Those remain governed lifecycle gaps; no current Goal WorkPlan was
 created or accepted.
+
+## Dogfood finding DF-014 — accepted WorkPlan baseline attachment
+
+DF-013 made proposal and acceptance evidence restart-readable, but no
+production operation consumed that evidence to create the immutable Goal
+generation that Goal-drive requires. A WorkPlan accepted in isolation was not
+yet authoritative Goal state, and no current-baseline pointer existed to make
+restart discovery infer a “latest” generation safely.
+
+The bounded foundation now adds an exact-source attachment operation. It
+reloads the source baseline and accepted record, requires the WorkPlan's
+source-baseline digest to match, and persists a successor with predecessor
+digest lineage and the accepted WorkPlan. Immutable storage rejects duplicate
+successor versions; stale source, already-attached predecessors, and missing
+acceptance records fail closed. Original intent and predecessor evidence remain
+unchanged.
+
+This does not create or attach a WorkPlan for the current dogfood Goal, add a
+mutable active pointer, or provide public activation/dispatch UX. Goal-drive
+continues to consume only an exact baseline generation supplied by its
+invocation contract.

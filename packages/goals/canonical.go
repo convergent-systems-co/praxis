@@ -27,6 +27,7 @@ type canonicalDecision struct {
 
 type canonicalBaseline struct {
 	Version            string              `json:"version"`
+	PredecessorDigest  string              `json:"predecessor_digest,omitempty"`
 	OriginalIntent     string              `json:"original_intent"`
 	RefinedOutcome     string              `json:"refined_outcome"`
 	Scope              string              `json:"scope,omitempty"`
@@ -56,7 +57,7 @@ func (b GoalBaseline) CanonicalBytes() ([]byte, error) {
 	sort.Slice(decisions, func(i, j int) bool { return decisions[i].ID < decisions[j].ID })
 	artifacts := append([]ArtifactRef(nil), b.Artifacts...)
 	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].ID < artifacts[j].ID })
-	c := canonicalBaseline{Version: b.Version, OriginalIntent: b.OriginalIntent, RefinedOutcome: b.RefinedOutcome, Scope: b.Scope, NonGoals: cloneStrings(b.NonGoals), Constraints: cloneStrings(b.Constraints), SuccessCriteria: cloneStrings(b.SuccessCriteria), EvidenceRefs: cloneStrings(b.EvidenceRefs), Assumptions: cloneStrings(b.Assumptions), Decisions: decisions, Artifacts: artifacts, PlanRef: b.PlanRef, ValidityPredicates: cloneStrings(b.ValidityPredicates), Rigor: b.Rigor, RecommendationMode: b.RecommendationMode, WorkPlan: b.WorkPlan}
+	c := canonicalBaseline{Version: b.Version, PredecessorDigest: b.PredecessorDigest, OriginalIntent: b.OriginalIntent, RefinedOutcome: b.RefinedOutcome, Scope: b.Scope, NonGoals: cloneStrings(b.NonGoals), Constraints: cloneStrings(b.Constraints), SuccessCriteria: cloneStrings(b.SuccessCriteria), EvidenceRefs: cloneStrings(b.EvidenceRefs), Assumptions: cloneStrings(b.Assumptions), Decisions: decisions, Artifacts: artifacts, PlanRef: b.PlanRef, ValidityPredicates: cloneStrings(b.ValidityPredicates), Rigor: b.Rigor, RecommendationMode: b.RecommendationMode, WorkPlan: b.WorkPlan}
 	return json.Marshal(c)
 }
 

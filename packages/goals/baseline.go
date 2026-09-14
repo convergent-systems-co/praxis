@@ -55,6 +55,7 @@ type GoalBaseline struct {
 	ID                 string
 	Version            string
 	Digest             string
+	PredecessorDigest  string
 	OriginalIntent     string
 	RefinedOutcome     string
 	Scope              string

@@ -96,6 +96,44 @@ func (r Repository) Load(ctx context.Context, id, version string, now time.Time)
 	return baseline, nil
 }
 
+// AttachAcceptedWorkPlan creates a successor immutable baseline from a
+// previously persisted acceptance. The source baseline, proposal, acceptance,
+// and plan are all reloaded and checked before the successor is persisted.
+// This operation is the authority-bearing attachment transition; it does not
+// mutate the predecessor or create an implicit active-baseline pointer.
+func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, sourceVersion, sourceDigest, acceptanceRef, acceptanceVersion, successorVersion string, createdAt time.Time, expiresAt *time.Time) (goals.GoalBaseline, error) {
+	source, err := r.Load(ctx, sourceID, sourceVersion, time.Now().UTC())
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("load source Goal Baseline: %w", err)
+	}
+	if source.Digest != sourceDigest {
+		return goals.GoalBaseline{}, goals.ErrBaselineDigestMismatch
+	}
+	if source.WorkPlan != nil {
+		return goals.GoalBaseline{}, errors.New("source Goal Baseline already has an accepted WorkPlan")
+	}
+	if successorVersion == "" || successorVersion == source.Version {
+		return goals.GoalBaseline{}, errors.New("successor Goal Baseline version must be distinct")
+	}
+	plan, err := r.LoadAcceptedWorkPlan(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC())
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("load accepted WorkPlan: %w", err)
+	}
+	if plan.BaselineDigest != source.Digest {
+		return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan source baseline differs: %w", goals.ErrBaselineDigestMismatch)
+	}
+	successor := source
+	successor.Version = successorVersion
+	successor.Digest = ""
+	successor.PredecessorDigest = source.Digest
+	successor.WorkPlan = &plan
+	saved, err := r.Save(ctx, successor, createdAt, expiresAt)
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("persist successor Goal Baseline: %w", err)
+	}
+	return saved, nil
+}
+
 // SaveSession persists an immutable interruption checkpoint. The caller owns
 // checkpoint versioning; this prevents a retry or concurrent writer from
 // silently replacing an earlier conversational state.

@@ -15,10 +15,19 @@ description is not executable child authority.
 
 An accepted Goal decomposition SHALL be represented by an optional digest-bound
 `WorkPlan` on the immutable Goal Baseline. It SHALL contain an authority
-reference and digest, candidate records, and typed relationships. Candidate and
-relationship provenance SHALL be validated before persistence; model proposals
+reference and digest, the exact source-baseline digest, candidate records, and
+typed relationships. Candidate and relationship provenance SHALL be validated
+before persistence; model proposals
 cannot be materialized as runnable work. Relationships SHALL refer only to
 children in the same accepted set.
+
+Attaching an accepted WorkPlan creates a successor immutable Goal Baseline. The
+successor preserves original intent and accepted requirements, records the
+predecessor digest, and includes the WorkPlan whose source-baseline digest must
+match the predecessor exactly. The predecessor is never mutated. The
+attachment transition is the authority-bearing publication of runnable
+decomposition; no conversational activation or model/provider signal is
+required after the successor is durably persisted.
 
 The Goal-drive control plane owns materialization from a verified baseline to
 selector input. It SHALL NOT infer children from Goal prose, success criteria,

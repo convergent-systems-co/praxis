@@ -22,10 +22,10 @@ func (w *wrapper) Capabilities(context.Context, string) (praxiscrypto.Capabiliti
 }
 func (w *wrapper) Wrap(_ context.Context, keyRef string, profile contracts.CryptoProfile, key []byte) (praxiscrypto.WrappedKey, error) {
 	w.key = append([]byte(nil), key...)
-	return praxiscrypto.WrappedKey{Ciphertext: []byte("wrapped"), SuiteID: "test", KeyRef: keyRef, KeyVersion: "1", SelectedProfile: profile}, nil
+	return praxiscrypto.WrappedKey{Ciphertext: append([]byte(nil), key...), SuiteID: "test", KeyRef: keyRef, KeyVersion: "1", SelectedProfile: profile}, nil
 }
-func (w *wrapper) Unwrap(context.Context, praxiscrypto.WrappedKey) ([]byte, error) {
-	return append([]byte(nil), w.key...), nil
+func (w *wrapper) Unwrap(_ context.Context, wrapped praxiscrypto.WrappedKey) ([]byte, error) {
+	return append([]byte(nil), wrapped.Ciphertext...), nil
 }
 
 func repoFixture(t *testing.T, caps praxiscrypto.Capabilities, profile contracts.CryptoProfile) (Repository, *state.Store) {
@@ -177,7 +177,7 @@ func workPlanProposalFixture() (contracts.WorkPlanProposal, contracts.WorkPlanAc
 		AcceptanceRef: "acceptance-1", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human-reviewer", Kind: "human"},
 		ReviewDigest: "sha256:review", Mode: "human",
 	}
-	accepted := contracts.WorkPlan{Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN}}}
+	accepted := contracts.WorkPlan{BaselineDigest: proposal.BaselineDigest, Candidates: []contracts.WorkCandidate{{ID: "unit-1", SourceRef: "docs/PLAN/003-post-release-roadmap.md#unit-1", SourceDigest: "sha256:authority", Provenance: contracts.ProvenancePLAN}}}
 	return proposal, decision, accepted
 }
 
@@ -229,4 +229,48 @@ func TestRepositoryWorkPlanAcceptanceRejectsMissingProposal(t *testing.T) {
 	if _, err := repo.SaveAcceptedWorkPlan(context.Background(), proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err == nil {
 		t.Fatal("acceptance without a durable proposal was authorized")
 	}
+}
+
+func TestRepositoryAttachAcceptedWorkPlanCreatesBoundSuccessor(t *testing.T) {
+	repo, db := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	ctx := context.Background()
+	source, err := repo.Save(ctx, goalFixture(), time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, decision, accepted := workPlanProposalFixture()
+	proposal.BaselineDigest = source.Digest
+	decision.BaselineDigest = source.Digest
+	decision.ProposalDigest, err = proposal.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	accepted.BaselineDigest = source.Digest
+	if _, err := repo.SaveAcceptedWorkPlan(ctx, proposal.ID, "1", accepted, decision, "1", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	successor, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, source.Digest, decision.AcceptanceRef, "1", "2", time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if successor.PredecessorDigest != source.Digest || successor.WorkPlan == nil || successor.WorkPlan.BaselineDigest != source.Digest || successor.OriginalIntent != source.OriginalIntent {
+		t.Fatalf("successor lost immutable lineage or binding: source=%+v successor=%+v", source, successor)
+	}
+	unchanged, err := repo.Load(ctx, source.ID, source.Version, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.WorkPlan != nil || unchanged.Digest != source.Digest {
+		t.Fatalf("predecessor was mutated: %+v", unchanged)
+	}
+	if _, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, "sha256:wrong", decision.AcceptanceRef, "1", "3", time.Now().UTC(), nil); err == nil {
+		t.Fatal("stale source baseline was attached")
+	}
+	if _, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, source.Digest, decision.AcceptanceRef, "1", "2", time.Now().UTC(), nil); err == nil {
+		t.Fatal("competing successor generation replaced an immutable baseline")
+	}
+	_ = db
 }

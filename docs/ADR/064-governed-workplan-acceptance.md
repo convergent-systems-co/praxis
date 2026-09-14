@@ -40,6 +40,12 @@ proposal generation, independent review, acceptance authority, or baseline
 attachment: those operations must enter through separately governed control
 plane boundaries.
 
+After acceptance, ADR-063 owns the separate attachment transition: the
+GoalStore reloads the exact source generation and accepted record, then writes
+one successor baseline with explicit predecessor and source-digest lineage.
+Attachment is not an in-place update and cannot be performed against a stale
+or already-attached predecessor.
+
 Requirement or authority changes create a successor baseline and invalidate
 WorkPlans whose baseline digest no longer matches. Partial blockers remain
 child-level readiness state; unresolved acceptance decisions are surfaced as

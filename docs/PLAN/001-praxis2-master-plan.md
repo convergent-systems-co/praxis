@@ -488,7 +488,7 @@ OI-038 is satisfied in `blind-resource-continuation.json`. Separate software-del
 ## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
-2. Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence.
+2. COMPLETE — Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence. The resumable session substrate records every responsibility outcome, persists encrypted immutable digest-bound checkpoints, refuses completion without an integrity-bound baseline, and atomically rejects failed finalization. Successor attestation `goals-session-v5.json` executes the shared lifecycle across software architecture, structured research, operational planning, and writing production, including a true close/reopen SQLite restart; successor blind result `blind-goals-session-v5.json` retains OI-034 as satisfied against the unchanged denominator.
 3. Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path.
 4. Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation.
 
@@ -533,6 +533,8 @@ Implemented in this reopened wave:
 - evaluator-bound five-class behavioral profile/divergence result `blind-behavioral-profile-v2.json` (OI-020 satisfied)
 - governed preference drift/correction/graph-consumption and contract-migration result `blind-preference-lifecycle-v2.json` (OI-006 and OI-012 satisfied)
 - canonical multi-machine export/import/reconciliation result `blind-portable-state-v1.json` (OI-009 satisfied)
+- encrypted immutable Goals session checkpoint attestation `goals-session-v1.json` and successor Cluster-A attestation `cluster-a-runtime-v45.json`
+- successor Goals four-domain lifecycle attestation `goals-session-v5.json` and blind result `blind-goals-session-v5.json`; OI-034 remains satisfied and the unchanged 38-claim denominator records 28 satisfied / 10 indeterminate
 
 ## Completion calculation
 

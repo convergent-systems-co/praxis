@@ -147,7 +147,8 @@ The objective is minimum user effort sufficient to establish a reliable outcome 
 13. dependency-cycle invalidation terminates deterministically;
 14. downstream package can bind to exact baseline identity/digest;
 15. ephemeral Goal session produces usable handoff without durable retention;
-16. software, research, operations, and writing fixtures materialize domain-specific artifacts without adding those terms to core Goals semantics.
+16. software, research, operations, and writing fixtures materialize domain-specific artifacts without adding those terms to core Goals semantics;
+17. an interrupted session can be saved as an encrypted, immutable, digest-bound checkpoint and restored with every completed responsibility intact.
 
 ## Exit criteria
 

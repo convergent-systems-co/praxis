@@ -33,17 +33,18 @@ var ErrSessionComplete = errors.New("Goals session is already complete")
 // decisions and the baseline under construction are retained in the snapshot
 // so an interruption cannot turn a partial conversation into authority.
 type Session struct {
-	ID       string       `json:"id"`
-	Stage    SessionStage `json:"stage"`
-	Outcome  string       `json:"outcome,omitempty"`
-	Baseline GoalBaseline `json:"baseline"`
+	ID            string                  `json:"id"`
+	Stage         SessionStage            `json:"stage"`
+	Outcome       string                  `json:"outcome,omitempty"`
+	StageOutcomes map[SessionStage]string `json:"stage_outcomes,omitempty"`
+	Baseline      GoalBaseline            `json:"baseline"`
 }
 
 func NewSession(id, originalIntent string) (Session, error) {
 	if id == "" || originalIntent == "" {
 		return Session{}, errors.New("Goals session id and original intent are required")
 	}
-	return Session{ID: id, Stage: StageIntent, Baseline: GoalBaseline{ID: id, Version: "1", OriginalIntent: originalIntent}}, nil
+	return Session{ID: id, Stage: StageIntent, StageOutcomes: map[SessionStage]string{}, Baseline: GoalBaseline{ID: id, Version: "1", OriginalIntent: originalIntent}}, nil
 }
 
 // Advance records one completed graph responsibility. The outcome is
@@ -57,12 +58,22 @@ func (s *Session) Advance(outcome string) error {
 		return ErrSessionComplete
 	}
 	if outcome == "blocked" {
+		s.recordOutcome(outcome)
 		s.Stage = StageFailed
 		return nil
 	}
 	if !validOutcome(s.Stage, outcome) {
 		return ErrInvalidSessionTransition
 	}
+	if s.Stage == StageBaseline {
+		if err := s.finalizeBaseline(); err != nil {
+			return err
+		}
+		s.recordOutcome(outcome)
+		s.Stage = StageComplete
+		return nil
+	}
+	s.recordOutcome(outcome)
 	if s.Stage == StageFrame {
 		s.Outcome = outcome
 		if outcome == string(RigorDirect) {
@@ -93,13 +104,35 @@ func (s *Session) Advance(outcome string) error {
 		next = StagePlan
 	case StagePlan:
 		next = StageBaseline
-	case StageBaseline:
-		s.Stage = StageComplete
-		return nil
 	default:
 		return ErrInvalidSessionTransition
 	}
 	s.Stage = next
+	return nil
+}
+
+func (s *Session) recordOutcome(outcome string) {
+	if s.StageOutcomes == nil {
+		s.StageOutcomes = map[SessionStage]string{}
+	}
+	s.StageOutcomes[s.Stage] = outcome
+}
+
+// finalizeBaseline makes completion contingent on a usable, integrity-bound
+// baseline. Persistence is intentionally owned by goalstore; this only derives
+// the content digest and never grants execution authority.
+func (s *Session) finalizeBaseline() error {
+	if err := s.Baseline.Validate(); err != nil {
+		return err
+	}
+	digest, err := s.Baseline.ComputeDigest()
+	if err != nil {
+		return err
+	}
+	if s.Baseline.Digest != "" && s.Baseline.Digest != digest {
+		return ErrBaselineDigestMismatch
+	}
+	s.Baseline.Digest = digest
 	return nil
 }
 
@@ -130,6 +163,12 @@ func (s Session) Snapshot() ([]byte, error) {
 		if err := s.Baseline.Validate(); err != nil {
 			return nil, err
 		}
+		if s.Stage == StageComplete && s.Baseline.Digest == "" {
+			return nil, ErrBaselineDigestMismatch
+		}
+		if err := s.Baseline.VerifyDigest(); err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(s)
 }
@@ -142,10 +181,24 @@ func RestoreSession(data []byte) (Session, error) {
 	if s.ID == "" || s.Baseline.ID != s.ID {
 		return Session{}, ErrInvalidSessionTransition
 	}
+	if s.StageOutcomes == nil {
+		s.StageOutcomes = map[SessionStage]string{}
+	}
 	switch s.Stage {
 	case StageIntent, StageFrame, StageDiscover, StageVariance, StageCalibrate, StageDecide, StageModel, StageSpecify, StagePlan, StageBaseline, StageComplete, StageFailed:
 	default:
 		return Session{}, ErrInvalidSessionTransition
+	}
+	if s.Stage == StageComplete {
+		if err := s.Baseline.Validate(); err != nil {
+			return Session{}, err
+		}
+		if s.Baseline.Digest == "" {
+			return Session{}, ErrBaselineDigestMismatch
+		}
+		if err := s.Baseline.VerifyDigest(); err != nil {
+			return Session{}, err
+		}
 	}
 	return s, nil
 }
@@ -158,6 +211,11 @@ func (s *Session) SetBaseline(b GoalBaseline) error {
 	}
 	if err := b.Validate(); err != nil {
 		return err
+	}
+	if b.Digest != "" {
+		if err := b.VerifyDigest(); err != nil {
+			return err
+		}
 	}
 	s.Baseline = b
 	return nil

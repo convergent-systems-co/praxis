@@ -193,3 +193,17 @@ Provider substitution adds a bounded in-memory implementation that advertises on
 ## Plan input
 
 PLAN-001 must use the current, explicitly transitioned 38-claim denominator plus every finding closure, conformance execution attestation, self-improvement lifecycle qualification, withheld-oracle qualification, and final whole-branch security/CI evidence. No completion percentage is valid until those items are closed by admissible evidence.
+
+The Goals lifecycle checkpoint then received successor execution attestation
+`docs/research/conformance/attestations/goals-session-v5.json`. Its semantic
+fixture executes the same Intent-through-Baseline responsibilities for software
+architecture, structured research, operational planning, and writing, while
+the repository tests retain a true close/reopen SQLite checkpoint restart,
+encrypted checkpoint persistence, digest validation, immutable checkpoint
+versions, completion refusal without a valid baseline, and atomic rejection of
+failed baseline finalization. The blind successor
+`docs/research/conformance/blind-goals-session-v5.json`
+was frozen without loading the qualification oracle and retains OI-034 as
+satisfied at 28 satisfied / 10 indeterminate against the unchanged 38-claim
+denominator. This closes the Wave 22 Goals lifecycle item only; final release
+qualification remains open for the other unresolved claims and gates.

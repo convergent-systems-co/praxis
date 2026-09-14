@@ -41,6 +41,12 @@ Outcome-oriented packages that interact with a user SHOULD begin with or compose
 
 Other packages, including `develop`, SHOULD compose or invoke Goals rather than duplicating its uncertainty-reduction process.
 
+Interactive progress SHALL be checkpointable through the configured
+authoritative state provider. A checkpoint is an encrypted, content-digest-bound
+snapshot with an explicit immutable version; restoring it verifies identity and
+integrity before the session can resume. A checkpoint or completed baseline is
+compiled knowledge only and never grants execution authority.
+
 ## User-guided interaction is a primary capability
 
 Goals SHALL be designed as an interactive guide, not merely a batch planner.

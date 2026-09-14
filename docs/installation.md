@@ -47,10 +47,11 @@ The Go binary has no hidden initialization command. `praxis doctor` without `PRA
 ```bash
 export PRAXIS_DB="$HOME/.praxis/praxis.db"
 mkdir -p "$HOME/.praxis"
+praxis list                         # creates the SQLite schema on first use
 praxis doctor
 ```
 
-The database contains authoritative package, approval, run, plugin, lease, and event state. Back up the database while Praxis is stopped, and preserve the matching release binary and package artifacts. Do not edit SQLite tables manually.
+The first writable package-state command creates the SQLite schema; `praxis list` is a safe empty-registry initialization check. The database then contains authoritative package, approval, run, plugin, lease, and event state. Back it up while Praxis is stopped, and preserve the matching release binary and package artifacts. Do not edit SQLite tables manually.
 
 Python graph runs use an explicit directory instead:
 

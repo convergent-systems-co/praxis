@@ -1,7 +1,7 @@
 # SPEC-007: Plugin, Capability, and Isolation Runtime
 
 - Status: Draft
-- Governing ADRs: 016, 028, 029, 038, 040, 041, 042, 043
+- Governing ADRs: 016, 028, 029, 038, 040, 041, 042, 043, 054
 - Depends on: SPEC-001, SPEC-002, SPEC-003, SPEC-005, SPEC-006
 
 ## Purpose
@@ -35,7 +35,11 @@ Restart creates a new instance identity unless the contract explicitly defines c
 
 ## Transport
 
-Canonical plugin RPC uses the ADR-029 gRPC/Protocol Buffers boundary. The protocol SHALL support version negotiation, capability discovery, request/response, streaming where required, deadlines, cancellation, health/readiness, structured errors, and authenticated instance context.
+Canonical plugin RPC uses the ADR-029 gRPC/Protocol Buffers boundary. The core sends an expected instance/artifact/session identity and supported protocol range; the connected plugin returns its independently asserted identity, protocol range, advertised operations, and readiness. Core validation compares that response to the verified package definition and launched instance before registry publication. The request cannot manufacture the plugin's advertisement. The protocol SHALL support unary request/response, bounded bidirectional streaming, deadlines, cancellation, health/readiness, structured errors, and authenticated instance context.
+
+The current `praxis.v1.PraxisPlugin` schema is the first supported durable plugin wire contract. The earlier checked-in handshake skeleton was pre-release, had no generated or external consumer, and is intentionally unsupported. Its displaced protobuf field numbers/names remain reserved under ADR-054. Wire-schema evolution is separate from the protocol range advertised during handshake: protocol overlap cannot authorize parsing an incompatible wire schema.
+
+The plugin's response is evidence, not acceptance authority. Core validation derives the negotiated protocol and only later authority may publish the provider or mint capability leases. Neither readiness nor an advertised capability is a grant.
 
 Transport identity alone is not authorization.
 

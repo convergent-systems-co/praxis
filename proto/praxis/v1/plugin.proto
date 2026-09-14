@@ -12,7 +12,9 @@ message PluginIdentity {
   string plugin_version = 2;
   string instance_id = 3;
   string artifact_digest = 4;
-  string protocol_version = 5;
+  reserved 5;
+  reserved "protocol_version";
+  string runtime_session = 6;
 }
 
 message CapabilityAdvertisement {
@@ -22,14 +24,23 @@ message CapabilityAdvertisement {
 }
 
 message HandshakeRequest {
-  PluginIdentity identity = 1;
-  repeated CapabilityAdvertisement advertised_capabilities = 2;
+  reserved 1, 2;
+  reserved "identity", "advertised_capabilities";
+  PluginIdentity expected_identity = 3;
+  string core_protocol_min = 4;
+  string core_protocol_max = 5;
+  string correlation_id = 6;
 }
 
 message HandshakeResponse {
-  bool accepted = 1;
-  string negotiated_protocol_version = 2;
+  reserved 1, 2;
+  reserved "accepted", "negotiated_protocol_version";
   repeated string reasons = 3;
+  PluginIdentity identity = 4;
+  repeated CapabilityAdvertisement advertised_capabilities = 5;
+  string plugin_protocol_min = 6;
+  string plugin_protocol_max = 7;
+  bool ready = 8;
 }
 
 message ExecuteRequest {
@@ -54,5 +65,6 @@ message HealthResponse { string status = 1; repeated string details = 2; }
 service PraxisPlugin {
   rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
   rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+  rpc ExecuteStream(stream ExecuteRequest) returns (stream ExecuteResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
 }

@@ -9,8 +9,10 @@ import (
 )
 
 var (
-	ErrUnsafeRepository = errors.New("Goal-drive repository state is not safe for a worker turn")
-	ErrNoProgressLimit  = errors.New("Goal-drive no-progress limit reached")
+	ErrUnsafeRepository       = errors.New("Goal-drive repository state is not safe for a worker turn")
+	ErrNoProgressLimit        = errors.New("Goal-drive no-progress limit reached")
+	ErrSupervisedTerminated   = errors.New("supervised Goal-drive invocation terminated after its persisted checkpoint")
+	ErrInvocationModeMismatch = errors.New("Goal-drive invocation mode cannot change across turns")
 )
 
 type Worker interface {
@@ -36,9 +38,10 @@ type WorkerResult struct {
 }
 
 type TurnRequest struct {
-	GoalID, GoalVersion, TurnID, ChildObjective, GraphID, GraphVersion, StartHead string
-	Repository                                                                    contracts.RepositoryState
-	ProviderID                                                                    string
+	GoalID, GoalVersion, InvocationID, TurnID, ChildObjective, GraphID, GraphVersion, StartHead string
+	Repository                                                                                  contracts.RepositoryState
+	ProviderID                                                                                  string
+	Mode                                                                                        ExecutionMode
 }
 
 type Controller struct {
@@ -64,6 +67,12 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 }
 
 func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord, error) {
+	if req.InvocationID == "" {
+		return nil, errors.New("Goal-drive invocation identity is required")
+	}
+	if req.Mode != ModeSupervised && req.Mode != ModeContinuous {
+		return nil, fmt.Errorf("unsupported Goal-drive execution mode %q", req.Mode)
+	}
 	if _, err := c.worker(req); err != nil {
 		return nil, err
 	}
@@ -80,6 +89,14 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	}
 	noProgress := 0
 	for _, turn := range turns {
+		if turn.InvocationID == req.InvocationID {
+			if turn.Mode != req.Mode {
+				return nil, ErrInvocationModeMismatch
+			}
+			if req.Mode == ModeSupervised && turn.Progress {
+				return nil, ErrSupervisedTerminated
+			}
+		}
 		if turn.ChildObjective == req.ChildObjective && turn.Outcome == OutcomeNoProgress {
 			noProgress++
 		}
@@ -106,7 +123,7 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 		return TurnRecord{}, err
 	}
 	result, workerErr := worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
-	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 		return base, workerErr

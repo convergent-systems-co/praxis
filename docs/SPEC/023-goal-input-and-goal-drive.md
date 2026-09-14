@@ -34,6 +34,16 @@ The controller SHALL own:
 7. interruption/restart reconstruction;
 8. terminal completion, blocked, no-progress, and user-decision outcomes.
 
+Every invocation SHALL provide an invocation identity and one execution mode:
+`supervised` or `continuous`. The default for the package surface is
+`supervised`. A successful progressed turn SHALL terminate a supervised
+invocation at its persisted checkpoint boundary. Reusing that invocation
+identity for another turn SHALL fail closed, regardless of whether the parent
+Goal remains incomplete. A new supervised invocation may select the next
+bounded unit. Continuous repetition is permitted only when the same invocation
+explicitly selected `continuous`; it remains bounded by the controller and is
+never an implicit worker loop.
+
 Worker output SHALL be advisory evidence. `CONTINUE`, a natural-language
 claim, a model/provider identity, or an unverified commit SHALL not authorize a
 new turn or mark a Goal complete.
@@ -79,4 +89,7 @@ successor behavior, restart recovery, provider substitution without Goal
 identity change, clean remote-ahead fast-forward, dirty/remote-ahead refusal,
 divergence refusal, validated push/remote verification, no-push mode,
 no-progress termination, timeout recovery, durable ledger replay, and one
-non-development goal proving domain neutrality.
+non-development goal proving domain neutrality. It SHALL separately prove that
+supervised mode stops after one persisted progressed checkpoint, a new
+invocation identity is required for the next unit, and continuous mode alone
+permits bounded repetition.

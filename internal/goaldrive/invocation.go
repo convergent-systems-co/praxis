@@ -11,6 +11,8 @@ import (
 
 type InvocationRequest struct {
 	Input           contracts.GoalInput
+	Mode            ExecutionMode
+	InvocationID    string
 	ProviderID      string
 	Model           string
 	RepositoryPath  string
@@ -35,7 +37,18 @@ func ParseInvocation(options map[string]string) (InvocationRequest, error) {
 	if provider == "" {
 		return InvocationRequest{}, errors.New("Goal-drive provider is required")
 	}
-	out := InvocationRequest{Input: input, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true}
+	mode := ExecutionMode(options["mode"])
+	if mode == "" {
+		mode = ModeSupervised
+	}
+	if mode != ModeSupervised && mode != ModeContinuous {
+		return InvocationRequest{}, fmt.Errorf("mode must be supervised or continuous: %q", mode)
+	}
+	invocationID := options["invocation-id"]
+	if invocationID == "" {
+		return InvocationRequest{}, errors.New("Goal-drive invocation-id is required")
+	}
+	out := InvocationRequest{Input: input, Mode: mode, InvocationID: invocationID, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true}
 	if value := options["max-turns"]; value != "" {
 		out.MaxTurns, err = positiveInt("max-turns", value)
 		if err != nil {

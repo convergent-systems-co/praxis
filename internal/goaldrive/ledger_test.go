@@ -12,7 +12,7 @@ import (
 )
 
 func fixtureTurn() TurnRecord {
-	return TurnRecord{GoalID: "goal-1", GoalVersion: "1", TurnID: "turn-1", ChildObjective: "inventory issues", GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", StartHead: "a", EndHead: "b", Outcome: OutcomeContinue, Progress: true, CheckpointEvidence: []string{"commit:b"}}
+	return TurnRecord{GoalID: "goal-1", GoalVersion: "1", InvocationID: "invocation-1", Mode: ModeSupervised, TurnID: "turn-1", ChildObjective: "inventory issues", GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", StartHead: "a", EndHead: "b", Outcome: OutcomeContinue, Progress: true, CheckpointEvidence: []string{"commit:b"}}
 }
 
 func TestLedgerAppendsAndReplaysTurns(t *testing.T) {

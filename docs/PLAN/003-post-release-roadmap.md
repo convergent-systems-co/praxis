@@ -61,7 +61,9 @@ is the prerequisite for safely dogfooding issue-oriented work and for the
 first-party Goals/Develop and supervision waves. Qualification must include
 the repository state machine, immutable input generations, provider-neutral
 worker boundary, restart-safe ledger, bounded progress/no-progress semantics,
-and fail-closed authority behavior.
+and fail-closed authority behavior. It must also prove that supervised mode
+terminates after one persisted progressed checkpoint, while only explicit
+continuous mode permits bounded repetition.
 
 ## Wave P1: Executor targeting and first-party product bundles
 

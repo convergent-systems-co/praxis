@@ -17,6 +17,13 @@ const (
 	eventVersion  = "1"
 )
 
+type ExecutionMode string
+
+const (
+	ModeSupervised ExecutionMode = "supervised"
+	ModeContinuous ExecutionMode = "continuous"
+)
+
 type Outcome string
 
 const (
@@ -31,27 +38,32 @@ const (
 // turn. Worker prose is not stored as authority; these fields are verified
 // control-plane facts and references to independently stored evidence.
 type TurnRecord struct {
-	GoalID             string    `json:"goal_id"`
-	GoalVersion        string    `json:"goal_version"`
-	TurnID             string    `json:"turn_id"`
-	ChildObjective     string    `json:"child_objective"`
-	GraphID            string    `json:"graph_id"`
-	GraphVersion       string    `json:"graph_version"`
-	AgentID            string    `json:"agent_id,omitempty"`
-	ExecutorID         string    `json:"executor_id,omitempty"`
-	StartHead          string    `json:"start_head,omitempty"`
-	EndHead            string    `json:"end_head,omitempty"`
-	Outcome            Outcome   `json:"outcome"`
-	Progress           bool      `json:"progress"`
-	CheckpointEvidence []string  `json:"checkpoint_evidence,omitempty"`
-	RetryOf            string    `json:"retry_of,omitempty"`
-	Blocker            string    `json:"blocker,omitempty"`
-	CreatedAt          time.Time `json:"created_at"`
+	GoalID             string        `json:"goal_id"`
+	GoalVersion        string        `json:"goal_version"`
+	InvocationID       string        `json:"invocation_id"`
+	Mode               ExecutionMode `json:"mode"`
+	TurnID             string        `json:"turn_id"`
+	ChildObjective     string        `json:"child_objective"`
+	GraphID            string        `json:"graph_id"`
+	GraphVersion       string        `json:"graph_version"`
+	AgentID            string        `json:"agent_id,omitempty"`
+	ExecutorID         string        `json:"executor_id,omitempty"`
+	StartHead          string        `json:"start_head,omitempty"`
+	EndHead            string        `json:"end_head,omitempty"`
+	Outcome            Outcome       `json:"outcome"`
+	Progress           bool          `json:"progress"`
+	CheckpointEvidence []string      `json:"checkpoint_evidence,omitempty"`
+	RetryOf            string        `json:"retry_of,omitempty"`
+	Blocker            string        `json:"blocker,omitempty"`
+	CreatedAt          time.Time     `json:"created_at"`
 }
 
 func (r TurnRecord) validate() error {
-	if r.GoalID == "" || r.GoalVersion == "" || r.TurnID == "" || r.ChildObjective == "" || r.GraphID == "" || r.GraphVersion == "" {
+	if r.GoalID == "" || r.GoalVersion == "" || r.InvocationID == "" || r.TurnID == "" || r.ChildObjective == "" || r.GraphID == "" || r.GraphVersion == "" {
 		return errors.New("Goal turn identity, objective, graph, and versions are required")
+	}
+	if r.Mode != ModeSupervised && r.Mode != ModeContinuous {
+		return fmt.Errorf("unsupported Goal-drive execution mode %q", r.Mode)
 	}
 	switch r.Outcome {
 	case OutcomeContinue, OutcomeComplete, OutcomeBlocked, OutcomeNoProgress, OutcomeUserDecisionRequired:

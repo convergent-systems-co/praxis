@@ -25,7 +25,7 @@ func controllerFixture(worker Worker) Controller {
 }
 
 func turnRequest() TurnRequest {
-	return TurnRequest{GoalID: "goal-1", GoalVersion: "1", TurnID: "turn-1", ChildObjective: "inspect issue dependencies", GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", StartHead: "a", Repository: contracts.RepositorySynced}
+	return TurnRequest{GoalID: "goal-1", GoalVersion: "1", InvocationID: "invocation-1", Mode: ModeSupervised, TurnID: "turn-1", ChildObjective: "inspect issue dependencies", GraphID: "praxis.package.goals.default", GraphVersion: "0.1.0", StartHead: "a", Repository: contracts.RepositorySynced}
 }
 
 func TestControllerInvokesOneBoundedTurnAndRecordsCompletion(t *testing.T) {
@@ -64,5 +64,55 @@ func TestControllerPersistsWorkerFailureAsBlocked(t *testing.T) {
 	record, err := controllerFixture(worker).ExecuteTurn(context.Background(), turnRequest())
 	if !errors.Is(err, worker.err) || record.Outcome != OutcomeBlocked || record.Blocker == "" {
 		t.Fatalf("worker failure must be durable blocked evidence: %+v %v", record, err)
+	}
+}
+
+func TestSupervisedInvocationStopsAfterPersistedProgress(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	if _, err := controller.ExecuteTurn(context.Background(), turnRequest()); err != nil {
+		t.Fatal(err)
+	}
+	next := turnRequest()
+	next.TurnID = "turn-2"
+	next.ChildObjective = "select the next issue"
+	if _, err := controller.ExecuteTurn(context.Background(), next); !errors.Is(err, ErrSupervisedTerminated) || worker.called != 1 {
+		t.Fatalf("supervised invocation crossed checkpoint boundary: err=%v calls=%d", err, worker.called)
+	}
+	next.InvocationID = "invocation-2"
+	next.StartHead = "b"
+	worker.result.EndHead = "c"
+	if _, err := controller.ExecuteTurn(context.Background(), next); err != nil || worker.called != 2 {
+		t.Fatalf("new supervised invocation should be allowed: err=%v calls=%d", err, worker.called)
+	}
+}
+
+func TestContinuousInvocationMayRepeatBoundedPrimitive(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	req := turnRequest()
+	req.Mode = ModeContinuous
+	if _, err := controller.ExecuteTurn(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	req.TurnID = "turn-2"
+	req.StartHead = "b"
+	worker.result.EndHead = "c"
+	if _, err := controller.ExecuteTurn(context.Background(), req); err != nil || worker.called != 2 {
+		t.Fatalf("continuous mode must own permitted repetition: err=%v calls=%d", err, worker.called)
+	}
+}
+
+func TestInvocationModeCannotBeChangedToCrossBoundary(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	if _, err := controller.ExecuteTurn(context.Background(), turnRequest()); err != nil {
+		t.Fatal(err)
+	}
+	req := turnRequest()
+	req.TurnID = "turn-2"
+	req.Mode = ModeContinuous
+	if _, err := controller.ExecuteTurn(context.Background(), req); !errors.Is(err, ErrInvocationModeMismatch) || worker.called != 1 {
+		t.Fatalf("mode change crossed invocation boundary: err=%v calls=%d", err, worker.called)
 	}
 }

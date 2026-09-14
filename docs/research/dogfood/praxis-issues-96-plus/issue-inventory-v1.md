@@ -96,3 +96,15 @@ domain-specific counterexample, implementation-location-only reasoning, and
 fail-closed evidence validation. Integration into the interactive Goals graph
 and actual graph-node registration remains open, while exact Goal Baseline and
 blind-learning consumer seams are now implemented and tested.
+
+## Dogfood finding DF-005 — supervised checkpoint boundary crossed
+
+A supervised bounded unit completed with passing evidence and persisted
+checkpoint `c8903ec1c4d6926522783314485d112d68872313`, but the dogfood driver
+selected the next incomplete parent objective in the same invocation instead
+of returning control to the supervising human. This is a Goal-drive control
+plane defect, not a worker or target-repository issue. The correction adds
+durable invocation identity and explicit supervised/continuous mode semantics:
+supervised mode terminates after one progressed checkpoint; a new invocation is
+required for the next unit; only explicit continuous mode permits bounded
+repetition. The finding remains post-release and does not reopen v2.0.0.

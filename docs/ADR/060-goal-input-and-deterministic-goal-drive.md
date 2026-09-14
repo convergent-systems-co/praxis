@@ -34,6 +34,13 @@ turn evidence, interruption/restart recovery, and termination. A worker may
 select and complete one bounded child objective, but cannot mint completion,
 push authority, or parent-loop continuation through prose or an exit status.
 
+Each invocation has an immutable invocation identity and an explicit mode. In
+`supervised` mode, the controller terminates the invocation after one
+successfully persisted progressed checkpoint, even when the parent Goal remains
+incomplete. A later child objective requires a new invocation identity and
+supervising decision. `continuous` mode may repeat the bounded primitive, but
+the repetition is controller-owned and never selected or looped by the worker.
+
 For repository-backed work the default pre-turn state is clean and synchronized
 with the authoritative remote. Dirty, diverged, or otherwise ambiguous state
 fails closed. A successful work turn requires a validated local checkpoint and

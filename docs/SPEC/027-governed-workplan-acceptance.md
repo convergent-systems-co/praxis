@@ -59,6 +59,16 @@ caller-supplied digest alone SHALL never create acceptance authority.
 Acceptance and successor-baseline attachment remain separate durable
 transitions and SHALL survive restart without conversational state.
 
+When review is acceptable but existing authority cannot decide safely, the
+generic `AuthorityRequest` contract SHALL be used. It binds the exact Goal
+baseline, proposal, review, requested authority and least scope, reason for
+escalation, affected and transitively blocked work, unrelated runnable work,
+and any recommendation/alternatives. A separate `AuthorityDecision` SHALL
+bind the request digest, exact granted scope, governance principal, outcome,
+authority evidence, and issue/expiry metadata. Requests are pending state, not
+execution authority; decisions are structured records and cannot be minted by
+natural-language model output.
+
 ## Lifecycle and recovery
 
 The accepted WorkPlan SHALL be embedded in the digest-bound immutable Goal

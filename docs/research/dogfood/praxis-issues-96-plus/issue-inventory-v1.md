@@ -339,3 +339,24 @@ acceptance remains distinct from successor-baseline attachment. Tests cover
 missing/rejected review, immutable replay protection, and restart recovery.
 
 No acceptance authority or WorkPlan was created for the current dogfood Goal.
+
+## Dogfood finding DF-017 — durable authority request/decision boundary
+
+DF-016 established that acceptable review is necessary but not itself authority.
+No existing generic durable request/decision record represented the resulting
+human or policy escalation. Existing approval bindings target action-intent
+effects, while capability leases delegate runtime operations; neither safely
+represents pending decomposition authority.
+
+The bounded foundation adds generic `AuthorityRequest` and
+`AuthorityDecision` contracts and encrypted GoalStore persistence. Requests
+bind exact baseline/proposal/review evidence, requested authority/scope, reason,
+affected and transitively blocked work, unrelated runnable work, and
+recommendation alternatives. Decisions bind the request digest, exact scope,
+governance principal, outcome, authority evidence, and expiry. Decision storage
+uses the request identity/version as its immutable idempotency key, preventing
+conflicting replay. Model principals and over-scoped decisions fail closed.
+
+No authority request or decision was created for the current dogfood Goal, and
+acceptance/attachment do not yet consume this generic decision through public
+UX or Goal-drive.

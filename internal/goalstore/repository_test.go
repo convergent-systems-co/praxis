@@ -295,6 +295,58 @@ func TestRepositoryAcceptanceRejectsNonAcceptableReview(t *testing.T) {
 	}
 }
 
+func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	ctx := context.Background()
+	keyWrapper := &wrapper{caps: praxiscrypto.Capabilities{PQ: true}}
+	db, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	request := contracts.AuthorityRequest{ID: "authority-request-1", Version: "1", BaselineID: "goal-1", BaselineVersion: "1", BaselineDigest: "sha256:baseline", ProposalID: "proposal-1", ProposalVersion: "1", ProposalDigest: "sha256:proposal", ReviewRef: "review-1", ReviewVersion: "1", ReviewDigest: "sha256:review", RequestedAuthority: "workplan.accept", RequestedScope: "goal:goal-1/proposal-1", Reason: "policy authority is not configured for this material decomposition", AffectedWork: []string{"unit-1"}, TransitivelyBlocked: []string{"unit-2"}, UnrelatedRunnableWork: []string{"unit-3"}, Recommendation: "approve one proposal", Alternatives: []string{"reject", "revise"}, Status: contracts.AuthorityRequestPending}
+	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	requestDigest, err := request.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator-authority", IssuedAt: now}
+	if err := repo.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopenedDB, err := state.OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopenedDB.Close()
+	reopened := Repository{Store: state.New(reopenedDB), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential}
+	loaded, err := reopened.LoadAuthorityDecision(ctx, request.ID, request.Version, time.Now().UTC())
+	if err != nil || loaded.DecisionRef != decision.DecisionRef || loaded.GrantedScope != request.RequestedScope {
+		t.Fatalf("decision did not survive restart: %+v err=%v", loaded, err)
+	}
+	if err := reopened.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, now, nil); err != nil {
+		t.Fatalf("identical authority decision was not idempotent: %v", err)
+	}
+	overScoped := decision
+	overScoped.DecisionRef = "decision-2"
+	overScoped.GrantedScope = "org:all"
+	if err := reopened.SaveAuthorityDecision(ctx, request.ID, request.Version, overScoped, now, nil); err == nil {
+		t.Fatal("over-scoped decision was accepted")
+	}
+	forged := decision
+	forged.DecisionRef = "decision-3"
+	forged.DecidedBy = contracts.PrincipalRef{ID: "model", Kind: "model"}
+	if err := reopened.SaveAuthorityDecision(ctx, request.ID, request.Version, forged, now, nil); err == nil {
+		t.Fatal("model conversational output became authority")
+	}
+}
+
 func TestRepositoryAttachAcceptedWorkPlanCreatesBoundSuccessor(t *testing.T) {
 	repo, db := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
 	ctx := context.Background()

@@ -95,6 +95,11 @@ foundation may bind explicitly supplied proposal candidates to a verified
 baseline and the GoalStore persists an independent review record, but no
 proposal is generated from prose and no review grants execution authority.
 
+Authority insufficiency is a generic durable request/decision boundary. Pending
+requests preserve affected, transitively blocked, and unrelated runnable work;
+structured decisions bind the exact request and least scope. Public human UX
+and controller consumption remain subsequent surfaces.
+
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or
 unresolved acceptance is surfaced as authority insufficiency rather than

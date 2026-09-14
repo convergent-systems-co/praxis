@@ -35,6 +35,12 @@ the authority's explicit least-scope scope to the proposal, source baseline,
 and review. A caller cannot promote a digest that is not present in the
 authoritative review store.
 
+Authority insufficiency is represented by a generic pending request rather than
+chat state or a WorkPlan-specific hidden flag. The request is immutable and
+deduplicated by identity/version; a separate decision binds its exact digest,
+least scope, governance principal, outcome, and expiry. Acceptance may consume
+an approved decision, but cannot broaden it or treat review as approval.
+
 Acceptance may be human or policy-governed. Human acceptance is required for
 ambiguous, material, or authority-sensitive decomposition unless an existing
 policy explicitly grants an independent deterministic authority to decide it.

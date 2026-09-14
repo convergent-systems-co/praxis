@@ -1,6 +1,7 @@
 package goalstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -19,6 +20,8 @@ const sessionNamespace = "goal_session"
 const workPlanProposalNamespace = "work_plan_proposal"
 const workPlanAcceptanceNamespace = "work_plan_acceptance"
 const workPlanReviewNamespace = "work_plan_review"
+const authorityRequestNamespace = "authority_request"
+const authorityDecisionNamespace = "authority_decision"
 
 type Repository struct {
 	Store       *state.Store
@@ -364,6 +367,102 @@ func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, ver
 		return contracts.WorkPlan{}, fmt.Errorf("validate accepted WorkPlan: %w", err)
 	}
 	return plan, nil
+}
+
+// SaveAuthorityRequest records a pending governance question without granting
+// any authority. Its immutable identity/version is the deduplication key.
+func (r Repository) SaveAuthorityRequest(ctx context.Context, request contracts.AuthorityRequest, createdAt time.Time, expiresAt *time.Time) (string, error) {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return "", err
+	}
+	digest, err := request.Digest()
+	if err != nil {
+		return "", err
+	}
+	payload, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("encode authority request: %w", err)
+	}
+	if err := r.putWorkPlanBlob(ctx, authorityRequestNamespace, request.ID, request.Version, payload, createdAt, expiresAt); err != nil {
+		return "", fmt.Errorf("persist authority request: %w", err)
+	}
+	return digest, nil
+}
+
+func (r Repository) LoadAuthorityRequest(ctx context.Context, id, version string, now time.Time) (contracts.AuthorityRequest, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityRequestNamespace, id, version, now)
+	if err != nil {
+		return contracts.AuthorityRequest{}, err
+	}
+	var request contracts.AuthorityRequest
+	if err := json.Unmarshal(payload, &request); err != nil {
+		return contracts.AuthorityRequest{}, fmt.Errorf("decode authority request: %w", err)
+	}
+	_, err = request.Digest()
+	if err != nil || request.ID != id || request.Version != version || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.AuthorityRequest{}, errors.New("authority request identity or digest mismatch")
+	}
+	return request, nil
+}
+
+type authorityDecisionRecord struct {
+	Request  contracts.AuthorityRequest  `json:"request"`
+	Decision contracts.AuthorityDecision `json:"decision"`
+}
+
+// SaveAuthorityDecision is the explicit structured decision boundary. The
+// request is reloaded by immutable identity; the decision is stored under that
+// same identity/version so conflicting second decisions cannot be recorded.
+func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, requestVersion string, decision contracts.AuthorityDecision, createdAt time.Time, expiresAt *time.Time) error {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return err
+	}
+	request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("load authority request: %w", err)
+	}
+	if request.Status != contracts.AuthorityRequestPending {
+		return errors.New("authority request is no longer pending")
+	}
+	if err := decision.Validate(request, time.Now().UTC()); err != nil {
+		return err
+	}
+	if existing, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
+		left, _ := json.Marshal(existing)
+		right, _ := json.Marshal(decision)
+		if bytes.Equal(left, right) {
+			return nil
+		}
+		return errors.New("conflicting authority decision already exists")
+	} else if !errors.Is(err, state.ErrSecureBlobNotFound) {
+		return fmt.Errorf("check existing authority decision: %w", err)
+	}
+	payload, err := json.Marshal(authorityDecisionRecord{Request: request, Decision: decision})
+	if err != nil {
+		return fmt.Errorf("encode authority decision: %w", err)
+	}
+	if err := r.putWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt); err != nil {
+		return fmt.Errorf("persist authority decision: %w", err)
+	}
+	return nil
+}
+
+func (r Repository) LoadAuthorityDecision(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityDecision, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, now)
+	if err != nil {
+		return contracts.AuthorityDecision{}, err
+	}
+	var stored authorityDecisionRecord
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return contracts.AuthorityDecision{}, fmt.Errorf("decode authority decision: %w", err)
+	}
+	if stored.Request.ID != requestID || stored.Request.Version != requestVersion || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.AuthorityDecision{}, errors.New("authority decision identity or digest mismatch")
+	}
+	if err := stored.Decision.Validate(stored.Request, now); err != nil {
+		return contracts.AuthorityDecision{}, fmt.Errorf("validate authority decision: %w", err)
+	}
+	return stored.Decision, nil
 }
 
 func (r Repository) validateWorkPlanStore() error {

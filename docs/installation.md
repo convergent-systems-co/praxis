@@ -42,16 +42,33 @@ The Python distribution currently installs a console script with the same name, 
 
 ## First initialization and state
 
-The Go binary has no hidden initialization command. `praxis doctor` without `PRAXIS_DB` verifies the binary and reports `state: not configured`. Choose the database explicitly before durable operations:
+The Go binary uses explicit first-party initialization. `praxis doctor` without
+`PRAXIS_DB` verifies the binary and reports `state: not configured`. First
+create the user-controlled Keychain bootstrap metadata, then initialize the
+SQLite state through Praxis itself:
 
 ```bash
 export PRAXIS_DB="$HOME/.praxis/praxis.db"
+export PRAXIS_BOOTSTRAP_RECORD="$HOME/.praxis/bootstrap.json"
 mkdir -p "$HOME/.praxis"
-praxis list                         # creates the SQLite schema on first use
+praxis key-bootstrap \
+  --provider macos-keychain \
+  --key-id key:goals \
+  --owner "$USER" \
+  --purpose goalstore \
+  --profile classical-compatible \
+  --output "$PRAXIS_BOOTSTRAP_RECORD"
+praxis state-init
 praxis doctor
 ```
 
-The first writable package-state command creates the SQLite schema; `praxis list` is a safe empty-registry initialization check. The database then contains authoritative package, approval, run, plugin, lease, and event state. Back it up while Praxis is stopped, and preserve the matching release binary and package artifacts. Do not edit SQLite tables manually.
+`state-init` creates or migrates the SQLite schema atomically after proving the
+configured production bootstrap can be opened. It is idempotent. The database
+then contains authoritative package, approval, run, plugin, lease, and event
+state. Back it up while Praxis is stopped, and preserve the matching release
+binary and package artifacts. Do not edit SQLite tables manually. A missing
+database is uninitialized state; an existing database that cannot be opened is
+diagnostic failure and must not be replaced.
 
 Python graph runs use an explicit directory instead:
 

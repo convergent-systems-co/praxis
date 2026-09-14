@@ -56,6 +56,13 @@ records. They must distinguish validated progress from checkpoint publication,
 and must never infer parent Goal advancement from verification activity,
 worker evidence, or an unchanged repository identity.
 
+The first-party native `goal-drive` entry point may dispatch directly to the
+Goal-drive parser/runtime without first reading the package invocation registry.
+This exception exists only to break first-run initialization deadlock: runtime
+construction must load the explicit bootstrap record and let `OpenSQLite`
+create/migrate configured state. Other dynamic/package entry points retain
+registry resolution, and this direct path does not create package authority.
+
 ## Consequences
 
 The first-party Goals/Develop bundles and supervision surfaces can consume one

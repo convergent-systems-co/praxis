@@ -58,6 +58,18 @@ SHALL say so explicitly. A bounded child turn SHALL report parent Goal
 advancement as unclaimed unless a separate authoritative Goal transition was
 persisted.
 
+## First-run state
+
+The native first-party `goal-drive` command MAY bypass only the pre-runtime
+read-only package-registry lookup so a configured new `PRAXIS_DB` can reach
+runtime-owned `OpenSQLite`. Before opening or migrating state, runtime setup
+MUST load and validate the exact persisted `BootstrapRecord` and open its
+configured production `KeyWrapper`. Missing bootstrap metadata or unavailable
+key material MUST fail before state decryption and MUST not create replacement
+key material. `state-init` is the explicit idempotent state initializer;
+missing database means uninitialized state, while an existing unreadable or
+corrupt database remains diagnostic failure and is never overwritten.
+
 ## Repository state machine
 
 Before a repository-backed turn, the controller SHALL classify at least:

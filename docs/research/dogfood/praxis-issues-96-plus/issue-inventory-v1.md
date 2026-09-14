@@ -276,6 +276,17 @@ prior OSStatus `100001` is therefore an environment boundary from the seatbelt
 sandbox (`/usr/bin/security error 100001` reports `UNIX[Operation not
 permitted]`), not a backend/API defect. Sandboxed runs continue to fail closed.
 
+## Dogfood finding DF-028 — first-run SQLite/package-resolution deadlock
+
+After successful `key-bootstrap`, the native Goal-drive path attempted
+read-only package-registry resolution before runtime-owned SQLite creation.
+Absent `PRAXIS_DB` therefore appeared as `unable to open database file` rather
+than uninitialized state. The correction adds explicit `state-init`, makes
+first-party `goal-drive` dispatch bypass only the pre-runtime registry read,
+and preserves registry resolution for other dynamic/package commands. SQLite
+creation/migrations remain owned by `OpenSQLite` after the configured
+BootstrapRecord is loaded and its production KeyWrapper is opened.
+
 ## Dogfood finding DF-010 — parent blocker granularity
 
 The selector already handles partial blocking correctly when given an

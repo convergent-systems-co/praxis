@@ -167,6 +167,12 @@ as the sandbox's `UNIX[Operation not permitted]` restriction; sandboxed runs
 remain intentionally classified as unavailable rather than weakening the
 backend.
 
+DF-028 closes the first-run state deadlock. `state-init` is the explicit
+bootstrap-bound SQLite initializer, while native `goal-drive` may bypass only
+the pre-runtime package-registry read so runtime-owned migration can handle a
+new configured database. Existing dynamic/package commands continue to require
+registry resolution; no package authority is created by the bypass.
+
 Do not mark #103 complete from this slice alone. Completion still requires the
 native invocation/dispatch and authority-backed acceptance obligations recorded
 in the dogfood qualification audit; missing external provider/key authority

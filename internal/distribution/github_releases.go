@@ -261,5 +261,17 @@ func (g GitHubReleases) CheckUpdate(ctx context.Context, ref PackageRef, install
 	return latest, latest.Manifest.Version != installedVersion, nil
 }
 
+func (g GitHubReleases) ResolveLocked(ctx context.Context, dependency packagecatalog.Dependency) (Release, error) {
+	if dependency.SourceKind != "github-releases" {
+		return Release{}, fmt.Errorf("github releases cannot resolve dependency source %q", dependency.SourceKind)
+	}
+	parts := strings.Split(dependency.SourceRef, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return Release{}, fmt.Errorf("github dependency source reference must be owner/repo, got %q", dependency.SourceRef)
+	}
+	return g.Resolve(ctx, PackageRef{Source: dependency.SourceKind, Owner: parts[0], Repo: parts[1]}, dependency.Version)
+}
+
 var _ Adapter = GitHubReleases{}
+var _ LockedAdapter = GitHubReleases{}
 var _ = packagecatalog.Manifest{}

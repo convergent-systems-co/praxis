@@ -74,10 +74,11 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		now := time.Now().UTC()
-		verified, err := verifyReleasePackage(release, artifact, os.Getenv, allowFallback, now)
+		resolution, err := resolveReleasePackages(ctx, adapter, release, artifact, os.Getenv, allowFallback, now)
 		if err != nil {
 			return err
 		}
+		verified := resolution.Root
 		activation, err := packageActivationRequest(verified, os.Getenv)
 		if err != nil {
 			return err
@@ -90,7 +91,7 @@ func runPackageCommand(command string, args []string) error {
 		if err := state.New(db).ActivatePackage(ctx, activation, now); err != nil {
 			return err
 		}
-		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_keys": signatureKeyIDs(release.Signature), "signature_profile": release.Signature.Profile, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
+		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_keys": signatureKeyIDs(release.Signature), "signature_profile": release.Signature.Profile, "dependency_resolution": resolution.Order, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
 	case "update":
 		packageID, acceptChanges, allowFallback, err := parseUpdateArgs(args)
 		if err != nil {
@@ -126,10 +127,11 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		now := time.Now().UTC()
-		verified, err := verifyReleasePackage(latest, artifact, os.Getenv, allowFallback, now)
+		resolution, err := resolveReleasePackages(ctx, adapter, latest, artifact, os.Getenv, allowFallback, now)
 		if err != nil {
 			return err
 		}
+		verified := resolution.Root
 		activation, err := packageActivationRequest(verified, os.Getenv)
 		if err != nil {
 			return err
@@ -137,7 +139,7 @@ func runPackageCommand(command string, args []string) error {
 		if err := store.ActivatePackage(ctx, activation, now); err != nil {
 			return err
 		}
-		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "review": review})
+		return printJSON(map[string]any{"updated": latest.Manifest.PackageID, "from": installed.Manifest.Version, "to": latest.Manifest.Version, "signature_keys": signatureKeyIDs(latest.Signature), "signature_profile": latest.Signature.Profile, "dependency_resolution": resolution.Order, "review": review})
 	case "disable", "uninstall":
 		if len(args) != 1 {
 			return fmt.Errorf("usage: praxis %s <package-id>", command)
@@ -245,6 +247,27 @@ func verifyReleasePackage(release distribution.Release, artifact []byte, getenv 
 		return packagecatalog.VerifiedPackage{}, fmt.Errorf("verify package: %w", err)
 	}
 	return verified, nil
+}
+
+func resolveReleasePackages(ctx context.Context, adapter distribution.GitHubReleases, release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (distribution.Resolution, error) {
+	if len(artifact) == 0 || len(release.ManifestBytes) == 0 {
+		return distribution.Resolution{}, errors.New("immutable downloaded manifest and artifact bytes are required")
+	}
+	keys, err := loadTrustedPublisherKeys(getenv)
+	if err != nil {
+		return distribution.Resolution{}, err
+	}
+	resolver := distribution.Resolver{
+		Sources:         map[string]distribution.LockedAdapter{"github-releases": adapter},
+		Verifiers:       []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: keys}},
+		AllowPQFallback: allowPQPreferredFallback,
+		VerifiedAt:      at,
+	}
+	resolution, err := resolver.Resolve(ctx, release, artifact)
+	if err != nil {
+		return distribution.Resolution{}, fmt.Errorf("resolve package dependency graph: %w", err)
+	}
+	return resolution, nil
 }
 
 func packageActivationRequest(verified packagecatalog.VerifiedPackage, getenv func(string) string) (packagecatalog.ActivationRequest, error) {

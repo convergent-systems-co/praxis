@@ -9,9 +9,11 @@ import (
 )
 
 type Dependency struct {
-	PackageID string `json:"package_id"`
-	Version   string `json:"version"`
-	Digest    string `json:"digest"`
+	PackageID  string `json:"package_id"`
+	Version    string `json:"version"`
+	Digest     string `json:"digest"`
+	SourceKind string `json:"source_kind,omitempty"`
+	SourceRef  string `json:"source_ref,omitempty"`
 }
 
 type ContentKind string
@@ -82,6 +84,9 @@ func (m Manifest) Validate() error {
 	for _, d := range m.Dependencies {
 		if d.PackageID == "" || d.Version == "" || d.Digest == "" {
 			return errors.New("dependency id, version, and digest are required")
+		}
+		if (d.SourceKind == "") != (d.SourceRef == "") {
+			return errors.New("dependency source kind and reference must be declared together")
 		}
 		if _, ok := seenDeps[d.PackageID]; ok {
 			return fmt.Errorf("duplicate dependency %q", d.PackageID)

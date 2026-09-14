@@ -48,3 +48,11 @@ type Adapter interface {
 	FetchArtifact(ctx context.Context, release Release) ([]byte, error)
 	CheckUpdate(ctx context.Context, ref PackageRef, installedVersion string) (Release, bool, error)
 }
+
+// LockedAdapter resolves an already-pinned dependency identity. Its source
+// locator selects transport only; the signed package ID/version/digest remain
+// authoritative and are rechecked by Resolver.
+type LockedAdapter interface {
+	ResolveLocked(ctx context.Context, dependency packagecatalog.Dependency) (Release, error)
+	FetchArtifact(ctx context.Context, release Release) ([]byte, error)
+}

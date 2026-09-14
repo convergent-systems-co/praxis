@@ -77,7 +77,11 @@ Activation/deactivation/update of package entry points follows SPEC-015. The cor
 
 Execution SHALL resolve against an immutable dependency lock containing exact package IDs/versions/digests. Floating refs MAY be used during discovery/resolution but SHALL NOT define active execution.
 
+A lock MAY carry a source-kind/source-reference locator pair so a replaceable catalog adapter can retrieve the pinned bytes. The locator is transport metadata, not package identity or trust. Automatic resolution requires both fields and fails closed when the adapter is unavailable; pre-resolved verification may omit them only when the caller already supplies verifier-minted packages matching every lock.
+
 The resolver SHALL detect cycles, incompatible constraints, duplicate/conflicting identities, and digest mismatches.
+
+Resolution walks dependency-first in deterministic package-identity order, rechecks every adapter result against the signed exact ID/version/content digest, verifies every signature and typed artifact, and binds the transitive verified evidence/capability surface into the root verification. Different catalog transports use the same resolver and trust boundary. A catalog response, source locator, or popularity signal cannot override a lock or mint verification.
 
 Dependencies MAY supply graphs, agents, plugins, templates, or mixed content without changing lock semantics.
 

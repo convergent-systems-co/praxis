@@ -1,0 +1,51 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./cmd/praxis",
+    "./internal/distribution",
+    "./internal/packagecatalog",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T00:32:00.17346Z",
+  "finished_at": "2026-09-14T00:32:01.88149Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-lifecycle-v6.log",
+  "output_digest": "sha256:ba24ffd1445de29c58f365be9e24c7bd1860f03bd4eed6bea85080f2254508ea",
+  "source_digests": {
+    "cmd/praxis": "sha256:dcd7b5da96b46e8960f2d26a930243efb7124026d8648e6ec712ccb4298d13c6",
+    "internal/distribution": "sha256:c657baedbd6260286d8d60a873af104f6bdd0f1b56600e5729b3b00f9c2fc914",
+    "internal/packagecatalog": "sha256:20eaedb2007c76439f57df8b91e6b79338b678ffddec7af2444940949241fd2d",
+    "internal/state": "sha256:99d21467c78e48345c96ad59f310828d05a5aedc39c3db4758979c7e02d6e0d1",
+    "internal/stateprovider": "sha256:d291ee5baa5ddfd223b89e1c8dcf7d79df02bf9ce77cf9340dae34eec1524b96",
+    "migrations/sqlite": "sha256:3ca75daf46a5f1f898a65d1945aed00cfb9592c3022079a03367cacb6449893d",
+    "pkg/contracts": "sha256:b81e5917f34071db703b4bddc3a5bbc82661bb4c687bd7f945e14679cc31e76e"
+  },
+  "observations": [
+    "TestContractUpgradeChangesOwningDefinitionAndMigrationOnly",
+    "TestGovernedDisableAndRemovePreserveHistoryAcrossRestart",
+    "TestInvocationContractUsesOwningCompatibilityPolicy",
+    "TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic",
+    "TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity",
+    "TestPackageContractVersionsAreRegistryGovernedAndFailClosed",
+    "TestPackageTransitionCannotChangeOperationAfterApproval",
+    "TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration",
+    "TestPackageVerificationAuthorityAndRegistrationsSurviveRestart",
+    "TestResolverRejectsLockMismatchCycleAndUnavailableTransport",
+    "TestResolverVerifiesImmutableTransitiveLocksAcrossCatalogTransports",
+    "TestVerificationCannotMintActivationAuthority",
+    "TestVerifiedGraphArtifactSurvivesActivationAndRestart",
+    "TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities",
+    "TestVerifyPackageBindsTypedContentToExactArchiveBytes",
+    "TestVersionCatalogRejectsDuplicateSemanticOwnership"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:cee3c7829d2f1174463a5fa214b1001a7ef3d9a83bcd0975c03c2922bcb835ab"
+}

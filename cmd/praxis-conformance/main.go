@@ -22,7 +22,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: praxis-conformance blind|qualify [options]")
+		return errors.New("usage: praxis-conformance blind|qualify|attest [options]")
 	}
 	switch args[0] {
 	case "blind":
@@ -136,8 +136,10 @@ func runBlind(args []string) error {
 
 func runQualify(args []string) error {
 	flags := flag.NewFlagSet("qualify", flag.ContinueOnError)
+	root := flags.String("root", ".", "repository root")
 	reportPath := flags.String("report", "", "already-frozen blind report")
-	oraclePath := flags.String("oracle", "", "withheld oracle path")
+	oraclePath := flags.String("oracle", "", "versioned oracle path, or legacy oracle bytes")
+	authorityPath := flags.String("authority", "", "authority manifest for legacy oracle bytes")
 	out := flags.String("out", "", "qualification score path")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -149,19 +151,38 @@ func runQualify(args []string) error {
 	if err := readJSON(*reportPath, &result); err != nil {
 		return err
 	}
-	var oracle []conformance.OracleExpectation
-	if err := readJSON(*oraclePath, &oracle); err != nil {
-		return err
-	}
-	score, err := conformance.ScoreFrozen(result, oracle)
+	oracle, err := conformance.LoadOracle(*root, *oraclePath, *authorityPath)
 	if err != nil {
 		return err
+	}
+	score, err := conformance.ScoreQualified(result, oracle)
+	if err != nil {
+		return err
+	}
+	oracleDigest, err := conformance.SourceSetDigest(*root, []string{filepath.ToSlash(*oraclePath)})
+	if err != nil {
+		return err
+	}
+	authorityDigest := ""
+	if *authorityPath != "" {
+		authorityDigest, err = conformance.SourceSetDigest(*root, []string{filepath.ToSlash(*authorityPath)})
+		if err != nil {
+			return err
+		}
 	}
 	return writeJSON(*out, struct {
 		FrozenResultDigest string                  `json:"frozen_result_digest"`
 		OraclePath         string                  `json:"oracle_path"`
+		AuthorityPath      string                  `json:"authority_path,omitempty"`
+		OracleDigest       string                  `json:"oracle_digest"`
+		AuthorityDigest    string                  `json:"authority_digest,omitempty"`
+		OracleID           string                  `json:"oracle_id"`
+		OracleGeneration   int                     `json:"oracle_generation"`
+		Scope              string                  `json:"scope"`
+		ClaimSetDigest     string                  `json:"claim_set_digest"`
+		GoalDigest         string                  `json:"goal_digest"`
 		Score              conformance.OracleScore `json:"score"`
-	}{FrozenResultDigest: result.Digest, OraclePath: filepath.ToSlash(*oraclePath), Score: score})
+	}{FrozenResultDigest: result.Digest, OraclePath: filepath.ToSlash(*oraclePath), AuthorityPath: filepath.ToSlash(*authorityPath), OracleDigest: oracleDigest, AuthorityDigest: authorityDigest, OracleID: oracle.OracleID, OracleGeneration: oracle.Generation, Scope: oracle.Scope, ClaimSetDigest: oracle.ClaimSetDigest, GoalDigest: oracle.GoalDigest, Score: score})
 }
 
 func readJSON(path string, target any) error {

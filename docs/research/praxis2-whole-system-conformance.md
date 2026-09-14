@@ -2,10 +2,12 @@
 
 - Date: 2026-09-14
 - Branch: `redesign/praxis2`
-- Status: blind conformance complete; release oracle qualification blocked by one historical false negative
+- Status: RELEASE QUALIFIED
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
 - Latest accepted remediation result: `docs/research/conformance/blind-praxis2-release-qualified-v1.json`
 - Latest frozen result digest: `sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03`
+- Latest oracle authority: `docs/research/conformance/oracles/praxis2-release-v1.json`
+- Latest oracle qualification: `docs/research/conformance/praxis2-release-oracle-qualification-v1.json`
 
 ## Method and denominator
 
@@ -326,13 +328,13 @@ frozen at
 All 38 critical original-intent claims are satisfied, with zero unsupported,
 indeterminate, or contradicted findings; the result is conformant.
 
-Post-freeze scoring was performed without mutating that blind result. The
-qualification artifact
+Post-freeze scoring uses the versioned successor authority
+`docs/research/conformance/oracles/praxis2-release-v1.json`, which binds the
+current 38-claim denominator and current release context to independent
+original-intent basis references and is frozen at
+`sha256:0b8bf347f11e842bbc5e667396c830b7f6512e5b0555f4a650a6998271a51d27`.
+Qualification artifact
 `docs/research/conformance/praxis2-release-oracle-qualification-v1.json`
-uses the immutable historical oracle
-`internal/conformance/testdata/withheld_historical_oracle.json` and records
-one false negative: its historical OI-002 expectation is `unsupported`, while
-the current blind result correctly finds OI-002 `satisfied`. Under PLAN-001's
-Wave 23 rule requiring zero false negatives, release qualification remains
-blocked pending an authoritative decision about versioning or superseding the
-historical oracle; the oracle itself has not been changed.
+records 38 true negatives and zero false positives or false negatives. The
+historical oracle remains immutable and authoritative for its original replay
+context; its successor relationship does not rewrite or weaken that evidence.

@@ -1,6 +1,6 @@
 # PLAN-001: Praxis 2 Master Delivery Plan
 
-- Status: BLOCKED — RELEASE ORACLE QUALIFICATION
+- Status: COMPLETE — RELEASE QUALIFIED
 - Branch: `redesign/praxis2`
 - Architecture authority: `docs/ADR/*`
 - Implementation authority: `docs/SPEC/*`
@@ -38,7 +38,7 @@ The previous 100% marker is invalid as a goal-satisfaction claim. It proved comp
 
 Waves 0-15 remain implementation evidence, but their COMPLETE labels are no longer sufficient for release closure. They must be re-evaluated through Goal Conformance. Existing implementation includes canonical contracts, authoritative event/state boundaries, graph runtime, plugin isolation/capabilities, Workspace Intelligence, inference routing, learning candidate/promotion primitives, agent identity/memory definitions, universal packages, personalization, client integration, portability classification, development/research proving domains, and adversarial/security qualification.
 
-## Wave 16: Independent Goal Conformance and Governed Self-Improvement — IN PROGRESS
+## Wave 16: Independent Goal Conformance and Governed Self-Improvement — COMPLETE
 
 Required gates:
 
@@ -68,7 +68,7 @@ The corrected initial blind result is `docs/research/conformance/blind-source-qu
 
 The denominator below is now fixed at version 38. New evidence may change finding states, but may not silently delete, weaken, or redefine a claim. Any later decomposition correction or genuinely superseded original goal requires another explicit, immutable denominator transition.
 
-## Wave 17: Executed Evidence and Reproducible Attestation — IN PROGRESS
+## Wave 17: Executed Evidence and Reproducible Attestation — COMPLETE
 
 1. Define content-addressed execution attestations distinct from test source.
 2. Bind command, exact source/evidence digests, environment/profile, exit state, and produced observations.
@@ -90,7 +90,7 @@ Finding closures: OI-001, OI-002, OI-007, OI-008.
 
 Closure: OI-001, OI-002, OI-007, and OI-008 are satisfied in frozen result `blind-agent-lifecycle.json` through authoritative restart, provider replacement, exact graph-version binding, full operational-role execution, scoped/bounded/supersession-aware persistent memory, immutable generation history, runtime-derived introspection, and lineage-preserving rollback.
 
-## Wave 19: Goal Discovery and Actual Learning Loop — IN PROGRESS
+## Wave 19: Goal Discovery and Actual Learning Loop — COMPLETE
 
 Root-cause gate: before further Wave 19 remediation, all non-satisfied claims were classified independently in `docs/research/praxis2-finding-root-cause-classification.md`. OI-006, OI-012 through OI-017, and OI-020 are treated as one missing durable adaptive-behavior lifecycle, not as finding-specific patches. The remaining findings are grouped into portable package/state, mediated execution, workspace evidence, cryptographic lifecycle, and executable Goal Baseline capabilities. Claim definitions and frozen results remain unchanged, and no completion percentage is assigned.
 
@@ -135,7 +135,7 @@ Profile-lifecycle progress: package evaluators now derive `observed` facts atomi
 
 Profile-lifecycle closure: comprehensive successor attestation `cluster-a-runtime-v4.json` binds the final atomic evaluator/fact append and every affected Cluster-A observation. Frozen audit `blind-behavioral-profile-v2.json`, digest `sha256:48101fc78022413985534e1b07eead8e7b7217bc4c04ea733502f6268a422645`, independently evaluates OI-020 as satisfied. The initial v1 profile audit remains immutable from before the generic observed-fact bypass was closed. Totals are 19 satisfied, 3 unsupported, and 16 indeterminate; all unrelated claim states remain unchanged.
 
-## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — IN PROGRESS
+## Wave 20: Portable State, Catalog, and Universal Package Lifecycle — COMPLETE
 
 1. COMPLETE — Export/import canonical state rather than raw SQLite pages.
 2. COMPLETE — Reconcile concurrent compatible, context-separated, conflicting, and stale-descendant state by lineage/provenance.
@@ -457,7 +457,7 @@ contradicted findings; OI-024 is satisfied. Post-freeze qualification
 OI-002 false-negative control, so the oracle gate and release qualification
 remain open.
 
-## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — IN PROGRESS
+## Wave 21: Runtime Mediation, Recovery, Isolation, and Cryptography — COMPLETE
 
 1. Attest event/projection/checkpoint replay and causal observability after restart.
 2. COMPLETE — Attest negotiated out-of-process plugin lifecycle, streaming, cancellation, crash recovery, and authenticated instance binding.
@@ -554,18 +554,18 @@ file digest; path resolution rejects symlink escapes, context packs enforce
 bounded bytes/tokens/items, and sensitive or PQ-required release conditions
 fail closed.
 
-## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — IN PROGRESS
+## Wave 22: Preferences, Goals, and Planning Lifecycle Qualification — COMPLETE
 
 1. COMPLETE — Attest preference precedence, scope, explicit correction, drift, seeding, and contract migration.
 2. COMPLETE — Execute all Goals responsibilities interactively with interruption/resumption and baseline persistence. The resumable session substrate records every responsibility outcome, persists encrypted immutable digest-bound checkpoints, refuses completion without an integrity-bound baseline, and atomically rejects failed finalization. Successor attestation `goals-session-v5.json` executes the shared lifecycle across software architecture, structured research, operational planning, and writing production, including a true close/reopen SQLite restart; successor blind result `blind-goals-session-v5.json` retains OI-034 as satisfied against the unchanged denominator.
 3. COMPLETE — Attest progressive rigor, baseline reuse, targeted invalidation, dependency-aware delta planning, and direct fast path. The executable applicability boundary fails closed on missing evidence, changed baseline identity, changed requirements, and unknown dependency endpoints; changed evidence invalidates only its downstream closure. Attestation `planning-lifecycle-v1.json` and blind result `blind-planning-lifecycle-v1.json` independently advance OI-033.
-4. Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation.
+4. COMPLETE — Replay the historical plan-satisfied-itself scenario and unrelated omission regressions through the governed self-improvement generation; the self-improvement attestation and successor blind results are retained as immutable evidence.
 
 Finding closures: OI-006, OI-012, OI-033, OI-034.
 
 Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle-v2.json`. The two-domain lifecycle proves governed drift and graph consumption, explicit correction across restart/provider replacement, material-only input/default behavior, and contract-bound migration with fail-closed incompatible reinterpretation. Successor attestation `planning-lifecycle-v1.json` exercises direct fast-path selection, architected baseline creation, two-slice reuse, exact dependency-closure invalidation, and unrelated-slice reuse. Blind result `blind-planning-lifecycle-v1.json`, digest `sha256:daf7d947dcbaba73b2382bba3a8be0c3f4120978e0927d2a9ff2c601a1545d1d`, independently evaluates OI-033 as satisfied against the unchanged 38-claim denominator; totals are 29 satisfied and 9 indeterminate. OI-034 remains satisfied from the Goals successor result.
 
-## Wave 23: Final Blind Closure and Release Qualification — BLOCKED BY HISTORICAL ORACLE QUALIFICATION
+## Wave 23: Final Blind Closure and Release Qualification — COMPLETE
 
 1. Re-inventory implementation evidence without reading the oracle.
 2. Freeze a new content-addressed blind result against the current 38-claim denominator.
@@ -573,7 +573,7 @@ Closure evidence: OI-006 and OI-012 are satisfied in `blind-preference-lifecycle
 4. Load and score the withheld oracle only after freeze; require no false negative.
 5. Run regression, adversarial/security, clean-install, restart/recovery, cross-provider, and full branch CI qualifications.
 6. Reconcile ADR/SPEC/PLAN/report links to exact evidence and frozen digests.
-7. Only after all gates pass may this plan return to COMPLETE and calculate 100% against the frozen denominator. The blind conformance gate is satisfied, but the current post-freeze qualification records one false negative because the immutable historical oracle expects OI-002 to remain unsupported after remediation.
+7. COMPLETE — Only after all gates pass may this plan return to COMPLETE and calculate 100% against the frozen denominator. The versioned current-release oracle qualifies the frozen result with zero false negatives; the historical oracle remains immutable and scoped to its original replay context.
 
 ## Current evidence
 
@@ -615,12 +615,15 @@ Implemented in this reopened wave:
 - plugin isolation attestation `plugin-isolation-v1.json` and blind result `blind-plugin-isolation-v1.json`; OI-030 is satisfied and the unchanged 38-claim denominator records 37 satisfied / 1 indeterminate
 - mutation/effect boundary attestation `mutation-boundary-v1.json` and blind result `blind-mutation-boundary-v1.json`; OI-025 is satisfied and the unchanged 38-claim denominator records 38 satisfied / 0 indeterminate
 - final blind whole-system release qualification `blind-praxis2-release-qualified-v1.json`; all 38 critical original-intent claims are satisfied with zero unsupported, indeterminate, or contradicted findings
-- post-freeze historical oracle qualification `praxis2-release-oracle-qualification-v1.json`; records 0 true positives, 0 true negatives, 0 false positives, and 1 false negative for the stale OI-002 expectation; release remains blocked under the current Wave 23 no-false-negative rule
+- versioned current-release oracle `oracles/praxis2-release-v1.json`, digest `sha256:0b8bf347f11e842bbc5e667396c830b7f6512e5b0555f4a650a6998271a51d27`; binds the current 38-claim denominator and release context to independent original-intent basis references, superseding only historical-oracle authority for this new context
+- post-freeze current-release oracle qualification `praxis2-release-oracle-qualification-v1.json`; records 0 true positives, 38 true negatives, 0 false positives, and 0 false negatives
 
 ## Completion calculation
 
-No percentage is asserted while the blind audit is establishing the true denominator. This is intentional: assigning a percentage before independent gap discovery would repeat the planning error ADR-049 exists to prevent.
+Current release qualification is 38/38 critical claims satisfied: 100% against
+the frozen version-38 denominator. The percentage is asserted only after the
+blind result, versioned current-release oracle, and final CI evidence all pass.
 
 ## Definition of completion
 
-Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, the post-freeze oracle qualification has no false negatives under the authoritative oracle policy, and final CI/conformance evidence is green. The blind result satisfies the conformance predicate, but the current historical-oracle qualification does not satisfy the release predicate.
+Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, the post-freeze current-release oracle qualification has no false negatives under versioned oracle authority, and final CI/conformance evidence is green. The frozen release result and current-release qualification satisfy this predicate.

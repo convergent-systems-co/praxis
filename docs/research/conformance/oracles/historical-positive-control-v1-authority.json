@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "oracle_id": "historical-positive-control-v1",
+  "generation": 1,
+  "scope": "historical_replay",
+  "qualification_context": "blind-source-qualified-37-claim-discovery",
+  "claim_set_digest": "sha256:40162f681aa56bc3091ab4dd188d6857330bc8d495b11eea20e701c49bef2717",
+  "goal_digest": "sha256:ec813f71fe19f7e546d53774132bbb7133ca9195004e7a8496f4079fa7249353",
+  "effective_from": "2026-09-13T00:00:00Z",
+  "provenance_refs": [
+    "docs/ADR/049-goal-conformance-and-blind-self-improvement.md",
+    "docs/SPEC/018-goal-conformance-and-self-improvement.md",
+    "docs/research/conformance/blind-source-qualified.json"
+  ],
+  "oracle_path": "internal/conformance/testdata/withheld_historical_oracle.json",
+  "oracle_digest": "sha256:7624ff5e2903219dc4d535d2871d7bbf9982c01549e336dfd0035890c6618c12"
+}

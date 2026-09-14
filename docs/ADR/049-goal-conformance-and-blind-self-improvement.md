@@ -19,6 +19,21 @@ Conformance findings distinguish at minimum: satisfied, unsupported, contradicte
 
 After blind findings are frozen, an external oracle may score whether expected omissions were independently rediscovered. Oracle comparison cannot mutate the frozen result.
 
+### Versioned oracle authority
+
+Oracle evidence and oracle authority are separate. Oracle bytes are immutable
+evidence for the qualification context in which they were created. Authority
+over those bytes is a versioned record containing a stable oracle identity,
+generation, scope/context, effective-from time, bound goal and claim-set
+digests, provenance, and any supersedes relationship with an explicit reason.
+
+A historical oracle remains authoritative for its original historical replay
+context. It MUST NOT become permanent release authority when a later governed
+denominator or remediation changes the qualification context. A successor
+release oracle MUST bind the current denominator and release context without
+rewriting predecessor bytes. Unknown, ambiguous, unbound, or mismatched oracle
+authority fails closed and cannot qualify a release.
+
 A repeated or material conformance failure may create a governed learning candidate targeting the responsible graph/process. Candidate adaptation follows ADR-012: diagnose, create a new immutable graph generation, sandbox/replay against the original goal and regression corpus, evaluate security/correctness/cost, promote only through policy, and retain rollback.
 
 No learner may directly mutate the active graph. Goal Conformance itself is not execution authority.

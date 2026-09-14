@@ -13,7 +13,7 @@ type fakeProcessControl struct {
 	startErr   error
 }
 
-func (f *fakeProcessControl) Start(_ context.Context, _ Provider) error {
+func (f *fakeProcessControl) Start(_ context.Context, _ LaunchSpec) error {
 	f.starts++
 	return f.startErr
 }

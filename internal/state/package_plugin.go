@@ -16,6 +16,30 @@ type ResolvedPlugin struct {
 	Executable RegisteredContent
 }
 
+// LaunchSpec binds a resolved, digest-verified package generation to the
+// host process-launch boundary. The returned spec carries the exact
+// executable bytes reconstructed from authoritative package state; callers
+// cannot substitute a path or a different artifact without failing the
+// launch validation performed by plugin.LaunchSpec.
+func (p ResolvedPlugin) LaunchSpec(instance plugin.InstanceIdentity, isolation plugin.IsolationProfile, socketPath string, requiredIsolation []plugin.IsolationProperty) (plugin.LaunchSpec, error) {
+	spec := plugin.LaunchSpec{
+		Provider: plugin.Provider{
+			Manifest:  p.Manifest,
+			Identity:  instance,
+			State:     plugin.StateInstalled,
+			Isolation: isolation,
+		},
+		Executable:        append([]byte(nil), p.Executable.ArtifactBytes...),
+		Entrypoint:        p.Manifest.Entrypoint,
+		SocketPath:        socketPath,
+		RequiredIsolation: append([]plugin.IsolationProperty(nil), requiredIsolation...),
+	}
+	if err := spec.Validate(); err != nil {
+		return plugin.LaunchSpec{}, fmt.Errorf("resolved plugin launch spec: %w", err)
+	}
+	return spec, nil
+}
+
 // ResolvePlugin reconstructs a package plugin only when its versioned
 // definition and separately typed executable payload remain active, co-owned,
 // and digest-bound after restart. It does not launch the plugin or grant a

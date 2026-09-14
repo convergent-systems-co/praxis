@@ -79,6 +79,16 @@ Lifecycle states SHALL include discovered, verified, installed, starting, ready,
 
 Startup SHALL verify artifact identity/signature policy, protocol compatibility, isolation satisfiability, resource policy, instance identity, and health before capability leases are issued.
 
+The launch boundary SHALL consume a `ResolvedPlugin`-equivalent state result,
+not a caller-selected host path. The state provider supplies the exact retained
+executable bytes and manifest entrypoint after rechecking package-generation,
+content-identity, and digest bindings. The host launcher SHALL copy those bytes
+into a private materialization, verify the digest again, and avoid inheriting
+ambient environment. A required isolation property that has no host enforcer
+is a fail-closed launch error; process separation alone is not isolation
+evidence. Package resolution and launch preparation do not mint a capability
+lease.
+
 Repeated crash or policy violation SHALL support quarantine/circuit breaking.
 
 ## Input/output trust

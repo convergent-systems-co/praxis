@@ -11,7 +11,7 @@ import (
 // ProcessControl is implemented by the host-specific launcher. The supervisor
 // never relies on a plugin voluntarily shutting itself down.
 type ProcessControl interface {
-	Start(ctx context.Context, provider Provider) error
+	Start(ctx context.Context, spec LaunchSpec) error
 	Terminate(ctx context.Context, instance InstanceIdentity) error
 }
 
@@ -23,6 +23,7 @@ type SupervisorPolicy struct {
 
 type supervisedInstance struct {
 	Provider            Provider
+	Launch              LaunchSpec
 	ConsecutiveFailures int
 	LastFailureAt       time.Time
 	LastStartAt         time.Time
@@ -47,8 +48,21 @@ func NewSupervisor(registry *Registry, process ProcessControl, policy Supervisor
 }
 
 func (s *Supervisor) Register(provider Provider) error {
+	return s.RegisterLaunch(LaunchSpec{Provider: provider})
+}
+
+// RegisterLaunch binds a verified executable payload to the supervised
+// provider. The payload is retained only as launch input; runtime advertisement
+// is still absent until a fresh handshake is validated.
+func (s *Supervisor) RegisterLaunch(spec LaunchSpec) error {
+	provider := spec.Provider
 	if err := provider.Identity.ValidateAgainst(provider.Manifest); err != nil {
 		return err
+	}
+	if len(spec.Executable) != 0 {
+		if err := spec.Validate(); err != nil {
+			return err
+		}
 	}
 	required := append([]IsolationProperty(nil), provider.Manifest.RequiredIsolation...)
 	required = append(required, s.policy.RequiredIsolation...)
@@ -60,7 +74,7 @@ func (s *Supervisor) Register(provider Provider) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.entries[provider.Identity.InstanceID] = supervisedInstance{Provider: provider}
+	s.entries[provider.Identity.InstanceID] = supervisedInstance{Provider: provider, Launch: spec}
 	return nil
 }
 
@@ -98,7 +112,7 @@ func (s *Supervisor) Start(ctx context.Context, instanceID string, now time.Time
 	s.entries[instanceID] = entry
 	s.mu.Unlock()
 
-	if err := s.process.Start(ctx, entry.Provider); err != nil {
+	if err := s.process.Start(ctx, entry.Launch); err != nil {
 		s.RecordFailure(context.Background(), instanceID, now)
 		return fmt.Errorf("start plugin: %w", err)
 	}

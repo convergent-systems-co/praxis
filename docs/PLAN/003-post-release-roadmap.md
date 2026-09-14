@@ -110,7 +110,9 @@ Exact authority decisions may be invalidated only by immutable revocation
 evidence; acceptance and attachment must fail closed after effective
 revocation, while historical records remain retained. Revoke/consume writes
 must share a database transaction and source-record lock so commit order is
-the recoverable authority timeline.
+the recoverable authority timeline. Decisions must additionally bind an exact
+authority generation and fail closed when the cross-registry validator is
+absent or reports supersession/revocation.
 
 The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
 proposal, independent review, and acceptance are distinct records. A missing or

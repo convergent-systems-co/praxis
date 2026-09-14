@@ -427,3 +427,18 @@ ordering; a later revoke cannot retroactively invalidate a committed consume,
 and a committed revoke blocks later consumption. Crash-before-commit leaves no
 new transition and retry reloads effective state. Cross-registry principal or
 policy revocation coordination remains outside this exact-decision slice.
+
+## Dogfood finding DF-022 — broader authority generation binding
+
+DF-021 serialized exact-decision revocation but the audit found no durable
+GoalStore-consumable principal/policy generation registry. `AuthorityDigest`
+and `PrincipalRef` alone cannot prove that the issuer’s broader grant remains
+active after policy supersession or principal revocation.
+
+The bounded correction adds exact authority reference/version fields and a
+fail-closed `AuthorityGenerationValidator` seam to the acceptance boundary.
+Decision-backed acceptance now requires that validator to confirm the current
+broader generation; legacy unbound decisions remain historical but cannot enter
+the cross-registry path. The actual principal/policy registry integration and
+its shared transaction/event ordering remain the next governed owner; no
+current-Goal authority was created.

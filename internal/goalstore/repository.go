@@ -27,11 +27,18 @@ const authorityRevocationNamespace = "authority_revocation"
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
 
 type Repository struct {
-	Store       *state.Store
-	Crypto      praxiscrypto.EnvelopeService
-	KeyRef      string
-	Profile     contracts.CryptoProfile
-	Sensitivity state.Sensitivity
+	Store               *state.Store
+	Crypto              praxiscrypto.EnvelopeService
+	KeyRef              string
+	Profile             contracts.CryptoProfile
+	Sensitivity         state.Sensitivity
+	AuthorityGeneration AuthorityGenerationValidator
+}
+
+// AuthorityGenerationValidator is the cross-registry authority boundary.
+// GoalStore does not infer principal or policy validity from an opaque digest.
+type AuthorityGenerationValidator interface {
+	ValidateAuthorityGeneration(context.Context, contracts.AuthorityDecision, time.Time) error
 }
 
 func (r Repository) Save(ctx context.Context, baseline goals.GoalBaseline, createdAt time.Time, expiresAt *time.Time) (goals.GoalBaseline, error) {
@@ -405,6 +412,12 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	if authorityDecision.Outcome != contracts.AuthorityApprove {
 		return contracts.WorkPlan{}, fmt.Errorf("authority decision outcome %q cannot authorize WorkPlan acceptance", authorityDecision.Outcome)
 	}
+	if authorityDecision.AuthorityRef == "" || authorityDecision.AuthorityVersion == "" || r.AuthorityGeneration == nil {
+		return contracts.WorkPlan{}, errors.New("authority generation validation is required for cross-registry acceptance")
+	}
+	if err := r.AuthorityGeneration.ValidateAuthorityGeneration(ctx, authorityDecision, time.Now().UTC()); err != nil {
+		return contracts.WorkPlan{}, fmt.Errorf("validate authority generation: %w", err)
+	}
 	proposal, err := r.LoadWorkPlanProposal(ctx, request.ProposalID, request.ProposalVersion, time.Now().UTC())
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("load proposal for authority-backed acceptance: %w", err)
@@ -429,7 +442,7 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	}
 	acceptance := contracts.WorkPlanAcceptance{
 		ProposalDigest: proposalDigest, BaselineDigest: request.BaselineDigest,
-		AuthorityRef: request.RequestedAuthority, AuthorityDigest: authorityDecision.AuthorityDigest,
+		AuthorityRef: authorityDecision.AuthorityRef, AuthorityDigest: authorityDecision.AuthorityDigest,
 		AcceptanceRef: acceptanceRef, AcceptanceDigest: authorityAcceptanceDigest(request, authorityDecision, acceptanceRef, acceptanceVersion),
 		AcceptedBy: authorityDecision.DecidedBy, AuthorityScope: authorityDecision.GrantedScope,
 		AuthorityRequestID: request.ID, AuthorityRequestVersion: request.Version,

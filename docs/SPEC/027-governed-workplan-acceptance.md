@@ -64,10 +64,10 @@ generic `AuthorityRequest` contract SHALL be used. It binds the exact Goal
 baseline, proposal, review, requested authority and least scope, reason for
 escalation, affected and transitively blocked work, unrelated runnable work,
 and any recommendation/alternatives. A separate `AuthorityDecision` SHALL
-bind the request digest, exact granted scope, governance principal, outcome,
-authority evidence, and issue/expiry metadata. Requests are pending state, not
-execution authority; decisions are structured records and cannot be minted by
-natural-language model output.
+bind the request digest, exact granted scope, governance principal, exact
+authority reference/version, outcome, authority evidence, and issue/expiry
+metadata. Requests are pending state, not execution authority; decisions are
+structured records and cannot be minted by natural-language model output.
 
 Goal-drive SHALL query pending requests for the exact active Goal Baseline
 generation only after deterministic readiness finds no authorized runnable
@@ -116,6 +116,12 @@ The transaction that commits first defines the durable ordering: a committed
 revocation prevents a later consume; a committed consume is historically
 valid before a later revocation. A crash before commit leaves no transition;
 retry re-evaluates the effective record rather than reusing an earlier read.
+
+The acceptance boundary SHALL fail closed when no validator for the referenced
+authority generation is available; an opaque authority digest is not a
+substitute for current generation validation. Legacy decisions without that
+binding remain historical evidence but cannot authorize the cross-registry
+acceptance path.
 
 Unaccepted proposals, missing decomposition, and unresolved approval SHALL be
 reported distinctly from `blocked`, `complete`, and `runnable`. Once an

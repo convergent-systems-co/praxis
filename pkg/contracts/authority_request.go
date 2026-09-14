@@ -75,17 +75,19 @@ func (r AuthorityRequest) Digest() (string, error) {
 }
 
 type AuthorityDecision struct {
-	RequestID       string                   `json:"request_id"`
-	RequestVersion  string                   `json:"request_version"`
-	RequestDigest   string                   `json:"request_digest"`
-	DecisionRef     string                   `json:"decision_ref"`
-	DecisionVersion string                   `json:"decision_version"`
-	DecidedBy       PrincipalRef             `json:"decided_by"`
-	GrantedScope    string                   `json:"granted_scope"`
-	Outcome         AuthorityDecisionOutcome `json:"outcome"`
-	AuthorityDigest string                   `json:"authority_digest"`
-	IssuedAt        time.Time                `json:"issued_at"`
-	ExpiresAt       *time.Time               `json:"expires_at,omitempty"`
+	RequestID        string                   `json:"request_id"`
+	RequestVersion   string                   `json:"request_version"`
+	RequestDigest    string                   `json:"request_digest"`
+	DecisionRef      string                   `json:"decision_ref"`
+	DecisionVersion  string                   `json:"decision_version"`
+	DecidedBy        PrincipalRef             `json:"decided_by"`
+	AuthorityRef     string                   `json:"authority_ref"`
+	AuthorityVersion string                   `json:"authority_version"`
+	GrantedScope     string                   `json:"granted_scope"`
+	Outcome          AuthorityDecisionOutcome `json:"outcome"`
+	AuthorityDigest  string                   `json:"authority_digest"`
+	IssuedAt         time.Time                `json:"issued_at"`
+	ExpiresAt        *time.Time               `json:"expires_at,omitempty"`
 }
 
 func (d AuthorityDecision) Digest() (string, error) {

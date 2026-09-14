@@ -18,6 +18,15 @@ type wrapper struct {
 	key  []byte
 }
 
+type authorityGenerationFixture struct{}
+
+func (authorityGenerationFixture) ValidateAuthorityGeneration(_ context.Context, decision contracts.AuthorityDecision, _ time.Time) error {
+	if decision.AuthorityRef != "policy:goal-acceptance" || decision.AuthorityVersion != "7" {
+		return errors.New("stale authority generation")
+	}
+	return nil
+}
+
 func (w *wrapper) Capabilities(context.Context, string) (praxiscrypto.Capabilities, error) {
 	return w.caps, nil
 }
@@ -358,6 +367,7 @@ func TestRepositoryAuthorityRequestDecisionIsBoundRestartReadableAndSingleUse(t 
 
 func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	repo.AuthorityGeneration = authorityGenerationFixture{}
 	ctx := context.Background()
 	proposal, _, accepted := workPlanProposalFixture()
 	proposalDigest, err := repo.SaveWorkPlanProposal(ctx, proposal, "1", time.Now().UTC(), nil)
@@ -377,7 +387,7 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-accept-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator", IssuedAt: time.Now().UTC()}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision-accept-1", DecisionVersion: "1", DecidedBy: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, AuthorityRef: "policy:goal-acceptance", AuthorityVersion: "7", GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: "sha256:operator", IssuedAt: time.Now().UTC()}
 	if err := repo.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}

@@ -99,6 +99,13 @@ on the exact request/source record. Commit order is the durable authority
 timeline; a pre-commit crash produces neither transition, and retries reload
 effective authority. In-process mutexes are not the authority mechanism.
 
+The generic decision also carries an exact authority reference and generation
+version. GoalStore accepts a decision only through an authoritative generation
+validator; it never treats `AuthorityDigest` or a principal name as proof that
+a broader policy/principal grant remains active. Missing generation validation
+fails closed. Cross-registry implementations own their durable generation and
+revocation state and must use the same effective-ordering contract.
+
 ## Consequences
 
 Inference can improve liveness by proposing decomposition without minting

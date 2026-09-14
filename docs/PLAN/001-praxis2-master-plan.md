@@ -181,6 +181,10 @@ capability, and normalizes ready state to stopped after SQLite restart. This is
 still lifecycle substrate; real process execution, lease use, update/revocation,
 and host isolation remain required for OI-021/OI-030/OI-037.
 
+Successor blind result `blind-package-supervisor-integration-v1.json` is frozen
+at `sha256:24248cae13d8ade843dd753dd801cbef110980189c860849c7b80185c57582fb`.
+It retains 25 satisfied and 13 indeterminate claims without oracle access.
+
 Durable supervisor progress: ADR-056 and SQLite migration 0010 persist the
 verified launch binding plus failure/quarantine/revocation state. Restored
 `starting`/`ready`/`degraded` entries become stopped and require a fresh process

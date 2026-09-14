@@ -24,3 +24,23 @@ func TestCommandWorkerRejectsMalformedAndOversizedResults(t *testing.T) {
 		t.Fatal("oversized worker output must fail closed")
 	}
 }
+
+func TestCommandWorkerUsesSanitizedEnvironmentAndRejectsCredentialOverrides(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "should-not-forward")
+	worker := CommandWorker{ProviderID: "safe", Command: []string{"/bin/sh", "-c", `if [ -n "${OPENAI_API_KEY:-}" ]; then exit 9; fi; printf '{"outcome":"NO_PROGRESS"}'`}}
+	if _, err := worker.Execute(context.Background(), WorkerRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	unsafe := CommandWorker{ProviderID: "unsafe", Env: []string{"OPENAI_API_KEY=secret"}, Command: []string{"/usr/bin/printf", `{"outcome":"NO_PROGRESS"}`}}
+	if _, err := unsafe.Execute(context.Background(), WorkerRequest{}); err == nil || !strings.Contains(err.Error(), "not permitted") {
+		t.Fatalf("credential-shaped explicit environment must fail closed: %v", err)
+	}
+}
+
+func TestCommandWorkerRedactsCredentialShapedFailureOutput(t *testing.T) {
+	worker := CommandWorker{ProviderID: "redact", Command: []string{"/bin/sh", "-c", `echo 'api_key=super-secret-value' >&2; exit 1`}}
+	_, err := worker.Execute(context.Background(), WorkerRequest{})
+	if err == nil || strings.Contains(err.Error(), "super-secret-value") || !strings.Contains(err.Error(), "[REDACTED]") {
+		t.Fatalf("process credential output was not redacted: %v", err)
+	}
+}

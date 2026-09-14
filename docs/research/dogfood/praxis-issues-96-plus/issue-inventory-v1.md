@@ -555,3 +555,16 @@ checked from an unstripped capability probe, and record target/toolchain
 provenance. The full matrix remains fail-closed until audited Windows and Linux
 bootstrap backends exist. No weaker backend, release artifact, protected branch,
 or historical evidence was substituted or modified.
+
+## Dogfood finding DF-030 — provider CLI adapter boundary
+
+The native runtime previously registered only `CommandWorker`, which requires
+the child process to emit Praxis's strict one-object `WorkerResult` protocol.
+Normal Claude/Codex subscription CLIs do not implement that protocol, and the
+worker also replaced the child environment with an empty slice. The bounded
+correction adds ADR-067/SPEC-030 provider CLI profiles, sanitized environment
+construction, transcript isolation/redaction, and controller-derived
+repository progress. Provider output cannot mint completion, checkpoint
+validity, authority, or `USER_DECISION_REQUIRED`. Real Goal execution remains
+dependent on accepted decomposition and current Goal authority; no such state
+was fabricated.

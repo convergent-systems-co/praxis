@@ -115,12 +115,19 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 
 func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string) string) (goaldrive.Worker, error) {
 	encoded := getenv("PRAXIS_GOAL_WORKER_ARGV")
-	if encoded == "" {
-		return nil, fmt.Errorf("%w: PRAXIS_GOAL_WORKER_ARGV is required for provider %q", errGoalDriveDispatchDependencies, invocation.ProviderID)
+	if encoded != "" {
+		var argv []string
+		if err := json.Unmarshal([]byte(encoded), &argv); err != nil || len(argv) == 0 || argv[0] == "" {
+			return nil, errors.New("PRAXIS_GOAL_WORKER_ARGV must be a non-empty JSON argv array")
+		}
+		return goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv}, nil
 	}
-	var argv []string
-	if err := json.Unmarshal([]byte(encoded), &argv); err != nil || len(argv) == 0 || argv[0] == "" {
-		return nil, errors.New("PRAXIS_GOAL_WORKER_ARGV must be a non-empty JSON argv array")
+	switch invocation.ProviderID {
+	case "codex", "codex-subscription":
+		return goaldrive.NewCodexSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model)
+	case "claude", "claude-subscription":
+		return goaldrive.NewClaudeSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model)
+	default:
+		return nil, fmt.Errorf("%w: provider %q requires explicit PRAXIS_GOAL_WORKER_ARGV or a registered first-party subscription profile", errGoalDriveDispatchDependencies, invocation.ProviderID)
 	}
-	return goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv}, nil
 }

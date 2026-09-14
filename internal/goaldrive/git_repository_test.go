@@ -50,14 +50,14 @@ func TestExecuteTurnWithGitRepositoryPersistsAndPublishesOneSelectedUnit(t *test
 		t.Fatal(err)
 	}
 	ledger := Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
-	worker := CommandWorker{ProviderID: "local-test-worker", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'bounded\\n' > unit.txt && git add unit.txt && git commit -m bounded >/dev/null && head=$(git rev-parse HEAD) && printf '{\"outcome\":\"COMPLETE\",\"end_head\":\"%s\",\"checkpoint_valid\":true}' \"$head\""}}
+	worker := ProviderCLIWorker{ProviderID: "local-subscription-test", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'bounded\\n' > unit.txt && git add unit.txt && git commit -m bounded >/dev/null && printf 'provider transcript: bounded work complete\\n'"}}
 	controller := Controller{Ledger: ledger, Worker: worker, NoProgressLimit: 1}
 	record, err := controller.ExecuteTurnWithRepository(ctx, TurnRequest{
 		GoalID: "dogfood-praxis-issues-96-plus", GoalVersion: "2", InvocationID: "git-integration-1", TurnID: "turn-1",
 		GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0", Mode: ModeSupervised, Repository: contracts.RepositorySynced,
 		WorkCandidates: []contracts.WorkCandidate{{ID: "bounded-unit", Priority: 1, Sequence: 1, SourceRef: "docs/PLAN/003-post-release-roadmap.md#103", SourceDigest: "sha256:roadmap", Provenance: contracts.ProvenancePLAN}},
 	}, GitRepository{Dir: workDir, Remote: "origin", Branch: "main"})
-	if err != nil || record.ChildObjective != "bounded-unit" || record.Outcome != OutcomeComplete || !record.Progress || !record.CheckpointPublished {
+	if err != nil || record.ChildObjective != "bounded-unit" || record.Outcome != OutcomeContinue || !record.Progress || !record.CheckpointPublished {
 		db.Close()
 		t.Fatalf("production-backed bounded turn mismatch: record=%+v err=%v", record, err)
 	}

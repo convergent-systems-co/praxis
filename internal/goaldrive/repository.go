@@ -84,7 +84,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if err != nil {
 		return TurnRecord{}, err
 	}
-	record, workerErr := c.invoke(ctx, req)
+	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
 	if workerErr != nil {
 		if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), record); appendErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", appendErr, workerErr)
@@ -106,4 +106,41 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, err
 	}
 	return record, nil
+}
+
+func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, repo RepositoryAdapter) (TurnRecord, error) {
+	worker, err := c.worker(req)
+	if err != nil {
+		return TurnRecord{}, err
+	}
+	derived, ok := worker.(RepositoryDerivedWorker)
+	if !ok || !derived.RepositoryResultIsControllerOwned() {
+		return c.invoke(ctx, req)
+	}
+	result, workerErr := worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
+	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+	if workerErr != nil {
+		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
+		return base, workerErr
+	}
+	snapshot, err := repo.Snapshot(ctx)
+	if err != nil {
+		base.Outcome, base.Blocker = OutcomeBlocked, fmt.Sprintf("inspect provider repository result: %v", err)
+		return base, err
+	}
+	base.EndHead = snapshot.Head
+	if !snapshot.Clean {
+		base.Outcome = OutcomeBlocked
+		base.Blocker = "provider left repository with uncommitted changes; no checkpoint is valid"
+		return base, errors.New(base.Blocker)
+	}
+	if snapshot.Head == req.StartHead {
+		base.Outcome = OutcomeNoProgress
+		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:head-unchanged")
+		return base, nil
+	}
+	base.Outcome = OutcomeContinue
+	base.Progress = true
+	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
+	return base, nil
 }

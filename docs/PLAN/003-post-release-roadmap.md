@@ -189,6 +189,13 @@ provenance. The full six-platform matrix remains intentionally blocked until
 audited Windows and Linux bootstrap backends exist; no unsupported artifact is
 published as production-ready.
 
+DF-030 establishes the first-party provider worker boundary under ADR-067 and
+SPEC-030. Subscription CLI profiles are adapters, not WorkerResult protocol
+implementations: provider transcripts remain non-authoritative, environment
+inheritance is allowlisted, and the controller derives repository progress
+after process exit. Completion and human-decision outcomes remain governed
+control-plane evidence rather than model claims.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs

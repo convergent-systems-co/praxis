@@ -120,6 +120,7 @@ const (
 	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v1.json"
 	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v1.json"
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
+	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v1.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v37.json"
 	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v37.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
@@ -168,6 +169,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "scheduler-admission-and-fairness", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/scheduler", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestOrderRunnableBoundsStarvationUnderSustainedHigherPriorityLoad"},
 		{ID: "scheduler-lease-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"},
 		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025"}},
+		{ID: "mutation-effect-boundary", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state", ClaimIDs: []string{"OI-025"}, AttestationRef: mutationBoundaryAttestation, Observation: "TestCommitTransitionIsAtomic"},
 		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
 		{ID: "client-enforcement", Kind: "security_test", Stage: StageBehavior, Ref: "internal/client/enforcement_test.go", ClaimIDs: []string{"OI-026", "OI-027"}},
 		{ID: "client-surface-equivalence", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/clientadapt", ClaimIDs: []string{"OI-026"}, AttestationRef: clientSurfaceAttestation, Observation: "TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances"},

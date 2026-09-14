@@ -4,8 +4,8 @@
 - Branch: `redesign/praxis2`
 - Status: critical conformance gaps discovered; remediation required
 - Qualified discovery baseline: `docs/research/conformance/blind-source-qualified.json`
-- Latest accepted remediation result: `docs/research/conformance/blind-plugin-isolation-v1.json`
-- Latest frozen result digest: `sha256:07d302923ec9c7aaa49e3e364558b1fb8c7aee040e492fe591abed1878d8c577`
+- Latest accepted remediation result: `docs/research/conformance/blind-praxis2-release-qualified-v1.json`
+- Latest frozen result digest: `sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03`
 
 ## Method and denominator
 
@@ -307,3 +307,21 @@ process identity are also checked. The blind result
 `sha256:07d302923ec9c7aaa49e3e364558b1fb8c7aee040e492fe591abed1878d8c577`
 and independently advances OI-030. Totals are now 37 satisfied and 1
 indeterminate; only OI-025 remains open.
+
+The mutation/effect boundary then received successor execution attestation
+`docs/research/conformance/attestations/mutation-boundary-v1.json`. The
+authoritative state suite proves atomic command/event/effect persistence and
+rollback, while the effect lifecycle proves durable dispatch attempts,
+unknown-outcome restart recovery, fail-closed retry classification, and
+evidence-required reconciliation. The blind result
+`docs/research/conformance/blind-mutation-boundary-v1.json` is frozen at
+`sha256:e77f74da6fe609dac6b7686d35ad503392d6a6f4aa4ef7531c70d08daab2395`
+and independently advances OI-025. Totals are now 38 satisfied and 0
+indeterminate; no original-intent claim remains open.
+
+The final blind whole-system release qualification
+`docs/research/conformance/blind-praxis2-release-qualified-v1.json` was then
+frozen at
+`sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03`.
+All 38 critical original-intent claims are satisfied, with zero unsupported,
+indeterminate, or contradicted findings; the result is conformant.

@@ -39,6 +39,12 @@ func TestPraxisBlindGoalAuditFreezesMachineReadableFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Exercise the discovery/failure path with an intentionally incomplete
+	// evidence view. The live repository may be fully conformant; this test
+	// proves the evaluator still freezes a machine-readable gap when evidence
+	// is absent rather than encoding a permanent expectation that release state
+	// must remain incomplete.
+	evidence = nil
 	goalDigest, err := SourceSetDigest(root, OriginalIntentSources)
 	if err != nil {
 		t.Fatal(err)

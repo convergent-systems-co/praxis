@@ -540,6 +540,13 @@ Isolation profiles require every declared property to be enforced, and the
 local process launcher rejects required isolation when no host enforcer exists;
 verified executable identity and runtime-bound process control remain intact.
 
+OI-025 is satisfied in `blind-mutation-boundary-v1.json`, digest
+`sha256:e77f74da6fe609dac6b7686d35ad503392d6a6f4aa4ef7531c70d08daab2395`.
+The authoritative state transition atomically persists command, event, and
+effect intent with authority consumption and rolls back on stale aggregate
+state; durable effect dispatch, unknown-outcome recovery, restart enumeration,
+and evidence-required reconciliation prevent duplicate or invented success.
+
 OI-028 is satisfied in `blind-workspace-intelligence-v1.json`, digest
 `sha256:5dc5cc731dadb25878f5c83be1e712f2533581cbd92073c953ee45893186c6ff`.
 Workspace indexing detects content changes and preserves fresh evidence by
@@ -606,6 +613,8 @@ Implemented in this reopened wave:
 - below-LLM mediation attestation `mediation-gate-v1.json` and blind result `blind-mediation-gate-v1.json`; OI-027 is satisfied and the unchanged 38-claim denominator records 35 satisfied / 3 indeterminate
 - Workspace Intelligence attestation `workspace-intelligence-v1.json` and blind result `blind-workspace-intelligence-v1.json`; OI-028 is satisfied and the unchanged 38-claim denominator records 36 satisfied / 2 indeterminate
 - plugin isolation attestation `plugin-isolation-v1.json` and blind result `blind-plugin-isolation-v1.json`; OI-030 is satisfied and the unchanged 38-claim denominator records 37 satisfied / 1 indeterminate
+- mutation/effect boundary attestation `mutation-boundary-v1.json` and blind result `blind-mutation-boundary-v1.json`; OI-025 is satisfied and the unchanged 38-claim denominator records 38 satisfied / 0 indeterminate
+- final blind whole-system release qualification `blind-praxis2-release-qualified-v1.json`; all 38 critical original-intent claims are satisfied with zero unsupported, indeterminate, or contradicted findings
 
 ## Completion calculation
 
@@ -613,4 +622,4 @@ No percentage is asserted while the blind audit is establishing the true denomin
 
 ## Definition of completion
 
-Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, and final CI/conformance evidence is green.
+Praxis 2 is complete only when a blind whole-system conformance run finds every critical original-goal claim satisfied by admissible evidence, all material findings have passed the governed self-improvement/remediation loop, the reconciled plan reflects those findings, and final CI/conformance evidence is green. The frozen release qualification `blind-praxis2-release-qualified-v1.json` satisfies this predicate.

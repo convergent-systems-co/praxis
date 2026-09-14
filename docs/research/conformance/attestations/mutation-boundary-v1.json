@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T15:04:01.512763Z",
+  "finished_at": "2026-09-14T15:04:06.882935Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/mutation-boundary-v1.log",
+  "output_digest": "sha256:a9bc9260ddfb8861c3cd21409a86d229750a0759674865f69ae74f9f00de6e7f",
+  "source_digests": {
+    "internal/state": "sha256:8a94cca2080b19af0496d9701a82aafac2db234293380e748d1c0db66823a1a9",
+    "internal/state/effect_lifecycle_test.go": "sha256:493df02d82543d7a52a4bcb93806b2de54f5056270d9f855431db4534c1d8281",
+    "internal/state/store_integration_test.go": "sha256:23eec8a8cd7f13efdc07c32eeb4214c076437b22c8b4eab8e3f850cf90ec14dc"
+  },
+  "observations": [
+    "TestCommitTransitionIsAtomic",
+    "TestCommitTransitionRollsBackAuthorityOnVersionConflict",
+    "TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:aa0be4b30a310f3bd3aa2c16eeb7aeb99e59a908c796065adee3886e2c101ac8"
+}

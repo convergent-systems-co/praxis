@@ -237,7 +237,7 @@ adapter modules gain no cross-package import.
 
 ## Human decisions
 
-Per [`ADR 0002`](adr/0002-human-executor-boundary.md), a human is not registered as an executor.
+Per [`ADR-023`](ADR/023-human-authority-and-learning-precedence.md), a human is not registered as an executor.
 `src/praxis_executors/human_decision.py` captures an explicit `pass`, `fail`, or `inconclusive`
 answer as a proof record with `grader_kind="human"`, and puts `escalations` on the shared
 `human_interrupts` telemetry field. Silence, timeout, or absence of an answer produces no proof

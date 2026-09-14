@@ -13,7 +13,7 @@ release defect by this inventory.
 | #96 Architectural inversion review | architecture-from-intent and governed learning | informs #97 and every architecture-bearing slice | implementation slice in progress; interactive/learning consumers remain |
 | #97 Retrospective learning from construction history | historical episode replay and candidate learning | depends on governed evaluation/promotion; consumes #96 review evidence | blocked on a bounded corpus/learning entry surface |
 | #98 Supervision-aware output policy | evidence projection and semantic presentation | should consume durable evidence; interacts with #100 and #97 | blocked on supervision/evidence projection authority |
-| #99 Release documentation and architecture guide | user-facing release documentation | release candidate already contains the documentation set; issue remains open pending repository-level acceptance | ready for issue acceptance review |
+| #99 Release documentation and architecture guide | user-facing release documentation | release candidate already contains the documentation set; acceptance evidence persisted in `issue-99-acceptance-v1.md` | acceptance checkpoint complete; issue closure remains external |
 | #100 Supervision/conformance TUI | read-only status projection | depends on durable run/evidence projection and benefits from #103 ledger | blocked on parent-goal/controller status contract |
 | #101 First-party Goals and Develop bundles | domain packages and multi-agent scheduling | depends on Goals/Baseline, executors, evidence, resources, and policies; interacts with #102/#103 | blocked on native Goal/controller surface |
 | #102 Governed executor affinity/routing | provider-neutral routing targets and budgets | interacts with #101 and #100; requires ADR/SPEC reconciliation | blocked on bundle/controller routing contract |
@@ -102,6 +102,13 @@ integration remains open.
 
 The graph generation change is represented by successor baseline
 `parent-goal-baseline-v2.json`; immutable baseline version 1 is preserved.
+
+## #99 acceptance checkpoint
+
+The release documentation and architecture guide acceptance path passed from a
+fresh Python 3.11 environment. Evidence is persisted in
+`issue-99-acceptance-v1.md`; the repository-level issue remains open until its
+external GitHub acceptance/closure authority is exercised.
 
 ## Dogfood finding DF-005 — supervised checkpoint boundary crossed
 

@@ -18,14 +18,21 @@ type Worker interface {
 }
 
 type WorkerRequest struct {
-	GoalID, GoalVersion, TurnID, ChildObjective, GraphID, GraphVersion, StartHead string
+	GoalID         string `json:"goal_id"`
+	GoalVersion    string `json:"goal_version"`
+	TurnID         string `json:"turn_id"`
+	ChildObjective string `json:"child_objective"`
+	GraphID        string `json:"graph_id"`
+	GraphVersion   string `json:"graph_version"`
+	StartHead      string `json:"start_head"`
 }
 
 type WorkerResult struct {
-	Outcome            Outcome
-	EndHead            string
-	CheckpointValid    bool
-	CheckpointEvidence []string
+	Outcome            Outcome  `json:"outcome"`
+	EndHead            string   `json:"end_head,omitempty"`
+	CheckpointValid    bool     `json:"checkpoint_valid"`
+	CheckpointEvidence []string `json:"checkpoint_evidence,omitempty"`
+	ExecutorID         string   `json:"executor_id,omitempty"`
 }
 
 type TurnRequest struct {
@@ -83,7 +90,7 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 
 func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, error) {
 	result, workerErr := c.Worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
-	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, CheckpointEvidence: result.CheckpointEvidence}
+	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 		return base, workerErr

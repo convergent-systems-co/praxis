@@ -28,7 +28,8 @@ func GoalDriveInvocation() contracts.InvocationContract {
 		Options: []contracts.InvocationOption{
 			{Name: "goal", Type: "string", Description: "literal Goal text"},
 			{Name: "goal-file", Type: "path", Description: "Goal input file captured with provenance and digest"},
-			{Name: "goal-id", Type: "string", Description: "exact durable Goal generation"},
+			{Name: "goal-id", Type: "string", Description: "exact durable Goal identity"},
+			{Name: "goal-version", Type: "string", Description: "exact immutable Goal Baseline generation version"},
 			{Name: "mode", Type: "enum", Default: "supervised", Description: "supervised stops after one persisted progressed unit; continuous permits bounded repetition"},
 			{Name: "invocation-id", Type: "string", Description: "durable identity of this supervised or continuous invocation"},
 			{Name: "provider", Type: "string", Description: "registered provider identity"},

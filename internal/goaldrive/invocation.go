@@ -11,6 +11,7 @@ import (
 
 type InvocationRequest struct {
 	Input           contracts.GoalInput
+	GoalVersion     string
 	Mode            ExecutionMode
 	InvocationID    string
 	ProviderID      string
@@ -48,7 +49,7 @@ func ParseInvocation(options map[string]string) (InvocationRequest, error) {
 	if invocationID == "" {
 		return InvocationRequest{}, errors.New("Goal-drive invocation-id is required")
 	}
-	out := InvocationRequest{Input: input, Mode: mode, InvocationID: invocationID, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true}
+	out := InvocationRequest{Input: input, GoalVersion: options["goal-version"], Mode: mode, InvocationID: invocationID, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true}
 	if value := options["max-turns"]; value != "" {
 		out.MaxTurns, err = positiveInt("max-turns", value)
 		if err != nil {

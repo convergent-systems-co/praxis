@@ -207,6 +207,23 @@ execution obligations. DF-003/#103 remains blocked at that boundary, and
 DF-004 remains the missing external key-provider authority. No requirement is
 removed or reassigned to make #103 complete.
 
+## Dogfood finding DF-024 — supervised runtime composition boundary
+
+The production controller, GoalStore, Git adapter, and provider-neutral worker
+contracts existed independently, but no reusable runtime composed them from a
+publicly normalized Goal invocation. The bounded correction adds an exact
+`goal-id` plus `goal-version` recovery boundary. It loads the immutable Goal
+Baseline from encrypted SQLite GoalStore, materializes only its accepted
+WorkPlan, resolves a setup-registered worker, and executes exactly one
+supervised controller turn through the real Git adapter and restart-readable
+ledger. A local explicit-argv worker provides executable integration evidence;
+it does not fabricate external provider credentials or current-Goal authority.
+
+The native CLI still resolves the registered `goal-drive` contract without
+dispatching it, and public provider/key registration, no-push orchestration,
+multi-turn control, and current-Goal accepted decomposition remain separate
+#103 seams. No WorkPlan or authority was created for the current dogfood Goal.
+
 ## Dogfood finding DF-010 — parent blocker granularity
 
 The selector already handles partial blocking correctly when given an

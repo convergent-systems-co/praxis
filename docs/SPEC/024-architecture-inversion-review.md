@@ -47,6 +47,10 @@ goal evidence. The learning consumer SHALL retain the blind candidate
 derivation digest beside the review and SHALL NOT pass the review result back
 into blind candidate derivation.
 
+The governed learning registry SHALL persist the advisory review by candidate
+identity, reload it across restart, reject conflicting replacements, and keep
+promotion/activation decisions in their existing independent authority path.
+
 ## Failure semantics
 
 Malformed input, missing required evidence, duplicate evidence identity, or an

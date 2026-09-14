@@ -96,7 +96,9 @@ domain-specific counterexample, implementation-location-only reasoning, and
 fail-closed evidence validation. Integration into the interactive Goals graph
 while exact Goal Baseline, blind-learning consumer seams, and the versioned
 Goals graph review stage are now implemented and tested. Learning graph
-consumer integration remains open.
+consumer integration now persists the advisory review alongside candidate
+state and reloads it across restart; broader retrospective-learning workflow
+integration remains open.
 
 The graph generation change is represented by successor baseline
 `parent-goal-baseline-v2.json`; immutable baseline version 1 is preserved.

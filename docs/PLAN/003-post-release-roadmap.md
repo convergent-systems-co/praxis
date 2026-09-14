@@ -162,7 +162,8 @@ integration into interactive Goals and governed retrospective learning remains
 a follow-on learning integration task. The Goals graph now exposes a versioned
 deterministic review stage and human-resolution branch. The first consumer seams now require an exact
 Goal Baseline digest and keep the blind learning derivation digest separate
-from the advisory result. Qualification must prove that implementation
+from the advisory result; governed learning now persists that advisory record
+across restart without making it promotion authority. Qualification must prove that implementation
 location alone cannot establish ownership, that universal mechanisms require
 separate policy evidence, and that domain-specific counterexamples prevent
 over-generalization without promoting themselves.

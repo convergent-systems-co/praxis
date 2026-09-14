@@ -365,22 +365,24 @@ func EvaluateBehaviorCandidate(active, candidate BehaviorGeneration, instruction
 }
 
 type BehaviorRegistry struct {
-	generations map[string]BehaviorGeneration
-	states      map[string]CandidateState
-	evaluations map[string]BehaviorEvaluation
-	demotions   map[string]DemotionRecord
-	activeID    string
-	rollbackID  string
-	path        string
+	generations      map[string]BehaviorGeneration
+	states           map[string]CandidateState
+	evaluations      map[string]BehaviorEvaluation
+	demotions        map[string]DemotionRecord
+	inversionReviews map[string]InversionReviewRecord
+	activeID         string
+	rollbackID       string
+	path             string
 }
 
 type behaviorSnapshot struct {
-	Generations map[string]BehaviorGeneration `json:"generations"`
-	States      map[string]CandidateState     `json:"states"`
-	Evaluations map[string]BehaviorEvaluation `json:"evaluations"`
-	Demotions   map[string]DemotionRecord     `json:"demotions,omitempty"`
-	ActiveID    string                        `json:"active_id"`
-	RollbackID  string                        `json:"rollback_id,omitempty"`
+	Generations      map[string]BehaviorGeneration    `json:"generations"`
+	States           map[string]CandidateState        `json:"states"`
+	Evaluations      map[string]BehaviorEvaluation    `json:"evaluations"`
+	Demotions        map[string]DemotionRecord        `json:"demotions,omitempty"`
+	InversionReviews map[string]InversionReviewRecord `json:"inversion_reviews,omitempty"`
+	ActiveID         string                           `json:"active_id"`
+	RollbackID       string                           `json:"rollback_id,omitempty"`
 }
 
 func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegistry, error) {
@@ -392,7 +394,7 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 		if err := VerifyBehaviorGeneration(seed); err != nil {
 			return nil, err
 		}
-		registry := &BehaviorRegistry{generations: map[string]BehaviorGeneration{seed.ID: seed}, states: map[string]CandidateState{seed.ID: CandidateStabilized}, evaluations: map[string]BehaviorEvaluation{}, demotions: map[string]DemotionRecord{}, activeID: seed.ID, path: path}
+		registry := &BehaviorRegistry{generations: map[string]BehaviorGeneration{seed.ID: seed}, states: map[string]CandidateState{seed.ID: CandidateStabilized}, evaluations: map[string]BehaviorEvaluation{}, demotions: map[string]DemotionRecord{}, inversionReviews: map[string]InversionReviewRecord{}, activeID: seed.ID, path: path}
 		if err := registry.persist(); err != nil {
 			return nil, err
 		}
@@ -430,6 +432,14 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 	if snapshot.Demotions == nil {
 		snapshot.Demotions = map[string]DemotionRecord{}
 	}
+	if snapshot.InversionReviews == nil {
+		snapshot.InversionReviews = map[string]InversionReviewRecord{}
+	}
+	for id, record := range snapshot.InversionReviews {
+		if id == "" || id != record.CandidateID || record.BlindDerivationDigest == "" || !record.Review.AdvisoryOnly {
+			return nil, errors.New("invalid persisted architecture inversion review")
+		}
+	}
 	for id, record := range snapshot.Demotions {
 		if id != record.Evaluation.ID {
 			return nil, errors.New("registry demotion evaluation key mismatch")
@@ -452,7 +462,34 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 	if state := snapshot.States[snapshot.ActiveID]; state == CandidateRejected || state == CandidateRevoked || state == CandidateDemoted || state == CandidateProposed || state == CandidateEvaluating {
 		return nil, errors.New("registry active generation has non-active lifecycle state")
 	}
-	return &BehaviorRegistry{generations: snapshot.Generations, states: snapshot.States, evaluations: snapshot.Evaluations, demotions: snapshot.Demotions, activeID: snapshot.ActiveID, rollbackID: snapshot.RollbackID, path: path}, nil
+	return &BehaviorRegistry{generations: snapshot.Generations, states: snapshot.States, evaluations: snapshot.Evaluations, demotions: snapshot.Demotions, inversionReviews: snapshot.InversionReviews, activeID: snapshot.ActiveID, rollbackID: snapshot.RollbackID, path: path}, nil
+}
+
+// RecordInversionReview persists advisory ownership evidence beside learning
+// state. It cannot register, evaluate, promote, activate, or alter a
+// candidate; blind derivation remains identified by its separate digest.
+func (r *BehaviorRegistry) RecordInversionReview(record InversionReviewRecord) error {
+	if r == nil || record.CandidateID == "" || record.BlindDerivationDigest == "" || !record.Review.AdvisoryOnly {
+		return errors.New("invalid architecture inversion review record")
+	}
+	if r.inversionReviews == nil {
+		r.inversionReviews = map[string]InversionReviewRecord{}
+	}
+	if existing, ok := r.inversionReviews[record.CandidateID]; ok {
+		existingBytes, _ := json.Marshal(existing)
+		recordBytes, _ := json.Marshal(record)
+		if string(existingBytes) != string(recordBytes) {
+			return errors.New("architecture inversion review identity collision")
+		}
+		return nil
+	}
+	r.inversionReviews[record.CandidateID] = record
+	return r.persist()
+}
+
+func (r *BehaviorRegistry) InversionReview(candidateID string) (InversionReviewRecord, bool) {
+	record, ok := r.inversionReviews[candidateID]
+	return record, ok
 }
 
 func (r *BehaviorRegistry) Register(candidate BehaviorGeneration) error {
@@ -563,7 +600,7 @@ func (r *BehaviorRegistry) HasGeneration(id string) bool   { return r.generation
 func (r *BehaviorRegistry) State(id string) CandidateState { return r.states[id] }
 
 func (r *BehaviorRegistry) persist() error {
-	snapshot := behaviorSnapshot{Generations: r.generations, States: r.states, Evaluations: r.evaluations, Demotions: r.demotions, ActiveID: r.activeID, RollbackID: r.rollbackID}
+	snapshot := behaviorSnapshot{Generations: r.generations, States: r.states, Evaluations: r.evaluations, Demotions: r.demotions, InversionReviews: r.inversionReviews, ActiveID: r.activeID, RollbackID: r.rollbackID}
 	bytes, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return err

@@ -3,6 +3,8 @@ package goaldrive
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -15,11 +17,15 @@ import (
 // checkout. It invokes git with explicit argv and never delegates authority
 // to worker output or shell text.
 type GitRepository struct {
-	Dir           string
-	Remote        string
-	Branch        string
-	AllowDetached bool
+	Dir              string
+	Remote           string
+	Branch           string
+	AllowDetached    bool
+	AllowDirtyStart  bool
+	DirtyStartDigest string
 }
+
+func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart }
 
 func (r GitRepository) validate() error {
 	if r.Dir == "" || r.Remote == "" || r.Branch == "" {
@@ -58,7 +64,14 @@ func (r GitRepository) Snapshot(ctx context.Context) (RepositorySnapshot, error)
 		return RepositorySnapshot{}, fmt.Errorf("read repository status: %w", err)
 	}
 	if local == remote {
-		return RepositorySnapshot{Clean: strings.TrimSpace(clean) == "", Relation: contracts.RelationEqual, Head: local}, nil
+		isClean := strings.TrimSpace(clean) == ""
+		if !isClean && r.AllowDirtyStart {
+			diff, diffErr := r.run(ctx, "diff", "--binary")
+			if diffErr != nil || r.DirtyStartDigest == "" || digestBytes([]byte(diff)) != r.DirtyStartDigest {
+				return RepositorySnapshot{}, fmt.Errorf("dirty provider workspace migration input does not match its persisted digest")
+			}
+		}
+		return RepositorySnapshot{Clean: isClean, Relation: contracts.RelationEqual, Head: local}, nil
 	}
 	localAhead, err := r.isAncestor(ctx, remote, local)
 	if err != nil {
@@ -75,6 +88,11 @@ func (r GitRepository) Snapshot(ctx context.Context) (RepositorySnapshot, error)
 		return RepositorySnapshot{Clean: strings.TrimSpace(clean) == "", Relation: contracts.RelationRemoteAhead, Head: local}, nil
 	}
 	return RepositorySnapshot{Clean: strings.TrimSpace(clean) == "", Relation: contracts.RelationDiverged, Head: local}, nil
+}
+
+func digestBytes(value []byte) string {
+	sum := sha256.Sum256(value)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (r GitRepository) FastForward(ctx context.Context) error {

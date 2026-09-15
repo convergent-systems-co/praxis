@@ -23,6 +23,8 @@ type RepositoryAdapter interface {
 	PushAndVerify(context.Context, string) error
 }
 
+type DirtyStartRepository interface{ DirtyStartAllowed() bool }
+
 func PrepareRepository(ctx context.Context, repo RepositoryAdapter) (RepositorySnapshot, error) {
 	if repo == nil {
 		return RepositorySnapshot{}, errors.New("Goal-drive repository adapter is required")
@@ -41,6 +43,12 @@ func PrepareRepository(ctx context.Context, repo RepositoryAdapter) (RepositoryS
 			return RepositorySnapshot{}, err
 		}
 		state = contracts.ClassifyRepositoryState(snapshot.Clean, snapshot.Relation)
+	}
+	if state == contracts.RepositoryDirty {
+		if allowed, ok := repo.(DirtyStartRepository); !ok || !allowed.DirtyStartAllowed() {
+			return RepositorySnapshot{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, state)
+		}
+		return snapshot, nil
 	}
 	if state != contracts.RepositorySynced {
 		return RepositorySnapshot{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, state)

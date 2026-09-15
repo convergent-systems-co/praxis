@@ -101,6 +101,7 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	store := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
 	store.AuthorityGeneration = store
 	allowDetached := false
+	dirtyStartDigest := ""
 	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
 		workspaceVersion := getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION")
 		if workspaceVersion == "" {
@@ -111,9 +112,12 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 			return goaldrive.Runtime{}, nil, fmt.Errorf("load provider workspace: %w", err)
 		}
 		if workspace.GoalID != invocation.Input.GoalID || workspace.GoalVersion != invocation.GoalVersion || workspace.InvocationID != invocation.InvocationID || workspace.ProviderID != invocation.ProviderID || filepath.Clean(workspace.Path) != filepath.Clean(invocation.RepositoryPath) {
-			return goaldrive.Runtime{}, nil, errors.New("provider workspace binding does not match exact Goal-drive invocation")
+			return goaldrive.Runtime{}, nil, fmt.Errorf("provider workspace binding does not match exact Goal-drive invocation: workspace goal=%s/%s invocation goal=%s/%s workspace invocation=%s invocation=%s workspace provider=%s invocation provider=%s workspace path=%s invocation path=%s", workspace.GoalID, workspace.GoalVersion, invocation.Input.GoalID, invocation.GoalVersion, workspace.InvocationID, invocation.InvocationID, workspace.ProviderID, invocation.ProviderID, workspace.Path, invocation.RepositoryPath)
 		}
 		allowDetached = true
+		if workspace.MigrationInputDigest != "" {
+			dirtyStartDigest = workspace.MigrationInputDigest
+		}
 	}
 	workers, err := configuredWorker(invocation, getenv)
 	if err != nil {
@@ -130,7 +134,7 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	if remote == "" {
 		remote = "origin"
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached}, GraphID: out.GraphID, GraphVersion: out.GraphVersion}
+	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached, AllowDirtyStart: dirtyStartDigest != "", DirtyStartDigest: dirtyStartDigest}, GraphID: out.GraphID, GraphVersion: out.GraphVersion}
 	closeOnError = false
 	return runtime, db, nil
 }

@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-planning-successor-cache",
+    "go",
+    "test",
+    "-v",
+    "./packages/develop"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T16:08:32.627815Z",
+  "finished_at": "2026-09-15T16:08:36.030953Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/planning-lifecycle-v2.log",
+  "output_digest": "sha256:1d0ee0fbaf9396986794cab8785f3854919ad29fdac7698c049fe661634f3d9d",
+  "source_digests": {
+    "packages/develop": "sha256:e7cee0199e3206bda64c359c5ace4513ae684efd65b5230c8eb92a1704fb4b49"
+  },
+  "observations": [
+    "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:1039f1d74794618e8778f1b1cbc243806bc7eabf5a2bfed7b74386f676def83d"
+}

@@ -33,8 +33,8 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
-		return runHelp(args)
+	if handled, err := dispatchCLIHelp(args, os.Stdout); handled {
+		return err
 	}
 	switch args[0] {
 	case "status":
@@ -147,8 +147,8 @@ func resolveDynamicInvocation(ctx context.Context, args []string, getenv func(st
 }
 
 func runHelp(args []string) error {
-	if len(args) == 2 && args[0] == "help" && args[1] == "authority" {
-		return writeAuthorityHelp(os.Stdout)
+	if handled, err := dispatchCLIHelp(args, os.Stdout); handled {
+		return err
 	}
 	fmt.Println("usage: praxis <command|installed-entry-point> [arguments] [options]")
 	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, supervise, doctor, key-bootstrap, state-init, authority bootstrap, authority delegate, publisher, version")

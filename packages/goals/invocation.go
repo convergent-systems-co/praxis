@@ -61,6 +61,7 @@ func LifecycleInvocation() contracts.InvocationContract {
 			{Name: "goal-id", Type: "string", Required: false, Description: "exact Goal identity for inspection"},
 			{Name: "goal-version", Type: "string", Required: false, Description: "exact Goal Baseline generation for inspection"},
 		},
-		RequiredEnforcement: []string{"deterministic_authority_boundary", "goals_lifecycle_controller"},
+		RequiredCapabilities: []string{"goals.lifecycle.execute"},
+		RequiredEnforcement:  []string{"deterministic_authority_boundary", "goals_lifecycle_controller"},
 	}
 }

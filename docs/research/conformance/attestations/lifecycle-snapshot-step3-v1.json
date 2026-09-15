@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-lifecycle-attest-gocache",
+    "go",
+    "test",
+    "-v",
+    "./pkg/contracts",
+    "./internal/lifecycle",
+    "./internal/conformance",
+    "-run",
+    "Test(Lifecycle|Preview|Snapshot|QualificationEvidenceBinding|ExecutionAttestation)"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T13:19:03.748054Z",
+  "finished_at": "2026-09-15T13:19:04.75276Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/lifecycle-snapshot-step3-v1.log",
+  "output_digest": "sha256:d9fabb42a9030c22cb5173186128c13b9ea6d79f5bae8fabe0262bcb09971b09",
+  "source_digests": {
+    "cmd/praxis-conformance/main.go": "sha256:d53ffb96b91d69681b6b98f58151a8e913adc44d37f22ed79ae33ac3e3f5993d",
+    "internal/conformance/attestation.go": "sha256:89faab28dfd089d2bc5f44e9719fe559992957d8955a7769051895674f956d6c",
+    "internal/conformance/attestation_binding_test.go": "sha256:fc66c8f8ad7d31cdaf055f5a8795b8b202d89959a4c051dafdd8e3566d66121f",
+    "internal/lifecycle/preview.go": "sha256:9147543fa7cf754495fb24f64a93cd87ab833c8d8a75fe0a854bf423ea67b5f3",
+    "internal/lifecycle/preview_test.go": "sha256:72f12feabf9792232b77c29b7769fd430192ab56b3d72b21ac36803666037852",
+    "internal/lifecycle/snapshot.go": "sha256:60dcc49bc45b1916f7094dd55ea504caa0ced7bcc73cbf7c559d69b2732b3033",
+    "internal/lifecycle/snapshot_test.go": "sha256:05b0924587e3049ef0444e2f7843ddafd5e2318407a6e207f785ca857210d2c3",
+    "pkg/contracts/lifecycle.go": "sha256:931177c5a5c0a60f60d4553a8f65d87f65660ff3c997d6dcf8c15e31f9f67e76",
+    "pkg/contracts/lifecycle_test.go": "sha256:f9cc843bbe24e50d5ee4e1b3f8ba12a9fc348ede7f4631db0d0a5df272fbab3d"
+  },
+  "observations": [
+    "TestPreviewDoesNotTreatHistoricalEvidenceAsAuthority",
+    "TestPreviewIsReadOnlyAndReadyForCompatibleAutomaticPlan",
+    "TestPreviewRejectsStaleCurrentManifestAndInvalidPlanDigest",
+    "TestPreviewReportsAuthorityAndSnapshotSeparately",
+    "TestQualificationEvidenceBindingRequiresVerifiedExactAttestation",
+    "TestSnapshotExportIsCanonicalAndImportIsFenced",
+    "TestSnapshotRejectsEmbeddedMismatchAndTampering",
+    "TestSnapshotRejectsMissingOrForgedExternalArtifact"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:fbc1947829cf909cfcf5dd4d24b7916ccea5b233340f5cd8edd1866bc6f23089"
+}

@@ -1,0 +1,36 @@
+=== RUN   TestLifecyclePlanRequiresExactDigestBoundOrderedSteps
+--- PASS: TestLifecyclePlanRequiresExactDigestBoundOrderedSteps (0.00s)
+=== RUN   TestLifecyclePlanRejectsIrreversibleWorkWithoutSnapshot
+--- PASS: TestLifecyclePlanRejectsIrreversibleWorkWithoutSnapshot (0.00s)
+=== RUN   TestLifecycleJournalRejectsAmbiguousAndInvalidTransitions
+--- PASS: TestLifecycleJournalRejectsAmbiguousAndInvalidTransitions (0.00s)
+=== RUN   TestLifecycleSnapshotRequiresEveryDeclaredComponentAndBindsExternalArtifact
+--- PASS: TestLifecycleSnapshotRequiresEveryDeclaredComponentAndBindsExternalArtifact (0.00s)
+=== RUN   TestLifecycleCredentialReplacementRequiresContinuityAndAuthority
+--- PASS: TestLifecycleCredentialReplacementRequiresContinuityAndAuthority (0.00s)
+=== RUN   TestLifecycleReconciliationDoesNotTreatHistoricalAuthorityAsCurrent
+--- PASS: TestLifecycleReconciliationDoesNotTreatHistoricalAuthorityAsCurrent (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	0.557s
+=== RUN   TestPreviewIsReadOnlyAndReadyForCompatibleAutomaticPlan
+--- PASS: TestPreviewIsReadOnlyAndReadyForCompatibleAutomaticPlan (0.00s)
+=== RUN   TestPreviewReportsAuthorityAndSnapshotSeparately
+--- PASS: TestPreviewReportsAuthorityAndSnapshotSeparately (0.00s)
+=== RUN   TestPreviewRejectsStaleCurrentManifestAndInvalidPlanDigest
+--- PASS: TestPreviewRejectsStaleCurrentManifestAndInvalidPlanDigest (0.00s)
+=== RUN   TestPreviewDoesNotTreatHistoricalEvidenceAsAuthority
+--- PASS: TestPreviewDoesNotTreatHistoricalEvidenceAsAuthority (0.00s)
+=== RUN   TestSnapshotExportIsCanonicalAndImportIsFenced
+--- PASS: TestSnapshotExportIsCanonicalAndImportIsFenced (0.00s)
+=== RUN   TestSnapshotRejectsMissingOrForgedExternalArtifact
+--- PASS: TestSnapshotRejectsMissingOrForgedExternalArtifact (0.00s)
+=== RUN   TestSnapshotRejectsEmbeddedMismatchAndTampering
+--- PASS: TestSnapshotRejectsEmbeddedMismatchAndTampering (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/lifecycle	0.331s
+=== RUN   TestQualificationEvidenceBindingRequiresVerifiedExactAttestation
+--- PASS: TestQualificationEvidenceBindingRequiresVerifiedExactAttestation (0.00s)
+=== RUN   TestExecutionAttestationMustPassAndRemainImmutable
+--- PASS: TestExecutionAttestationMustPassAndRemainImmutable (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/conformance	0.739s

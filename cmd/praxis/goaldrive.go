@@ -34,13 +34,17 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	if invocation.GoalVersion == "" {
 		return goaldrive.ErrExactGoalVersionRequired
 	}
+	reconcileOnly := getenv("PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY") == "true"
+	if reconcileOnly && getenv("PRAXIS_PROVIDER_WORKSPACE_ID") == "" {
+		return errors.New("workspace reconciliation requires a provider workspace")
+	}
 	runtime, db, err := buildGoalDriveRuntime(ctx, out, invocation, getenv)
 	if err != nil {
 		return fmt.Errorf("construct native Goal-drive runtime: %w", err)
 	}
 	defer db.Close()
 	var record goaldrive.TurnRecord
-	if getenv("PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY") == "true" {
+	if reconcileOnly {
 		turns, loadErr := runtime.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
 		if loadErr != nil {
 			return fmt.Errorf("load durable turns for workspace reconciliation: %w", loadErr)
@@ -181,6 +185,9 @@ func reconcileProviderWorkspace(ctx context.Context, runtime goaldrive.Runtime, 
 	if err != nil {
 		return err
 	}
+	if err := validateProviderWorkspaceTurn(workspace, turn); err != nil {
+		return err
+	}
 	manager := goaldrive.ProviderWorkspaceManager{RootDir: filepath.Dir(workspace.Path)}
 	snapshot, recoverErr := manager.Recover(ctx, workspace)
 	if recoverErr != nil {
@@ -219,6 +226,13 @@ func reconcileProviderWorkspace(ctx context.Context, runtime goaldrive.Runtime, 
 	}
 	_, err = store.SaveProviderWorkspace(ctx, next, now, nil)
 	return err
+}
+
+func validateProviderWorkspaceTurn(workspace contracts.ProviderWorkspaceRecord, turn goaldrive.TurnRecord) error {
+	if workspace.GoalID != turn.GoalID || workspace.GoalVersion != turn.GoalVersion || workspace.InvocationID != turn.InvocationID || workspace.TurnID != turn.TurnID || workspace.ProviderID != turn.ExecutorID || workspace.ChildObjective != turn.ChildObjective {
+		return fmt.Errorf("provider workspace binding does not match durable Goal-drive turn: workspace goal=%s/%s turn goal=%s/%s workspace invocation=%s turn invocation=%s workspace turn=%s turn=%s workspace provider=%s turn executor=%s workspace child=%s turn child=%s", workspace.GoalID, workspace.GoalVersion, turn.GoalID, turn.GoalVersion, workspace.InvocationID, turn.InvocationID, workspace.TurnID, turn.TurnID, workspace.ProviderID, turn.ExecutorID, workspace.ChildObjective, turn.ChildObjective)
+	}
+	return nil
 }
 
 func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string) string) (goaldrive.Worker, error) {

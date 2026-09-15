@@ -29,6 +29,32 @@ func TestDispatchGoalDriveFailsClosedBeforeExecutionDependencies(t *testing.T) {
 	}
 }
 
+func TestDispatchGoalDriveRecoveryRequiresWorkspace(t *testing.T) {
+	out := normalizedOutput{EntryPointID: "goal-drive", Options: map[string]string{"goal-id": "goal-1", "goal-version": "7", "provider": "local", "invocation-id": "inv-1"}}
+	getenv := func(key string) string {
+		if key == "PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY" {
+			return "true"
+		}
+		return ""
+	}
+	if err := dispatchGoalDrive(context.Background(), out, getenv); err == nil || !strings.Contains(err.Error(), "workspace reconciliation requires a provider workspace") {
+		t.Fatalf("recovery-only dispatch must require a workspace: %v", err)
+	}
+}
+
+func TestValidateProviderWorkspaceTurnRejectsStaleTurnBinding(t *testing.T) {
+	now := time.Now().UTC()
+	workspace := contracts.ProviderWorkspaceRecord{
+		WorkspaceID: "workspace-1", Version: "1", Path: "/tmp/workspace-1", Repository: "/tmp/repository",
+		GoalID: "goal-1", GoalVersion: "7", WorkPlanRef: "plan", WorkPlanDigest: "sha256:plan", ChildObjective: "child-1",
+		InvocationID: "inv-1", TurnID: "turn-1", ProviderID: "codex-subscription", StartHead: "head-1", State: contracts.ProviderWorkspaceActive, CreatedAt: now,
+	}
+	turn := goaldrive.TurnRecord{GoalID: "goal-1", GoalVersion: "7", InvocationID: "inv-1", TurnID: "turn-2", ChildObjective: "child-1", ExecutorID: "codex-subscription"}
+	if err := validateProviderWorkspaceTurn(workspace, turn); err == nil {
+		t.Fatal("stale workspace turn binding was accepted")
+	}
+}
+
 func TestNativeRuntimeRequiresPersistedBootstrapRecord(t *testing.T) {
 	out := normalizedOutput{GraphID: "goal.graph", GraphVersion: "1"}
 	invocation := goaldrive.InvocationRequest{ProviderID: "local", RepositoryPath: t.TempDir(), Branch: "main"}

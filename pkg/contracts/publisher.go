@@ -24,6 +24,7 @@ type PublisherGeneration struct {
 	Principal        PrincipalRef `json:"principal"`
 	KeyID            string       `json:"key_id"`
 	Algorithm        string       `json:"algorithm"`
+	PublicKey        []byte       `json:"public_key,omitempty"`
 	PublicKeyDigest  string       `json:"public_key_digest"`
 	PackageNamespace string       `json:"package_namespace"`
 	Generation       string       `json:"generation"`
@@ -42,6 +43,9 @@ func (p PublisherGeneration) Validate() error {
 	if p.Principal.ID != FirstPartyPublisherPrincipal || p.Principal.Kind != "publisher" {
 		return errors.New("publisher generation principal is not the approved first-party publisher")
 	}
+	if len(p.PublicKey) != 0 && digestBytes(p.PublicKey) != p.PublicKeyDigest {
+		return errors.New("publisher public key does not match its digest")
+	}
 	if !strings.HasPrefix(p.PublicKeyDigest, "sha256:") || len(p.PublicKeyDigest) != len("sha256:")+64 || !strings.HasPrefix(p.EnrollmentDigest, "sha256:") || len(p.EnrollmentDigest) != len("sha256:")+64 {
 		return errors.New("publisher generation digests must be sha256")
 	}
@@ -52,6 +56,11 @@ func (p PublisherGeneration) Validate() error {
 		return errors.New("publisher generation revocation cannot precede effective time")
 	}
 	return nil
+}
+
+func digestBytes(value []byte) string {
+	sum := sha256.Sum256(value)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (p PublisherGeneration) Digest() (string, error) {

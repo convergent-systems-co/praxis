@@ -61,7 +61,7 @@ func runPublisherCommand(args []string) error {
 }
 
 func writePublisherHelp(w io.Writer) error {
-	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt>\n\nPreview commands are read-only. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
+	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt>\n\nSigning previews persist an immutable intent but do not sign. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
 	return err
 }
 
@@ -217,52 +217,7 @@ func loadUnsignedPackage(dir string) (packageFiles, error) {
 	return packageFiles{built: b, manifestPath: filepath.Join(dir, "praxis-package.json"), archivePath: filepath.Join(dir, "praxis-package.tar.gz")}, nil
 }
 func runPublisherSignPreview(args []string, getenv func(string) string, out io.Writer) error {
-	dir, gen, keyID, source, builder, qual, err := parseSignFlags("publisher sign-preview", args)
-	if err != nil {
-		return err
-	}
-	pk, err := loadUnsignedPackage(dir)
-	if err != nil {
-		return err
-	}
-	db, err := state.OpenSQLite(context.Background(), getenv("PRAXIS_DB"))
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	record, err := state.New(db).PublisherGeneration(context.Background(), gen)
-	if err != nil {
-		return err
-	}
-	if !record.Generation.PackageNamespaceAllowed(pk.built.Manifest.PackageID) {
-		return errors.New("publisher namespace does not allow package")
-	}
-	if keyID != record.Generation.KeyID {
-		return errors.New("signing preview key does not match enrolled publisher generation")
-	}
-	return printJSONTo(out, map[string]any{"operation": "package.sign", "preview": true, "publisher_principal": record.Generation.Principal.ID, "publisher_generation_digest": gen, "key_id": keyID, "package_id": pk.built.Manifest.PackageID, "package_version": pk.built.Manifest.Version, "manifest_digest": pk.built.ManifestDigest, "artifact_digest": pk.built.ArtifactDigest, "source_identity": source, "builder_identity": builder, "qualification_ref": qual, "namespace": record.Generation.PackageNamespace})
-}
-func parseSignFlags(name string, args []string) (string, string, string, string, string, string, error) {
-	f := flag.NewFlagSet(name, flag.ContinueOnError)
-	dir := f.String("package-dir", "", "unsigned package directory")
-	gen := f.String("generation-digest", "", "enrolled publisher generation digest")
-	keyID := f.String("key-id", "", "protected publisher signing key reference")
-	source := f.String("source-identity", "", "committed source identity")
-	builder := f.String("builder-identity", "praxis-package-builder/v1", "builder identity")
-	qual := f.String("qualification-ref", "", "qualification reference")
-	if err := f.Parse(args); err != nil {
-		return "", "", "", "", "", "", err
-	}
-	if f.NArg() != 0 || *dir == "" || *gen == "" || *source == "" {
-		return "", "", "", "", "", "", errors.New("usage: praxis publisher sign[-preview] --package-dir <dir> --generation-digest <digest> --key-id <protected-key-reference> --source-identity <commit/tree>")
-	}
-	if *keyID == "" {
-		return "", "", "", "", "", "", errors.New("--key-id is required")
-	}
-	return *dir, *gen, *keyID, *source, *builder, *qual, nil
-}
-func runPublisherSign(args []string, getenv func(string) string, out io.Writer) error {
-	dir, gen, keyID, source, builder, qual, err := parseSignFlags("publisher sign", args)
+	dir, gen, source, builder, qual, err := parseSignPreviewFlags(args)
 	if err != nil {
 		return err
 	}
@@ -275,11 +230,59 @@ func runPublisherSign(args []string, getenv func(string) string, out io.Writer) 
 		return err
 	}
 	defer db.Close()
-	signer, err := publisherBackend().Open(context.Background(), keyID)
+	preview, err := internalpublisher.BuildSigningPreview(context.Background(), state.New(db), repo, gen, pk.built, source, builder, qual, time.Now().UTC())
 	if err != nil {
 		return err
 	}
-	signed, err := internalpublisher.Sign(context.Background(), state.New(db), repo, signer, gen, pk.built, source, builder, qual, time.Now().UTC())
+	if _, err := repo.SaveSigningPreview(context.Background(), preview, time.Now().UTC()); err != nil {
+		return err
+	}
+	return printJSONTo(out, map[string]any{"operation": "package.sign", "preview": true, "signing_preview": preview, "signing_preview_digest": preview.Digest})
+}
+func parseSignPreviewFlags(args []string) (string, string, string, string, string, error) {
+	f := flag.NewFlagSet("publisher sign-preview", flag.ContinueOnError)
+	dir := f.String("package-dir", "", "unsigned package directory")
+	gen := f.String("generation-digest", "", "enrolled publisher generation digest")
+	source := f.String("source-identity", "", "committed source identity")
+	builder := f.String("builder-identity", "praxis-package-builder/v1", "builder identity")
+	qual := f.String("qualification-ref", "", "qualification reference")
+	if err := f.Parse(args); err != nil {
+		return "", "", "", "", "", err
+	}
+	if f.NArg() != 0 || *dir == "" || *gen == "" || *source == "" {
+		return "", "", "", "", "", errors.New("usage: praxis publisher sign-preview --package-dir <dir> --generation-digest <digest> --source-identity <commit/tree>")
+	}
+	return *dir, *gen, *source, *builder, *qual, nil
+}
+func runPublisherSign(args []string, getenv func(string) string, out io.Writer) error {
+	f := flag.NewFlagSet("publisher sign", flag.ContinueOnError)
+	f.SetOutput(os.Stderr)
+	dir := f.String("package-dir", "", "unsigned package directory")
+	previewDigest := f.String("preview", "", "exact system-produced signing preview digest")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	if f.NArg() != 0 || *dir == "" || *previewDigest == "" {
+		return errors.New("usage: praxis publisher sign --package-dir <dir> --preview <signing-preview-digest>")
+	}
+	pk, err := loadUnsignedPackage(*dir)
+	if err != nil {
+		return err
+	}
+	repo, db, err := openGovernedRepository(context.Background(), getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	preview, err := repo.LoadSigningPreviewByDigest(context.Background(), *previewDigest, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	signer, err := publisherBackend().Open(context.Background(), preview.KeyID)
+	if err != nil {
+		return err
+	}
+	signed, err := internalpublisher.SignWithPreview(context.Background(), state.New(db), repo, signer, preview, pk.built, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -287,7 +290,7 @@ func runPublisherSign(args []string, getenv func(string) string, out io.Writer) 
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "praxis-package.sig.json"), body, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(*dir, "praxis-package.sig.json"), body, 0600); err != nil {
 		return err
 	}
 	return printJSONTo(out, map[string]any{"signed": true, "package_id": pk.built.Manifest.PackageID, "version": pk.built.Manifest.Version, "manifest_digest": pk.built.ManifestDigest, "artifact_digest": pk.built.ArtifactDigest, "signature_digest": signed.Provenance.SignatureEnvelopeDigest, "provenance_digest": signed.ProvenanceDigest})

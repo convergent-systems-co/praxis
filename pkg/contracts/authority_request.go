@@ -58,6 +58,12 @@ type AuthorityGeneration struct {
 	SubjectKeyDigest      string                   `json:"subject_key_digest,omitempty"`
 }
 
+type PackagePublishAuthorization struct {
+	Generation AuthorityGeneration
+	Request    AuthorityRequest
+	Decision   AuthorityDecision
+}
+
 const InstallationGovernanceScopePrefix = "installation-governance:"
 
 // InstallationGovernanceScope derives the sole governance-root scope from

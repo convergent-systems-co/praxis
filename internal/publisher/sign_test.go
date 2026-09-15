@@ -60,12 +60,8 @@ func TestSignRequiresEnrolledGenerationAndPackagePublish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signed, err := Sign(ctx, store, allowPublisher{}, praxiscrypto.MemoryPublisherSigner{ID: generation.KeyID, Private: private}, generationDigest, built, "commit:test", "builder:test", "", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if signed.ProvenanceDigest == "" {
-		t.Fatal("provenance digest is required")
+	if _, err := Sign(ctx, store, allowPublisher{}, praxiscrypto.MemoryPublisherSigner{ID: generation.KeyID, Private: private}, generationDigest, built, "commit:test", "builder:test", "", now); err == nil {
+		t.Fatal("legacy direct signing path must require a canonical signing preview")
 	}
 }
 

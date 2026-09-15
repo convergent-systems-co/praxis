@@ -17,6 +17,49 @@ import (
 
 const publisherGovernanceNamespace = "publisher_governance"
 const authorityModelStateID = "active-authority-model"
+const signingPreviewPrefix = "publisher-signing-preview:"
+
+func (r Repository) SaveSigningPreview(ctx context.Context, preview contracts.SigningPreview, now time.Time) (string, error) {
+	d, err := preview.DigestValue()
+	if err != nil {
+		return "", err
+	}
+	if preview.Digest != "" && preview.Digest != d {
+		return "", errors.New("signing preview digest mismatch")
+	}
+	preview.Digest = d
+	if _, err := r.savePublisherGovernance(ctx, preview.ID, preview.Version, preview, now, &preview.ExpiresAt); err != nil {
+		return "", err
+	}
+	return d, nil
+}
+
+func (r Repository) LoadSigningPreviewByDigest(ctx context.Context, wanted string, now time.Time) (contracts.SigningPreview, error) {
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.SigningPreview{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, signingPreviewPrefix) {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.SigningPreview{}, err
+		}
+		var preview contracts.SigningPreview
+		if err := json.Unmarshal(payload, &preview); err != nil {
+			return contracts.SigningPreview{}, err
+		}
+		if err := preview.VerifyDigest(); err != nil {
+			return contracts.SigningPreview{}, err
+		}
+		if preview.Digest == wanted && record.ObjectDigest == wanted {
+			return preview, nil
+		}
+	}
+	return contracts.SigningPreview{}, statepkg.ErrSecureBlobNotFound
+}
 
 func (r Repository) LoadAuthorityModelState(ctx context.Context, now time.Time) (contracts.AuthorityModelState, error) {
 	var modelState contracts.AuthorityModelState

@@ -45,18 +45,9 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	defer db.Close()
 	var record goaldrive.TurnRecord
 	if reconcileOnly {
-		turns, loadErr := runtime.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
-		if loadErr != nil {
-			return fmt.Errorf("load durable turns for workspace reconciliation: %w", loadErr)
-		}
-		for i := len(turns) - 1; i >= 0; i-- {
-			if turns[i].InvocationID == invocation.InvocationID {
-				record = turns[i]
-				break
-			}
-		}
-		if record.TurnID == "" {
-			return errors.New("workspace reconciliation requires an existing durable turn")
+		record, err = loadProviderWorkspaceTurn(ctx, runtime, getenv("PRAXIS_PROVIDER_WORKSPACE_ID"), getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION"), invocation)
+		if err != nil {
+			return fmt.Errorf("load durable turn for workspace reconciliation: %w", err)
 		}
 	} else {
 		record, err = runtime.Execute(ctx, invocation)
@@ -156,13 +147,15 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 			dirtyStartDigest = workspace.MigrationInputDigest
 		}
 	}
-	workers, err := configuredWorker(invocation, getenv)
-	if err != nil {
-		return goaldrive.Runtime{}, nil, err
-	}
 	providers := goaldrive.NewRegistry()
-	if err := providers.Register(invocation.ProviderID, workers); err != nil {
-		return goaldrive.Runtime{}, nil, err
+	if getenv("PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY") != "true" {
+		workers, err := configuredWorker(invocation, getenv)
+		if err != nil {
+			return goaldrive.Runtime{}, nil, err
+		}
+		if err := providers.Register(invocation.ProviderID, workers); err != nil {
+			return goaldrive.Runtime{}, nil, err
+		}
 	}
 	if invocation.RepositoryPath == "" || invocation.Branch == "" {
 		return goaldrive.Runtime{}, nil, errors.New("Goal-drive repository and exact branch are required")
@@ -226,6 +219,27 @@ func reconcileProviderWorkspace(ctx context.Context, runtime goaldrive.Runtime, 
 	}
 	_, err = store.SaveProviderWorkspace(ctx, next, now, nil)
 	return err
+}
+
+func loadProviderWorkspaceTurn(ctx context.Context, runtime goaldrive.Runtime, workspaceID, workspaceVersion string, invocation goaldrive.InvocationRequest) (goaldrive.TurnRecord, error) {
+	store, ok := runtime.Controller.AuthorityRequests.(goalstore.Repository)
+	if !ok {
+		return goaldrive.TurnRecord{}, errors.New("workspace reconciliation requires the production GoalStore")
+	}
+	workspace, err := store.LoadProviderWorkspace(ctx, workspaceID, workspaceVersion, time.Now().UTC())
+	if err != nil {
+		return goaldrive.TurnRecord{}, err
+	}
+	turns, err := runtime.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
+	if err != nil {
+		return goaldrive.TurnRecord{}, err
+	}
+	for _, turn := range turns {
+		if turn.TurnID == workspace.TurnID && turn.InvocationID == invocation.InvocationID {
+			return turn, nil
+		}
+	}
+	return goaldrive.TurnRecord{}, fmt.Errorf("workspace reconciliation requires durable turn %s", workspace.TurnID)
 }
 
 func validateProviderWorkspaceTurn(workspace contracts.ProviderWorkspaceRecord, turn goaldrive.TurnRecord) error {

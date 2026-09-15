@@ -38,13 +38,15 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityModelAdopt(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "model-status":
 		return runAuthorityModelStatus(args[1:], os.Getenv, os.Stdout)
+	case "request-inspect":
+		return runAuthorityRequestInspect(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis authority {bootstrap|delegate|model-preview|model-adopt|model-status}")
+		return errors.New("usage: praxis authority {bootstrap|delegate|model-preview|model-adopt|model-status|request-inspect}")
 	}
 }
 
 func writeAuthorityHelp(output io.Writer) error {
-	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate> [options]\n\n"); err != nil {
+	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate|request-inspect> [options]\n\n"); err != nil {
 		return err
 	}
 	if err := writeAuthorityBootstrapHelp(output); err != nil {
@@ -55,15 +57,18 @@ func writeAuthorityHelp(output io.Writer) error {
 
 func writeAuthorityDelegateHelp(output io.Writer) error {
 	_, err := io.WriteString(output, `
-usage: praxis authority delegate --request-file <path>
+usage: praxis authority delegate (--request <digest> | --request-file <path>)
 
 Purpose:
   Authenticate the enrolled installation root and decide one exact v1
   delegation request, then persist its bounded controller generation.
 
 Required option:
-  --request-file <path>  Canonical JSON AuthorityRequest containing the exact
-                         v1 delegation payload.
+  --request <digest>     Exact durable AuthorityRequest digest produced by
+                         Praxis. This is the preferred canonical path.
+  --request-file <path>  Canonical JSON AuthorityRequest for legacy non-
+                         package authority producers. Package.publish must
+                         use --request.
 
 Interaction:
   The command displays the exact request and requires confirmation:
@@ -83,6 +88,7 @@ Semantics:
 func runAuthorityDelegate(args []string, getenv func(string) string, input io.Reader, output io.Writer) error {
 	flags := flag.NewFlagSet("authority delegate", flag.ContinueOnError)
 	flags.SetOutput(output)
+	requestDigest := flags.String("request", "", "exact durable AuthorityRequest digest")
 	requestFile := flags.String("request-file", "", "canonical JSON AuthorityRequest containing an exact v1 delegation payload")
 	flags.Usage = func() { _ = writeAuthorityDelegateHelp(output) }
 	if err := flags.Parse(args); err != nil {
@@ -91,8 +97,8 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 		}
 		return err
 	}
-	if flags.NArg() != 0 || strings.TrimSpace(*requestFile) == "" {
-		return errors.New("usage: praxis authority delegate --request-file <path> (interactive confirmation required)")
+	if flags.NArg() != 0 || (strings.TrimSpace(*requestDigest) == "") == (strings.TrimSpace(*requestFile) == "") {
+		return errors.New("usage: praxis authority delegate (--request <digest> | --request-file <path>) (interactive confirmation required)")
 	}
 	if !isInteractiveTerminal() {
 		return errAuthorityBootstrapConfirmation
@@ -100,26 +106,43 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	payload, err := os.ReadFile(*requestFile)
-	if err != nil {
-		return fmt.Errorf("read delegation request: %w", err)
-	}
 	var request contracts.AuthorityRequest
-	if err := json.Unmarshal(payload, &request); err != nil {
-		return fmt.Errorf("decode delegation request: %w", err)
-	}
-	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
-		return errors.New("request-file must contain a supported closed delegation request")
-	}
+	var requestDigestValue string
 	repo, db, err := openGovernedRepository(context.Background(), getenv)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+	if *requestDigest != "" {
+		if err := contracts.ValidateSHA256Digest(*requestDigest); err != nil {
+			return err
+		}
+		request, err = repo.LoadAuthorityRequestByDigest(context.Background(), *requestDigest, time.Now().UTC())
+		if err != nil {
+			return fmt.Errorf("load canonical delegation request: %w", err)
+		}
+		requestDigestValue = *requestDigest
+	} else {
+		payload, readErr := os.ReadFile(*requestFile)
+		if readErr != nil {
+			return fmt.Errorf("read delegation request: %w", readErr)
+		}
+		if err := json.Unmarshal(payload, &request); err != nil {
+			return fmt.Errorf("decode delegation request: %w", err)
+		}
+	}
+	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
+		return errors.New("request must contain a supported closed delegation request")
+	}
+	if request.RequestedAuthority == contracts.GovernedPackagePublish && *requestFile != "" {
+		return errors.New("package.publish requires a durable canonical request reference")
+	}
 	now := time.Now().UTC()
-	requestDigest, err := repo.SaveAuthorityRequest(context.Background(), request, now, &request.Delegation.ExpiresAt)
-	if err != nil {
-		return err
+	if requestDigestValue == "" {
+		requestDigestValue, err = repo.SaveAuthorityRequest(context.Background(), request, now, &request.Delegation.ExpiresAt)
+		if err != nil {
+			return err
+		}
 	}
 	parent, err := repo.LoadAuthorityGeneration(context.Background(), request.Delegation.ParentRef, request.Delegation.ParentVersion, now)
 	if err != nil {
@@ -132,17 +155,17 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if err := contracts.ValidateBuiltinDelegation(parent, *request.Delegation, now); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(output, fmt.Sprintf("Authorize exact delegation request %s for parent %s/%s. Type %q to continue: ", requestDigest, parent.Ref, parent.Version, "DELEGATE "+requestDigest)); err != nil {
+	if _, err := io.WriteString(output, fmt.Sprintf("Authorize exact delegation request %s for parent %s/%s. Type %q to continue: ", requestDigestValue, parent.Ref, parent.Version, "DELEGATE "+requestDigestValue)); err != nil {
 		return err
 	}
 	answer, err := bufio.NewReader(input).ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	if strings.TrimSpace(answer) != "DELEGATE "+requestDigest {
+	if strings.TrimSpace(answer) != "DELEGATE "+requestDigestValue {
 		return errAuthorityBootstrapConfirmation
 	}
-	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: parent.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelDigest(), IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: parent.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelDigest(), IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
 	if err := repo.SaveAuthorityDecision(context.Background(), request.ID, request.Version, decision, now, &request.Delegation.ExpiresAt); err != nil {
 		return err
 	}
@@ -154,7 +177,28 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if err != nil || fresh.Digest != child.Digest {
 		return fmt.Errorf("verify delegated generation recovery: %w", err)
 	}
-	return printJSON(map[string]any{"operation": "authority.delegate", "request_digest": requestDigest, "decision": decision, "child_generation": fresh})
+	return printJSON(map[string]any{"operation": "authority.delegate", "request_digest": requestDigestValue, "decision": decision, "child_generation": fresh})
+}
+
+func runAuthorityRequestInspect(args []string, getenv func(string) string, output io.Writer) error {
+	flags := flag.NewFlagSet("authority request-inspect", flag.ContinueOnError)
+	digest := flags.String("request", "", "exact system-produced AuthorityRequest digest")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *digest == "" {
+		return errors.New("usage: praxis authority request-inspect --request <digest>")
+	}
+	repo, db, err := openGovernedRepository(context.Background(), getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	request, err := repo.LoadAuthorityRequestByDigest(context.Background(), *digest, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	return printJSON(map[string]any{"request": request, "request_digest": *digest})
 }
 
 type builtinDelegationPolicy struct{}

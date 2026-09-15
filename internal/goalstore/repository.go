@@ -614,6 +614,34 @@ func (r Repository) LoadAuthorityRequest(ctx context.Context, id, version string
 	return request, nil
 }
 
+// LoadAuthorityRequestByDigest resolves the immutable request identity emitted
+// by a canonical producer. It never reconstructs a request from caller fields.
+func (r Repository) LoadAuthorityRequestByDigest(ctx context.Context, wanted string, now time.Time) (contracts.AuthorityRequest, error) {
+	if err := contracts.ValidateSHA256Digest(wanted); err != nil {
+		return contracts.AuthorityRequest{}, err
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, authorityRequestNamespace, now)
+	if err != nil {
+		return contracts.AuthorityRequest{}, err
+	}
+	for _, record := range records {
+		payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
+		if err != nil {
+			return contracts.AuthorityRequest{}, err
+		}
+		var request contracts.AuthorityRequest
+		if err := json.Unmarshal(payload, &request); err != nil {
+			return contracts.AuthorityRequest{}, err
+		}
+		digest, err := request.Digest()
+		if err != nil || digest != wanted || request.ID != record.ObjectID || request.Version != record.ObjectVersion || payloadDigest(payload) != record.ObjectDigest {
+			continue
+		}
+		return request, nil
+	}
+	return contracts.AuthorityRequest{}, state.ErrSecureBlobNotFound
+}
+
 // PendingAuthorityRequests returns only pending requests bound to one exact
 // Goal generation. Ordering is stable and request identity is preserved.
 func (r Repository) PendingAuthorityRequests(ctx context.Context, goalID, goalVersion string, now time.Time) ([]contracts.AuthorityRequest, error) {

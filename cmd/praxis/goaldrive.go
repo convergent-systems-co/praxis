@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 
@@ -38,6 +40,11 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	}
 	defer db.Close()
 	record, err := runtime.Execute(ctx, invocation)
+	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
+		if err := reconcileProviderWorkspace(ctx, runtime, workspaceID, getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION"), record); err != nil {
+			return fmt.Errorf("reconcile provider workspace: %w", err)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("execute supervised Goal-drive turn: %w", err)
 	}
@@ -93,6 +100,21 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	}()
 	store := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
 	store.AuthorityGeneration = store
+	allowDetached := false
+	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
+		workspaceVersion := getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION")
+		if workspaceVersion == "" {
+			return goaldrive.Runtime{}, nil, errors.New("provider workspace version is required")
+		}
+		workspace, err := store.LoadProviderWorkspace(ctx, workspaceID, workspaceVersion, time.Now().UTC())
+		if err != nil {
+			return goaldrive.Runtime{}, nil, fmt.Errorf("load provider workspace: %w", err)
+		}
+		if workspace.GoalID != invocation.Input.GoalID || workspace.GoalVersion != invocation.GoalVersion || workspace.InvocationID != invocation.InvocationID || workspace.ProviderID != invocation.ProviderID || filepath.Clean(workspace.Path) != filepath.Clean(invocation.RepositoryPath) {
+			return goaldrive.Runtime{}, nil, errors.New("provider workspace binding does not match exact Goal-drive invocation")
+		}
+		allowDetached = true
+	}
 	workers, err := configuredWorker(invocation, getenv)
 	if err != nil {
 		return goaldrive.Runtime{}, nil, err
@@ -108,9 +130,58 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	if remote == "" {
 		remote = "origin"
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch}, GraphID: out.GraphID, GraphVersion: out.GraphVersion}
+	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached}, GraphID: out.GraphID, GraphVersion: out.GraphVersion}
 	closeOnError = false
 	return runtime, db, nil
+}
+
+func reconcileProviderWorkspace(ctx context.Context, runtime goaldrive.Runtime, workspaceID, workspaceVersion string, turn goaldrive.TurnRecord) error {
+	store, ok := runtime.Controller.AuthorityRequests.(goalstore.Repository)
+	if !ok {
+		return errors.New("provider workspace reconciliation requires the production GoalStore")
+	}
+	workspace, err := store.LoadProviderWorkspace(ctx, workspaceID, workspaceVersion, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	manager := goaldrive.ProviderWorkspaceManager{RootDir: filepath.Dir(workspace.Path)}
+	snapshot, recoverErr := manager.Recover(ctx, workspace)
+	if recoverErr != nil {
+		return recoverErr
+	}
+	now := time.Now().UTC()
+	state := contracts.ProviderWorkspaceBlocked
+	if !snapshot.Clean {
+		state = contracts.ProviderWorkspaceDirtyRecoverable
+	}
+	if turn.Progress && snapshot.Clean && snapshot.Head == turn.EndHead && turn.CheckpointPublished {
+		validated, err := workspace.Next(contracts.ProviderWorkspaceValidated, snapshot.Head, now)
+		if err != nil {
+			return err
+		}
+		if _, err := store.SaveProviderWorkspace(ctx, validated, now, nil); err != nil {
+			return err
+		}
+		published, err := validated.Next(contracts.ProviderWorkspacePublished, snapshot.Head, now)
+		if err != nil {
+			return err
+		}
+		if _, err := store.SaveProviderWorkspace(ctx, published, now, nil); err != nil {
+			return err
+		}
+		cleaned, err := manager.Cleanup(ctx, published)
+		if err != nil {
+			return err
+		}
+		_, err = store.SaveProviderWorkspace(ctx, cleaned, now, nil)
+		return err
+	}
+	next, err := workspace.Next(state, snapshot.Head, now)
+	if err != nil {
+		return err
+	}
+	_, err = store.SaveProviderWorkspace(ctx, next, now, nil)
+	return err
 }
 
 func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string) string) (goaldrive.Worker, error) {

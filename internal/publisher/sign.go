@@ -118,5 +118,8 @@ func Sign(ctx context.Context, store *state.Store, signer praxiscrypto.Publisher
 	if err != nil {
 		return SignedPackage{}, err
 	}
+	if err := store.PersistPublisherSigningReceipt(ctx, provenanceDigest, generationDigest, built.Manifest.PackageID, built.Manifest.Version, envelope, provenance, now); err != nil {
+		return SignedPackage{}, fmt.Errorf("persist publisher signing provenance: %w", err)
+	}
 	return SignedPackage{Envelope: envelope, Provenance: provenance, ProvenanceDigest: provenanceDigest}, nil
 }

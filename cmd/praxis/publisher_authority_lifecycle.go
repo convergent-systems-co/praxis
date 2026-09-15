@@ -23,11 +23,12 @@ func runPublisherAuthorityProposalPreview(args []string, out io.Writer) error {
 	generationDigest := f.String("publisher-generation-digest", "", "exact enrolled PublisherGeneration digest")
 	namespace := f.String("namespace", "praxis.package", "exact package namespace")
 	expiresAt := f.String("expires-at", "", "owner-selected RFC3339 expiry")
+	output := f.String("output", "", "optional system-produced proposal preview JSON path")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 0 || *generationDigest == "" || *expiresAt == "" {
-		return errors.New("usage: praxis publisher authority-proposal-preview --publisher-generation-digest <digest> --namespace <namespace> --expires-at <RFC3339>")
+		return errors.New("usage: praxis publisher authority-preview --publisher-generation-digest <digest> --namespace <namespace> --expires-at <RFC3339> [--output <file>]")
 	}
 	expires, err := time.Parse(time.RFC3339Nano, *expiresAt)
 	if err != nil {
@@ -71,7 +72,32 @@ func runPublisherAuthorityProposalPreview(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return printJSONTo(out, map[string]any{"operation": "publisher.authority-proposal", "preview": true, "proposal": proposal, "proposal_digest": digest})
+	result := map[string]any{"operation": "publisher.authority-proposal", "preview": true, "proposal": proposal, "proposal_digest": digest}
+	if *output != "" {
+		payload, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := writeCanonicalPreviewFile(*output, append(payload, '\n')); err != nil {
+			return err
+		}
+	}
+	return printJSONTo(out, result)
+}
+
+// writeCanonicalPreviewFile creates an immutable handoff artifact. A preview
+// file is an exact transition input, so replacing an existing path would make
+// it possible to inspect one preview and submit another.
+func writeCanonicalPreviewFile(path string, payload []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.Write(payload); err != nil {
+		return err
+	}
+	return nil
 }
 
 func runPublisherAuthorityProposal(args []string, getenv func(string) string, out io.Writer) error {

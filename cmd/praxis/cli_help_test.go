@@ -43,6 +43,7 @@ func TestCLIHelpContractAcrossCommandHierarchy(t *testing.T) {
 		{"parent help", []string{"help", "publisher"}, "usage: praxis publisher <key-create"},
 		{"leaf flag", []string{"publisher", "enroll", "--help"}, "usage: praxis publisher enroll --approval <digest>"},
 		{"leaf help", []string{"help", "publisher", "enroll"}, "usage: praxis publisher enroll --approval <digest>"},
+		{"authority preview help", []string{"publisher", "authority-preview", "--help"}, "--output <file>"},
 		{"other family", []string{"migration", "execute", "--help"}, "usage: praxis migration execute --preview-file <path>"},
 	}
 	for _, tt := range tests {

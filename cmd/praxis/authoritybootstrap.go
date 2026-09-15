@@ -32,8 +32,14 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityBootstrap(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "delegate":
 		return runAuthorityDelegate(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "model-preview":
+		return runAuthorityModelPreview(args[1:], os.Getenv, os.Stdout)
+	case "model-adopt":
+		return runAuthorityModelAdopt(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "model-status":
+		return runAuthorityModelStatus(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis authority {bootstrap|delegate} (interactive confirmation required)")
+		return errors.New("usage: praxis authority {bootstrap|delegate|model-preview|model-adopt|model-status}")
 	}
 }
 

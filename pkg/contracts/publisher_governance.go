@@ -16,6 +16,8 @@ const (
 	PublisherAuthorityReviewKind    = "publisher-authority-review"
 )
 
+type AuthorityModelState struct { Version, ActiveModel, ActiveVersion, ActiveDigest, AdoptionDigest, State string }
+
 type AuthorityModelAdoption struct {
 	ID, Version, FromModel, FromVersion, FromDigest, ToModel, ToVersion, ToDigest, RootRef, RootVersion, RootDigest, Reason string
 	CreatedAt                                                                                                               time.Time

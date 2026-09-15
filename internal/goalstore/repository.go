@@ -828,7 +828,7 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation parent: %w", err)
 	}
-	if parent.Digest != delegation.ParentDigest || decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal || decision.GrantedScope != parent.Scope {
+	if parent.Digest != delegation.ParentDigest || decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal {
 		return contracts.AuthorityGeneration{}, errors.New("delegation decision does not bind the exact parent generation")
 	}
 	if !containsString(parent.Capabilities, contracts.AuthorityDelegateCapability) {
@@ -852,6 +852,79 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	}
 	if err := r.putWorkPlanBlobWithLock(ctx, authorityGenerationNamespace, child.Ref, child.Version, payload, createdAt, &delegation.ExpiresAt, authorityRequestNamespace, request.ID, request.Version); err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegated generation: %w", err)
+	}
+	return child, nil
+}
+
+// SaveAuthorityDecisionAndDelegatedAuthorityGeneration commits the decision
+// and its exact bounded child as one fenced durable transition. A confirmed
+// delegation must never expose only one half of its authoritative lineage.
+func (r Repository) SaveAuthorityDecisionAndDelegatedAuthorityGeneration(ctx context.Context, requestID, requestVersion string, decision contracts.AuthorityDecision, policy contracts.DelegationContainmentPolicy, createdAt time.Time) (contracts.AuthorityGeneration, error) {
+	if policy == nil {
+		return contracts.AuthorityGeneration{}, errors.New("delegation containment policy is required")
+	}
+	request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, createdAt)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation request: %w", err)
+	}
+	if request.Status != contracts.AuthorityRequestPending || request.Delegation == nil {
+		return contracts.AuthorityGeneration{}, errors.New("authority request is not pending delegation")
+	}
+	if err := decision.Validate(request, createdAt); err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	delegation := request.Delegation
+	parent, err := r.LoadAuthorityGeneration(ctx, delegation.ParentRef, delegation.ParentVersion, createdAt)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation parent: %w", err)
+	}
+	if parent.Digest != delegation.ParentDigest || decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal {
+		return contracts.AuthorityGeneration{}, errors.New("delegation decision does not bind the exact parent generation")
+	}
+	if err := policy.ContainDelegation(parent, *delegation, createdAt); err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("delegation containment denied: %w", err)
+	}
+	delegationDigest, err := request.Digest()
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	child := contracts.AuthorityGeneration{Ref: "authority-delegation:" + request.ID, Version: "1", Principal: delegation.DelegatedPrincipal, Scope: delegation.RequestedScope, Authorities: []string{delegation.RequestedAuthority}, DelegationProfile: delegation.Profile, SubjectKind: delegation.SubjectKind, SubjectID: delegation.SubjectID, SubjectVersion: delegation.SubjectVersion, SubjectDigest: delegation.SubjectDigest, SubjectKeyDigest: delegation.SubjectKeyDigest, EffectiveAt: createdAt.UTC(), ExpiresAt: &delegation.ExpiresAt, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedBy: decision.DecidedBy, DelegationRef: request.ID + "/" + request.Version, DelegationDigest: delegationDigest, PolicyRef: delegation.PolicyRef, PolicyVersion: delegation.PolicyVersion, PolicyDigest: delegation.PolicyDigest, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: delegation.PolicyVersion, AuthorityModelDigest: delegation.PolicyDigest, State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + decision.DecisionRef + ":" + decision.DecisionVersion, ProvenanceDigest: decision.AuthorityDigest}
+	child.Digest, err = child.ComputeDigest()
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("derive delegated generation digest: %w", err)
+	}
+	if existing, loadErr := r.LoadAuthorityDecisionEvidence(ctx, request.ID, request.Version, createdAt); loadErr == nil {
+		left, _ := json.Marshal(existing)
+		right, _ := json.Marshal(decision)
+		if !bytes.Equal(left, right) {
+			return contracts.AuthorityGeneration{}, errors.New("conflicting authority decision already exists")
+		}
+		current, generationErr := r.LoadAuthorityGeneration(ctx, child.Ref, child.Version, createdAt)
+		if generationErr != nil || current.Digest != child.Digest {
+			return contracts.AuthorityGeneration{}, errors.New("authority decision exists without its exact delegated generation")
+		}
+		return current, nil
+	} else if !errors.Is(loadErr, state.ErrSecureBlobNotFound) && !errors.Is(loadErr, state.ErrSecureBlobExpired) {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("check existing authority decision: %w", loadErr)
+	}
+	decisionPayload, err := json.Marshal(authorityDecisionRecord{Request: request, Decision: decision})
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("encode authority decision: %w", err)
+	}
+	childPayload, err := json.Marshal(child)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("encode delegated generation: %w", err)
+	}
+	decisionRecord, err := r.workPlanSecureRecord(ctx, authorityDecisionNamespace, request.ID, request.Version, decisionPayload, createdAt, &delegation.ExpiresAt)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	childRecord, err := r.workPlanSecureRecord(ctx, authorityGenerationNamespace, child.Ref, child.Version, childPayload, createdAt, &delegation.ExpiresAt)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	if err := r.Store.PutSecureBlobsWithLock(ctx, []state.SecureBlobRecord{decisionRecord, childRecord}, authorityRequestNamespace, request.ID, request.Version); err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegation decision and generation: %w", err)
 	}
 	return child, nil
 }
@@ -1042,6 +1115,19 @@ func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, ve
 		return fmt.Errorf("encrypt WorkPlan record: %w", err)
 	}
 	return r.Store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt})
+}
+
+func (r Repository) workPlanSecureRecord(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time) (state.SecureBlobRecord, error) {
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	digest := payloadDigest(payload)
+	aad := state.SecureBlobAAD(namespace, objectID, version, digest)
+	envelope, err := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, payload, aad)
+	if err != nil {
+		return state.SecureBlobRecord{}, fmt.Errorf("encrypt governed WorkPlan record: %w", err)
+	}
+	return state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}, nil
 }
 
 func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {

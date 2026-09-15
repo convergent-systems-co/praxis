@@ -146,6 +146,41 @@ func (s *Store) PutSecureBlobWithLock(ctx context.Context, record SecureBlobReco
 	return nil
 }
 
+// PutSecureBlobsWithLock atomically persists a governed transition's related
+// immutable records while holding the source-record fence in the database.
+func (s *Store) PutSecureBlobsWithLock(ctx context.Context, records []SecureBlobRecord, lockNamespace, lockID, lockVersion string) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if len(records) == 0 || lockNamespace == "" || lockID == "" || lockVersion == "" {
+		return errors.New("secure blob records and lock identity are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin secure blob transition: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, lockNamespace, lockID, lockVersion); err != nil {
+		return fmt.Errorf("lock secure blob source: %w", err)
+	}
+	for _, record := range records {
+		if err := record.Validate(); err != nil {
+			return err
+		}
+		envelopeJSON, err := json.Marshal(record.Envelope)
+		if err != nil {
+			return fmt.Errorf("encode secure blob envelope: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
+			return fmt.Errorf("insert governed secure blob: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit secure blob transition: %w", err)
+	}
+	return nil
+}
+
 // PutSecureBlobUnlessRevoked atomically locks the source authority record,
 // checks the immutable revocation namespace, and writes the new record. A
 // revoke and this operation therefore have one durable SQLite ordering.

@@ -165,11 +165,12 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if strings.TrimSpace(answer) != "DELEGATE "+requestDigestValue {
 		return errAuthorityBootstrapConfirmation
 	}
-	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: parent.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelDigest(), IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
-	if err := repo.SaveAuthorityDecision(context.Background(), request.ID, request.Version, decision, now, &request.Delegation.ExpiresAt); err != nil {
-		return err
+	authorityDigest := contracts.AuthorityModelDigest()
+	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish {
+		authorityDigest = request.Delegation.PolicyDigest
 	}
-	child, err := repo.SaveDelegatedAuthorityGeneration(context.Background(), request.ID, request.Version, decision, builtinDelegationPolicy{}, now)
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: authorityDigest, IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
+	child, err := repo.SaveAuthorityDecisionAndDelegatedAuthorityGeneration(context.Background(), request.ID, request.Version, decision, builtinDelegationPolicy{}, now)
 	if err != nil {
 		return err
 	}

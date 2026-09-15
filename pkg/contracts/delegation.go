@@ -12,6 +12,7 @@ const AuthorityDelegateCapability = "authority.delegate"
 // DelegationRequest is the generic, exact authority payload carried by an
 // AuthorityRequest. It describes a possible child; it is not authority.
 type DelegationRequest struct {
+	Profile               string       `json:"profile,omitempty"`
 	ParentRef             string       `json:"parent_ref"`
 	ParentVersion         string       `json:"parent_version"`
 	ParentDigest          string       `json:"parent_digest"`
@@ -35,6 +36,11 @@ type DelegationRequest struct {
 	PolicyRef             string       `json:"policy_ref"`
 	PolicyVersion         string       `json:"policy_version"`
 	PolicyDigest          string       `json:"policy_digest"`
+	SubjectKind           string       `json:"subject_kind,omitempty"`
+	SubjectID             string       `json:"subject_id,omitempty"`
+	SubjectVersion        string       `json:"subject_version,omitempty"`
+	SubjectDigest         string       `json:"subject_digest,omitempty"`
+	SubjectKeyDigest      string       `json:"subject_key_digest,omitempty"`
 }
 
 func (d DelegationRequest) Validate(now time.Time) error {

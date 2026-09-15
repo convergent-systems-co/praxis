@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/convergent-systems-co/praxis/internal/capability"
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
 	"github.com/convergent-systems-co/praxis/internal/state"
@@ -50,10 +49,14 @@ type SignedPackage struct {
 	ProvenanceDigest string
 }
 
+type PackagePublishAuthorizer interface {
+	ValidatePackagePublishAuthority(context.Context, string, string, time.Time) error
+}
+
 // Sign verifies publisher authority before invoking the protected signer. The
 // signer cannot authorize itself and receives only the canonical envelope
 // statement after all package identities have been checked.
-func Sign(ctx context.Context, store *state.Store, signer praxiscrypto.PublisherSigner, generationDigest string, built packagecatalog.BuiltPackage, sourceIdentity, builderIdentity, qualificationRef string, now time.Time) (SignedPackage, error) {
+func Sign(ctx context.Context, store *state.Store, authority PackagePublishAuthorizer, signer praxiscrypto.PublisherSigner, generationDigest string, built packagecatalog.BuiltPackage, sourceIdentity, builderIdentity, qualificationRef string, now time.Time) (SignedPackage, error) {
 	if store == nil || signer == nil {
 		return SignedPackage{}, errors.New("publisher state and signer are required")
 	}
@@ -88,19 +91,8 @@ func Sign(ctx context.Context, store *state.Store, signer praxiscrypto.Publisher
 	if signer.KeyID() != record.Generation.KeyID || signer.Algorithm() != record.Generation.Algorithm || pubDigest != record.Generation.PublicKeyDigest {
 		return SignedPackage{}, errors.New("publisher signer does not match enrolled generation")
 	}
-	leases, err := store.LeasesForPrincipal(ctx, record.Generation.Principal, contracts.PackagePublishCapability)
-	if err != nil {
-		return SignedPackage{}, err
-	}
-	authorized := false
-	for _, lease := range leases {
-		if err := capability.Evaluate(lease, capability.Request{Principal: record.Generation.Principal, Capability: contracts.PackagePublishCapability, Operation: "sign", Scope: "package:" + built.Manifest.PackageID, Now: now}); err == nil {
-			authorized = true
-			break
-		}
-	}
-	if !authorized {
-		return SignedPackage{}, errors.New("package.publish authority denied")
+	if err := authority.ValidatePackagePublishAuthority(ctx, generationDigest, built.Manifest.PackageID, now); err != nil {
+		return SignedPackage{}, fmt.Errorf("package.publish authority denied: %w", err)
 	}
 	envelope := packagecatalog.SignatureEnvelope{Version: packagecatalog.SignatureEnvelopeCurrentVersion(), Profile: contracts.CryptoClassicalCompatible, ManifestDigest: built.ManifestDigest, ArtifactDigest: built.ArtifactDigest}
 	signature, err := signer.Sign(ctx, envelope.Statement())

@@ -50,6 +50,12 @@ type AuthorityGeneration struct {
 	AuthorityModelVersion string                   `json:"authority_model_version,omitempty"`
 	AuthorityModelDigest  string                   `json:"authority_model_digest,omitempty"`
 	Authorities           []string                 `json:"authorities,omitempty"`
+	DelegationProfile     string                   `json:"delegation_profile,omitempty"`
+	SubjectKind           string                   `json:"subject_kind,omitempty"`
+	SubjectID             string                   `json:"subject_id,omitempty"`
+	SubjectVersion        string                   `json:"subject_version,omitempty"`
+	SubjectDigest         string                   `json:"subject_digest,omitempty"`
+	SubjectKeyDigest      string                   `json:"subject_key_digest,omitempty"`
 }
 
 const InstallationGovernanceScopePrefix = "installation-governance:"
@@ -209,13 +215,13 @@ func (r AuthorityRequest) Validate() error {
 	if r.ID == "" || r.Version == "" || r.RequestedAuthority == "" || r.RequestedScope == "" || r.Reason == "" {
 		return errors.New("authority request identity and decision scope are required")
 	}
-	if r.RequestedAuthority != AuthorityDelegateCapability && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
+	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
 		return errors.New("authority request requires exact evidence and decision scope")
 	}
 	if r.Status != AuthorityRequestPending && r.Status != AuthorityRequestResolved && r.Status != AuthorityRequestInvalidated {
 		return fmt.Errorf("unknown authority request status %q", r.Status)
 	}
-	if r.RequestedAuthority == AuthorityDelegateCapability {
+	if r.RequestedAuthority == AuthorityDelegateCapability || r.RequestedAuthority == GovernedPackagePublish {
 		if r.Delegation == nil {
 			return errors.New("delegation authority request requires a delegation payload")
 		}
@@ -325,7 +331,7 @@ func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) err
 	if d.IssuedAt.IsZero() || (d.ExpiresAt != nil && !now.Before(*d.ExpiresAt)) {
 		return errors.New("authority decision is missing or expired")
 	}
-	if request.RequestedAuthority == AuthorityDelegateCapability {
+	if request.RequestedAuthority == AuthorityDelegateCapability || request.RequestedAuthority == GovernedPackagePublish {
 		if d.Delegation == nil || !reflect.DeepEqual(*d.Delegation, *request.Delegation) {
 			return errors.New("delegation decision does not match exact request")
 		}

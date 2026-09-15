@@ -49,3 +49,42 @@ func TestBuiltinDelegationAcceptsOnlyClosedV1Edge(t *testing.T) {
 		})
 	}
 }
+
+func TestBuiltinPackagePublishDelegationBindsExactPublisherAndNamespace(t *testing.T) {
+	parent, _, now := validBuiltinDelegation(t)
+	publisherDigest := "sha256:" + strings.Repeat("1", 64)
+	keyDigest := "sha256:" + strings.Repeat("2", 64)
+	scope, err := PackagePublishScope("praxis.package")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := DelegationRequest{
+		Profile:   DelegationProfilePackagePublish,
+		ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest,
+		DelegatedPrincipal: PrincipalRef{ID: FirstPartyPublisherPrincipal, Kind: "publisher"},
+		TargetKind:         "publisher-generation", TargetIdentity: FirstPartyPublisherPrincipal, TargetVersion: "praxis.package", TargetDigest: publisherDigest, TargetConstraints: []string{"praxis.package"},
+		SubjectKind: "publisher", SubjectID: FirstPartyPublisherPrincipal, SubjectVersion: "1", SubjectDigest: publisherDigest, SubjectKeyDigest: keyDigest,
+		RequestedAuthority: GovernedPackagePublish, RequestedOperation: "sign", RequestedScope: scope,
+		ExpiresAt: now.Add(time.Hour), Reason: "first-party package signing", PolicyRef: AuthorityModelID, PolicyVersion: AuthorityModelSuccessorVersion, PolicyDigest: AuthorityModelSuccessorDigest(),
+	}
+	if err := ValidateBuiltinPackagePublishDelegation(parent, request, now); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*DelegationRequest){
+		"publisher":  func(r *DelegationRequest) { r.SubjectDigest = "sha256:" + strings.Repeat("3", 64) },
+		"namespace":  func(r *DelegationRequest) { r.TargetConstraints = []string{"praxis"} },
+		"capability": func(r *DelegationRequest) { r.RequestedCapabilities = []string{"package.activate"} },
+		"downgrade": func(r *DelegationRequest) {
+			r.PolicyVersion = AuthorityModelVersion
+			r.PolicyDigest = AuthorityModelDigest()
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := request
+			mutate(&candidate)
+			if err := ValidateBuiltinPackagePublishDelegation(parent, candidate, now); err == nil {
+				t.Fatal("invalid package-publish delegation was accepted")
+			}
+		})
+	}
+}

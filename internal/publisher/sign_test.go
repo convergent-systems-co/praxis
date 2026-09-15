@@ -60,13 +60,19 @@ func TestSignRequiresEnrolledGenerationAndPackagePublish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signed, err := Sign(ctx, store, praxiscrypto.MemoryPublisherSigner{ID: generation.KeyID, Private: private}, generationDigest, built, "commit:test", "builder:test", "", now)
+	signed, err := Sign(ctx, store, allowPublisher{}, praxiscrypto.MemoryPublisherSigner{ID: generation.KeyID, Private: private}, generationDigest, built, "commit:test", "builder:test", "", now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if signed.ProvenanceDigest == "" {
 		t.Fatal("provenance digest is required")
 	}
+}
+
+type allowPublisher struct{}
+
+func (allowPublisher) ValidatePackagePublishAuthority(context.Context, string, string, time.Time) error {
+	return nil
 }
 
 func digest(value []byte) string {

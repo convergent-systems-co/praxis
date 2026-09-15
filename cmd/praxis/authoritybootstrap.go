@@ -102,8 +102,8 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if err := json.Unmarshal(payload, &request); err != nil {
 		return fmt.Errorf("decode delegation request: %w", err)
 	}
-	if request.RequestedAuthority != contracts.AuthorityDelegateCapability || request.Delegation == nil {
-		return errors.New("request-file must contain an authority.delegate request")
+	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
+		return errors.New("request-file must contain a supported closed delegation request")
 	}
 	repo, db, err := openGovernedRepository(context.Background(), getenv)
 	if err != nil {
@@ -154,6 +154,9 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 type builtinDelegationPolicy struct{}
 
 func (builtinDelegationPolicy) ContainDelegation(parent contracts.AuthorityGeneration, request contracts.DelegationRequest, now time.Time) error {
+	if request.Profile == contracts.DelegationProfilePackagePublish {
+		return contracts.ValidateBuiltinPackagePublishDelegation(parent, request, now)
+	}
 	return contracts.ValidateBuiltinDelegation(parent, request, now)
 }
 

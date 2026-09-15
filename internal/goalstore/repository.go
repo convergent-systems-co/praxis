@@ -786,7 +786,7 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation request: %w", err)
 	}
-	if request.RequestedAuthority != contracts.AuthorityDelegateCapability || request.Delegation == nil {
+	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
 		return contracts.AuthorityGeneration{}, errors.New("request is not a delegation request")
 	}
 	if err := decision.Validate(request, createdAt); err != nil {
@@ -813,7 +813,7 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	child := contracts.AuthorityGeneration{Ref: "authority-delegation:" + request.ID, Version: "1", Principal: delegation.DelegatedPrincipal, Scope: delegation.RequestedScope, Authorities: []string{delegation.RequestedAuthority}, EffectiveAt: createdAt.UTC(), ExpiresAt: &delegation.ExpiresAt, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedBy: decision.DecidedBy, DelegationRef: request.ID + "/" + request.Version, DelegationDigest: delegationDigest, PolicyRef: delegation.PolicyRef, PolicyVersion: delegation.PolicyVersion, PolicyDigest: delegation.PolicyDigest, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelVersion, AuthorityModelDigest: contracts.AuthorityModelDigest(), State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + decision.DecisionRef + ":" + decision.DecisionVersion, ProvenanceDigest: decision.AuthorityDigest}
+	child := contracts.AuthorityGeneration{Ref: "authority-delegation:" + request.ID, Version: "1", Principal: delegation.DelegatedPrincipal, Scope: delegation.RequestedScope, Authorities: []string{delegation.RequestedAuthority}, DelegationProfile: delegation.Profile, SubjectKind: delegation.SubjectKind, SubjectID: delegation.SubjectID, SubjectVersion: delegation.SubjectVersion, SubjectDigest: delegation.SubjectDigest, SubjectKeyDigest: delegation.SubjectKeyDigest, EffectiveAt: createdAt.UTC(), ExpiresAt: &delegation.ExpiresAt, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedBy: decision.DecidedBy, DelegationRef: request.ID + "/" + request.Version, DelegationDigest: delegationDigest, PolicyRef: delegation.PolicyRef, PolicyVersion: delegation.PolicyVersion, PolicyDigest: delegation.PolicyDigest, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: delegation.PolicyVersion, AuthorityModelDigest: delegation.PolicyDigest, State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + decision.DecisionRef + ":" + decision.DecisionVersion, ProvenanceDigest: decision.AuthorityDigest}
 	child.Digest, err = child.ComputeDigest()
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("derive delegated generation digest: %w", err)

@@ -23,7 +23,8 @@ func TestDispatchGoalDriveRequiresExactDurableGeneration(t *testing.T) {
 
 func TestDispatchGoalDriveFailsClosedBeforeExecutionDependencies(t *testing.T) {
 	out := normalizedOutput{EntryPointID: "goal-drive", Options: map[string]string{"goal-id": "goal-1", "goal-version": "7", "provider": "local", "invocation-id": "inv-1"}}
-	if !errors.Is(dispatchGoalDrive(context.Background(), out, nil), errGoalDriveDispatchDependencies) {
+	getenv := func(string) string { return "" }
+	if !errors.Is(dispatchGoalDrive(context.Background(), out, getenv), errGoalDriveDispatchDependencies) {
 		t.Fatal("CLI must fail closed when runtime provider/key dependencies are unavailable")
 	}
 }

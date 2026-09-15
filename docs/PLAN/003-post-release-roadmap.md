@@ -124,6 +124,17 @@ proposal, independent review, and acceptance are distinct records. A missing or
 unresolved acceptance is surfaced as authority insufficiency rather than
 converted into global blockage or implicit runnable work.
 
+DF-032 identified and resolves the first-installation root-of-authority gap:
+`key-bootstrap` establishes protected key possession but does not authenticate
+or enroll a governance principal. ADR-069/SPEC-032 add the explicit core
+`authority bootstrap` boundary. It requires an opened production bootstrap
+provider, the current OS session, and interactive least-scope confirmation;
+the resulting immutable generation is encrypted, digest-bound to the
+bootstrap record, restart-readable, and distinct from WorkPlan acceptance.
+No conversational approval, owner string, environment variable, provider, or
+model can create the root. The current dogfood WorkPlan remains unaccepted
+until a durable AuthorityDecision is created through this enrolled authority.
+
 Parent readiness must retain child-level blocked evidence and derive
 `runnable`, `blocked`, or `complete` from the full authoritative candidate set;
 one blocked child must not suppress a ready sibling.

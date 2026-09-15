@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -44,6 +45,39 @@ func (g AuthorityGeneration) Validate() error {
 	}
 	if g.State != AuthorityGenerationActive {
 		return fmt.Errorf("authority generation is not active: %q", g.State)
+	}
+	return nil
+}
+
+// ComputeDigest derives the immutable identity of a generation from its
+// non-digest fields. Callers must persist the returned value as Digest.
+// Generation digests are evidence bindings, not substitutes for the durable
+// generation record or its effective-state validation.
+func (g AuthorityGeneration) ComputeDigest() (string, error) {
+	validated := g
+	if validated.Digest == "" {
+		validated.Digest = "sha256:" + strings.Repeat("0", 64)
+	}
+	if err := validated.Validate(); err != nil {
+		return "", err
+	}
+	copy := g
+	copy.Digest = ""
+	payload, err := json.Marshal(copy)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+func (g AuthorityGeneration) VerifyDigest() error {
+	computed, err := g.ComputeDigest()
+	if err != nil {
+		return err
+	}
+	if computed != g.Digest {
+		return errors.New("authority generation digest mismatch")
 	}
 	return nil
 }

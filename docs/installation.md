@@ -76,6 +76,19 @@ binary and package artifacts. Do not edit SQLite tables manually. A missing
 database is uninitialized state; an existing database that cannot be opened is
 diagnostic failure and must not be replaced.
 
+Key bootstrap does not itself create a governance principal. After state
+initialization, enroll one explicit least-scope installation principal:
+
+```text
+praxis authority bootstrap --scope <least-scope>
+```
+
+Praxis displays the deterministic installation principal and requires an
+interactive confirmation phrase. Enrollment creates one immutable encrypted
+authority generation; it does not approve a WorkPlan, grant provider or
+repository authority, or authorize unrestricted future work. A second or
+conflicting enrollment fails closed.
+
 Python graph runs use an explicit directory instead:
 
 ```bash

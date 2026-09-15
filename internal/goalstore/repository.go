@@ -790,6 +790,39 @@ func (r Repository) LoadAuthorityGeneration(ctx context.Context, ref, version st
 	return generation, nil
 }
 
+// ListAuthorityGenerations returns the encrypted, durable governance
+// generations in stable identity order. It is used by explicit root
+// enrollment to reject a second installation root rather than silently
+// creating a competing principal.
+func (r Repository) ListAuthorityGenerations(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, error) {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return nil, err
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, authorityGenerationNamespace, now)
+	if err != nil {
+		return nil, err
+	}
+	generations := make([]contracts.AuthorityGeneration, 0, len(records))
+	for _, record := range records {
+		payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
+		if err != nil {
+			return nil, fmt.Errorf("decrypt authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+		}
+		var generation contracts.AuthorityGeneration
+		if err := json.Unmarshal(payload, &generation); err != nil {
+			return nil, fmt.Errorf("decode authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+		}
+		if generation.Ref != record.ObjectID || generation.Version != record.ObjectVersion || generation.Digest != record.ObjectDigest {
+			return nil, errors.New("authority generation identity or digest mismatch")
+		}
+		if err := generation.Validate(); err != nil {
+			return nil, err
+		}
+		generations = append(generations, generation)
+	}
+	return generations, nil
+}
+
 func (r Repository) SaveAuthorityGenerationInvalidation(ctx context.Context, invalidation contracts.AuthorityGenerationInvalidation, createdAt time.Time, expiresAt *time.Time) error {
 	if expiresAt != nil || invalidation.EffectiveAt.After(time.Now().UTC()) {
 		return errors.New("authority generation invalidation must be immediate and non-expiring")

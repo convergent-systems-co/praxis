@@ -55,6 +55,8 @@ func run(args []string) error {
 		return runNativeGoalDriveInvocation(context.Background(), args[1:], os.Getenv)
 	case "goal":
 		return runGoalCommand(context.Background(), args[1:], os.Getenv)
+	case "authority":
+		return runAuthorityCommand(args[1:])
 	}
 	return runDynamicInvocation(context.Background(), args, os.Getenv)
 }
@@ -139,7 +141,7 @@ func resolveDynamicInvocation(ctx context.Context, args []string, getenv func(st
 
 func runHelp(args []string) error {
 	fmt.Println("usage: praxis <command|installed-entry-point> [arguments] [options]")
-	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, doctor, key-bootstrap, state-init, goal import, version")
+	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, doctor, key-bootstrap, state-init, authority bootstrap, goal import, version")
 	path := os.Getenv("PRAXIS_DB")
 	if path == "" {
 		fmt.Println("installed entry points: unavailable (set PRAXIS_DB to inspect the active registry)")

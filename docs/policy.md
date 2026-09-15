@@ -212,10 +212,11 @@ above is the caller's job, the same "decide here, wire there" separation
   as a follow-up integration task, parallel to the evidence-gate persistence seam already noted in
   `docs/runtime.md`.
 - **Capacity/handoff tiering stays skill-side, not a `BudgetLedger` extension.** See
-  [ADR 0001](adr/0001-capacity-tiering-boundary.md), which decides that the `develop` skill's
+  [ADR-034](ADR/034-slice-scheduling-and-resource-concurrency.md), which defines the resource
+  and capacity boundary for execution, and
   persisted, multi-signal capacity tiering remains in `~/ai/skills/develop/runtime/checkpoint.py`
   rather than being promoted into `praxis_policy.budgets`.
 - **The human stays outside the executor registry, not a registered `Executor`.** See
-  [ADR 0002](adr/0002-human-executor-boundary.md), which decides that escalation remains
+  [ADR-023](ADR/023-human-authority-and-learning-precedence.md), which decides that escalation remains
   `PolicyGate`'s `HUMAN_REQUIRED`/`handoff` outcome and the human's answer is captured as a
   `grader_kind="human"` proof record, leaving the `auth_transport` contract unchanged.

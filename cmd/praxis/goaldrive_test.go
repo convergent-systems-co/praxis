@@ -29,6 +29,14 @@ func TestDispatchGoalDriveFailsClosedBeforeExecutionDependencies(t *testing.T) {
 	}
 }
 
+func TestDispatchGoalDriveDefaultsEnvironmentLookup(t *testing.T) {
+	t.Setenv("PRAXIS_BOOTSTRAP_RECORD", "")
+	out := normalizedOutput{EntryPointID: "goal-drive", Options: map[string]string{"goal-id": "goal-1", "goal-version": "7", "provider": "local", "invocation-id": "inv-1"}}
+	if err := dispatchGoalDrive(context.Background(), out, nil); !errors.Is(err, errGoalDriveDispatchDependencies) {
+		t.Fatalf("nil environment lookup must use the process environment and fail closed at dependencies: %v", err)
+	}
+}
+
 func TestDispatchGoalDriveRecoveryRequiresWorkspace(t *testing.T) {
 	out := normalizedOutput{EntryPointID: "goal-drive", Options: map[string]string{"goal-id": "goal-1", "goal-version": "7", "provider": "local", "invocation-id": "inv-1"}}
 	getenv := func(key string) string {

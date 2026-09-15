@@ -24,6 +24,9 @@ var errGoalDriveDispatchDependencies = errors.New("native goal-drive dispatch re
 // shared invocation contract and fails closed until setup-time providers can
 // construct the proven goaldrive.Runtime; contract resolution is not execution.
 func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(string) string) error {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
 	invocation, err := goaldrive.ParseInvocation(out.Options)
 	if err != nil {
 		return fmt.Errorf("parse goal-drive invocation: %w", err)

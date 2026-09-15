@@ -16,15 +16,37 @@ const (
 	PublisherAuthorityReviewKind    = "publisher-authority-review"
 )
 
-type AuthorityModelState struct { Version, ActiveModel, ActiveVersion, ActiveDigest, AdoptionDigest, State string }
+type AuthorityModelState struct{ Version, ActiveModel, ActiveVersion, ActiveDigest, AdoptionDigest, State string }
+
+type PublisherEnrollmentPreview struct {
+	ID, Version, BootstrapDigest, OwnerID, OwnerKind                  string
+	AuthorityModel, AuthorityModelVersion, AuthorityModelDigest       string
+	PublisherPrincipal, KeyID, Algorithm, KeyPurpose, PublicKeyDigest string
+	Generation, Predecessor, Namespace, GenerationDigest              string
+	GenerationRecord                                                  PublisherGeneration
+	CreatedAt                                                         time.Time
+}
+
+func (p PublisherEnrollmentPreview) Digest() (string, error) {
+	if p.ID == "" || p.Version == "" || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel == "" || p.AuthorityModelVersion == "" || p.AuthorityModelDigest == "" || p.PublisherPrincipal == "" || p.KeyID == "" || p.Algorithm == "" || p.KeyPurpose != "publisher-signing" || p.PublicKeyDigest == "" || p.Generation == "" || p.Namespace == "" || p.GenerationDigest == "" || p.CreatedAt.IsZero() {
+		return "", errors.New("publisher enrollment preview is incomplete")
+	}
+	actual, err := p.GenerationRecord.Digest()
+	if err != nil || actual != p.GenerationDigest {
+		return "", errors.New("publisher enrollment preview generation mismatch")
+	}
+	return digestCanonical(p)
+}
 
 type AuthorityModelAdoption struct {
 	ID, Version, FromModel, FromVersion, FromDigest, ToModel, ToVersion, ToDigest, RootRef, RootVersion, RootDigest, Reason string
 	CreatedAt                                                                                                               time.Time
 }
 type PublisherEnrollmentApproval struct {
-	ID, Version, Kind, GenerationTemplateDigest, PublisherPrincipal, PublicKeyDigest, Namespace, ApproverID, ApproverKind string
-	IssuedAt                                                                                                              time.Time
+	ID, Version, Kind, PreviewDigest, BootstrapDigest, OwnerID, OwnerKind, AuthorityModel, AuthorityModelVersion, AuthorityModelDigest            string
+	GenerationTemplateDigest, PublisherPrincipal, PublicKeyDigest, KeyID, Algorithm, Namespace, Generation, Predecessor, ApproverID, ApproverKind string
+	GenerationRecord                                                                                                                              PublisherGeneration
+	IssuedAt                                                                                                                                      time.Time
 }
 type PublisherAuthorityProposal struct {
 	ID, Version, Kind, PublisherGenerationDigest, PublisherPrincipal, Namespace, ParentRef, ParentVersion, ParentDigest, Reason string
@@ -62,10 +84,29 @@ func (r PublisherAuthorityReview) Digest() (string, error) {
 	return digestCanonical(r)
 }
 func (p PublisherEnrollmentApproval) Digest() (string, error) {
-	if p.ID == "" || p.Version == "" || p.Kind != "publisher-enrollment-approval" || p.GenerationTemplateDigest == "" || p.PublisherPrincipal == "" || p.PublicKeyDigest == "" || p.Namespace == "" || p.ApproverID == "" || p.ApproverKind == "" || p.IssuedAt.IsZero() {
+	if p.ID == "" || p.Version == "" || p.Kind != "publisher-enrollment-approval" || p.PreviewDigest == "" || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel == "" || p.AuthorityModelVersion == "" || p.AuthorityModelDigest == "" || p.GenerationTemplateDigest == "" || p.PublisherPrincipal == "" || p.PublicKeyDigest == "" || p.KeyID == "" || p.Algorithm == "" || p.Namespace == "" || p.Generation == "" || p.ApproverID == "" || p.ApproverKind == "" || p.IssuedAt.IsZero() {
 		return "", errors.New("publisher enrollment approval is incomplete")
 	}
+	actual, err := p.GenerationRecord.Digest()
+	if err != nil || actual != p.GenerationTemplateDigest {
+		return "", errors.New("publisher enrollment approval generation mismatch")
+	}
 	return digestCanonical(p)
+}
+func (p PublisherEnrollmentApproval) DigestOrEmpty() string { d, _ := p.Digest(); return d }
+func (p PublisherGeneration) DigestOrEmpty() string         { d, _ := p.Digest(); return d }
+func (p PublisherEnrollmentApproval) ValidateForGeneration(g PublisherGeneration, actor PrincipalRef) error {
+	if _, err := p.Digest(); err != nil {
+		return err
+	}
+	gd, err := g.Digest()
+	if err != nil {
+		return err
+	}
+	if p.ID != "publisher-enrollment-approval:"+p.PreviewDigest || p.GenerationTemplateDigest != gd || p.GenerationRecord.DigestOrEmpty() != gd || p.PublisherPrincipal != g.Principal.ID || p.PublicKeyDigest != g.PublicKeyDigest || p.KeyID != g.KeyID || p.Algorithm != g.Algorithm || p.Namespace != g.PackageNamespace || p.Generation != g.Generation || p.Predecessor != g.Predecessor || p.ApproverID != actor.ID || p.ApproverKind != actor.Kind {
+		return errors.New("publisher enrollment approval does not bind exact generation and owner")
+	}
+	return nil
 }
 func NamespaceFromPublishScope(scope string) (string, error) {
 	const prefix = "package-namespace:"

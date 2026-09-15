@@ -196,3 +196,61 @@ func (r Repository) SavePublisherEnrollmentApproval(ctx context.Context, a contr
 	}
 	return d, nil
 }
+
+func (r Repository) LoadPublisherEnrollmentApproval(ctx context.Context, previewDigest string, now time.Time) (contracts.PublisherEnrollmentApproval, error) {
+	if previewDigest == "" {
+		return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment preview digest is required")
+	}
+	var approval contracts.PublisherEnrollmentApproval
+	if err := r.loadPublisherGovernance(ctx, "publisher-enrollment-approval:"+previewDigest, "1", now, &approval); err != nil {
+		return approval, err
+	}
+	if _, err := approval.Digest(); err != nil || approval.PreviewDigest != previewDigest {
+		return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment approval digest mismatch")
+	}
+	return approval, nil
+}
+
+func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {
+	previewDigest, err := preview.Digest()
+	if err != nil {
+		return contracts.PublisherEnrollmentApproval{}, "", err
+	}
+	if confirmation != "APPROVE-PUBLISHER "+previewDigest {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment confirmation does not bind exact preview")
+	}
+	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if err != nil || bootstrapDigest != preview.BootstrapDigest || owner.ID != preview.OwnerID || owner.ID != ownerID || owner.Kind != preview.OwnerKind {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment owner does not match preview")
+	}
+	if preview.AuthorityModel != contracts.AuthorityModelID || preview.AuthorityModelVersion != contracts.AuthorityModelSuccessorVersion || preview.AuthorityModelDigest != contracts.AuthorityModelSuccessorDigest() || preview.PublisherPrincipal != contracts.FirstPartyPublisherPrincipal {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment preview is not bound to the active accepted authority model")
+	}
+	model, err := r.LoadAuthorityModelState(ctx, now)
+	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment requires currently adopted authority-model v2")
+	}
+	gens, err := r.ListAuthorityGenerations(ctx, now)
+	if err != nil {
+		return contracts.PublisherEnrollmentApproval{}, "", err
+	}
+	rootFound := false
+	for _, generation := range gens {
+		if generation.ParentRef == "" && generation.Principal == owner {
+			rootFound = true
+			break
+		}
+	}
+	if !rootFound {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("installation governance root is unavailable")
+	}
+	approval := contracts.PublisherEnrollmentApproval{ID: "publisher-enrollment-approval:" + previewDigest, Version: "1", Kind: "publisher-enrollment-approval", PreviewDigest: previewDigest, BootstrapDigest: preview.BootstrapDigest, OwnerID: preview.OwnerID, OwnerKind: preview.OwnerKind, AuthorityModel: preview.AuthorityModel, AuthorityModelVersion: preview.AuthorityModelVersion, AuthorityModelDigest: preview.AuthorityModelDigest, GenerationTemplateDigest: preview.GenerationDigest, PublisherPrincipal: preview.PublisherPrincipal, PublicKeyDigest: preview.PublicKeyDigest, KeyID: preview.KeyID, Algorithm: preview.Algorithm, Namespace: preview.Namespace, Generation: preview.Generation, Predecessor: preview.Predecessor, GenerationRecord: preview.GenerationRecord, ApproverID: owner.ID, ApproverKind: owner.Kind, IssuedAt: now.UTC()}
+	approvalDigest, err := approval.Digest()
+	if err != nil {
+		return contracts.PublisherEnrollmentApproval{}, "", err
+	}
+	if _, err := r.savePublisherGovernance(ctx, approval.ID, approval.Version, approval, now, nil); err != nil {
+		return contracts.PublisherEnrollmentApproval{}, "", err
+	}
+	return approval, approvalDigest, nil
+}

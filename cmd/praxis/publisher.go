@@ -33,6 +33,10 @@ func runPublisherCommand(args []string) error {
 		return runPublisherKeyInspect(args[1:], os.Stdout)
 	case "enroll-preview":
 		return runPublisherEnrollPreview(args[1:], os.Stdout)
+	case "enroll-approve":
+		return runPublisherEnrollmentApprove(args[1:], os.Stdout)
+	case "enroll-approval-inspect":
+		return runPublisherEnrollmentApprovalInspect(args[1:], os.Stdout)
 	case "enroll":
 		return runPublisherEnroll(args[1:], os.Getenv, os.Stdout)
 	case "authority-preview":
@@ -48,12 +52,12 @@ func runPublisherCommand(args []string) error {
 	case "receipt":
 		return runPublisherReceipt(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll|package-build|sign-preview|sign|receipt}")
+		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|package-build|sign-preview|sign|receipt}")
 	}
 }
 
 func writePublisherHelp(w io.Writer) error {
-	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll|authority-preview|authority-request|package-build|sign-preview|sign|receipt>\n\nPreview commands are read-only. Enrollment, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
+	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-request|package-build|sign-preview|sign|receipt>\n\nPreview commands are read-only. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
 	return err
 }
 
@@ -142,19 +146,7 @@ func publisherGeneration(ctx context.Context, p publisherFlags) (contracts.Publi
 	return g, nil
 }
 func runPublisherEnrollPreview(args []string, out io.Writer) error {
-	p, err := parsePublisherFlags("publisher enroll-preview", args)
-	if err != nil {
-		return err
-	}
-	g, err := publisherGeneration(context.Background(), p)
-	if err != nil {
-		return err
-	}
-	d, err := g.Digest()
-	if err != nil {
-		return err
-	}
-	return printJSONTo(out, map[string]any{"operation": "publisher.enroll", "preview": true, "generation": g, "generation_digest": d, "required_authority": "publisher.enroll", "scope": "package:" + p.namespace})
+	return publisherEnrollmentPreview(args, out)
 }
 func runPublisherEnroll(args []string, getenv func(string) string, out io.Writer) error {
 	f := flag.NewFlagSet("publisher enroll", flag.ContinueOnError)

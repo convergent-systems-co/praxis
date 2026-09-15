@@ -34,7 +34,7 @@ func TestApprovePublisherEnrollmentBindsPreviewAndOwner(t *testing.T) {
 	if _, _, err := repo.ApprovePublisherEnrollment(context.Background(), preview, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER wrong", now); err == nil {
 		t.Fatal("confirmation mismatch must fail closed")
 	}
-	approval, _, err := repo.ApprovePublisherEnrollment(context.Background(), preview, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER "+previewDigest, now)
+	approval, approvalDigest, err := repo.ApprovePublisherEnrollment(context.Background(), preview, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER "+previewDigest, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +44,10 @@ func TestApprovePublisherEnrollmentBindsPreviewAndOwner(t *testing.T) {
 	loaded, err := repo.LoadPublisherEnrollmentApproval(context.Background(), previewDigest, now)
 	if err != nil || loaded.PreviewDigest != previewDigest {
 		t.Fatalf("approval was not recoverable: loaded=%+v err=%v", loaded, err)
+	}
+	loadedByDigest, err := repo.LoadPublisherEnrollmentApprovalByDigest(context.Background(), approvalDigest, now)
+	if err != nil || loadedByDigest.PreviewDigest != previewDigest {
+		t.Fatalf("approval digest lookup was not recoverable: loaded=%+v err=%v", loadedByDigest, err)
 	}
 	if _, _, err := repo.ApprovePublisherEnrollment(context.Background(), preview, bootstrapDigest, "installation-owner:other", "APPROVE-PUBLISHER "+previewDigest, now); err == nil {
 		t.Fatal("owner substitution must fail closed")

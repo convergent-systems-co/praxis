@@ -211,6 +211,44 @@ func (r Repository) LoadPublisherEnrollmentApproval(ctx context.Context, preview
 	return approval, nil
 }
 
+// LoadPublisherEnrollmentApprovalByDigest resolves the canonical approval
+// identity without trusting its storage key. This is the production consumer
+// lookup used after the owner has reviewed the emitted approval digest.
+func (r Repository) LoadPublisherEnrollmentApprovalByDigest(ctx context.Context, approvalDigest string, now time.Time) (contracts.PublisherEnrollmentApproval, error) {
+	if approvalDigest == "" {
+		return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment approval digest is required")
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.PublisherEnrollmentApproval{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, "publisher-enrollment-approval:") {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.PublisherEnrollmentApproval{}, err
+		}
+		var approval contracts.PublisherEnrollmentApproval
+		if err := json.Unmarshal(payload, &approval); err != nil {
+			return contracts.PublisherEnrollmentApproval{}, err
+		}
+		digest, err := approval.Digest()
+		if err != nil {
+			return contracts.PublisherEnrollmentApproval{}, err
+		}
+		if digest == approvalDigest {
+			return approval, nil
+		}
+	}
+	return contracts.PublisherEnrollmentApproval{}, statepkg.ErrSecureBlobNotFound
+}
+
+func (r Repository) decryptGovernanceRecord(ctx context.Context, record statepkg.SecureBlobRecord) ([]byte, error) {
+	return r.Crypto.Open(ctx, record.Envelope, record.Envelope.AAD)
+}
+
 func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {
 	previewDigest, err := preview.Digest()
 	if err != nil {

@@ -149,46 +149,7 @@ func runPublisherEnrollPreview(args []string, out io.Writer) error {
 	return publisherEnrollmentPreview(args, out)
 }
 func runPublisherEnroll(args []string, getenv func(string) string, out io.Writer) error {
-	return errors.New("caller-supplied publisher enrollment is disabled; canonical approval consumption is not yet available")
-	/*
-		f := flag.NewFlagSet("publisher enroll", flag.ContinueOnError)
-		var p publisherFlags
-		f.StringVar(&p.keyID, "key-id", "", "protected key reference")
-		f.StringVar(&p.namespace, "namespace", "praxis.package", "exact package namespace")
-		f.StringVar(&p.generation, "generation", "", "publisher generation")
-		f.StringVar(&p.predecessor, "predecessor", "", "predecessor generation digest")
-		f.StringVar(&p.effectiveAt, "effective-at", "", "RFC3339 effective time")
-		f.StringVar(&p.enrollmentRef, "enrollment-ref", "", "owner enrollment reference")
-		approval := f.String("approval-id", "", "exact governed enrollment approval")
-		actorID := f.String("actor-id", "", "approving actor id")
-		actorKind := f.String("actor-kind", "", "approving actor kind")
-		if err := f.Parse(args); err != nil {
-			return err
-		}
-		if f.NArg() != 0 || p.keyID == "" || p.generation == "" || p.effectiveAt == "" || p.enrollmentRef == "" || *approval == "" || *actorID == "" || *actorKind == "" {
-			return errors.New("usage: praxis publisher enroll --key-id <ref> --generation <id> --effective-at <RFC3339> --enrollment-ref <ref> --approval-id <id> --actor-id <id> --actor-kind <kind>")
-		}
-		g, err := publisherGeneration(context.Background(), p)
-		if err != nil {
-			return err
-		}
-		digest, err := g.Digest()
-		if err != nil {
-			return err
-		}
-		actor := contracts.PrincipalRef{ID: *actorID, Kind: *actorKind}
-		intent := contracts.ActionIntent{Version: "v1", ID: "publisher-enroll:" + p.generation, Actor: actor, Operation: "publisher.enroll", Target: digest, Scope: "package:" + p.namespace}
-		db, err := state.OpenSQLite(context.Background(), getenv("PRAXIS_DB"))
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		commandID, err := state.New(db).EnrollPublisherGeneration(context.Background(), g, intent, *approval, time.Now().UTC())
-		if err != nil {
-			return err
-		}
-		return printJSONTo(out, map[string]any{"operation": "publisher.enroll", "command_id": commandID, "generation_digest": digest, "principal": g.Principal, "scope": "package:" + p.namespace})
-	*/
+	return runCanonicalPublisherEnroll(args, getenv, out)
 }
 
 type publisherAuthorityOptions struct{ generation, parentRef, parentVersion, parentDigest, namespace, requestID, proposalVersion, proposalDigest, reviewVersion, reviewDigest, expiresAt, reason string }

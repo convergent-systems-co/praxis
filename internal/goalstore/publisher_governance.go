@@ -2,12 +2,15 @@ package goalstore
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	statepkg "github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -243,6 +246,69 @@ func (r Repository) LoadPublisherEnrollmentApprovalByDigest(ctx context.Context,
 		}
 	}
 	return contracts.PublisherEnrollmentApproval{}, statepkg.ErrSecureBlobNotFound
+}
+
+// EnrollPublisherFromApproval is the single repository-owned enrollment
+// boundary. It resolves the encrypted approval, revalidates installation
+// ownership/model/root/key state, then commits generation and provenance in
+// one state transaction.
+func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDigest string, bootstrap praxiscrypto.BootstrapRecord, signer praxiscrypto.PublisherSigner, osUser string, now time.Time) (contracts.PublisherGeneration, error) {
+	if signer == nil || now.IsZero() {
+		return contracts.PublisherGeneration{}, errors.New("publisher signer and enrollment time are required")
+	}
+	bootstrapDigest, err := bootstrap.Digest()
+	if err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	approval, err := r.LoadPublisherEnrollmentApprovalByDigest(ctx, approvalDigest, now)
+	if err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	if approval.BootstrapDigest != bootstrapDigest || approval.OwnerID != owner.ID || approval.OwnerKind != owner.Kind || approval.ApproverID != owner.ID || approval.ApproverKind != owner.Kind || approval.AuthorityModel != contracts.AuthorityModelID || approval.AuthorityModelVersion != contracts.AuthorityModelSuccessorVersion || approval.AuthorityModelDigest != contracts.AuthorityModelSuccessorDigest() {
+		return contracts.PublisherGeneration{}, errors.New("publisher enrollment approval is not bound to the current installation owner/model")
+	}
+	generation := approval.GenerationRecord
+	if err := approval.ValidateForGeneration(generation, owner); err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	if generation.Principal.ID != contracts.FirstPartyPublisherPrincipal {
+		return contracts.PublisherGeneration{}, errors.New("publisher enrollment generation is not first-party")
+	}
+	model, err := r.LoadAuthorityModelState(ctx, now)
+	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+		return contracts.PublisherGeneration{}, errors.New("publisher enrollment requires currently adopted authority-model v2")
+	}
+	gens, err := r.ListAuthorityGenerations(ctx, now)
+	if err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	rootFound := false
+	for _, root := range gens {
+		if root.ParentRef == "" && root.Principal == owner && strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+			rootFound = true
+			break
+		}
+	}
+	if !rootFound {
+		return contracts.PublisherGeneration{}, errors.New("authenticated installation root is unavailable")
+	}
+	publicKey, err := signer.PublicKey(ctx)
+	if err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	keySum := sha256.Sum256(publicKey)
+	keyDigest := "sha256:" + hex.EncodeToString(keySum[:])
+	if signer.KeyID() != generation.KeyID || signer.Algorithm() != generation.Algorithm || keyDigest != generation.PublicKeyDigest {
+		return contracts.PublisherGeneration{}, errors.New("protected publisher key does not match approved generation")
+	}
+	if _, err := r.Store.CommitCanonicalPublisherEnrollment(ctx, generation, owner, approval.ID, approvalDigest, approval.PreviewDigest, now.UTC()); err != nil {
+		return contracts.PublisherGeneration{}, err
+	}
+	return generation, nil
 }
 
 func (r Repository) decryptGovernanceRecord(ctx context.Context, record statepkg.SecureBlobRecord) ([]byte, error) {

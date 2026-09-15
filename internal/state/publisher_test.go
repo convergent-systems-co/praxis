@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,5 +52,37 @@ func TestPublisherEnrollmentPersistsOnlyWithExactApproval(t *testing.T) {
 	storedDigest, err := decoded.Digest()
 	if err != nil || storedDigest != generationDigest {
 		t.Fatalf("stored publisher record changed: %v %s", err, storedDigest)
+	}
+}
+
+func TestCanonicalPublisherEnrollmentCommitsAtomicallyAndReplaysExactly(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	actor := contracts.PrincipalRef{ID: "installation-owner:bootstrap", Kind: "human"}
+	generation := contracts.PublisherGeneration{Version: contracts.PublisherGenerationVersion, Principal: contracts.PrincipalRef{ID: contracts.FirstPartyPublisherPrincipal, Kind: "publisher"}, KeyID: "key:publisher:1", Algorithm: "ed25519", PublicKeyDigest: "sha256:1111111111111111111111111111111111111111111111111111111111111111", PackageNamespace: "praxis.package", Generation: "1", EffectiveAt: now, EnrollmentRef: "preview:1", EnrollmentDigest: "sha256:2222222222222222222222222222222222222222222222222222222222222222"}
+	intent := contracts.ActionIntent{Version: "v1", ID: "publisher-enroll:canonical", Actor: actor, Operation: "publisher.enroll", Scope: "package:praxis.package"}
+	digest, err := generation.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent.Target = digest
+	got, err := New(db).CommitCanonicalPublisherEnrollment(ctx, generation, actor, "publisher-enrollment-approval:preview", "sha256:"+strings.Repeat("a", 64), "sha256:"+strings.Repeat("b", 64), now)
+	if err != nil || got != digest {
+		t.Fatalf("canonical enrollment failed: %v %s", err, got)
+	}
+	replayed, err := New(db).CommitCanonicalPublisherEnrollment(ctx, generation, actor, "publisher-enrollment-approval:preview", "sha256:"+strings.Repeat("a", 64), "sha256:"+strings.Repeat("b", 64), now.Add(time.Second))
+	if err != nil || replayed != digest {
+		t.Fatalf("exact replay was not idempotent: %v %s", err, replayed)
+	}
+	if _, err := New(db).CommitCanonicalPublisherEnrollment(ctx, generation, actor, "publisher-enrollment-approval:other", "sha256:"+strings.Repeat("c", 64), "sha256:"+strings.Repeat("d", 64), now); err == nil {
+		t.Fatal("different approval must not replace enrollment provenance")
+	}
+	if _, err := New(db).PublisherGeneration(ctx, digest); err != nil {
+		t.Fatalf("committed generation is not recoverable: %v", err)
 	}
 }

@@ -184,3 +184,57 @@ func runPublisherEnrollmentApprovalInspect(args []string, out io.Writer) error {
 	}
 	return printJSONTo(out, map[string]any{"operation": "publisher.enroll-approve", "approval": approval, "approval_digest": digest})
 }
+
+func runCanonicalPublisherEnroll(args []string, getenv func(string) string, out io.Writer) error {
+	f := flag.NewFlagSet("publisher enroll", flag.ContinueOnError)
+	approvalDigest := f.String("approval", "", "exact system-produced publisher enrollment approval digest")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	if f.NArg() != 0 || *approvalDigest == "" {
+		return errors.New("usage: praxis publisher enroll --approval <approval-digest>")
+	}
+	bootstrap, err := loadBootstrapForOwnerWithEnv(getenv)
+	if err != nil {
+		return err
+	}
+	current, err := user.Current()
+	if err != nil || current.Username == "" {
+		return errors.New("authenticated installation owner is unavailable")
+	}
+	repo, db, err := openGovernedRepository(context.Background(), getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	// Resolve the approval before opening the protected key so a missing or
+	// substituted approval cannot trigger backend access.
+	approval, err := repo.LoadPublisherEnrollmentApprovalByDigest(context.Background(), *approvalDigest, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	signer, err := publisherBackend().Open(context.Background(), approval.GenerationRecord.KeyID)
+	if err != nil {
+		return err
+	}
+	generation, err := repo.EnrollPublisherFromApproval(context.Background(), *approvalDigest, bootstrap, signer, current.Username, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	generationDigest, err := generation.Digest()
+	if err != nil {
+		return err
+	}
+	return printJSONTo(out, map[string]any{"operation": "publisher.enroll", "publisher_principal": generation.Principal, "generation": generation.Generation, "generation_digest": generationDigest, "public_key_digest": generation.PublicKeyDigest, "namespace": generation.PackageNamespace, "approval_digest": *approvalDigest, "preview_digest": approval.PreviewDigest, "enrollment_event_time": time.Now().UTC(), "authority_model": contracts.AuthorityModelID, "authority_model_version": contracts.AuthorityModelSuccessorVersion, "authority_model_digest": contracts.AuthorityModelSuccessorDigest()})
+}
+
+func loadBootstrapForOwnerWithEnv(getenv func(string) string) (praxiscrypto.BootstrapRecord, error) {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	path := getenv("PRAXIS_BOOTSTRAP_RECORD")
+	if path == "" {
+		return praxiscrypto.BootstrapRecord{}, errors.New("PRAXIS_BOOTSTRAP_RECORD is required")
+	}
+	return praxiscrypto.LoadBootstrapRecord(path)
+}

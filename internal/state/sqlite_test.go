@@ -20,7 +20,7 @@ func TestOpenSQLiteAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT value FROM schema_meta WHERE key='schema_version'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != "15" {
+	if version != "16" {
 		t.Fatalf("expected schema version 15, got %s", version)
 	}
 	for _, migration := range []string{"0001_praxis2_core.sql", "0004_packages_and_invocations.sql", "0005_package_contents.sql", "0006_governed_package_activation.sql", "0007_governed_package_transitions.sql", "0008_verified_package_artifacts.sql", "0009_package_rollback_receipts.sql", "0010_plugin_supervisor_snapshots.sql", "0011_scheduler_resource_leases.sql", "0012_invocation_runtime_bindings.sql", "0013_executable_invocation_bindings.sql", "0014_publisher_generations.sql", "0015_publisher_signing_receipts.sql"} {

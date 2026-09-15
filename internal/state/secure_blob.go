@@ -250,6 +250,22 @@ func (s *Store) GetSecureBlob(ctx context.Context, namespace, objectID, version 
 	return r, nil
 }
 
+// HasSecureBlobDigest checks immutable lineage without opening encrypted
+// content. Import uses it to require a predecessor generation.
+func (s *Store) HasSecureBlobDigest(ctx context.Context, namespace, objectID, digest string) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, errors.New("state store is required")
+	}
+	if namespace == "" || objectID == "" || digest == "" {
+		return false, errors.New("secure blob lineage identity is required")
+	}
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_digest=?`, namespace, objectID, digest).Scan(&count); err != nil {
+		return false, fmt.Errorf("check secure blob lineage: %w", err)
+	}
+	return count == 1, nil
+}
+
 // ListSecureBlobs returns immutable records for a namespace in stable identity
 // order. Callers still decrypt and validate each record through their owning
 // contract; this method exposes no plaintext.

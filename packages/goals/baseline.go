@@ -33,47 +33,51 @@ const (
 )
 
 type Decision struct {
-	ID             string
-	Statement      string
-	Status         DecisionStatus
-	Recommendation string
-	Rationale      string
-	EvidenceRefs   []string
-	Reversible     bool
-	Material       bool
-	HumanRequired  bool
-	AutoAccepted   bool
+	ID             string         `json:"id"`
+	Statement      string         `json:"statement"`
+	Status         DecisionStatus `json:"status"`
+	Recommendation string         `json:"recommendation,omitempty"`
+	Rationale      string         `json:"rationale,omitempty"`
+	EvidenceRefs   []string       `json:"evidence_refs,omitempty"`
+	Reversible     bool           `json:"reversible"`
+	Material       bool           `json:"material"`
+	HumanRequired  bool           `json:"human_required"`
+	AutoAccepted   bool           `json:"auto_accepted"`
 }
 
 type ArtifactRef struct {
-	ID     string
-	Role   string
-	Digest string
+	ID     string `json:"id"`
+	Role   string `json:"role"`
+	Digest string `json:"digest"`
 }
 
 type GoalBaseline struct {
-	ID                 string
-	Version            string
-	Digest             string
-	PredecessorDigest  string
-	OriginalIntent     string
-	RefinedOutcome     string
-	Scope              string
-	NonGoals           []string
-	Constraints        []string
-	SuccessCriteria    []string
-	EvidenceRefs       []string
-	Assumptions        []string
-	Decisions          []Decision
-	Artifacts          []ArtifactRef
-	PlanRef            string
-	ValidityPredicates []string
-	Rigor              Rigor
-	RecommendationMode RecommendationMode
+	ID                 string             `json:"id"`
+	Version            string             `json:"version"`
+	Digest             string             `json:"digest"`
+	PredecessorDigest  string             `json:"predecessor_digest,omitempty"`
+	OriginalIntent     string             `json:"original_intent"`
+	RefinedOutcome     string             `json:"refined_outcome"`
+	Scope              string             `json:"scope,omitempty"`
+	NonGoals           []string           `json:"non_goals,omitempty"`
+	Constraints        []string           `json:"constraints,omitempty"`
+	SuccessCriteria    []string           `json:"success_criteria,omitempty"`
+	EvidenceRefs       []string           `json:"evidence_refs,omitempty"`
+	Assumptions        []string           `json:"assumptions,omitempty"`
+	Decisions          []Decision         `json:"decisions,omitempty"`
+	Artifacts          []ArtifactRef      `json:"artifacts,omitempty"`
+	PlanRef            string             `json:"plan_ref,omitempty"`
+	ValidityPredicates []string           `json:"validity_predicates,omitempty"`
+	Rigor              Rigor              `json:"rigor"`
+	RecommendationMode RecommendationMode `json:"recommendation_mode"`
+	// Import provenance is recorded only when a canonical baseline crosses the
+	// explicit evidence-to-authority import boundary.
+	ImportSourceRef    string `json:"import_source_ref,omitempty"`
+	ImportSourceDigest string `json:"import_source_digest,omitempty"`
 	// WorkPlan is optional because a Goal may be newly created or still in
 	// planning. When present it is the accepted executable decomposition; it is
 	// never inferred from prose, PlanRef, or model output.
-	WorkPlan *contracts.WorkPlan
+	WorkPlan *contracts.WorkPlan `json:"work_plan,omitempty"`
 }
 
 func (b GoalBaseline) Validate() error {

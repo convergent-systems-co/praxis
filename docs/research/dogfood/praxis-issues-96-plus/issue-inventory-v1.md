@@ -567,4 +567,17 @@ construction, transcript isolation/redaction, and controller-derived
 repository progress. Provider output cannot mint completion, checkpoint
 validity, authority, or `USER_DECISION_REQUIRED`. Real Goal execution remains
 dependent on accepted decomposition and current Goal authority; no such state
-was fabricated.
+	was fabricated.
+
+## Dogfood finding DF-031 — Goal Baseline recovery/import boundary
+
+The native Goal-drive invocation correctly failed closed because the configured
+encrypted GoalStore had no recoverable `dogfood-praxis-issues-96-plus/2` record.
+The tracked `parent-goal-baseline-v2.json` is a summary manifest rather than a
+canonical `GoalBaseline` and cannot be promoted by file location or claimed
+digest. ADR-068/SPEC-031 add an explicit `praxis goal import` boundary that
+admits only a complete canonical payload with source provenance, verified
+digest, and present predecessor lineage. It is idempotent for exact duplicates,
+rejects conflicting generations, and never creates executable work or
+authority. The current summary manifest remains blocked from import until a
+canonical baseline payload is durably produced through the Goals lifecycle.

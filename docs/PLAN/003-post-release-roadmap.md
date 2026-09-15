@@ -196,6 +196,15 @@ inheritance is allowlisted, and the controller derives repository progress
 after process exit. Completion and human-decision outcomes remain governed
 control-plane evidence rather than model claims.
 
+DF-031 establishes the explicit Goal Baseline import boundary under ADR-068 and
+SPEC-031. Repository evidence is not authority: only a complete canonical
+baseline with verified digest, source provenance, and present predecessor
+lineage may be admitted through `praxis goal import`. Exact duplicate import is
+idempotent and conflicting or malformed generations fail closed. Import does
+not create a WorkPlan or authority grant. The existing dogfood v2 summary
+manifest is intentionally not importable because it is not a canonical
+GoalBaseline payload.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs

@@ -1,0 +1,32 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-plan005-gocache",
+    "go",
+    "test",
+    "./internal/goaldrive",
+    "./internal/runcontrol",
+    "./internal/eventstore",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T17:59:05.41188Z",
+  "finished_at": "2026-09-15T17:59:09.712247Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/supervision-unified-successor-v1.log",
+  "output_digest": "sha256:edf7df1612f4e5b0c565950f3e6b4328bc954ad05f633d7e67471c0614b9fc65",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/goaldrive": "sha256:f17c925703cca64dceefeab5551b5ead35ad50862b9d1834298f07de45afe026",
+    "internal/runcontrol": "sha256:4d437d948aacde486a432b143f4a24611389bd0c17663bcc49b43e15bc7a93c9",
+    "pkg/contracts": "sha256:e73b18cd9180b0f9d4b80c3fb0359acc11f447cb835674415aa6bc29f229ec59"
+  },
+  "observations": [
+    "TestContinuousExecution",
+    "TestRestartRecovery",
+    "TestSupervisionStream"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:f7e66ab15136d2f9fba2188d3a76791fc9d28a39c7edaf8be36eb3c2dbddc631"
+}

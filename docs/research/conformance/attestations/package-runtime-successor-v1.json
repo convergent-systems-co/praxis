@@ -1,0 +1,33 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-plan005-gocache",
+    "go",
+    "test",
+    "./pkg/contracts",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/packagecatalog"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T17:58:23.518418Z",
+  "finished_at": "2026-09-15T17:58:23.720027Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-runtime-successor-v1.log",
+  "output_digest": "sha256:724330b5014bbbdb51bdda5a6df93ab937f5676c1eb42bb6827d8f92659b3e20",
+  "source_digests": {
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/state": "sha256:5524ae7a450e3e0a99ce30f25ccfa215b9ebec62a10378ca40cb9d3503cd03ee",
+    "internal/stateprovider": "sha256:2cd36d4c0cd49ca39344812666c76c2c730d930a2ffebb380a166c94b6153e5b",
+    "migrations/sqlite": "sha256:b6b52012e069ed49a85cbbf036e1d85f1fcee1a8d37f7847bd14fb87a743b4a6",
+    "pkg/contracts": "sha256:e73b18cd9180b0f9d4b80c3fb0359acc11f447cb835674415aa6bc29f229ec59"
+  },
+  "observations": [
+    "TestInvocationRuntimeBindingIsRequiredAndGenerationBound",
+    "TestInvocationRuntimeBindingRejectsSubstitutionAfterRestart",
+    "TestOpenSQLiteAppliesMigrationsAndPragmas"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:68cabdca369f1d2bb6be4dbd3080876e8046b1a234d9732112cb947468de4ce5"
+}

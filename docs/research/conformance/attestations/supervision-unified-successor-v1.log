@@ -1,0 +1,4 @@
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	3.573s
+ok  	github.com/convergent-systems-co/praxis/internal/runcontrol	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/eventstore	(cached)
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	(cached)

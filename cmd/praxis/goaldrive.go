@@ -39,7 +39,24 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 		return fmt.Errorf("construct native Goal-drive runtime: %w", err)
 	}
 	defer db.Close()
-	record, err := runtime.Execute(ctx, invocation)
+	var record goaldrive.TurnRecord
+	if getenv("PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY") == "true" {
+		turns, loadErr := runtime.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
+		if loadErr != nil {
+			return fmt.Errorf("load durable turns for workspace reconciliation: %w", loadErr)
+		}
+		for i := len(turns) - 1; i >= 0; i-- {
+			if turns[i].InvocationID == invocation.InvocationID {
+				record = turns[i]
+				break
+			}
+		}
+		if record.TurnID == "" {
+			return errors.New("workspace reconciliation requires an existing durable turn")
+		}
+	} else {
+		record, err = runtime.Execute(ctx, invocation)
+	}
 	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
 		ledgerRecord := record
 		if err != nil {

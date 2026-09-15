@@ -60,6 +60,22 @@ func TestExecuteTurnWithRepositoryPublishesOnlyValidatedProgress(t *testing.T) {
 	}
 }
 
+func TestExecuteTurnWithRepositoryNoPushRetainsProgressWithoutPublication(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}}}
+	req := turnRequest()
+	req.NoPush = true
+	record, err := controller.ExecuteTurnWithRepository(context.Background(), req, repo)
+	if err != nil || record.Outcome != OutcomeComplete || !record.Progress || record.CheckpointPublished || len(repo.publishes) != 0 {
+		t.Fatalf("no-push must retain validated local progress without publication: %+v err=%v publishes=%v", record, err, repo.publishes)
+	}
+	turns, loadErr := controller.Ledger.Load(context.Background(), req.GoalID, req.GoalVersion)
+	if loadErr != nil || len(turns) != 1 || !turns[0].Progress || turns[0].CheckpointPublished {
+		t.Fatalf("no-push result must be durable and unpublished: %+v err=%v", turns, loadErr)
+	}
+}
+
 func TestExecuteTurnWithRepositoryDoesNotPersistCompletionBeforeFailedPublish(t *testing.T) {
 	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
 	controller := controllerFixture(worker)

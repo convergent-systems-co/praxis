@@ -52,6 +52,7 @@ type WorkerResult struct {
 type TurnRequest struct {
 	GoalID, GoalVersion, InvocationID, TurnID, ChildObjective, GraphID, GraphVersion, StartHead string
 	Repository                                                                                  contracts.RepositoryState
+	NoPush                                                                                      bool
 	ProviderID                                                                                  string
 	Mode                                                                                        ExecutionMode
 	WorkCandidates                                                                              []contracts.WorkCandidate

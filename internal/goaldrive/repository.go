@@ -99,17 +99,19 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 		return record, workerErr
 	}
-	if err := PublishCheckpoint(ctx, repo, record); err != nil {
-		blocked := record
-		blocked.Outcome = OutcomeBlocked
-		blocked.Progress = false
-		blocked.Blocker = err.Error()
-		if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), blocked); appendErr != nil {
-			return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
+	if !req.NoPush {
+		if err := PublishCheckpoint(ctx, repo, record); err != nil {
+			blocked := record
+			blocked.Outcome = OutcomeBlocked
+			blocked.Progress = false
+			blocked.Blocker = err.Error()
+			if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), blocked); appendErr != nil {
+				return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
+			}
+			return blocked, err
 		}
-		return blocked, err
 	}
-	record.CheckpointPublished = record.Progress
+	record.CheckpointPublished = record.Progress && !req.NoPush
 	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
 		return TurnRecord{}, err
 	}

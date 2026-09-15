@@ -45,8 +45,8 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 	if invocation.Mode != ModeSupervised {
 		return TurnRecord{}, ErrSupervisedRuntimeOption
 	}
-	if invocation.NoPush || invocation.MaxTurns > 1 {
-		return TurnRecord{}, fmt.Errorf("%w: no-push and multi-turn orchestration require an explicit runtime boundary", ErrSupervisedRuntimeOption)
+	if invocation.MaxTurns > 1 {
+		return TurnRecord{}, fmt.Errorf("%w: multi-turn orchestration requires an explicit runtime boundary", ErrSupervisedRuntimeOption)
 	}
 	if r.Baselines == nil {
 		return TurnRecord{}, errors.New("durable Goal Baseline store is required")
@@ -77,6 +77,7 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 		InvocationID: invocation.InvocationID, TurnID: turnID,
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
 		ProviderID: invocation.ProviderID, Mode: ModeSupervised,
+		NoPush:       invocation.NoPush,
 		GoalBaseline: &baseline,
 	}, r.Repository)
 }

@@ -65,6 +65,7 @@ type Manifest struct {
 	CryptoProfile       contracts.CryptoProfile        `json:"crypto_profile,omitempty"`
 	Contents            []ContentRef                   `json:"contents,omitempty"`
 	Invocations         []contracts.InvocationContract `json:"invocations,omitempty"`
+	ExecutableBindings  []contracts.ExecutableBinding  `json:"executable_bindings,omitempty"`
 	UpstreamPackageID   string                         `json:"upstream_package_id,omitempty"`
 	UpstreamDigest      string                         `json:"upstream_digest,omitempty"`
 }
@@ -125,7 +126,36 @@ func (m Manifest) Validate() error {
 			seenAliases[alias] = struct{}{}
 		}
 	}
+	bindings := map[string]struct{}{}
+	for _, binding := range m.ExecutableBindings {
+		if err := binding.Validate(); err != nil {
+			return fmt.Errorf("executable binding: %w", err)
+		}
+		if _, ok := bindings[binding.EntryPointID]; ok {
+			return fmt.Errorf("duplicate executable binding for invocation %q", binding.EntryPointID)
+		}
+		bindings[binding.EntryPointID] = struct{}{}
+		found := false
+		for _, inv := range m.Invocations {
+			if inv.EntryPointID == binding.EntryPointID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("executable binding references unknown invocation %q", binding.EntryPointID)
+		}
+	}
 	return nil
+}
+
+func (m Manifest) ExecutableBinding(entryPointID string) (contracts.ExecutableBinding, bool) {
+	for _, binding := range m.ExecutableBindings {
+		if binding.EntryPointID == entryPointID {
+			return binding, true
+		}
+	}
+	return contracts.ExecutableBinding{}, false
 }
 
 func (m Manifest) ContentsOf(kind ContentKind) []ContentRef {

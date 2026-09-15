@@ -9,6 +9,7 @@ import (
 // invocation. Contract identity and implementation identity are intentionally
 // separate so a contract digest cannot masquerade as executable provenance.
 type ExecutableBinding struct {
+	EntryPointID             string `json:"entry_point_id"`
 	PluginID                 string `json:"plugin_id"`
 	PluginVersion            string `json:"plugin_version"`
 	PluginDefinitionDigest   string `json:"plugin_definition_digest"`
@@ -23,7 +24,7 @@ type ExecutableBinding struct {
 }
 
 func (b ExecutableBinding) Validate() error {
-	if b.PluginID == "" || b.PluginVersion == "" || b.ExecutableContentID == "" || b.ExecutableContentVersion == "" || b.RuntimeID == "" || b.RuntimeVersion == "" || b.ProtocolMin == "" || b.ProtocolMax == "" {
+	if b.EntryPointID == "" || b.PluginID == "" || b.PluginVersion == "" || b.ExecutableContentID == "" || b.ExecutableContentVersion == "" || b.RuntimeID == "" || b.RuntimeVersion == "" || b.ProtocolMin == "" || b.ProtocolMax == "" {
 		return errors.New("executable binding identity and protocol are required")
 	}
 	for name, value := range map[string]string{

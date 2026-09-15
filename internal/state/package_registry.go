@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
+	"github.com/convergent-systems-co/praxis/internal/plugin"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -160,6 +161,49 @@ func validateActiveDependencyCompatibilityTx(ctx context.Context, tx *sql.Tx, ta
 	return rows.Err()
 }
 
+func resolveExecutableBinding(pkg packagecatalog.VerifiedPackage, inv contracts.InvocationContract) (*contracts.ExecutableBinding, error) {
+	binding, ok := pkg.Manifest().ExecutableBinding(inv.EntryPointID)
+	if !ok {
+		return nil, nil
+	}
+	if err := binding.Validate(); err != nil {
+		return nil, err
+	}
+	manifest := pkg.Manifest()
+	definition, ok := manifest.Content(packagecatalog.ContentPlugin, binding.PluginID, binding.PluginVersion)
+	if !ok {
+		return nil, fmt.Errorf("invocation %q references missing plugin definition %s/%s", inv.EntryPointID, binding.PluginID, binding.PluginVersion)
+	}
+	executable, ok := manifest.Content(packagecatalog.ContentPluginExecutable, binding.ExecutableContentID, binding.ExecutableContentVersion)
+	if !ok {
+		return nil, fmt.Errorf("invocation %q references missing plugin executable %s/%s", inv.EntryPointID, binding.ExecutableContentID, binding.ExecutableContentVersion)
+	}
+	definitionBytes, err := pkg.ContentBytes(definition)
+	if err != nil {
+		return nil, err
+	}
+	var pluginManifest plugin.Manifest
+	if err := json.Unmarshal(definitionBytes, &pluginManifest); err != nil {
+		return nil, fmt.Errorf("decode executable binding plugin definition: %w", err)
+	}
+	if err := pluginManifest.Validate(); err != nil {
+		return nil, err
+	}
+	if pluginManifest.ID != binding.PluginID || pluginManifest.Version != binding.PluginVersion || digestPackageBytes(definitionBytes) != binding.PluginDefinitionDigest {
+		return nil, fmt.Errorf("invocation %q plugin definition identity or digest mismatch", inv.EntryPointID)
+	}
+	if pluginManifest.ExecutableContentID != executable.ID || pluginManifest.ExecutableContentVersion != executable.Version || pluginManifest.ArtifactDigest != executable.Digest || pluginManifest.Entrypoint != executable.Artifact || binding.ExecutableDigest != executable.Digest {
+		return nil, fmt.Errorf("invocation %q plugin executable binding mismatch", inv.EntryPointID)
+	}
+	if _, err := pkg.ContentBytes(executable); err != nil {
+		return nil, err
+	}
+	if err := (plugin.ProtocolRange{Min: binding.ProtocolMin, Max: binding.ProtocolMax}).Validate(); err != nil {
+		return nil, err
+	}
+	return &binding, nil
+}
+
 func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatalog.VerifiedPackage, intent contracts.ActionIntent, intentDigest, approvalID string, now time.Time) error {
 	if err := validateVerifiedPluginContents(pkg); err != nil {
 		return fmt.Errorf("validate package plugin contents: %w", err)
@@ -264,16 +308,34 @@ func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatal
 			inv.EntryPointID, manifest.PackageID, manifest.Version, manifest.ContentDigest, inv.GraphID, inv.GraphVersion, body, digest, stamp); err != nil {
 			return fmt.Errorf("register invocation %q: %w", inv.EntryPointID, err)
 		}
+		executableBinding, err := resolveExecutableBinding(pkg, inv)
+		if err != nil {
+			return fmt.Errorf("resolve executable binding %q: %w", inv.EntryPointID, err)
+		}
+		runtimeID := "client-adapter:" + inv.PackageID + ":" + inv.EntryPointID
+		runtimeVersion := inv.Version
 		runtimeDigest := digestPackageBytes(body)
+		if executableBinding != nil {
+			runtimeID = executableBinding.RuntimeID
+			runtimeVersion = executableBinding.RuntimeVersion
+			runtimeDigest = executableBinding.RuntimeDigest
+		}
 		runtime := contracts.InvocationRuntimeBinding{
 			PackageID: manifest.PackageID, PackageVersion: manifest.Version, PackageDigest: manifest.ContentDigest,
-			EntryPointID: inv.EntryPointID, ContractDigest: digest, RuntimeID: "client-adapter:" + inv.PackageID + ":" + inv.EntryPointID,
-			RuntimeVersion: inv.Version, RuntimeDigest: runtimeDigest,
+			EntryPointID: inv.EntryPointID, ContractDigest: digest, RuntimeID: runtimeID,
+			RuntimeVersion: runtimeVersion, RuntimeDigest: runtimeDigest, Executable: executableBinding,
 		}
 		if err := runtime.Validate(); err != nil {
 			return fmt.Errorf("validate invocation runtime binding %q: %w", inv.EntryPointID, err)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO invocation_runtime_bindings(entry_point_id,package_version,content_digest,package_id,contract_digest,runtime_id,runtime_version,runtime_digest,registered_at) VALUES(?,?,?,?,?,?,?,?,?)`, runtime.EntryPointID, runtime.PackageVersion, runtime.PackageDigest, runtime.PackageID, runtime.ContractDigest, runtime.RuntimeID, runtime.RuntimeVersion, runtime.RuntimeDigest, stamp); err != nil {
+		var bindingJSON []byte
+		if runtime.Executable != nil {
+			bindingJSON, err = json.Marshal(runtime.Executable)
+			if err != nil {
+				return fmt.Errorf("marshal executable binding %q: %w", inv.EntryPointID, err)
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO invocation_runtime_bindings(entry_point_id,package_version,content_digest,package_id,contract_digest,runtime_id,runtime_version,runtime_digest,executable_binding_json,registered_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, runtime.EntryPointID, runtime.PackageVersion, runtime.PackageDigest, runtime.PackageID, runtime.ContractDigest, runtime.RuntimeID, runtime.RuntimeVersion, runtime.RuntimeDigest, bindingJSON, stamp); err != nil {
 			return fmt.Errorf("register invocation runtime binding %q: %w", inv.EntryPointID, err)
 		}
 		for _, alias := range inv.Aliases {
@@ -382,7 +444,7 @@ func (s *Store) TransitionPackage(ctx context.Context, request packagecatalog.Tr
 }
 
 func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest FROM invocation_registry ir JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ir.active=1 ORDER BY ir.entry_point_id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest,rb.executable_binding_json FROM invocation_registry ir JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ir.active=1 ORDER BY ir.entry_point_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -391,8 +453,16 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 	for rows.Next() {
 		var body []byte
 		var item RegisteredInvocation
-		if err := rows.Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest); err != nil {
+		var executableBindingJSON []byte
+		if err := rows.Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest, &executableBindingJSON); err != nil {
 			return nil, err
+		}
+		if len(executableBindingJSON) != 0 {
+			var binding contracts.ExecutableBinding
+			if err := json.Unmarshal(executableBindingJSON, &binding); err != nil {
+				return nil, fmt.Errorf("decode executable binding %q: %w", item.RuntimeBinding.EntryPointID, err)
+			}
+			item.RuntimeBinding.Executable = &binding
 		}
 		if err := json.Unmarshal(body, &item.Contract); err != nil {
 			return nil, fmt.Errorf("decode invocation registry: %w", err)
@@ -403,7 +473,7 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 		if err := item.Contract.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid persisted invocation %q: %w", item.Contract.EntryPointID, err)
 		}
-		if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || item.RuntimeBinding.RuntimeDigest != item.ContractDigest {
+		if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || (item.RuntimeBinding.Executable == nil && item.RuntimeBinding.RuntimeDigest != item.ContractDigest) || (item.RuntimeBinding.Executable != nil && (item.RuntimeBinding.RuntimeDigest != item.RuntimeBinding.Executable.RuntimeDigest || item.RuntimeBinding.RuntimeID != item.RuntimeBinding.Executable.RuntimeID || item.RuntimeBinding.RuntimeVersion != item.RuntimeBinding.Executable.RuntimeVersion)) {
 			return nil, fmt.Errorf("invocation runtime binding %q does not match active package generation", item.Contract.EntryPointID)
 		}
 		if err := item.RuntimeBinding.Validate(); err != nil {
@@ -455,9 +525,17 @@ func (s *Store) ResolveContent(ctx context.Context, kind packagecatalog.ContentK
 func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (RegisteredInvocation, error) {
 	var body []byte
 	var item RegisteredInvocation
-	err := s.db.QueryRowContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest FROM invocation_aliases ia JOIN invocation_registry ir ON ir.entry_point_id=ia.entry_point_id AND ir.package_version=ia.package_version AND ir.content_digest=ia.content_digest JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ia.alias=? AND ir.active=1`, alias).Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest)
+	var executableBindingJSON []byte
+	err := s.db.QueryRowContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest,rb.executable_binding_json FROM invocation_aliases ia JOIN invocation_registry ir ON ir.entry_point_id=ia.entry_point_id AND ir.package_version=ia.package_version AND ir.content_digest=ia.content_digest JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ia.alias=? AND ir.active=1`, alias).Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest, &executableBindingJSON)
 	if err != nil {
 		return RegisteredInvocation{}, err
+	}
+	if len(executableBindingJSON) != 0 {
+		var binding contracts.ExecutableBinding
+		if err := json.Unmarshal(executableBindingJSON, &binding); err != nil {
+			return RegisteredInvocation{}, fmt.Errorf("decode executable binding %q: %w", item.RuntimeBinding.EntryPointID, err)
+		}
+		item.RuntimeBinding.Executable = &binding
 	}
 	if err := json.Unmarshal(body, &item.Contract); err != nil {
 		return RegisteredInvocation{}, err
@@ -468,7 +546,7 @@ func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (Regis
 	if err := item.Contract.Validate(); err != nil {
 		return RegisteredInvocation{}, err
 	}
-	if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || item.RuntimeBinding.RuntimeDigest != item.ContractDigest {
+	if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || (item.RuntimeBinding.Executable == nil && item.RuntimeBinding.RuntimeDigest != item.ContractDigest) || (item.RuntimeBinding.Executable != nil && (item.RuntimeBinding.RuntimeDigest != item.RuntimeBinding.Executable.RuntimeDigest || item.RuntimeBinding.RuntimeID != item.RuntimeBinding.Executable.RuntimeID || item.RuntimeBinding.RuntimeVersion != item.RuntimeBinding.Executable.RuntimeVersion)) {
 		return RegisteredInvocation{}, errors.New("invocation runtime binding does not match active package generation")
 	}
 	if err := item.RuntimeBinding.Validate(); err != nil {

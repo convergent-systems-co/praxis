@@ -6,6 +6,7 @@
 - Predecessor filesystem digest: `sha256:40edd70abb77db00277a3febba0c481a560d0c5f15961db6b30f1d2c29918217`
 - Recorded acceptance digest: `sha256:1345a1d720e25cc2cfdc6afff0e98cc72f22fecaedaef910ab9457ed60c222fe`
 - Governing ADR: `docs/ADR/077-governed-execution-supervision-successor.md`
+- Governing ADR digest: `sha256:d0fa4323bfcc1c45709c910b09d4e55289861672775e4bda8a7449f0312e70cc`
 - Related integration plan: `docs/PLAN/006-installation-lifecycle-contracts-successor.md`
 
 This is the collision-free accepted successor for the supervision contract.

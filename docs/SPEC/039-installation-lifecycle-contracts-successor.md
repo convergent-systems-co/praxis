@@ -5,6 +5,7 @@
 - Predecessor: `docs/SPEC/038-installation-lifecycle-contracts.md`
 - Predecessor digest: `sha256:1a08e0a733c8b567ed3961f99309465b846a441662b2337daf7c62ff97c0c1d0`
 - Governing ADR: `docs/ADR/076-installation-lifecycle-contracts-successor.md`
+- Governing ADR digest: `sha256:6622f53cb6aa6993dd71127a14dbf693c9ad5074401b229fd746476b52d0df91`
 - Historical plan: `docs/PLAN/005-installation-lifecycle-contract-implementation.md`
 
 This is the collision-free successor for the installation-lifecycle lineage.

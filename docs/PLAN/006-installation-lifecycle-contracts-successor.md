@@ -7,8 +7,12 @@
 - Historical proposal digest: `sha256:a794d52a3bd1c660c6f73977b0c9d7903da6928c4c2e9d8fef2964b07961a12a`
 - Canonical ADR: `docs/ADR/076-installation-lifecycle-contracts-successor.md`
 - Canonical SPEC: `docs/SPEC/039-installation-lifecycle-contracts-successor.md`
+- Canonical ADR digest: `sha256:6622f53cb6aa6993dd71127a14dbf693c9ad5074401b229fd746476b52d0df91`
+- Canonical SPEC digest: `sha256:9fe5af8c621df3d59e371c59db93d4e2ecdd8a7d3c159a7c682248cef14755fd`
 - Supervision ADR: `docs/ADR/077-governed-execution-supervision-successor.md`
 - Supervision SPEC: `docs/SPEC/040-governed-execution-supervision-successor.md`
+- Supervision ADR digest: `sha256:d0fa4323bfcc1c45709c910b09d4e55289861672775e4bda8a7449f0312e70cc`
+- Supervision SPEC digest: `sha256:884a602210e9e2257325e83a520709442e6d7f3e532b901db12140dd9c75a471`
 
 ## Scope
 

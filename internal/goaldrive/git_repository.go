@@ -15,9 +15,10 @@ import (
 // checkout. It invokes git with explicit argv and never delegates authority
 // to worker output or shell text.
 type GitRepository struct {
-	Dir    string
-	Remote string
-	Branch string
+	Dir           string
+	Remote        string
+	Branch        string
+	AllowDetached bool
 }
 
 func (r GitRepository) validate() error {
@@ -38,7 +39,7 @@ func (r GitRepository) Snapshot(ctx context.Context) (RepositorySnapshot, error)
 	if err != nil {
 		return RepositorySnapshot{}, fmt.Errorf("read repository branch: %w", err)
 	}
-	if strings.TrimSpace(branch) != r.Branch {
+	if strings.TrimSpace(branch) != r.Branch && !(r.AllowDetached && strings.TrimSpace(branch) == "") {
 		return RepositorySnapshot{}, fmt.Errorf("repository branch is %q, want %q", strings.TrimSpace(branch), r.Branch)
 	}
 	local, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")

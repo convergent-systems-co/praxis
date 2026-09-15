@@ -22,6 +22,7 @@ type ProviderWorkspaceRequest struct {
 	WorkspaceID, RootDir, Repository, StartHead      string
 	GoalID, GoalVersion, WorkPlanRef, WorkPlanDigest string
 	ChildObjective, InvocationID, TurnID, ProviderID string
+	MigrationSource, MigrationInputDigest            string
 }
 
 type ProviderWorkspaceSnapshot struct {
@@ -63,7 +64,7 @@ func (m ProviderWorkspaceManager) Create(ctx context.Context, req ProviderWorksp
 	if _, err := runGit(ctx, req.Repository, "worktree", "add", "--detach", path, req.StartHead); err != nil {
 		return contracts.ProviderWorkspaceRecord{}, fmt.Errorf("create provider worktree: %w", err)
 	}
-	record := contracts.ProviderWorkspaceRecord{WorkspaceID: req.WorkspaceID, Version: "1", Path: path, Repository: req.Repository, GoalID: req.GoalID, GoalVersion: req.GoalVersion, WorkPlanRef: req.WorkPlanRef, WorkPlanDigest: req.WorkPlanDigest, ChildObjective: req.ChildObjective, InvocationID: req.InvocationID, TurnID: req.TurnID, ProviderID: req.ProviderID, StartHead: req.StartHead, State: contracts.ProviderWorkspaceActive, CreatedAt: timeNow()}
+	record := contracts.ProviderWorkspaceRecord{WorkspaceID: req.WorkspaceID, Version: "1", Path: path, Repository: req.Repository, GoalID: req.GoalID, GoalVersion: req.GoalVersion, WorkPlanRef: req.WorkPlanRef, WorkPlanDigest: req.WorkPlanDigest, ChildObjective: req.ChildObjective, InvocationID: req.InvocationID, TurnID: req.TurnID, ProviderID: req.ProviderID, StartHead: req.StartHead, MigrationSource: req.MigrationSource, MigrationInputDigest: req.MigrationInputDigest, State: contracts.ProviderWorkspaceActive, CreatedAt: timeNow()}
 	if err := record.Validate(); err != nil {
 		_ = runGitIgnoreError(ctx, req.Repository, "worktree", "remove", path)
 		return contracts.ProviderWorkspaceRecord{}, err

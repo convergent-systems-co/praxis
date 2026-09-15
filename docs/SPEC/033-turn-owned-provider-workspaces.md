@@ -24,7 +24,10 @@ For a repository-backed bounded turn, the controller SHALL:
 `ProviderWorkspaceRecord` lifecycle transitions are immutable encrypted
 snapshots. A record SHALL include workspace identity/path, repository, Goal and
 WorkPlan bindings, child, invocation/turn/provider identity, start HEAD,
-optional end HEAD, lifecycle state, and creation time. Missing, conflicting,
+optional end HEAD, lifecycle state, and creation time. A specifically
+authorized pre-isolation migration MAY additionally bind a source label and
+cryptographic migration-input digest; those fields describe admitted input,
+not original-turn provenance or checkpoint validity. Missing, conflicting,
 stale, or ambiguous records fail closed.
 
 The managed path SHALL remain below the configured workspace root. Recovery
@@ -51,4 +54,3 @@ workspace identity, and immutable lifecycle records. Future integration SHALL
 cover provider commits, out-of-scope changes, push/ref rewrite attempts,
 stale workspaces, duplicate recovery, crash before/after commit/publication,
 and concurrent workspace non-contamination.
-

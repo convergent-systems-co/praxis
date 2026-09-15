@@ -33,22 +33,24 @@ const (
 // turn. It is metadata only; provider transcripts and secrets do not belong in
 // this record.
 type ProviderWorkspaceRecord struct {
-	WorkspaceID    string                 `json:"workspace_id"`
-	Version        string                 `json:"version"`
-	Path           string                 `json:"path"`
-	Repository     string                 `json:"repository"`
-	GoalID         string                 `json:"goal_id"`
-	GoalVersion    string                 `json:"goal_version"`
-	WorkPlanRef    string                 `json:"work_plan_ref"`
-	WorkPlanDigest string                 `json:"work_plan_digest"`
-	ChildObjective string                 `json:"child_objective"`
-	InvocationID   string                 `json:"invocation_id"`
-	TurnID         string                 `json:"turn_id"`
-	ProviderID     string                 `json:"provider_id"`
-	StartHead      string                 `json:"start_head"`
-	EndHead        string                 `json:"end_head,omitempty"`
-	State          ProviderWorkspaceState `json:"state"`
-	CreatedAt      time.Time              `json:"created_at"`
+	WorkspaceID          string                 `json:"workspace_id"`
+	Version              string                 `json:"version"`
+	Path                 string                 `json:"path"`
+	Repository           string                 `json:"repository"`
+	GoalID               string                 `json:"goal_id"`
+	GoalVersion          string                 `json:"goal_version"`
+	WorkPlanRef          string                 `json:"work_plan_ref"`
+	WorkPlanDigest       string                 `json:"work_plan_digest"`
+	ChildObjective       string                 `json:"child_objective"`
+	InvocationID         string                 `json:"invocation_id"`
+	TurnID               string                 `json:"turn_id"`
+	ProviderID           string                 `json:"provider_id"`
+	StartHead            string                 `json:"start_head"`
+	EndHead              string                 `json:"end_head,omitempty"`
+	MigrationSource      string                 `json:"migration_source,omitempty"`
+	MigrationInputDigest string                 `json:"migration_input_digest,omitempty"`
+	State                ProviderWorkspaceState `json:"state"`
+	CreatedAt            time.Time              `json:"created_at"`
 }
 
 func (r ProviderWorkspaceRecord) Validate() error {
@@ -68,6 +70,9 @@ func (r ProviderWorkspaceRecord) Validate() error {
 	}
 	if r.EndHead != "" && strings.TrimSpace(r.EndHead) == "" {
 		return errors.New("provider workspace end HEAD is invalid")
+	}
+	if r.MigrationInputDigest != "" && r.MigrationSource == "" {
+		return errors.New("provider workspace migration source is required for migration input")
 	}
 	return nil
 }

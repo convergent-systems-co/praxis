@@ -484,6 +484,16 @@ The following currently open issues are explicitly accounted for by this plan:
 
 ## Completion
 
+### DF-034 — turn-owned provider workspace recovery
+
+The provider checkpoint recovery deadlock is governed by ADR-070/SPEC-033.
+The controller-created worktree foundation and encrypted lifecycle-record
+contract are implemented as a post-release integration slice. Runtime wiring
+of provider execution, checkpoint validation/publication, and workspace
+cleanup remains a separately qualified child. The pre-existing dirty
+authoritative checkout from the blocked historical turn is not retroactively
+isolated and remains pending explicit migration/reconciliation authority.
+
 PLAN-003 is complete when every issue listed above has been either:
 
 - delivered and qualified under current architecture;

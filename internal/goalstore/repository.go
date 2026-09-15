@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -25,6 +27,7 @@ const authorityDecisionNamespace = "authority_decision"
 const authorityRevocationNamespace = "authority_revocation"
 const authorityGenerationNamespace = "authority_generation"
 const authorityGenerationInvalidationNamespace = "authority_generation_invalidation"
+const providerWorkspaceNamespace = "provider_workspace"
 
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
 
@@ -788,6 +791,78 @@ func (r Repository) LoadAuthorityGeneration(ctx context.Context, ref, version st
 		return contracts.AuthorityGeneration{}, err
 	}
 	return generation, nil
+}
+
+// SaveProviderWorkspace persists one immutable workspace lifecycle snapshot.
+// The workspace path is metadata only; the encrypted record is the authority
+// used to recover ownership after restart.
+func (r Repository) SaveProviderWorkspace(ctx context.Context, record contracts.ProviderWorkspaceRecord, createdAt time.Time, expiresAt *time.Time) (string, error) {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return "", err
+	}
+	if err := record.Validate(); err != nil {
+		return "", err
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return "", fmt.Errorf("encode provider workspace: %w", err)
+	}
+	digest, err := record.Digest()
+	if err != nil {
+		return "", err
+	}
+	if err := r.putWorkPlanBlob(ctx, providerWorkspaceNamespace, record.WorkspaceID, record.Version, payload, createdAt, expiresAt); err != nil {
+		return "", fmt.Errorf("persist provider workspace: %w", err)
+	}
+	return digest, nil
+}
+
+func (r Repository) LoadProviderWorkspace(ctx context.Context, workspaceID, version string, now time.Time) (contracts.ProviderWorkspaceRecord, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, providerWorkspaceNamespace, workspaceID, version, now)
+	if err != nil {
+		return contracts.ProviderWorkspaceRecord{}, err
+	}
+	var workspace contracts.ProviderWorkspaceRecord
+	if err := json.Unmarshal(payload, &workspace); err != nil {
+		return contracts.ProviderWorkspaceRecord{}, fmt.Errorf("decode provider workspace: %w", err)
+	}
+	if workspace.WorkspaceID != workspaceID || workspace.Version != version || payloadDigest(payload) != record.ObjectDigest {
+		return contracts.ProviderWorkspaceRecord{}, errors.New("provider workspace identity or digest mismatch")
+	}
+	if err := workspace.Validate(); err != nil {
+		return contracts.ProviderWorkspaceRecord{}, err
+	}
+	return workspace, nil
+}
+
+// ListProviderWorkspaces returns all validated lifecycle snapshots in stable
+// identity/version order. Callers must derive the latest state explicitly;
+// no mutable current-workspace pointer is authoritative.
+func (r Repository) ListProviderWorkspaces(ctx context.Context, now time.Time) ([]contracts.ProviderWorkspaceRecord, error) {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return nil, err
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, providerWorkspaceNamespace, now)
+	if err != nil {
+		return nil, err
+	}
+	workspaces := make([]contracts.ProviderWorkspaceRecord, 0, len(records))
+	for _, secure := range records {
+		workspace, err := r.LoadProviderWorkspace(ctx, secure.ObjectID, secure.ObjectVersion, now)
+		if err != nil {
+			return nil, err
+		}
+		workspaces = append(workspaces, workspace)
+	}
+	sort.Slice(workspaces, func(i, j int) bool {
+		if workspaces[i].WorkspaceID != workspaces[j].WorkspaceID {
+			return workspaces[i].WorkspaceID < workspaces[j].WorkspaceID
+		}
+		left, _ := strconv.Atoi(workspaces[i].Version)
+		right, _ := strconv.Atoi(workspaces[j].Version)
+		return left < right
+	})
+	return workspaces, nil
 }
 
 // ListAuthorityGenerations returns the encrypted, durable governance

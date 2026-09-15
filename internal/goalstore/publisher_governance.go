@@ -54,7 +54,7 @@ func (r Repository) LoadSigningPreviewByDigest(ctx context.Context, wanted strin
 		if err := preview.VerifyDigest(); err != nil {
 			return contracts.SigningPreview{}, err
 		}
-		if preview.Digest == wanted && record.ObjectDigest == wanted {
+		if preview.Digest == wanted {
 			return preview, nil
 		}
 	}
@@ -414,7 +414,19 @@ func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDig
 }
 
 func (r Repository) decryptGovernanceRecord(ctx context.Context, record statepkg.SecureBlobRecord) ([]byte, error) {
-	return r.Crypto.Open(ctx, record.Envelope, record.Envelope.AAD)
+	payload, err := r.Crypto.Open(ctx, record.Envelope, record.Envelope.AAD)
+	if err != nil {
+		return nil, err
+	}
+	// Secure-blob ObjectDigest is the payload-integrity identity, not the
+	// semantic identity carried by the decoded governance object. Keep this
+	// check at the shared decrypt boundary so every publisher-governance
+	// consumer validates storage integrity independently of its contract
+	// digest.
+	if payloadDigest(payload) != record.ObjectDigest {
+		return nil, errors.New("publisher governance payload integrity mismatch")
+	}
+	return payload, nil
 }
 
 func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {

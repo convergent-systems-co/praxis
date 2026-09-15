@@ -135,6 +135,15 @@ No conversational approval, owner string, environment variable, provider, or
 model can create the root. The current dogfood WorkPlan remains unaccepted
 until a durable AuthorityDecision is created through this enrolled authority.
 
+DF-033 confirms checkpoint ownership for first-party provider adapters. The
+provider may create one local commit for its bounded implementation result;
+Praxis owns repository validation, progress/checkpoint eligibility, ledger
+evidence, and remote publication. Praxis must never commit a dirty tree on the
+provider's behalf because pre-existing human work, untracked files, generated
+artifacts, or secrets could be captured. Preserved uncommitted work therefore
+remains an explicit blocked recovery state and does not rewrite its original
+turn outcome.
+
 Parent readiness must retain child-level blocked evidence and derive
 `runnable`, `blocked`, or `complete` from the full authoritative candidate set;
 one blocked child must not suppress a ready sibling.

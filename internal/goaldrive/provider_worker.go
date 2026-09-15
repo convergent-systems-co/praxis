@@ -88,8 +88,10 @@ Starting repository HEAD: %s
 Do not select another objective. Do not decide Goal completion or authority.
 Do not push, rewrite remote history, alter Praxis durable state, or claim that
 a checkpoint is valid. Make only the bounded repository changes needed for the
-selected objective. Praxis will inspect the repository and decide progress,
-checkpoint validity, publication, and the next invocation.
+selected objective, and create a local Git commit when those changes are
+ready. Praxis will inspect the clean changed repository, decide progress and
+checkpoint validity, publish only through controller policy, and decide the
+next invocation.
 `, request.ChildObjective, request.GoalID, request.GoalVersion, request.TurnID, request.GraphID, request.GraphVersion, request.StartHead), nil
 }
 

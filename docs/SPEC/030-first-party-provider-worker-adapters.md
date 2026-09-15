@@ -28,6 +28,15 @@ The controller SHALL re-read the repository after a successful
 - remote publication only through the existing controller-owned repository
   adapter.
 
+For repository-backed providers, the bounded worker SHALL create a local Git
+commit for implementation changes before returning success. The provider MUST
+NOT push or rewrite remote history. Praxis MUST NOT turn a dirty working tree
+into a checkpoint by committing it on the provider's behalf: this preserves
+the distinction between provider-created work and pre-existing human changes,
+untracked files, generated artifacts, and secrets. A provider that returns
+with uncommitted changes is `BLOCKED`; recovery may inspect the preserved diff,
+but cannot retroactively rewrite the original turn outcome.
+
 The adapter SHALL not forward `*_API_KEY`, `*_TOKEN`, `*_SECRET`, password,
 credential, cloud-provider, or equivalent credential variables. Provider
 managed OAuth/session state may be read from the explicitly allowlisted home

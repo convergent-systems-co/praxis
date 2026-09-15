@@ -31,3 +31,13 @@ func TestProviderCLIWorkerTimeoutAndMalformedProviderTextFailWithoutUserDecision
 		t.Fatalf("provider timeout must be a process failure, not a model decision: %v", err)
 	}
 }
+
+func TestProviderPromptRequiresLocalCommitButNotPublication(t *testing.T) {
+	prompt, err := providerPrompt(providerWorkerRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prompt, "create a local Git commit") || !strings.Contains(prompt, "Do not push") {
+		t.Fatalf("provider prompt must define local checkpoint ownership without publication authority: %s", prompt)
+	}
+}

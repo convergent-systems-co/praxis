@@ -32,6 +32,15 @@ state becomes a precise blocked execution result. `COMPLETE` and
 `USER_DECISION_REQUIRED` require separate authoritative evidence and cannot be
 minted by provider text.
 
+For repository-backed work, the provider owns creation of the local Git commit
+for its bounded implementation result, but never owns checkpoint validity or
+publication. Praxis requires the provider to begin from a clean synchronized
+tree, then validates the changed clean HEAD, bounded evidence, and repository
+identity before recording progress. An uncommitted or out-of-scope change is
+not a checkpoint and remains blocked for explicit reconciliation. Praxis never
+commits a dirty tree on the provider's behalf, because doing so could capture
+pre-existing human work or untracked secrets.
+
 The child environment is an explicit allowlist containing ordinary runtime
 configuration and provider-managed login locations (`HOME`, `PATH`, locale,
 temporary directories, and provider config roots). Credential-shaped

@@ -47,6 +47,8 @@ func run(args []string) error {
 		return runKeyBootstrap(args[1:])
 	case "state-init":
 		return runStateInit(args[1:], os.Getenv)
+	case "migration":
+		return runMigrationCommand(args[1:])
 	case "version":
 		return runVersion(args[1:])
 	case "resume", "cancel":

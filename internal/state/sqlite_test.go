@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -102,6 +103,32 @@ func TestOpenSQLiteDoesNotReapplyLedgeredMigrations(t *testing.T) {
 	}
 	if transitionReceiptTables != 1 {
 		t.Fatalf("expected governed package transition receipt table, got %d", transitionReceiptTables)
+	}
+}
+
+func TestOpenSQLiteRefusesPendingMigrationsForExistingState(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM praxis_schema_migrations WHERE name >= '0013_'`); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE schema_meta SET value='12' WHERE key='schema_version'`); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if reopened, err := OpenSQLite(ctx, path); reopened != nil || !errors.Is(err, ErrMigrationRequired) {
+		if reopened != nil {
+			reopened.Close()
+		}
+		t.Fatalf("existing state with pending migrations was not fenced: db=%v err=%v", reopened, err)
 	}
 }
 

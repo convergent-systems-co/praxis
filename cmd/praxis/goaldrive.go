@@ -41,8 +41,24 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	defer db.Close()
 	record, err := runtime.Execute(ctx, invocation)
 	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
-		if err := reconcileProviderWorkspace(ctx, runtime, workspaceID, getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION"), record); err != nil {
-			return fmt.Errorf("reconcile provider workspace: %w", err)
+		ledgerRecord := record
+		if err != nil {
+			turns, loadErr := runtime.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
+			if loadErr != nil {
+				return fmt.Errorf("recover completed provider turn for workspace reconciliation: %w", loadErr)
+			}
+			for i := len(turns) - 1; i >= 0; i-- {
+				if turns[i].InvocationID == invocation.InvocationID {
+					ledgerRecord = turns[i]
+					break
+				}
+			}
+			if ledgerRecord.TurnID == "" {
+				return fmt.Errorf("provider workspace reconciliation has no durable turn for invocation %s", invocation.InvocationID)
+			}
+		}
+		if reconcileErr := reconcileProviderWorkspace(ctx, runtime, workspaceID, getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION"), ledgerRecord); reconcileErr != nil {
+			return fmt.Errorf("reconcile provider workspace: %w", reconcileErr)
 		}
 	}
 	if err != nil {

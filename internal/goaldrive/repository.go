@@ -92,10 +92,19 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if err != nil {
 		return TurnRecord{}, err
 	}
+	if err := c.emit(ctx, ActivityExecutionStarted, req, map[string]string{"mode": string(req.Mode)}); err != nil {
+		return TurnRecord{}, err
+	}
+	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
+		return TurnRecord{}, err
+	}
 	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
 	if workerErr != nil {
 		if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), record); appendErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", appendErr, workerErr)
+		}
+		if emitErr := c.emitTurnOutcome(ctx, req, record, workerErr); emitErr != nil {
+			return TurnRecord{}, emitErr
 		}
 		return record, workerErr
 	}
@@ -108,11 +117,17 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 			if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), blocked); appendErr != nil {
 				return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
 			}
+			if emitErr := c.emitTurnOutcome(ctx, req, blocked, err); emitErr != nil {
+				return TurnRecord{}, emitErr
+			}
 			return blocked, err
 		}
 	}
 	record.CheckpointPublished = record.Progress && !req.NoPush
 	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
+		return TurnRecord{}, err
+	}
+	if err := c.emitTurnOutcome(ctx, req, record, nil); err != nil {
 		return TurnRecord{}, err
 	}
 	return record, nil
@@ -127,16 +142,34 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 	if !ok || !derived.RepositoryResultIsControllerOwned() {
 		return c.invoke(ctx, req)
 	}
-	result, workerErr := worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
+	if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
+		return TurnRecord{}, err
+	}
+	result, workerErr := worker.Execute(ctx, c.workerRequest(req))
+	if workerErr != nil {
+		if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
+			return TurnRecord{}, err
+		}
+	} else {
+		if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
+			return TurnRecord{}, err
+		}
+	}
 	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 		return base, workerErr
 	}
+	if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "repository-checkpoint"}); err != nil {
+		return TurnRecord{}, err
+	}
 	snapshot, err := repo.Snapshot(ctx)
 	if err != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, fmt.Sprintf("inspect provider repository result: %v", err)
 		return base, err
+	}
+	if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "repository-checkpoint", "clean": fmt.Sprint(snapshot.Clean)}); err != nil {
+		return TurnRecord{}, err
 	}
 	base.EndHead = snapshot.Head
 	if !snapshot.Clean {

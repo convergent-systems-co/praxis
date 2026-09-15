@@ -53,6 +53,8 @@ func run(args []string) error {
 		return runControlCommand(args[0], args[1:])
 	case "authority":
 		return runAuthorityCommand(args[1:])
+	case "supervise":
+		return runSuperviseCommand(args[1:])
 	}
 	return runDynamicInvocation(context.Background(), args, os.Getenv)
 }
@@ -145,7 +147,7 @@ func runHelp(args []string) error {
 		return writeAuthorityHelp(os.Stdout)
 	}
 	fmt.Println("usage: praxis <command|installed-entry-point> [arguments] [options]")
-	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, doctor, key-bootstrap, state-init, authority bootstrap, authority delegate, version")
+	fmt.Println("core: discover, info, install, update, disable, uninstall, list, help, status, resume, cancel, supervise, doctor, key-bootstrap, state-init, authority bootstrap, authority delegate, version")
 	path := os.Getenv("PRAXIS_DB")
 	if path == "" {
 		fmt.Println("installed entry points: unavailable (set PRAXIS_DB to inspect the active registry)")

@@ -137,6 +137,8 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	}()
 	store := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
 	store.AuthorityGeneration = store
+	activityStore := state.NewSQLiteEventStore(db)
+	activity := &goaldrive.ActivityLog{Store: activityStore, Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}
 	allowDetached := false
 	dirtyStartDigest := ""
 	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
@@ -158,7 +160,7 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	}
 	providers := goaldrive.NewRegistry()
 	if getenv("PRAXIS_PROVIDER_WORKSPACE_RECONCILE_ONLY") != "true" {
-		workers, err := configuredWorker(invocation, getenv)
+		workers, err := configuredWorker(invocation, getenv, activity)
 		if err != nil {
 			return goaldrive.Runtime{}, nil, err
 		}
@@ -173,7 +175,7 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	if remote == "" {
 		remote = "origin"
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached, AllowDirtyStart: dirtyStartDigest != "", DirtyStartDigest: dirtyStartDigest}, GraphID: out.GraphID, GraphVersion: out.GraphVersion}
+	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: activityStore, Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached, AllowDirtyStart: dirtyStartDigest != "", DirtyStartDigest: dirtyStartDigest}, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity}
 	closeOnError = false
 	return runtime, db, nil
 }
@@ -258,20 +260,20 @@ func validateProviderWorkspaceTurn(workspace contracts.ProviderWorkspaceRecord, 
 	return nil
 }
 
-func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string) string) (goaldrive.Worker, error) {
+func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string) string, activity *goaldrive.ActivityLog) (goaldrive.Worker, error) {
 	encoded := getenv("PRAXIS_GOAL_WORKER_ARGV")
 	if encoded != "" {
 		var argv []string
 		if err := json.Unmarshal([]byte(encoded), &argv); err != nil || len(argv) == 0 || argv[0] == "" {
 			return nil, errors.New("PRAXIS_GOAL_WORKER_ARGV must be a non-empty JSON argv array")
 		}
-		return goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv}, nil
+		return goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv, Activity: activity}, nil
 	}
 	switch invocation.ProviderID {
 	case "codex", "codex-subscription":
-		return goaldrive.NewCodexSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model)
+		return goaldrive.NewCodexSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model, activity)
 	case "claude", "claude-subscription":
-		return goaldrive.NewClaudeSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model)
+		return goaldrive.NewClaudeSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model, activity)
 	default:
 		return nil, fmt.Errorf("%w: provider %q requires explicit PRAXIS_GOAL_WORKER_ARGV or a registered first-party subscription profile", errGoalDriveDispatchDependencies, invocation.ProviderID)
 	}

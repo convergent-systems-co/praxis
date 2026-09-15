@@ -25,6 +25,7 @@ type CommandWorker struct {
 	Dir         string
 	Env         []string
 	OutputLimit int
+	Activity    *ActivityLog
 }
 
 var (
@@ -48,7 +49,9 @@ func (w CommandWorker) Execute(ctx context.Context, request WorkerRequest) (Work
 	if err != nil {
 		return WorkerResult{}, fmt.Errorf("encode worker request: %w", err)
 	}
-	cmd := exec.CommandContext(ctx, w.Command[0], w.Command[1:]...)
+	processCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	cmd := exec.CommandContext(processCtx, w.Command[0], w.Command[1:]...)
 	cmd.WaitDelay = 2 * time.Second
 	cmd.Dir = w.Dir
 	env, err := commandEnvironment(w.Env, os.Environ())
@@ -64,10 +67,31 @@ func (w CommandWorker) Execute(ctx context.Context, request WorkerRequest) (Work
 	stdout := &limitedBuffer{limit: limit}
 	stderr := &limitedBuffer{limit: limit}
 	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	if request.Activity == nil {
+		request.Activity = w.Activity
+	}
+	messageWriter := newProviderMessageWriter(ctx, request, w.ProviderID)
+	cmd.Stderr = io.MultiWriter(stderr, messageWriter)
+	control := watchInterventions(processCtx, cancel, request)
 	if err := cmd.Run(); err != nil {
+		messageWriter.Flush()
+		if messageWriter.err != nil {
+			return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
+		}
+		signal := stopIntervention(control)
+		if signal == ActivitySuspendRequested {
+			return WorkerResult{}, ErrExecutionSuspended
+		}
+		if signal == ActivityCancelRequested {
+			return WorkerResult{}, ErrExecutionCancelled
+		}
 		return WorkerResult{}, fmt.Errorf("worker %s failed: %w: %s", w.ProviderID, err, redactProcessOutput(stderr.String(), os.Environ()))
 	}
+	messageWriter.Flush()
+	if messageWriter.err != nil {
+		return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
+	}
+	stopIntervention(control)
 	if stdout.truncated {
 		return WorkerResult{}, errors.New("worker result exceeds configured output limit")
 	}

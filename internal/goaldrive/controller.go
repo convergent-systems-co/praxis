@@ -32,13 +32,17 @@ type Worker interface {
 }
 
 type WorkerRequest struct {
-	GoalID         string `json:"goal_id"`
-	GoalVersion    string `json:"goal_version"`
-	TurnID         string `json:"turn_id"`
-	ChildObjective string `json:"child_objective"`
-	GraphID        string `json:"graph_id"`
-	GraphVersion   string `json:"graph_version"`
-	StartHead      string `json:"start_head"`
+	GoalID         string                 `json:"goal_id"`
+	GoalVersion    string                 `json:"goal_version"`
+	InvocationID   string                 `json:"invocation_id"`
+	TurnID         string                 `json:"turn_id"`
+	ChildObjective string                 `json:"child_objective"`
+	GraphID        string                 `json:"graph_id"`
+	GraphVersion   string                 `json:"graph_version"`
+	StartHead      string                 `json:"start_head"`
+	ProviderID     string                 `json:"provider_id"`
+	Activity       *ActivityLog           `json:"-"`
+	ActivityActor  contracts.PrincipalRef `json:"-"`
 }
 
 type WorkerResult struct {
@@ -66,6 +70,7 @@ type Controller struct {
 	Providers         *Registry
 	AuthorityRequests AuthorityRequestReader
 	NoProgressLimit   int
+	Activity          *ActivityLog
 }
 
 func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecord, error) {
@@ -73,12 +78,21 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 	if err != nil {
 		return TurnRecord{}, err
 	}
+	if err := c.emit(ctx, ActivityExecutionStarted, req, map[string]string{"mode": string(req.Mode)}); err != nil {
+		return TurnRecord{}, fmt.Errorf("record execution start: %w", err)
+	}
+	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
+		return TurnRecord{}, fmt.Errorf("record work selection: %w", err)
+	}
 	record, workerErr := c.invoke(ctx, req)
 	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
 		if workerErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", err, workerErr)
 		}
 		return TurnRecord{}, err
+	}
+	if err := c.emitTurnOutcome(ctx, req, record, workerErr); err != nil {
+		return TurnRecord{}, fmt.Errorf("record execution outcome: %w", err)
 	}
 	return record, workerErr
 }
@@ -106,6 +120,9 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 					return nil, TurnRequest{}, fmt.Errorf("load pending authority: %w", readErr)
 				}
 				if len(pending) > 0 {
+					if emitErr := c.emit(ctx, ActivityAuthorityRequired, req, map[string]string{"count": fmt.Sprint(len(pending))}); emitErr != nil {
+						return nil, TurnRequest{}, fmt.Errorf("record authority requirement: %w", emitErr)
+					}
 					return nil, TurnRequest{}, &AuthorityRequiredError{Requests: pending}
 				}
 			}
@@ -144,6 +161,20 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	if noProgress >= limit {
 		return nil, TurnRequest{}, ErrNoProgressLimit
 	}
+	if c.Activity != nil {
+		events, loadErr := c.Activity.Load(ctx, req.InvocationID, req.TurnID, 0)
+		if loadErr != nil {
+			return nil, TurnRequest{}, fmt.Errorf("recover supervision activity before execution: %w", loadErr)
+		}
+		for _, event := range events {
+			if event.Type == ActivityAuthorityRequired {
+				if emitErr := c.emit(ctx, ActivityAuthorityResolved, req, map[string]string{"objective": req.ChildObjective}); emitErr != nil {
+					return nil, TurnRequest{}, fmt.Errorf("record authority resolution: %w", emitErr)
+				}
+				break
+			}
+		}
+	}
 	return turns, req, nil
 }
 
@@ -162,7 +193,20 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 	if err != nil {
 		return TurnRecord{}, err
 	}
-	result, workerErr := worker.Execute(ctx, WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead})
+	workerReq := c.workerRequest(req)
+	if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
+		return TurnRecord{}, err
+	}
+	result, workerErr := worker.Execute(ctx, workerReq)
+	if workerErr != nil {
+		if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
+			return TurnRecord{}, err
+		}
+	} else {
+		if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
+			return TurnRecord{}, err
+		}
+	}
 	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
@@ -186,4 +230,60 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 	}
 	base.Outcome = result.Outcome
 	return base, nil
+}
+
+func (c Controller) workerRequest(req TurnRequest) WorkerRequest {
+	return WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ProviderID: req.ProviderID, Activity: c.Activity, ActivityActor: c.Ledger.Actor}
+}
+
+func (c Controller) emit(ctx context.Context, typ ActivityType, req TurnRequest, data map[string]string) error {
+	if c.Activity == nil {
+		return nil
+	}
+	_, err := c.Activity.Emit(ctx, typ, c.workerRequest(req), c.Ledger.Actor, contracts.TrustObserved, "praxis.controller", data)
+	return err
+}
+
+func (c Controller) emitTurnOutcome(ctx context.Context, req TurnRequest, record TurnRecord, workerErr error) error {
+	if c.Activity == nil {
+		return nil
+	}
+	if errors.Is(workerErr, ErrExecutionSuspended) {
+		if err := c.emit(ctx, ActivitySuspended, req, map[string]string{"reason": "human intervention"}); err != nil {
+			return err
+		}
+	}
+	if errors.Is(workerErr, ErrExecutionCancelled) {
+		if err := c.emit(ctx, ActivityCancelled, req, map[string]string{"reason": "human intervention"}); err != nil {
+			return err
+		}
+	}
+	if workerErr != nil || record.Blocker != "" {
+		if err := c.emit(ctx, ActivityBlockerDetected, req, map[string]string{"blocker": record.Blocker}); err != nil {
+			return err
+		}
+	}
+	if record.Progress {
+		if err := c.emit(ctx, ActivityWorkProgress, req, map[string]string{"end_head": record.EndHead}); err != nil {
+			return err
+		}
+		if err := c.emit(ctx, ActivityCheckpointCreated, req, map[string]string{"end_head": record.EndHead, "published": fmt.Sprint(record.CheckpointPublished)}); err != nil {
+			return err
+		}
+	}
+	if record.Outcome == OutcomeComplete {
+		if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"outcome": string(record.Outcome)}); err != nil {
+			return err
+		}
+		if record.Progress {
+			if err := c.emit(ctx, ActivityCompletionQualified, req, map[string]string{"outcome": string(record.Outcome)}); err != nil {
+				return err
+			}
+		}
+	}
+	state := string(record.Outcome)
+	if workerErr != nil {
+		state = "blocked"
+	}
+	return c.emit(ctx, ActivityExecutionStateChanged, req, map[string]string{"state": state})
 }

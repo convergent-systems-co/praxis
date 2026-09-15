@@ -15,6 +15,8 @@ var (
 	ErrExactGoalVersionRequired = errors.New("supervised Goal-drive requires an exact Goal Baseline version")
 	ErrGoalExecutionInput       = errors.New("supervised Goal-drive accepts only an existing durable Goal identity")
 	ErrSupervisedRuntimeOption  = errors.New("supervised Goal-drive option is not yet wired at the production runtime boundary")
+	ErrContinuousTurnLimit      = errors.New("continuous Goal-drive bounded turn limit reached")
+	ErrResumeRequired           = errors.New("Goal-drive execution requires an explicit supervision resume")
 )
 
 // BaselineStore is the durable Goal recovery boundary. Implementations must
@@ -33,6 +35,7 @@ type Runtime struct {
 	Repository   RepositoryAdapter
 	GraphID      string
 	GraphVersion string
+	Activity     *ActivityLog
 }
 
 func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (TurnRecord, error) {
@@ -42,10 +45,7 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 	if invocation.GoalVersion == "" {
 		return TurnRecord{}, ErrExactGoalVersionRequired
 	}
-	if invocation.Mode != ModeSupervised {
-		return TurnRecord{}, ErrSupervisedRuntimeOption
-	}
-	if invocation.MaxTurns > 1 {
+	if invocation.Mode == ModeSupervised && invocation.MaxTurns > 1 {
 		return TurnRecord{}, fmt.Errorf("%w: multi-turn orchestration requires an explicit runtime boundary", ErrSupervisedRuntimeOption)
 	}
 	if r.Baselines == nil {
@@ -61,9 +61,57 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 	if err != nil {
 		return TurnRecord{}, fmt.Errorf("recover exact Goal Baseline: %w", err)
 	}
+	if invocation.Mode == ModeSupervised {
+		return r.executeOne(ctx, invocation, baseline)
+	}
+	limit := invocation.MaxTurns
+	if limit <= 0 {
+		limit = 8
+	}
+	var last TurnRecord
+	for i := 0; i < limit; i++ {
+		var err error
+		last, err = r.executeOne(ctx, invocation, baseline)
+		if err != nil || last.Outcome == OutcomeComplete || last.Outcome == OutcomeBlocked || last.Outcome == OutcomeNoProgress || last.Outcome == OutcomeUserDecisionRequired {
+			return last, err
+		}
+	}
+	return last, fmt.Errorf("%w: %d", ErrContinuousTurnLimit, limit)
+}
+
+func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, baseline goals.GoalBaseline) (TurnRecord, error) {
 	turns, err := r.Controller.Ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
 	if err != nil {
 		return TurnRecord{}, fmt.Errorf("recover Goal-drive ledger: %w", err)
+	}
+	if r.Activity != nil && len(turns) > 0 {
+		previous := turns[len(turns)-1]
+		events, loadErr := r.Activity.Load(ctx, invocation.InvocationID, previous.TurnID, 0)
+		if loadErr != nil {
+			return TurnRecord{}, fmt.Errorf("recover supervision state: %w", loadErr)
+		}
+		lastState := ActivityType("")
+		resumeRequested := false
+		for _, event := range events {
+			if event.Type == ActivitySuspended || event.Type == ActivityCancelled || event.Type == ActivityResumed {
+				lastState = event.Type
+			}
+			if event.Type == ActivityHumanCorrection && event.Data["operation"] == "resume" {
+				resumeRequested = true
+			}
+		}
+		if lastState == ActivitySuspended {
+			if !resumeRequested {
+				return TurnRecord{}, ErrResumeRequired
+			}
+			request := WorkerRequest{GoalID: previous.GoalID, GoalVersion: previous.GoalVersion, InvocationID: previous.InvocationID, TurnID: previous.TurnID, ProviderID: previous.ExecutorID}
+			if r.Activity != nil {
+				_, _ = r.Activity.Emit(ctx, ActivityResumed, request, r.Controller.Ledger.Actor, contracts.TrustObserved, "praxis.controller", map[string]string{"reason": "human resume decision"})
+			}
+		}
+		if lastState == ActivityCancelled {
+			return TurnRecord{}, ErrExecutionCancelled
+		}
 	}
 	turnID := invocation.InvocationID + ":turn:" + strconv.Itoa(len(turns)+1)
 	turnCtx := ctx
@@ -72,12 +120,12 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 		turnCtx, cancel = context.WithTimeout(ctx, invocation.TurnTimeout)
 		defer cancel()
 	}
+	mode := invocation.Mode
 	return r.Controller.ExecuteTurnWithRepository(turnCtx, TurnRequest{
 		GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion,
 		InvocationID: invocation.InvocationID, TurnID: turnID,
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
-		ProviderID: invocation.ProviderID, Mode: ModeSupervised,
-		NoPush:       invocation.NoPush,
-		GoalBaseline: &baseline,
+		ProviderID: invocation.ProviderID, Mode: mode,
+		NoPush: invocation.NoPush, GoalBaseline: &baseline,
 	}, r.Repository)
 }

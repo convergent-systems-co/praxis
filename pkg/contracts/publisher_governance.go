@@ -49,12 +49,13 @@ type PublisherEnrollmentApproval struct {
 	IssuedAt                                                                                                                                      time.Time
 }
 type PublisherAuthorityProposal struct {
-	ID, Version, Kind, PublisherGenerationDigest, PublisherPrincipal, Namespace, ParentRef, ParentVersion, ParentDigest, Reason string
-	CreatedAt                                                                                                                   time.Time
+	ID, Version, Kind, BootstrapDigest, OwnerID, OwnerKind, AuthorityModel, AuthorityModelVersion, AuthorityModelDigest                          string
+	PublisherGenerationDigest, PublisherPrincipal, PublicKeyDigest, Namespace, ParentRef, ParentVersion, ParentDigest, Capability, Scope, Reason string
+	ExpiresAt, CreatedAt                                                                                                                         time.Time
 }
 type PublisherAuthorityReview struct {
-	ID, Version, Kind, ProposalID, ProposalVersion, ProposalDigest, ReviewedBy, ReviewedKind, Decision string
-	ReviewedAt                                                                                         time.Time
+	ID, Version, Kind, ProposalID, ProposalVersion, ProposalDigest, ReviewedBy, ReviewedKind, Decision, Namespace, PublisherGenerationDigest string
+	ReviewedAt                                                                                                                               time.Time
 }
 
 func digestCanonical(v any) (string, error) {
@@ -72,13 +73,13 @@ func (a AuthorityModelAdoption) Digest() (string, error) {
 	return digestCanonical(a)
 }
 func (p PublisherAuthorityProposal) Digest() (string, error) {
-	if p.ID == "" || p.Version == "" || p.Kind != PublisherAuthorityProposalKind || p.PublisherGenerationDigest == "" || p.PublisherPrincipal == "" || p.Namespace == "" || p.ParentRef == "" || p.ParentVersion == "" || p.ParentDigest == "" || p.Reason == "" || p.CreatedAt.IsZero() {
+	if p.ID == "" || p.Version == "" || p.Kind != PublisherAuthorityProposalKind || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel != AuthorityModelID || p.AuthorityModelVersion != AuthorityModelSuccessorVersion || p.AuthorityModelDigest != AuthorityModelSuccessorDigest() || p.PublisherGenerationDigest == "" || p.PublisherPrincipal != FirstPartyPublisherPrincipal || p.PublicKeyDigest == "" || p.Namespace == "" || p.ParentRef == "" || p.ParentVersion == "" || p.ParentDigest == "" || p.Capability != GovernedPackagePublish || p.Scope == "" || p.Reason == "" || p.CreatedAt.IsZero() || p.ExpiresAt.IsZero() || !p.ExpiresAt.After(p.CreatedAt) {
 		return "", errors.New("publisher authority proposal is incomplete")
 	}
 	return digestCanonical(p)
 }
 func (r PublisherAuthorityReview) Digest() (string, error) {
-	if r.ID == "" || r.Version == "" || r.Kind != PublisherAuthorityReviewKind || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewedBy == "" || r.ReviewedKind == "" || r.Decision != "approve" || r.ReviewedAt.IsZero() {
+	if r.ID == "" || r.Version == "" || r.Kind != PublisherAuthorityReviewKind || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewedBy == "" || r.ReviewedKind == "" || r.Decision != "approve" || r.Namespace == "" || r.PublisherGenerationDigest == "" || r.ReviewedAt.IsZero() {
 		return "", errors.New("publisher authority review is incomplete")
 	}
 	return digestCanonical(r)

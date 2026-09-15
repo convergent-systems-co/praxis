@@ -40,9 +40,13 @@ func runPublisherCommand(args []string) error {
 	case "enroll":
 		return runPublisherEnroll(args[1:], os.Getenv, os.Stdout)
 	case "authority-preview":
-		return runPublisherAuthorityRequest(args[1:], os.Getenv, os.Stdout, false)
+		return runPublisherAuthorityProposalPreview(args[1:], os.Stdout)
 	case "authority-request":
-		return runPublisherAuthorityRequest(args[1:], os.Getenv, os.Stdout, true)
+		return runPublisherAuthorityRequestCanonical(args[1:], os.Getenv, os.Stdout)
+	case "authority-proposal":
+		return runPublisherAuthorityProposal(args[1:], os.Getenv, os.Stdout)
+	case "authority-review":
+		return runPublisherAuthorityReview(args[1:], os.Stdout)
 	case "package-build":
 		return runPublisherPackageBuild(args[1:], os.Stdout)
 	case "sign-preview":
@@ -52,12 +56,12 @@ func runPublisherCommand(args []string) error {
 	case "receipt":
 		return runPublisherReceipt(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|package-build|sign-preview|sign|receipt}")
+		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt}")
 	}
 }
 
 func writePublisherHelp(w io.Writer) error {
-	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-request|package-build|sign-preview|sign|receipt>\n\nPreview commands are read-only. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
+	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt>\n\nPreview commands are read-only. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
 	return err
 }
 
@@ -150,68 +154,6 @@ func runPublisherEnrollPreview(args []string, out io.Writer) error {
 }
 func runPublisherEnroll(args []string, getenv func(string) string, out io.Writer) error {
 	return runCanonicalPublisherEnroll(args, getenv, out)
-}
-
-type publisherAuthorityOptions struct{ generation, parentRef, parentVersion, parentDigest, namespace, requestID, proposalVersion, proposalDigest, reviewVersion, reviewDigest, expiresAt, reason string }
-
-func runPublisherAuthorityRequest(args []string, getenv func(string) string, out io.Writer, persist bool) error {
-	f := flag.NewFlagSet("publisher authority", flag.ContinueOnError)
-	o := publisherAuthorityOptions{}
-	f.StringVar(&o.generation, "publisher-generation-digest", "", "exact enrolled PublisherGeneration digest")
-	f.StringVar(&o.parentRef, "parent-ref", "", "exact installation-root authority ref")
-	f.StringVar(&o.parentVersion, "parent-version", "1", "parent authority generation version")
-	f.StringVar(&o.parentDigest, "parent-digest", "", "exact installation-root authority digest")
-	f.StringVar(&o.namespace, "namespace", "praxis.package", "exact package namespace")
-	f.StringVar(&o.requestID, "request-id", "", "stable authority request identity")
-	f.StringVar(&o.proposalVersion, "proposal-version", "1", "publisher authority proposal version")
-	f.StringVar(&o.proposalDigest, "proposal-digest", "", "exact publisher authority proposal digest")
-	f.StringVar(&o.reviewVersion, "review-version", "1", "publisher authority review version")
-	f.StringVar(&o.reviewDigest, "review-digest", "", "exact publisher authority review digest")
-	f.StringVar(&o.expiresAt, "expires-at", "", "RFC3339 authority expiry")
-	f.StringVar(&o.reason, "reason", "first-party package publishing", "bounded authority reason")
-	if err := f.Parse(args); err != nil {
-		return err
-	}
-	if f.NArg() != 0 || o.generation == "" || o.parentRef == "" || o.parentDigest == "" || o.requestID == "" || o.proposalDigest == "" || o.reviewDigest == "" || o.expiresAt == "" {
-		return errors.New("usage: praxis publisher authority-{preview|request} --publisher-generation-digest <digest> --parent-ref <ref> --parent-digest <digest> --request-id <id> --proposal-digest <digest> --review-digest <digest> --expires-at <RFC3339>")
-	}
-	expires, err := time.Parse(time.RFC3339Nano, o.expiresAt)
-	if err != nil {
-		return err
-	}
-	scope, err := contracts.PackagePublishScope(o.namespace)
-	if err != nil {
-		return err
-	}
-	db, err := state.OpenSQLite(context.Background(), getenv("PRAXIS_DB"))
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	publisherRecord, err := state.New(db).PublisherGeneration(context.Background(), o.generation)
-	if err != nil {
-		return err
-	}
-	delegation := contracts.DelegationRequest{Profile: contracts.DelegationProfilePackagePublish, ParentRef: o.parentRef, ParentVersion: o.parentVersion, ParentDigest: o.parentDigest, DelegatedPrincipal: publisherRecord.Generation.Principal, TargetKind: "publisher-generation", TargetIdentity: publisherRecord.Generation.Principal.ID, TargetVersion: o.namespace, TargetDigest: o.generation, TargetConstraints: []string{o.namespace}, SubjectKind: publisherRecord.Generation.Principal.Kind, SubjectID: publisherRecord.Generation.Principal.ID, SubjectVersion: publisherRecord.Generation.Generation, SubjectDigest: o.generation, SubjectKeyDigest: publisherRecord.Generation.PublicKeyDigest, RequestedCapabilities: nil, RequestedOperations: nil, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: "sign", RequestedScope: scope, ProposalVersion: o.proposalVersion, ProposalDigest: o.proposalDigest, ReviewVersion: o.reviewVersion, ReviewDigest: o.reviewDigest, ExpiresAt: expires.UTC(), Reason: o.reason, PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelSuccessorVersion, PolicyDigest: contracts.AuthorityModelSuccessorDigest()}
-	request := contracts.AuthorityRequest{ID: o.requestID, Version: "1", RequestedAuthority: contracts.GovernedPackagePublish, RequestedScope: scope, Reason: o.reason, Status: contracts.AuthorityRequestPending, Delegation: &delegation}
-	digest, err := request.Digest()
-	if err != nil {
-		return err
-	}
-	result := map[string]any{"operation": "authority.delegate", "profile": contracts.DelegationProfilePackagePublish, "request": request, "request_digest": digest, "publisher_generation_digest": o.generation, "scope": scope, "preview": !persist}
-	if persist {
-		repo, db2, e := openGovernedRepository(context.Background(), getenv)
-		if e != nil {
-			return e
-		}
-		defer db2.Close()
-		saved, e := repo.SaveAuthorityRequest(context.Background(), request, time.Now().UTC(), &expires)
-		if e != nil {
-			return e
-		}
-		result["request_digest"] = saved
-	}
-	return printJSONTo(out, result)
 }
 
 func runPublisherPackageBuild(args []string, out io.Writer) error {

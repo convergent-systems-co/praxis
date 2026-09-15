@@ -180,6 +180,9 @@ func (r Repository) SavePublisherAuthorityReview(ctx context.Context, review con
 	if e != nil || pd != review.ProposalDigest {
 		return "", errors.New("review does not bind exact proposal")
 	}
+	if review.Namespace != p.Namespace || review.PublisherGenerationDigest != p.PublisherGenerationDigest {
+		return "", errors.New("review subject does not bind exact proposal")
+	}
 	d, e := review.Digest()
 	if e != nil {
 		return "", e
@@ -188,6 +191,62 @@ func (r Repository) SavePublisherAuthorityReview(ctx context.Context, review con
 		return "", e
 	}
 	return d, nil
+}
+
+func (r Repository) LoadPublisherAuthorityProposalByDigest(ctx context.Context, wanted string, now time.Time) (contracts.PublisherAuthorityProposal, error) {
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.PublisherAuthorityProposal{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, "publisher-authority-proposal:") {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.PublisherAuthorityProposal{}, err
+		}
+		var proposal contracts.PublisherAuthorityProposal
+		if err := json.Unmarshal(payload, &proposal); err != nil {
+			return contracts.PublisherAuthorityProposal{}, err
+		}
+		digest, err := proposal.Digest()
+		if err != nil {
+			return contracts.PublisherAuthorityProposal{}, err
+		}
+		if digest == wanted {
+			return proposal, nil
+		}
+	}
+	return contracts.PublisherAuthorityProposal{}, statepkg.ErrSecureBlobNotFound
+}
+
+func (r Repository) LoadPublisherAuthorityReviewByDigest(ctx context.Context, wanted string, now time.Time) (contracts.PublisherAuthorityReview, error) {
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.PublisherAuthorityReview{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, "publisher-authority-review:") {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.PublisherAuthorityReview{}, err
+		}
+		var review contracts.PublisherAuthorityReview
+		if err := json.Unmarshal(payload, &review); err != nil {
+			return contracts.PublisherAuthorityReview{}, err
+		}
+		digest, err := review.Digest()
+		if err != nil {
+			return contracts.PublisherAuthorityReview{}, err
+		}
+		if digest == wanted {
+			return review, nil
+		}
+	}
+	return contracts.PublisherAuthorityReview{}, statepkg.ErrSecureBlobNotFound
 }
 func (r Repository) SavePublisherEnrollmentApproval(ctx context.Context, a contracts.PublisherEnrollmentApproval, now time.Time) (string, error) {
 	d, e := a.Digest()

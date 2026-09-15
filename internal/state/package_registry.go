@@ -44,6 +44,7 @@ type RegisteredInvocation struct {
 	Contract       contracts.InvocationContract
 	ContentDigest  string
 	ContractDigest string
+	RuntimeBinding contracts.InvocationRuntimeBinding
 }
 
 type RegisteredContent struct {
@@ -263,6 +264,18 @@ func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatal
 			inv.EntryPointID, manifest.PackageID, manifest.Version, manifest.ContentDigest, inv.GraphID, inv.GraphVersion, body, digest, stamp); err != nil {
 			return fmt.Errorf("register invocation %q: %w", inv.EntryPointID, err)
 		}
+		runtimeDigest := digestPackageBytes(body)
+		runtime := contracts.InvocationRuntimeBinding{
+			PackageID: manifest.PackageID, PackageVersion: manifest.Version, PackageDigest: manifest.ContentDigest,
+			EntryPointID: inv.EntryPointID, ContractDigest: digest, RuntimeID: "client-adapter:" + inv.PackageID + ":" + inv.EntryPointID,
+			RuntimeVersion: inv.Version, RuntimeDigest: runtimeDigest,
+		}
+		if err := runtime.Validate(); err != nil {
+			return fmt.Errorf("validate invocation runtime binding %q: %w", inv.EntryPointID, err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO invocation_runtime_bindings(entry_point_id,package_version,content_digest,package_id,contract_digest,runtime_id,runtime_version,runtime_digest,registered_at) VALUES(?,?,?,?,?,?,?,?,?)`, runtime.EntryPointID, runtime.PackageVersion, runtime.PackageDigest, runtime.PackageID, runtime.ContractDigest, runtime.RuntimeID, runtime.RuntimeVersion, runtime.RuntimeDigest, stamp); err != nil {
+			return fmt.Errorf("register invocation runtime binding %q: %w", inv.EntryPointID, err)
+		}
 		for _, alias := range inv.Aliases {
 			if _, err := tx.ExecContext(ctx, `INSERT INTO invocation_aliases(alias,entry_point_id,package_version,content_digest) VALUES(?,?,?,?)`, alias, inv.EntryPointID, manifest.Version, manifest.ContentDigest); err != nil {
 				return fmt.Errorf("register invocation alias %q: %w", alias, err)
@@ -369,7 +382,7 @@ func (s *Store) TransitionPackage(ctx context.Context, request packagecatalog.Tr
 }
 
 func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT contract_json,content_digest,contract_digest FROM invocation_registry WHERE active=1 ORDER BY entry_point_id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest FROM invocation_registry ir JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ir.active=1 ORDER BY ir.entry_point_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +391,7 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 	for rows.Next() {
 		var body []byte
 		var item RegisteredInvocation
-		if err := rows.Scan(&body, &item.ContentDigest, &item.ContractDigest); err != nil {
+		if err := rows.Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(body, &item.Contract); err != nil {
@@ -389,6 +402,12 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 		}
 		if err := item.Contract.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid persisted invocation %q: %w", item.Contract.EntryPointID, err)
+		}
+		if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || item.RuntimeBinding.RuntimeDigest != item.ContractDigest {
+			return nil, fmt.Errorf("invocation runtime binding %q does not match active package generation", item.Contract.EntryPointID)
+		}
+		if err := item.RuntimeBinding.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid invocation runtime binding %q: %w", item.Contract.EntryPointID, err)
 		}
 		out = append(out, item)
 	}
@@ -436,7 +455,7 @@ func (s *Store) ResolveContent(ctx context.Context, kind packagecatalog.ContentK
 func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (RegisteredInvocation, error) {
 	var body []byte
 	var item RegisteredInvocation
-	err := s.db.QueryRowContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest FROM invocation_aliases ia JOIN invocation_registry ir ON ir.entry_point_id=ia.entry_point_id AND ir.package_version=ia.package_version AND ir.content_digest=ia.content_digest WHERE ia.alias=? AND ir.active=1`, alias).Scan(&body, &item.ContentDigest, &item.ContractDigest)
+	err := s.db.QueryRowContext(ctx, `SELECT ir.contract_json,ir.content_digest,ir.contract_digest,rb.package_id,rb.package_version,rb.content_digest,rb.entry_point_id,rb.contract_digest,rb.runtime_id,rb.runtime_version,rb.runtime_digest FROM invocation_aliases ia JOIN invocation_registry ir ON ir.entry_point_id=ia.entry_point_id AND ir.package_version=ia.package_version AND ir.content_digest=ia.content_digest JOIN invocation_runtime_bindings rb ON rb.entry_point_id=ir.entry_point_id AND rb.package_version=ir.package_version AND rb.content_digest=ir.content_digest WHERE ia.alias=? AND ir.active=1`, alias).Scan(&body, &item.ContentDigest, &item.ContractDigest, &item.RuntimeBinding.PackageID, &item.RuntimeBinding.PackageVersion, &item.RuntimeBinding.PackageDigest, &item.RuntimeBinding.EntryPointID, &item.RuntimeBinding.ContractDigest, &item.RuntimeBinding.RuntimeID, &item.RuntimeBinding.RuntimeVersion, &item.RuntimeBinding.RuntimeDigest)
 	if err != nil {
 		return RegisteredInvocation{}, err
 	}
@@ -446,5 +465,14 @@ func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (Regis
 	if digestPackageBytes(body) != item.ContractDigest {
 		return RegisteredInvocation{}, errors.New("persisted invocation contract digest mismatch")
 	}
-	return item, item.Contract.Validate()
+	if err := item.Contract.Validate(); err != nil {
+		return RegisteredInvocation{}, err
+	}
+	if item.RuntimeBinding.PackageID != item.Contract.PackageID || item.RuntimeBinding.PackageVersion != item.Contract.PackageVersion || item.RuntimeBinding.PackageDigest != item.ContentDigest || item.RuntimeBinding.EntryPointID != item.Contract.EntryPointID || item.RuntimeBinding.ContractDigest != item.ContractDigest || item.RuntimeBinding.RuntimeDigest != item.ContractDigest {
+		return RegisteredInvocation{}, errors.New("invocation runtime binding does not match active package generation")
+	}
+	if err := item.RuntimeBinding.Validate(); err != nil {
+		return RegisteredInvocation{}, err
+	}
+	return item, nil
 }

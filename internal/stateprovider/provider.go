@@ -50,6 +50,7 @@ type RegisteredInvocation struct {
 	Contract       contracts.InvocationContract
 	ContentDigest  string
 	ContractDigest string
+	RuntimeBinding contracts.InvocationRuntimeBinding
 }
 
 type RegisteredContent struct {

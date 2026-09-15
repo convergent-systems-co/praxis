@@ -82,7 +82,7 @@ func (r sqlitePackageRegistry) ActiveInvocations(ctx context.Context) ([]Registe
 	}
 	out := make([]RegisteredInvocation, 0, len(items))
 	for _, item := range items {
-		out = append(out, RegisteredInvocation{Contract: item.Contract, ContentDigest: item.ContentDigest, ContractDigest: item.ContractDigest})
+		out = append(out, RegisteredInvocation{Contract: item.Contract, ContentDigest: item.ContentDigest, ContractDigest: item.ContractDigest, RuntimeBinding: item.RuntimeBinding})
 	}
 	return out, nil
 }

@@ -152,7 +152,7 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if err != nil || current.Username == "" || !strings.HasSuffix(parent.ProvenanceRef, ":os-user:"+current.Username) {
 		return errors.New("authenticated root OS user does not match the enrolled generation")
 	}
-	if err := contracts.ValidateBuiltinDelegation(parent, *request.Delegation, now); err != nil {
+	if err := (builtinDelegationPolicy{}).ContainDelegation(parent, *request.Delegation, now); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(output, fmt.Sprintf("Authorize exact delegation request %s for parent %s/%s. Type %q to continue: ", requestDigestValue, parent.Ref, parent.Version, "DELEGATE "+requestDigestValue)); err != nil {

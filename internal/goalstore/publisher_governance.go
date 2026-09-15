@@ -20,6 +20,18 @@ func (r Repository) LoadAuthorityModelState(ctx context.Context, now time.Time) 
 	err := r.loadPublisherGovernance(ctx, authorityModelStateID, "1", now, &modelState)
 	if err != nil {
 		if errors.Is(err, statepkg.ErrSecureBlobNotFound) || errors.Is(err, statepkg.ErrSecureBlobExpired) {
+			// The adoption record is the durable journal. If a process stopped
+			// after journaling the exact transition but before publishing the
+			// active-model pointer, recovery must recognize that committed
+			// transition rather than report an ambiguous v1 state.
+			var adoption contracts.AuthorityModelAdoption
+			if journalErr := r.loadPublisherGovernance(ctx, "authority-model-adoption:v1-to-v2", "1", now, &adoption); journalErr == nil {
+				adoptionDigest, digestErr := adoption.Digest()
+				if digestErr != nil || adoption.FromModel != contracts.AuthorityModelID || adoption.FromVersion != contracts.AuthorityModelVersion || adoption.FromDigest != contracts.AuthorityModelDigest() || adoption.ToModel != contracts.AuthorityModelID || adoption.ToVersion != contracts.AuthorityModelSuccessorVersion || adoption.ToDigest != contracts.AuthorityModelSuccessorDigest() {
+					return contracts.AuthorityModelState{}, errors.New("authority-model adoption journal is invalid")
+				}
+				return contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelSuccessorVersion, ActiveDigest: contracts.AuthorityModelSuccessorDigest(), AdoptionDigest: adoptionDigest, State: "committed-recoverable"}, nil
+			}
 			return contracts.AuthorityModelState{Version: contracts.AuthorityModelVersion, ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelVersion, ActiveDigest: contracts.AuthorityModelDigest(), State: "implicit-v1"}, nil
 		}
 		return contracts.AuthorityModelState{}, err

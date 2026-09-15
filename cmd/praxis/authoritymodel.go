@@ -134,11 +134,6 @@ func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.
 	if err != nil || d != envelope.PreviewDigest {
 		return errors.New("adoption preview digest mismatch")
 	}
-	repo, db, err := openGovernedRepository(context.Background(), getenv)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
 	record, err := praxiscrypto.LoadBootstrapRecord(getenv("PRAXIS_BOOTSTRAP_RECORD"))
 	if err != nil {
 		return err
@@ -155,6 +150,11 @@ func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.
 	if strings.TrimSpace(answer) != "ADOPT "+d {
 		return errAuthorityBootstrapConfirmation
 	}
+	repo, db, err := openGovernedRepository(context.Background(), getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
 	bootstrapDigest, err := record.Digest()
 	if err != nil {
 		return err

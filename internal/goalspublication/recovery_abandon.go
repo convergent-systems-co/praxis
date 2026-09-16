@@ -35,9 +35,9 @@ func (e RecoveryExecution) buildRecoveryAbandonment(ctx context.Context, request
 		return nil, errors.New("invalid recovery abandonment request")
 	}
 	key := recoveryKey(requestID)
-	var payload []byte
-	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT payload FROM effects WHERE effect_id=?`, key+":manifest").Scan(&payload); err != nil {
-		return nil, errors.New("successor manifest effect is missing")
+	payload, err := loadRecoveryManifestPayload(ctx, e.Repository.Store.DB(), key+":manifest")
+	if err != nil {
+		return nil, err
 	}
 	var sp recoveryStepPayload
 	if err := json.Unmarshal(payload, &sp); err != nil || sp.RequestID != requestID || sp.Step != "manifest" || sp.Intent.ID == "" {
@@ -124,6 +124,17 @@ func (e RecoveryExecution) buildRecoveryAbandonment(ctx context.Context, request
 	p := recoveryAbandonmentPayload{Version: "1", RequestID: requestID, RequestDigest: requestDigest, IntentID: sp.Intent.ID, IntentDigest: intentDigest, AuthorityDigest: authDigest, ExecutionID: key, ExecutionStatus: "abandoned", Effects: effects, ReconciliationEvents: recs, Owner: root, OSUser: osUser, Reason: reason, CreatedAt: created.UTC().Format(time.RFC3339Nano), CompletionEstablished: false}
 	b, _ := json.Marshal(p)
 	return b, nil
+}
+
+func loadRecoveryManifestPayload(ctx context.Context, db *sql.DB, effectID string) ([]byte, error) {
+	var payload []byte
+	if err := db.QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, effectID).Scan(&payload); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("successor manifest effect is missing")
+		}
+		return nil, fmt.Errorf("lookup successor manifest effect: %w", err)
+	}
+	return payload, nil
 }
 
 func (e RecoveryExecution) PrepareAbandonment(ctx context.Context, requestID, osUser, reason string) ([]byte, string, error) {

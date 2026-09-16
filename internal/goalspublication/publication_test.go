@@ -580,6 +580,20 @@ func TestRecoveryAbandonmentPreservesUnknownAndFencesExecution(t *testing.T) {
 	}
 }
 
+func TestRecoveryManifestLookupClassifiesMissingAndStorageErrors(t *testing.T) {
+	r, _, _, _ := authorizedRecoveryFixture(t, exactAssets(t))
+	ctx := context.Background()
+	if _, err := loadRecoveryManifestPayload(ctx, r.Store.DB(), "missing-effect"); err == nil || err.Error() != "successor manifest effect is missing" {
+		t.Fatalf("missing effect classification changed: %v", err)
+	}
+	_, renameErr := r.Store.DB().ExecContext(ctx, `ALTER TABLE effects RENAME TO effects_hidden`)
+	must(t, renameErr)
+	_, err := loadRecoveryManifestPayload(ctx, r.Store.DB(), "any-effect")
+	if err == nil || strings.Contains(err.Error(), "successor manifest effect is missing") || !strings.Contains(err.Error(), "lookup successor manifest effect") {
+		t.Fatalf("storage error was misclassified: %v", err)
+	}
+}
+
 func authorizedRecoveryFixture(t *testing.T, assets Assets) (goalstore.Repository, time.Time, contracts.AuthorityRequest, Assets) {
 	t.Helper()
 	r, f, at, pred, _, _ := predecessorExecutionFixture(t, assets)

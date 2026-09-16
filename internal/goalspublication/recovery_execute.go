@@ -351,14 +351,32 @@ func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, p
 	}
 	now := e.now()
 	auth, err := e.current(ctx, predecessorRequestID)
+	var historicalProjectionDigest string
+	key := recoveryKey(predecessorRequestID)
 	if err != nil {
-		return contracts.ActionIntent{}, err
+		var predecessorPayload []byte
+		if qerr := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, key+":publish").Scan(&predecessorPayload); qerr != nil {
+			return contracts.ActionIntent{}, err
+		}
+		var historicalStep recoveryStepPayload
+		if qerr := json.Unmarshal(predecessorPayload, &historicalStep); qerr != nil || historicalStep.RequestID != predecessorRequestID || historicalStep.Step != "publish" {
+			return contracts.ActionIntent{}, err
+		}
+		var requestDigest string
+		if qerr := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace='authority_request' AND object_id=? AND object_version='1'`, predecessorRequestID).Scan(&requestDigest); qerr != nil {
+			return contracts.ActionIntent{}, err
+		}
+		historical, qerr := e.Repository.LoadExpiredHistoricalAuthorityEvidence(ctx, predecessorRequestID, "1", requestDigest, contracts.GoalsPublicationRoot, key, []string{key + ":manifest", key + ":archive", key + ":signature", key + ":verify-draft"}, now)
+		if qerr != nil {
+			return contracts.ActionIntent{}, err
+		}
+		historicalProjectionDigest = historical.Digest
+		auth = historicalStep.Authority
 	}
 	if auth.Request.Intent == nil || auth.Request.Intent.Parameters["contract"] != contracts.GoalsFailedVerificationContract {
 		return contracts.ActionIntent{}, errors.New("/4 predecessor intent required")
 	}
 	base := *auth.Request.Intent
-	key := recoveryKey(predecessorRequestID)
 	var predecessorRequestDigest string
 	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace='authority_request' AND object_id=? AND object_version='1'`, predecessorRequestID).Scan(&predecessorRequestDigest); err != nil {
 		return contracts.ActionIntent{}, err
@@ -386,20 +404,21 @@ func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, p
 		return contracts.ActionIntent{}, errors.New("/4 publish is not exact local pre-dispatch failure")
 	}
 	bindings := map[string]string{
-		"failed_publication_predecessor_request_id":       predecessorRequestID,
-		"failed_publication_predecessor_request_digest":   predecessorRequestDigest,
-		"failed_publication_predecessor_intent_id":        base.ID,
-		"failed_publication_predecessor_intent_digest":    mustDigestValue(base),
-		"failed_publication_predecessor_execution_id":     key,
-		"failed_publication_predecessor_authority_digest": auth.Generation.Digest,
-		"failed_publication_verify_effect_id":             key + ":verify-draft",
-		"failed_publication_resolution_event_id":          string(resolutionID),
-		"failed_publication_resolution_digest":            hash(resolutionPayload),
-		"failed_publication_effect_id":                    publishID,
-		"failed_publication_command_id":                   publishID,
-		"failed_publication_event_id":                     publishID,
-		"failed_publication_payload_digest":               hash(publishPayload),
-		"failed_publication_chain_digest":                 base.Parameters["recovery_chain_digest"],
+		"failed_publication_predecessor_request_id":                  predecessorRequestID,
+		"failed_publication_predecessor_request_digest":              predecessorRequestDigest,
+		"failed_publication_predecessor_intent_id":                   base.ID,
+		"failed_publication_predecessor_intent_digest":               mustDigestValue(base),
+		"failed_publication_predecessor_execution_id":                key,
+		"failed_publication_predecessor_authority_digest":            auth.Generation.Digest,
+		"failed_publication_predecessor_historical_authority_digest": historicalProjectionDigest,
+		"failed_publication_verify_effect_id":                        key + ":verify-draft",
+		"failed_publication_resolution_event_id":                     string(resolutionID),
+		"failed_publication_resolution_digest":                       hash(resolutionPayload),
+		"failed_publication_effect_id":                               publishID,
+		"failed_publication_command_id":                              publishID,
+		"failed_publication_event_id":                                publishID,
+		"failed_publication_payload_digest":                          hash(publishPayload),
+		"failed_publication_chain_digest":                            base.Parameters["recovery_chain_digest"],
 	}
 	a, err := contracts.NewGoalsPublicationFailedPublicationIntent(base, identity, now, expires, bindings)
 	if err != nil {

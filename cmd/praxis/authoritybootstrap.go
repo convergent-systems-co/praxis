@@ -103,11 +103,15 @@ Semantics:
 }
 
 func goalsRecoveryDelegationCheckStep(intent contracts.ActionIntent) (string, error) {
-	if intent.Operation != contracts.GoalsRecoveryOperation {
+	if intent.Operation != contracts.GoalsRecoveryOperation && intent.Operation != contracts.GoalsFailedPublicationOperation {
 		return "", errors.New("unsupported Goals recovery operation")
 	}
 	switch intent.Parameters["contract"] {
+	case contracts.GoalsFailedPublicationContract:
+		if intent.Operation != contracts.GoalsFailedPublicationOperation { return "", errors.New("unsupported or ambiguous Goals recovery contract") }
+		return "publish", nil
 	case contracts.GoalsFailedVerificationContract:
+		if intent.Operation != contracts.GoalsRecoveryOperation { return "", errors.New("unsupported or ambiguous Goals recovery contract") }
 		return "verify-draft", nil
 	case contracts.GoalsRecoveryContract, contracts.GoalsChainedRecoveryContract, contracts.GoalsOrderedRecoveryContract:
 		return "manifest", nil

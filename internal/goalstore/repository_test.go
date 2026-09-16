@@ -131,6 +131,44 @@ func TestAuthorityGenerationValidationKeepsGenerationAndObjectDigestsDistinct(t 
 	}
 }
 
+func TestHistoricalGenerationLoaderSeparatesDigestDomains(t *testing.T) {
+	repo, store := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	now := time.Now().UTC()
+	generation := authorityGenerationFixture(now.Add(-2 * time.Hour))
+	expired := now.Add(-time.Hour)
+	generation.ExpiresAt = &expired
+	digest, err := generation.ComputeDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	generation.Digest = digest
+	payload, err := json.Marshal(generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objectDigest := payloadDigest(payload)
+	if objectDigest == generation.Digest {
+		t.Fatal("fixture must keep secure-blob and generation digests distinct")
+	}
+	envelope, err := repo.Crypto.Seal(context.Background(), repo.KeyRef, repo.Profile, payload, state.SecureBlobAAD(authorityGenerationNamespace, generation.Ref, generation.Version, objectDigest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PutSecureBlob(context.Background(), state.SecureBlobRecord{Namespace: authorityGenerationNamespace, ObjectID: generation.Ref, ObjectVersion: generation.Version, ObjectDigest: objectDigest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: generation.EffectiveAt, ExpiresAt: &expired}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref, generation.Version, generation.Digest)
+	if err != nil || loaded.Digest != generation.Digest {
+		t.Fatalf("historical generation should validate separate digests: %+v %v", loaded, err)
+	}
+	if _, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref, generation.Version, "sha256:"+strings.Repeat("b", 64)); err == nil {
+		t.Fatal("substituted generation digest accepted")
+	}
+	if _, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref+"-wrong", generation.Version, generation.Digest); err == nil {
+		t.Fatal("wrong generation identity accepted")
+	}
+}
+
 func TestAuthorityGenerationValidationRejectsPayloadAndGenerationSubstitution(t *testing.T) {
 	now := time.Unix(1700000000, 0).UTC()
 	valid := authorityGenerationFixture(now)

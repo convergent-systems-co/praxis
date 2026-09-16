@@ -133,9 +133,6 @@ func (r Repository) loadHistoricalGeneration(ctx context.Context, ref, version, 
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	if record.ObjectDigest != expectedDigest {
-		return contracts.AuthorityGeneration{}, errors.New("historical generation digest mismatch")
-	}
 	payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
@@ -144,14 +141,20 @@ func (r Repository) loadHistoricalGeneration(ctx context.Context, ref, version, 
 	if err := json.Unmarshal(payload, &generation); err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	if generation.Ref != ref || generation.Version != version || payloadDigest(payload) != record.ObjectDigest || generation.Digest != expectedDigest {
+	if generation.Ref != ref || generation.Version != version {
 		return contracts.AuthorityGeneration{}, errors.New("historical generation identity mismatch")
+	}
+	if payloadDigest(payload) != record.ObjectDigest {
+		return contracts.AuthorityGeneration{}, errors.New("historical generation secure-blob payload digest mismatch")
 	}
 	if err := generation.Validate(); err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
 	if err := generation.VerifyDigest(); err != nil {
 		return contracts.AuthorityGeneration{}, err
+	}
+	if generation.Digest != expectedDigest {
+		return contracts.AuthorityGeneration{}, errors.New("historical generation digest mismatch")
 	}
 	return generation, nil
 }

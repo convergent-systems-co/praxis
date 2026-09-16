@@ -216,7 +216,7 @@ func TestExpiredHistoricalAuthorityResolvesPersistedParentAndDelegatedChild(t *t
 	}
 	persist(authorityGenerationNamespace, root.Ref, root.Version, root, nil)
 	childObjectDigest := persist(authorityGenerationNamespace, child.Ref, child.Version, child, &childExpiry)
-	intent := contracts.ActionIntent{Version: "1", ID: "intent:test", Actor: child.Principal, Operation: contracts.GoalsRecoveryOperation, Target: "github-release:389997269", Scope: child.Scope, Parameters: map[string]string{"created_at": created.Format(time.RFC3339Nano), "expires_at": childExpiry.Format(time.RFC3339Nano)}}
+	intent := contracts.ActionIntent{Version: "1", ID: "intent:test", Actor: child.Principal, Operation: contracts.GoalsRecoveryOperation, Target: "github-release:389997269", Scope: child.Scope, Parameters: map[string]string{"created_at": created.Format(time.RFC3339Nano), "expires_at": childExpiry.Format(time.RFC3339Nano), "abandonment_digest": "sha256:" + strings.Repeat("f", 64)}}
 	intentDigest, _ := intent.Digest()
 	delegation := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: child.Principal, TargetKind: "action-intent", TargetIdentity: intent.ID, TargetVersion: intent.Version, TargetDigest: intentDigest, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: contracts.GoalsRecoveryOperation, RequestedScope: child.Scope, ProposalVersion: intent.Version, ProposalDigest: intentDigest, ReviewVersion: intent.Version, ReviewDigest: intentDigest, ExpiresAt: childExpiry, Reason: "test", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest()}
 	request := contracts.AuthorityRequest{ID: "test-request", Version: "1", RequestedAuthority: contracts.GovernedPackagePublish, RequestedScope: child.Scope, Reason: "test", Status: contracts.AuthorityRequestPending, Delegation: &delegation, Intent: &intent, IntentDigest: intentDigest, InstallationDigest: contracts.GoalsPublicationRoot}
@@ -236,7 +236,7 @@ func TestExpiredHistoricalAuthorityResolvesPersistedParentAndDelegatedChild(t *t
 			Intent                 contracts.ActionIntent
 			Authority              contracts.PackagePublishAuthorization
 			PredecessorAbandonment string
-		}{"1", request.ID, strings.TrimPrefix(id, "execution:test:"), intent, contracts.PackagePublishAuthorization{Generation: child, Request: request, Decision: decision}, ""})
+		}{"1", request.ID, strings.TrimPrefix(id, "execution:test:"), intent, contracts.PackagePublishAuthorization{Generation: child, Request: request, Decision: decision}, intent.Parameters["abandonment_digest"]})
 		if _, err := store.DB().ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, "test", "1", child.Principal.ID, child.Principal.Kind, child.Scope, "execution:test", effectPayload, "completed", created.Add(20*time.Minute).Format(time.RFC3339Nano)); err != nil {
 			t.Fatal(err)
 		}

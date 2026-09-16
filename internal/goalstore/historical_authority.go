@@ -83,6 +83,13 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 	if parent.Ref != request.Delegation.ParentRef || parent.Version != request.Delegation.ParentVersion || parent.Digest != request.Delegation.ParentDigest || parent.Principal != decision.DecidedBy || parent.Scope != rootScope {
 		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical parent authority lineage mismatch")
 	}
+	expectedAbandonment := ""
+	if request.Intent != nil {
+		expectedAbandonment = request.Intent.Parameters["abandonment_digest"]
+	}
+	if err := contracts.ValidateSHA256Digest(expectedAbandonment); err != nil {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical predecessor abandonment digest is missing or malformed")
+	}
 	var childDigest string
 	for _, id := range effectIDs {
 		var body, actionIntentDigest []byte
@@ -99,7 +106,7 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 		parts := strings.Split(id, ":")
 		wantStep := parts[len(parts)-1]
 		wantIntentDigest, _ := request.Intent.Digest()
-		if effect.Version != "1" || effect.RequestID != requestID || effect.Step != wantStep || effect.Intent.ID != request.Intent.ID || effect.Intent.Version != request.Intent.Version || func() bool { d, _ := effect.Intent.Digest(); return d != wantIntentDigest }() || effect.Authority.Request.ID != request.ID || effect.Authority.Request.Version != request.Version || string(actionIntentDigest) != wantIntentDigest {
+		if effect.Version != "1" || effect.RequestID != requestID || effect.Step != wantStep || effect.Intent.ID != request.Intent.ID || effect.Intent.Version != request.Intent.Version || func() bool { d, _ := effect.Intent.Digest(); return d != wantIntentDigest }() || effect.Authority.Request.ID != request.ID || effect.Authority.Request.Version != request.Version || string(actionIntentDigest) != wantIntentDigest || effect.PredecessorAbandonment != expectedAbandonment {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect request lineage mismatch")
 		}
 		if childDigest == "" {

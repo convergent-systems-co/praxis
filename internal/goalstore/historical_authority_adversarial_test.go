@@ -40,7 +40,7 @@ func newHistoricalAdversarialFixture(t *testing.T, mutate func(*historicalAdvers
 	child := contracts.AuthorityGeneration{Ref: "authority-delegation:test-request", Version: "1", Principal: contracts.PrincipalRef{ID: contracts.FirstPartyPublisherPrincipal, Kind: "publisher"}, Scope: "goals-established-state-publication:test", Authorities: []string{contracts.GovernedPackagePublish}, ProvenanceRef: "authority-decision:test", ProvenanceDigest: "sha256:" + strings.Repeat("d", 64), State: contracts.AuthorityGenerationActive, EffectiveAt: created.Add(10 * time.Minute), ExpiresAt: &childExpiry, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedBy: root.Principal, DelegationRef: "test-request/1", DelegationDigest: "sha256:" + strings.Repeat("e", 64), PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest(), AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelGoalsRecoveryVersion, AuthorityModelDigest: contracts.AuthorityModelGoalsRecoveryDigest()}
 	child.Digest, _ = child.ComputeDigest()
 	f := historicalAdversarialFixture{repo: repo, store: store, root: root, child: child, created: created, now: now, childExpiry: childExpiry, effectIDs: []string{"execution:test:manifest", "execution:test:archive", "execution:test:signature", "execution:test:verify-draft"}, effectAt: created.Add(20 * time.Minute)}
-	intent := contracts.ActionIntent{Version: "1", ID: "intent:test", Actor: child.Principal, Operation: contracts.GoalsRecoveryOperation, Target: "github-release:389997269", Scope: child.Scope, Parameters: map[string]string{"created_at": created.Format(time.RFC3339Nano), "expires_at": childExpiry.Format(time.RFC3339Nano)}}
+	intent := contracts.ActionIntent{Version: "1", ID: "intent:test", Actor: child.Principal, Operation: contracts.GoalsRecoveryOperation, Target: "github-release:389997269", Scope: child.Scope, Parameters: map[string]string{"created_at": created.Format(time.RFC3339Nano), "expires_at": childExpiry.Format(time.RFC3339Nano), "abandonment_digest": "sha256:" + strings.Repeat("f", 64)}}
 	intentDigest, _ := intent.Digest()
 	delegation := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: child.Principal, TargetKind: "action-intent", TargetIdentity: intent.ID, TargetVersion: intent.Version, TargetDigest: intentDigest, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: contracts.GoalsRecoveryOperation, RequestedScope: child.Scope, ProposalVersion: intent.Version, ProposalDigest: intentDigest, ReviewVersion: intent.Version, ReviewDigest: intentDigest, ExpiresAt: childExpiry, Reason: "test", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest()}
 	request := contracts.AuthorityRequest{ID: "test-request", Version: "1", RequestedAuthority: contracts.GovernedPackagePublish, RequestedScope: child.Scope, Reason: "test", Status: contracts.AuthorityRequestPending, Delegation: &delegation, Intent: &intent, IntentDigest: intentDigest, InstallationDigest: contracts.GoalsPublicationRoot}
@@ -88,7 +88,7 @@ func newHistoricalAdversarialFixture(t *testing.T, mutate func(*historicalAdvers
 			Intent                 contracts.ActionIntent
 			Authority              contracts.PackagePublishAuthorization
 			PredecessorAbandonment string
-		}{"1", f.request.ID, strings.TrimPrefix(id, "execution:test:"), *f.request.Intent, auth, ""})
+		}{"1", f.request.ID, strings.TrimPrefix(id, "execution:test:"), *f.request.Intent, auth, f.request.Intent.Parameters["abandonment_digest"]})
 		at := f.effectAt.Format(time.RFC3339Nano)
 		if _, err := store.DB().ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, "test", "1", f.child.Principal.ID, f.child.Principal.Kind, f.child.Scope, "execution:test", payload, "completed", at); err != nil {
 			t.Fatal(err)
@@ -191,4 +191,60 @@ func TestHistoricalRecoveryEffectProductionWireContractRequiredFields(t *testing
 			}
 		})
 	}
+}
+
+func TestHistoricalRecoveryEffectPredecessorAbandonmentBinding(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"missing field", func(m map[string]any) { delete(m, "PredecessorAbandonment") }},
+		{"empty field", func(m map[string]any) { m["PredecessorAbandonment"] = "" }},
+		{"malformed representation", func(m map[string]any) { m["PredecessorAbandonment"] = "abandonment:not-a-digest" }},
+		{"substituted abandonment digest", func(m map[string]any) { m["PredecessorAbandonment"] = "sha256:" + strings.Repeat("a", 64) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newHistoricalAdversarialFixture(t, nil)
+			ctx := context.Background()
+			var body []byte
+			if err := f.store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, f.effectIDs[0]).Scan(&body); err != nil {
+				t.Fatal(err)
+			}
+			var m map[string]any
+			if err := json.Unmarshal(body, &m); err != nil {
+				t.Fatal(err)
+			}
+			tc.mutate(m)
+			body, _ = json.Marshal(m)
+			if _, err := f.store.DB().ExecContext(ctx, `UPDATE effects SET request_payload=? WHERE effect_id=?`, body, f.effectIDs[0]); err != nil {
+				t.Fatal(err)
+			}
+			evidence, err := f.repo.LoadExpiredHistoricalAuthorityEvidence(ctx, f.request.ID, f.request.Version, f.requestDigest, contracts.GoalsPublicationRoot, "execution:test", f.effectIDs, f.now)
+			if err == nil || evidence.GenerationDigest != "" || !strings.Contains(err.Error(), "historical effect request lineage mismatch") {
+				t.Fatalf("expected abandonment binding failure, evidence=%+v err=%v", evidence, err)
+			}
+		})
+	}
+	t.Run("effects must agree", func(t *testing.T) {
+		f := newHistoricalAdversarialFixture(t, nil)
+		ctx := context.Background()
+		var body []byte
+		if err := f.store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, f.effectIDs[1]).Scan(&body); err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(body, &m); err != nil {
+			t.Fatal(err)
+		}
+		m["PredecessorAbandonment"] = "sha256:" + strings.Repeat("a", 64)
+		body, _ = json.Marshal(m)
+		if _, err := f.store.DB().ExecContext(ctx, `UPDATE effects SET request_payload=? WHERE effect_id=?`, body, f.effectIDs[1]); err != nil {
+			t.Fatal(err)
+		}
+		evidence, err := f.repo.LoadExpiredHistoricalAuthorityEvidence(ctx, f.request.ID, f.request.Version, f.requestDigest, contracts.GoalsPublicationRoot, "execution:test", f.effectIDs, f.now)
+		if err == nil || evidence.GenerationDigest != "" {
+			t.Fatalf("expected disagreement failure, evidence=%+v err=%v", evidence, err)
+		}
+	})
 }

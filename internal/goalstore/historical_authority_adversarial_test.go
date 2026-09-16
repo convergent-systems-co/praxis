@@ -82,9 +82,13 @@ func newHistoricalAdversarialFixture(t *testing.T, mutate func(*historicalAdvers
 			auth.Generation.Digest = f.effectGenerationDigest
 		}
 		payload, _ := json.Marshal(struct {
-			RequestID string                                `json:"request_id"`
-			Authority contracts.PackagePublishAuthorization `json:"authority"`
-		}{f.request.ID, auth})
+			Version                string
+			RequestID              string
+			Step                   string
+			Intent                 contracts.ActionIntent
+			Authority              contracts.PackagePublishAuthorization
+			PredecessorAbandonment string
+		}{"1", f.request.ID, strings.TrimPrefix(id, "execution:test:"), *f.request.Intent, auth, ""})
 		at := f.effectAt.Format(time.RFC3339Nano)
 		if _, err := store.DB().ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, "test", "1", f.child.Principal.ID, f.child.Principal.Kind, f.child.Scope, "execution:test", payload, "completed", at); err != nil {
 			t.Fatal(err)
@@ -143,5 +147,48 @@ func TestExpiredHistoricalAuthorityProjectionUsesDelegatedChild(t *testing.T) {
 	}
 	if evidence.GenerationRef != f.child.Ref || evidence.GenerationDigest != f.child.Digest || evidence.ParentRef != f.root.Ref || evidence.ParentDigest != f.root.Digest {
 		t.Fatalf("projection must expose child operational generation and distinct parent: %+v", evidence)
+	}
+}
+
+func TestHistoricalRecoveryEffectProductionWireContractRequiredFields(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"missing request id", func(m map[string]any) { delete(m, "RequestID") }},
+		{"empty request id", func(m map[string]any) { m["RequestID"] = "" }},
+		{"wrong request id", func(m map[string]any) { m["RequestID"] = "request:substituted" }},
+		{"missing version", func(m map[string]any) { delete(m, "Version") }},
+		{"unsupported version", func(m map[string]any) { m["Version"] = "2" }},
+		{"missing step", func(m map[string]any) { delete(m, "Step") }},
+		{"wrong step", func(m map[string]any) { m["Step"] = "verify" }},
+		{"missing authority", func(m map[string]any) { delete(m, "Authority") }},
+		{"lowercase synthetic shape", func(m map[string]any) {
+			m["request_id"] = m["RequestID"]
+			delete(m, "RequestID")
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newHistoricalAdversarialFixture(t, nil)
+			ctx := context.Background()
+			var body []byte
+			if err := f.store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, f.effectIDs[0]).Scan(&body); err != nil {
+				t.Fatal(err)
+			}
+			var m map[string]any
+			if err := json.Unmarshal(body, &m); err != nil {
+				t.Fatal(err)
+			}
+			tc.mutate(m)
+			body, _ = json.Marshal(m)
+			if _, err := f.store.DB().ExecContext(ctx, `UPDATE effects SET request_payload=? WHERE effect_id=?`, body, f.effectIDs[0]); err != nil {
+				t.Fatal(err)
+			}
+			evidence, err := f.repo.LoadExpiredHistoricalAuthorityEvidence(ctx, f.request.ID, f.request.Version, f.requestDigest, contracts.GoalsPublicationRoot, "execution:test", f.effectIDs, f.now)
+			if err == nil || evidence.GenerationDigest != "" || !strings.Contains(err.Error(), "historical effect request lineage mismatch") {
+				t.Fatalf("expected canonical wire validation failure, evidence=%+v err=%v", evidence, err)
+			}
+		})
 	}
 }

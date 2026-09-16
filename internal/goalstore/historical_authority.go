@@ -5,11 +5,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
+
+// historicalRecoveryStepPayload mirrors goalspublication.recoveryStepPayload.
+// The production type is package-private, so this exact wire type preserves
+// its default PascalCase field names without accepting alternate spellings.
+type historicalRecoveryStepPayload struct {
+	Version                string
+	RequestID              string
+	Step                   string
+	Intent                 contracts.ActionIntent
+	Authority              contracts.PackagePublishAuthorization
+	PredecessorAbandonment string
+}
 
 // LoadExpiredHistoricalAuthorityEvidence is the sole recovery-facing loader
 // for an expired authority request. It never returns an executable authority.
@@ -72,15 +85,21 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 	}
 	var childDigest string
 	for _, id := range effectIDs {
-		var body []byte
-		if err := r.Store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, id).Scan(&body); err != nil {
+		var body, actionIntentDigest []byte
+		if err := r.Store.DB().QueryRowContext(ctx, `SELECT request_payload, action_intent_digest FROM effects WHERE effect_id=?`, id).Scan(&body, &actionIntentDigest); err != nil {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, fmt.Errorf("historical effect %s: %w", id, err)
 		}
-		var effect struct {
-			RequestID string                                `json:"request_id"`
-			Authority contracts.PackagePublishAuthorization `json:"authority"`
+		// recoveryStepPayload is the production wire contract. It intentionally
+		// uses Go's canonical field names (RequestID, Step, Intent, Authority),
+		// so this decoder must match that persisted representation exactly.
+		var effect historicalRecoveryStepPayload
+		if err := json.Unmarshal(body, &effect); err != nil {
+			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect request lineage mismatch")
 		}
-		if err := json.Unmarshal(body, &effect); err != nil || effect.RequestID != requestID {
+		parts := strings.Split(id, ":")
+		wantStep := parts[len(parts)-1]
+		wantIntentDigest, _ := request.Intent.Digest()
+		if effect.Version != "1" || effect.RequestID != requestID || effect.Step != wantStep || effect.Intent.ID != request.Intent.ID || effect.Intent.Version != request.Intent.Version || func() bool { d, _ := effect.Intent.Digest(); return d != wantIntentDigest }() || effect.Authority.Request.ID != request.ID || effect.Authority.Request.Version != request.Version || string(actionIntentDigest) != wantIntentDigest {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect request lineage mismatch")
 		}
 		if childDigest == "" {
@@ -113,10 +132,7 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 		if err != nil || at.Before(child.EffectiveAt) || !at.Before(*child.ExpiresAt) {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical authority was not valid when effect occurred")
 		}
-		var effect struct {
-			RequestID string                                `json:"request_id"`
-			Authority contracts.PackagePublishAuthorization `json:"authority"`
-		}
+		var effect historicalRecoveryStepPayload
 		if err := json.Unmarshal(effectPayload, &effect); err != nil || effect.RequestID != requestID || effect.Authority.Generation.Digest != child.Digest || effect.Authority.Request.ID != requestID || effect.Authority.Request.Version != version {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect is not governed by exact authority")
 		}

@@ -227,11 +227,16 @@ func TestExpiredHistoricalAuthorityResolvesPersistedParentAndDelegatedChild(t *t
 	requestObjectDigest := persist(authorityRequestNamespace, request.ID, request.Version, request, &childExpiry)
 	persist(authorityDecisionNamespace, request.ID, request.Version, decisionPayload, &childExpiry)
 	effectIDs := []string{"execution:test:manifest", "execution:test:archive", "execution:test:signature", "execution:test:verify-draft"}
-	effectPayload, _ := json.Marshal(struct {
-		RequestID string                                `json:"request_id"`
-		Authority contracts.PackagePublishAuthorization `json:"authority"`
-	}{request.ID, contracts.PackagePublishAuthorization{Generation: child, Request: request, Decision: decision}})
+
 	for _, id := range effectIDs {
+		effectPayload, _ := json.Marshal(struct {
+			Version                string
+			RequestID              string
+			Step                   string
+			Intent                 contracts.ActionIntent
+			Authority              contracts.PackagePublishAuthorization
+			PredecessorAbandonment string
+		}{"1", request.ID, strings.TrimPrefix(id, "execution:test:"), intent, contracts.PackagePublishAuthorization{Generation: child, Request: request, Decision: decision}, ""})
 		if _, err := store.DB().ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, "test", "1", child.Principal.ID, child.Principal.Kind, child.Scope, "execution:test", effectPayload, "completed", created.Add(20*time.Minute).Format(time.RFC3339Nano)); err != nil {
 			t.Fatal(err)
 		}

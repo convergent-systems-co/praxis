@@ -286,6 +286,16 @@ func (r Repository) SaveAuthorityModelAdoptionSupersession(ctx context.Context, 
 	if err != nil {
 		return "", err
 	}
+	var prior contracts.AuthorityModelAdoptionSupersession
+	if err := r.loadPublisherGovernance(ctx, supersession.ID, supersession.Version, now, &prior); err == nil {
+		priorDigest, digestErr := prior.Digest()
+		if digestErr != nil || priorDigest != digest {
+			return "", errors.New("conflicting authority-model supersession already exists")
+		}
+		return digest, nil
+	} else if !errors.Is(err, statepkg.ErrSecureBlobNotFound) && !errors.Is(err, statepkg.ErrSecureBlobExpired) {
+		return "", err
+	}
 	adoption, err := r.LoadAuthorityModelAdoptionByDigest(ctx, supersession.AdoptionDigest, now)
 	if err != nil {
 		return "", err

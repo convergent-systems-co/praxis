@@ -14,8 +14,8 @@ import (
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
-	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/goalspublication"
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -102,6 +102,20 @@ Semantics:
 	return err
 }
 
+func goalsRecoveryDelegationCheckStep(intent contracts.ActionIntent) (string, error) {
+	if intent.Operation != contracts.GoalsRecoveryOperation {
+		return "", errors.New("unsupported Goals recovery operation")
+	}
+	switch intent.Parameters["contract"] {
+	case contracts.GoalsFailedVerificationContract:
+		return "verify-draft", nil
+	case contracts.GoalsRecoveryContract, contracts.GoalsChainedRecoveryContract, contracts.GoalsOrderedRecoveryContract:
+		return "manifest", nil
+	default:
+		return "", errors.New("unsupported or ambiguous Goals recovery contract")
+	}
+}
+
 func runAuthorityDelegate(args []string, getenv func(string) string, input io.Reader, output io.Writer) error {
 	flags := flag.NewFlagSet("authority delegate", flag.ContinueOnError)
 	flags.SetOutput(output)
@@ -175,8 +189,16 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	}
 	if request.Delegation.Profile == contracts.GoalsPublicationRecoveryProfile {
 		delegationPolicy = goalstore.GoalsPublicationRecoveryPolicy{Repository: repo, Request: request}
-		if request.Intent==nil{return errors.New("successor request has no protected ActionIntent")}
-		if err:= (goalspublication.RecoveryGitHub{}).Check(context.Background(),*request.Intent,"manifest",nil);err!=nil{return fmt.Errorf("established Goals release precondition changed before delegation: %w",err)}
+		if request.Intent == nil {
+			return errors.New("successor request has no protected ActionIntent")
+		}
+		step, err := goalsRecoveryDelegationCheckStep(*request.Intent)
+		if err != nil {
+			return err
+		}
+		if err := (goalspublication.RecoveryGitHub{}).Check(context.Background(), *request.Intent, step, nil); err != nil {
+			return fmt.Errorf("established Goals release precondition changed before delegation: %w", err)
+		}
 	}
 	if err := delegationPolicy.ContainDelegation(parent, *request.Delegation, now); err != nil {
 		return err

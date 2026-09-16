@@ -102,18 +102,34 @@ func runAuthorityModelPreview(args []string, getenv func(string) string, out io.
 	if err != nil {
 		return err
 	}
-	d, err := adoption.Digest()
+	payload, err := authorityModelPreviewPayload(adoption)
 	if err != nil {
 		return err
 	}
-	payload, _ := json.MarshalIndent(map[string]any{"preview": true, "adoption": adoption, "preview_digest": d, "confirmation": "ADOPT " + d}, "", "  ")
 	if *output != "" {
-		if err := os.WriteFile(*output, append(payload, '\n'), 0600); err != nil {
+		if err := writeCanonicalPreviewFile(*output, payload); err != nil {
 			return err
 		}
 	}
-	_, err = fmt.Fprintln(out, string(payload))
+	_, err = fmt.Fprint(out, string(payload))
 	return err
+}
+
+func authorityModelPreviewPayload(adoption contracts.AuthorityModelAdoption) ([]byte, error) {
+	digest, err := adoption.Digest()
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.MarshalIndent(map[string]any{
+		"preview":        true,
+		"adoption":       adoption,
+		"preview_digest": digest,
+		"confirmation":   "ADOPT " + digest,
+	}, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(payload, '\n'), nil
 }
 
 func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {

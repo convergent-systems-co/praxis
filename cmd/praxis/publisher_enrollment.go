@@ -67,7 +67,7 @@ func publisherEnrollmentPreview(args []string, out io.Writer) error {
 	result := map[string]any{"operation": "publisher.enroll", "preview": true, "preview_record": preview, "preview_digest": digest, "confirmation": "APPROVE-PUBLISHER " + digest}
 	if output != "" {
 		payload, _ := json.MarshalIndent(result, "", "  ")
-		if err := os.WriteFile(output, append(payload, '\n'), 0600); err != nil {
+		if err := writeCanonicalPreviewFile(output, append(payload, '\n')); err != nil {
 			return err
 		}
 	}

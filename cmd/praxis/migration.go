@@ -89,7 +89,7 @@ func runMigrationPreview(args []string, getenv func(string) string, out io.Write
 		return err
 	}
 	if *output != "" {
-		if err := os.WriteFile(*output, append(payload, '\n'), 0600); err != nil {
+		if err := writeCanonicalPreviewFile(*output, append(payload, '\n')); err != nil {
 			return err
 		}
 	}

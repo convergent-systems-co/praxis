@@ -78,7 +78,7 @@ func (g RecoveryGitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, 
 	case "manifest", "archive", "signature":
 		i := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[step]
 		path := fmt.Sprintf("https://uploads.github.com/%s/releases/%s/assets?name=%s", apiRepo, contracts.GoalsRecoveryReleaseID, assetNames[i])
-		b, err := gh(ctx, []string{"api", "--hostname", "github.com", "--method", "POST", path, "-H", "Content-Type: application/octet-stream", "--input", "-"}, assets[i])
+		b, err := ghFile(ctx, []string{"api", "--hostname", "github.com", "--method", "POST", path, "-H", "Content-Type: application/octet-stream"}, assets[i])
 		if err != nil {
 			return o, err
 		}

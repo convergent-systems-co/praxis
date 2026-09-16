@@ -239,6 +239,34 @@ func TestGitHubProcessOutcomeClassificationIsSafeAndBounded(t *testing.T) {
 	})
 }
 
+func TestGHFileUsesExactBoundedTemporaryUploadFile(t *testing.T) {
+	dir := t.TempDir()
+	expected := filepath.Join(dir, "expected.bin")
+	body := []byte("manifest-bytes-exact")
+	must(t, os.WriteFile(expected, body, 0600))
+	marker := filepath.Join(dir, "seen-path")
+	script := "#!/bin/sh\nprev=\"\"\nfor arg in \"$@\"; do if [ \"$prev\" = \"--input\" ]; then p=\"$arg\"; fi; prev=\"$arg\"; done\nprintf '%s' \"$p\" > \"$MARKER\"\n[ \"$p\" != \"-\" ] || exit 2\n/usr/bin/cmp \"$p\" \"$EXPECTED\" || exit 3\nprintf '{}'\n"
+	must(t, os.WriteFile(filepath.Join(dir, "gh"), []byte(script), 0700))
+	t.Setenv("PATH", dir)
+	t.Setenv("EXPECTED", expected)
+	t.Setenv("MARKER", marker)
+	got, err := ghFile(context.Background(), []string{"api", "--method", "POST", "upload"}, body)
+	if err != nil || string(got) != "{}" {
+		seen, _ := os.ReadFile(marker)
+		t.Fatalf("file upload failed: %v %q path=%q", err, got, seen)
+	}
+	p, err := os.ReadFile(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(p) == "" || string(p) == "-" {
+		t.Fatalf("upload did not receive a file path: %q", p)
+	}
+	if _, err = os.Stat(string(p)); !os.IsNotExist(err) {
+		t.Fatalf("temporary upload file survived: %v", err)
+	}
+}
+
 func TestProviderDiagnosticsStructuredAndSanitized(t *testing.T) {
 	raw := `{"message":"Validation Failed","documentation_url":"https://docs.github.com/rest?token=secret","errors":[{"resource":"ReleaseAsset","field":"name","code":"already_exists","value":"ghp_supersecretvalue"}]}`
 	message, doc, errs := providerDiagnostics(raw)

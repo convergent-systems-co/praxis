@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -178,8 +179,39 @@ func providerDiagnostics(raw string) (string, string, []ProviderError) {
 const apiRepo = "repos/" + contracts.GoalsPublicationRepository
 
 func gh(ctx context.Context, args []string, body []byte) ([]byte, error) {
+	return runGH(ctx, args, bytes.NewReader(body), "")
+}
+
+// ghFile is used only for binary release-asset uploads. A real file lets gh
+// determine the exact body length while preserving the bytes and credentials
+// handling of the existing subprocess transport.
+func ghFile(ctx context.Context, args []string, body []byte) ([]byte, error) {
+	f, err := os.CreateTemp("", "praxis-gh-upload-")
+	if err != nil {
+		return nil, err
+	}
+	path := f.Name()
+	defer os.Remove(path)
+	if err = f.Chmod(0600); err != nil {
+		f.Close()
+		return nil, err
+	}
+	if _, err = f.Write(body); err != nil {
+		f.Close()
+		return nil, err
+	}
+	if err = f.Close(); err != nil {
+		return nil, err
+	}
+	return runGH(ctx, args, nil, path)
+}
+
+func runGH(ctx context.Context, args []string, input io.Reader, inputFile string) ([]byte, error) {
+	if inputFile != "" {
+		args = append(append([]string(nil), args...), "--input", inputFile)
+	}
 	c := exec.CommandContext(ctx, "gh", args...)
-	c.Stdin = bytes.NewReader(body)
+	c.Stdin = input
 	out := &boundedCapture{limit: 8192}
 	stderr := &boundedCapture{limit: 8192}
 	c.Stdout = out
@@ -507,7 +539,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 		idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[step]
 		releaseID := previous[1].Release.ID
 		path := fmt.Sprintf("https://uploads.github.com/%s/releases/%d/assets?name=%s", apiRepo, releaseID, assetNames[idx])
-		b, e := gh(ctx, []string{"api", "--hostname", "github.com", "--method", "POST", path, "-H", "Content-Type: application/octet-stream", "--input", "-"}, assets[idx])
+		b, e := ghFile(ctx, []string{"api", "--hostname", "github.com", "--method", "POST", path, "-H", "Content-Type: application/octet-stream"}, assets[idx])
 		if e != nil {
 			return o, e
 		}

@@ -10,16 +10,17 @@ import (
 )
 
 const (
-	GoalsRecoveryOperation     = "publish-goals-from-established-state"
-	GoalsRecoveryContract      = "goals-established-state-publication/1"
-	GoalsRecoveryRepositoryID  = "1372388187"
-	GoalsRecoveryOwnerID       = "263966243"
-	GoalsRecoveryCommit        = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
-	GoalsRecoveryTree          = "06476050446988f592cd2064823ff73c5a7a09f0"
-	GoalsRecoveryReleaseID     = "389997269"
-	GoalsRecoveryNonce         = "7faf8b95afeb3bdd58534b0e1139f01169b4d417cd8d30e3b77a1533ad84aad1"
-	GoalsRecoveryAuthorityRoot = "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
-	GoalsRecoveryPublisherKey  = "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+	GoalsRecoveryOperation       = "publish-goals-from-established-state"
+	GoalsRecoveryContract        = "goals-established-state-publication/1"
+	GoalsChainedRecoveryContract = "goals-established-state-publication/2"
+	GoalsRecoveryRepositoryID    = "1372388187"
+	GoalsRecoveryOwnerID         = "263966243"
+	GoalsRecoveryCommit          = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
+	GoalsRecoveryTree            = "06476050446988f592cd2064823ff73c5a7a09f0"
+	GoalsRecoveryReleaseID       = "389997269"
+	GoalsRecoveryNonce           = "7faf8b95afeb3bdd58534b0e1139f01169b4d417cd8d30e3b77a1533ad84aad1"
+	GoalsRecoveryAuthorityRoot   = "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
+	GoalsRecoveryPublisherKey    = "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
 )
 
 type GoalsRecoveryInput struct {
@@ -30,6 +31,57 @@ type GoalsRecoveryInput struct {
 	PredecessorRequestID, PredecessorRequestDigest string
 	PredecessorIntentID, PredecessorIntentDigest   string
 	AbandonmentEventID, AbandonmentDigest          string
+}
+
+// GoalsChainedRecoveryInput is the bounded two-generation extension used when
+// a recovery successor itself was abandoned. It is deliberately fixed-width:
+// it records exactly one prior recovery generation rather than an arbitrary
+// recursive event list.
+type GoalsChainedRecoveryInput struct {
+	GoalsRecoveryInput
+	PriorRecoveryRequestID, PriorRecoveryRequestDigest                                                               string
+	PriorRecoveryIntentID, PriorRecoveryIntentDigest                                                                 string
+	PriorRecoveryAuthorityDigest, PriorRecoveryExecutionID                                                           string
+	PriorRecoveryAbandonmentEventID, PriorRecoveryAbandonmentDigest                                                  string
+	PriorRecoveryManifestEffectID, PriorRecoveryManifestState                                                        string
+	PriorRecoveryManifestAttempts                                                                                    int
+	PriorRecoveryManifestRequestDigest, PriorRecoveryManifestResultDigest, PriorRecoveryManifestReconciliationDigest string
+}
+
+func NewGoalsPublicationChainedRecoveryIntent(in GoalsChainedRecoveryInput) (ActionIntent, error) {
+	a, err := NewGoalsPublicationRecoveryIntent(in.GoalsRecoveryInput)
+	if err != nil {
+		return ActionIntent{}, err
+	}
+	for _, s := range []string{in.PriorRecoveryRequestID, in.PriorRecoveryIntentID, in.PriorRecoveryAuthorityDigest, in.PriorRecoveryExecutionID, in.PriorRecoveryAbandonmentEventID, in.PriorRecoveryManifestEffectID} {
+		if s == "" {
+			return ActionIntent{}, errors.New("prior recovery lineage missing")
+		}
+	}
+	for _, d := range []string{in.PriorRecoveryRequestDigest, in.PriorRecoveryIntentDigest, in.PriorRecoveryAbandonmentDigest, in.PriorRecoveryManifestRequestDigest, in.PriorRecoveryManifestResultDigest, in.PriorRecoveryManifestReconciliationDigest} {
+		if !isSHA256Digest(d) {
+			return ActionIntent{}, errors.New("prior recovery lineage digest invalid")
+		}
+	}
+	if in.PriorRecoveryManifestState != "unknown" || in.PriorRecoveryManifestAttempts != 1 {
+		return ActionIntent{}, errors.New("prior recovery manifest state invalid")
+	}
+	a.Parameters["contract"] = GoalsChainedRecoveryContract
+	a.Parameters["prior_recovery_request_id"] = in.PriorRecoveryRequestID
+	a.Parameters["prior_recovery_request_digest"] = in.PriorRecoveryRequestDigest
+	a.Parameters["prior_recovery_intent_id"] = in.PriorRecoveryIntentID
+	a.Parameters["prior_recovery_intent_digest"] = in.PriorRecoveryIntentDigest
+	a.Parameters["prior_recovery_authority_digest"] = in.PriorRecoveryAuthorityDigest
+	a.Parameters["prior_recovery_execution_id"] = in.PriorRecoveryExecutionID
+	a.Parameters["prior_recovery_abandonment_event_id"] = in.PriorRecoveryAbandonmentEventID
+	a.Parameters["prior_recovery_abandonment_digest"] = in.PriorRecoveryAbandonmentDigest
+	a.Parameters["prior_recovery_manifest_effect_id"] = in.PriorRecoveryManifestEffectID
+	a.Parameters["prior_recovery_manifest_state"] = in.PriorRecoveryManifestState
+	a.Parameters["prior_recovery_manifest_attempts"] = strconv.Itoa(in.PriorRecoveryManifestAttempts)
+	a.Parameters["prior_recovery_manifest_request_digest"] = in.PriorRecoveryManifestRequestDigest
+	a.Parameters["prior_recovery_manifest_result_digest"] = in.PriorRecoveryManifestResultDigest
+	a.Parameters["prior_recovery_manifest_reconciliation_digest"] = in.PriorRecoveryManifestReconciliationDigest
+	return a, nil
 }
 
 // NewGoalsPublicationRecoveryIntent is closed around the one established
@@ -68,6 +120,13 @@ func NewGoalsPublicationRecoveryIntent(in GoalsRecoveryInput) (ActionIntent, err
 }
 
 func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
+	if a.Parameters["contract"] == GoalsChainedRecoveryContract {
+		return ValidateGoalsPublicationChainedRecoveryIntent(a)
+	}
+	return validateGoalsPublicationRecoveryIntentV1(a)
+}
+
+func validateGoalsPublicationRecoveryIntentV1(a ActionIntent) error {
 	p := a.Parameters
 	parse := func(k string) int64 { n, _ := strconv.ParseInt(p[k], 10, 64); return n }
 	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
@@ -83,6 +142,43 @@ func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
 	y, _ := json.Marshal(a)
 	if !reflect.DeepEqual(x, y) {
 		return fmt.Errorf("successor intent differs from its closed established-state contract")
+	}
+	return nil
+}
+
+func ValidateGoalsPublicationChainedRecoveryIntent(a ActionIntent) error {
+	p := a.Parameters
+	parse := func(k string) int64 { n, _ := strconv.ParseInt(p[k], 10, 64); return n }
+	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
+	expiry, e2 := time.Parse(time.RFC3339Nano, p["expires_at"])
+	if e1 != nil || e2 != nil {
+		return errors.New("successor intent timestamps malformed")
+	}
+	base, err := NewGoalsPublicationRecoveryIntent(GoalsRecoveryInput{CreatedAt: created, ExpiresAt: expiry, Identity: stringsTrimPrefix(a.ID, "goals-established-state-publication:"), AccountID: parse("account_id"), Sizes: [3]int64{parse("manifest_size"), parse("archive_size"), parse("signature_size")}, PredecessorRequestID: p["predecessor_request_id"], PredecessorRequestDigest: p["predecessor_request_digest"], PredecessorIntentID: p["predecessor_intent_id"], PredecessorIntentDigest: p["predecessor_intent_digest"], AbandonmentEventID: p["abandonment_event_id"], AbandonmentDigest: p["abandonment_digest"]})
+	if err != nil {
+		return err
+	}
+	base.Parameters["contract"] = GoalsChainedRecoveryContract
+	for _, k := range []string{"prior_recovery_request_id", "prior_recovery_request_digest", "prior_recovery_intent_id", "prior_recovery_intent_digest", "prior_recovery_authority_digest", "prior_recovery_execution_id", "prior_recovery_abandonment_event_id", "prior_recovery_abandonment_digest", "prior_recovery_manifest_effect_id", "prior_recovery_manifest_state", "prior_recovery_manifest_attempts", "prior_recovery_manifest_request_digest", "prior_recovery_manifest_result_digest", "prior_recovery_manifest_reconciliation_digest"} {
+		base.Parameters[k] = p[k]
+	}
+	if p["prior_recovery_manifest_state"] != "unknown" || parse("prior_recovery_manifest_attempts") != 1 {
+		return errors.New("prior recovery manifest state invalid")
+	}
+	for _, k := range []string{"prior_recovery_request_digest", "prior_recovery_intent_digest", "prior_recovery_abandonment_digest", "prior_recovery_manifest_request_digest", "prior_recovery_manifest_result_digest", "prior_recovery_manifest_reconciliation_digest"} {
+		if !isSHA256Digest(p[k]) {
+			return errors.New("prior recovery lineage digest invalid")
+		}
+	}
+	for _, k := range []string{"prior_recovery_request_id", "prior_recovery_intent_id", "prior_recovery_authority_digest", "prior_recovery_execution_id", "prior_recovery_abandonment_event_id", "prior_recovery_manifest_effect_id"} {
+		if p[k] == "" {
+			return errors.New("prior recovery lineage missing")
+		}
+	}
+	x, _ := json.Marshal(base)
+	y, _ := json.Marshal(a)
+	if !reflect.DeepEqual(x, y) {
+		return errors.New("chained successor intent differs from closed contract")
 	}
 	return nil
 }

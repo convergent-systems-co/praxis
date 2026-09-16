@@ -79,6 +79,74 @@ func (e RecoveryExecution) PrepareIntent(ctx context.Context, predecessorRequest
 	}
 	return a, nil
 }
+
+// PrepareChainedIntent constructs the one permitted successor after an
+// abandoned recovery successor. The prior generation is bound explicitly;
+// no prior authority or effect is reused.
+func (e RecoveryExecution) PrepareChainedIntent(ctx context.Context, priorRecoveryRequestID, identity string, expires time.Time) (contracts.ActionIntent, error) {
+	if err := e.Assets.Validate(); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err := VerifySigning(ctx, e.Repository, e.Assets, e.now()); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if !strings.HasPrefix(priorRecoveryRequestID, "goals-publication-recovery-request:") {
+		return contracts.ActionIntent{}, errors.New("not a recovery request")
+	}
+	key := recoveryKey(priorRecoveryRequestID)
+	var eventID string
+	var body []byte
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT event_id,payload FROM events WHERE event_type='goals-publication-recovery.abandoned' AND correlation_id=?`, key).Scan(&eventID, &body); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var abandoned recoveryAbandonmentPayload
+	if err := json.Unmarshal(body, &abandoned); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if abandoned.RequestID != priorRecoveryRequestID || abandoned.ExecutionID != key || abandoned.ExecutionStatus != "abandoned" || abandoned.CompletionEstablished || len(abandoned.Effects) == 0 || abandoned.Effects[0].State != string(state.EffectUnknown) {
+		return contracts.ActionIntent{}, errors.New("prior recovery abandonment is not exact and terminal")
+	}
+	manifestPayload, err := loadRecoveryManifestPayload(ctx, e.Repository.Store.DB(), key+":manifest")
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var sp recoveryStepPayload
+	if err := json.Unmarshal(manifestPayload, &sp); err != nil || sp.RequestID != priorRecoveryRequestID || sp.Step != "manifest" {
+		return contracts.ActionIntent{}, errors.New("prior recovery manifest lineage mismatch")
+	}
+	priorIntentDigest, err := sp.Intent.Digest()
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if priorIntentDigest != abandoned.IntentDigest || sp.Intent.ID != abandoned.IntentID || sp.Authority.Generation.Digest != abandoned.AuthorityDigest {
+		return contracts.ActionIntent{}, errors.New("prior recovery authority lineage mismatch")
+	}
+	if err := contracts.ValidateGoalsPublicationRecoveryIntent(sp.Intent); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if _, err := e.predecessor(ctx, sp.Intent); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	remote, ok := e.Adapter.(RecoveryGitHub)
+	if !ok {
+		return contracts.ActionIntent{}, errors.New("fixed read-only successor GitHub adapter unavailable")
+	}
+	id, err := remote.Identity(ctx)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	a, err := contracts.NewGoalsPublicationChainedRecoveryIntent(contracts.GoalsChainedRecoveryInput{GoalsRecoveryInput: contracts.GoalsRecoveryInput{CreatedAt: e.now(), ExpiresAt: expires, Identity: identity, AccountID: id.AccountID, Sizes: [3]int64{int64(len(e.Assets[0])), int64(len(e.Assets[1])), int64(len(e.Assets[2]))}, PredecessorRequestID: sp.Intent.Parameters["predecessor_request_id"], PredecessorRequestDigest: sp.Intent.Parameters["predecessor_request_digest"], PredecessorIntentID: sp.Intent.Parameters["predecessor_intent_id"], PredecessorIntentDigest: sp.Intent.Parameters["predecessor_intent_digest"], AbandonmentEventID: sp.Intent.Parameters["abandonment_event_id"], AbandonmentDigest: sp.Intent.Parameters["abandonment_digest"]}, PriorRecoveryRequestID: priorRecoveryRequestID, PriorRecoveryRequestDigest: abandoned.RequestDigest, PriorRecoveryIntentID: abandoned.IntentID, PriorRecoveryIntentDigest: abandoned.IntentDigest, PriorRecoveryAuthorityDigest: abandoned.AuthorityDigest, PriorRecoveryExecutionID: abandoned.ExecutionID, PriorRecoveryAbandonmentEventID: eventID, PriorRecoveryAbandonmentDigest: hash(body), PriorRecoveryManifestEffectID: key + ":manifest", PriorRecoveryManifestState: abandoned.Effects[0].State, PriorRecoveryManifestAttempts: abandoned.Effects[0].Attempts, PriorRecoveryManifestRequestDigest: abandoned.Effects[0].Request, PriorRecoveryManifestResultDigest: abandoned.Effects[0].Result, PriorRecoveryManifestReconciliationDigest: abandoned.Effects[0].Reconciliation})
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err := e.Repository.ValidateGoalsPublicationChainedRecoveryBinding(ctx, a); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err := remote.Check(ctx, a, "manifest", nil); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	return a, nil
+}
 func recoveryKey(id string) string { return "goals-publication-recovery:" + hash([]byte(id)) }
 
 type recoveryStepPayload struct {

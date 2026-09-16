@@ -25,6 +25,7 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	f.SetOutput(out)
 	dir := f.String("package-dir", "", "directory containing the exact existing signed Goals assets")
 	request := f.String("request-id", "", "exact system-produced publication request ID")
+	priorRequest := f.String("prior-recovery-request-id", "", "exact prior abandoned recovery request ID")
 	expiry := f.String("expires-at", "", "finite authorization expiry (RFC3339)")
 	ownerConfirmation := f.String("confirmation", "", "exact owner confirmation: ABANDON <payload-digest>")
 	reason := f.String("reason", "", "reason for terminally abandoning the exact execution")
@@ -131,6 +132,36 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 			return err
 		}
 		return printJSONTo(out, map[string]any{"completion_event": id, "published": true})
+	case "recovery-chain-prepare":
+		if *dir == "" || *priorRequest == "" || *expiry == "" || *request != "" || *ownerConfirmation != "" || *reason != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-chain-prepare --package-dir <dir> --prior-recovery-request-id <id> --expires-at <RFC3339>")
+		}
+		until, err := time.Parse(time.RFC3339, *expiry)
+		if err != nil || !until.After(now) {
+			return errors.New("future finite successor expiry required")
+		}
+		assets, err := goalspublication.ReadAssets(*dir)
+		if err != nil {
+			return err
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		nonce := make([]byte, 32)
+		if _, err = rand.Read(nonce); err != nil {
+			return err
+		}
+		intent, err := (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}, Assets: assets}).PrepareChainedIntent(ctx, *priorRequest, hex.EncodeToString(nonce), until)
+		if err != nil {
+			return err
+		}
+		req, digest, err := repo.SaveGoalsPublicationRecoveryRequest(ctx, intent, now)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"request": req, "request_digest": digest, "authorized": false, "published": false})
 	case "recovery-reconcile":
 		if *request == "" || *dir != "" || *expiry != "" || *ownerConfirmation != "" || *reason != "" {
 			return errors.New("usage: praxis publisher goals-publication-recovery-reconcile --request-id <id>")

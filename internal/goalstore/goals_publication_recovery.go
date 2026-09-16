@@ -22,8 +22,17 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 	if err := contracts.ValidateGoalsPublicationRecoveryIntent(a); err != nil {
 		return fail(err)
 	}
-	if err := r.ValidateGoalsPublicationAbandonmentBinding(ctx, a); err != nil {
-		return fail(err)
+	var bindErr error
+	if a.Parameters["contract"] == contracts.GoalsChainedRecoveryContract {
+		bindErr = r.ValidateGoalsPublicationChainedRecoveryBinding(ctx, a)
+		if bindErr == nil {
+			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
+		}
+	} else {
+		bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
+	}
+	if bindErr != nil {
+		return fail(bindErr)
 	}
 	m, err := r.LoadAuthorityModelState(ctx, now)
 	if err != nil {
@@ -46,7 +55,9 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 	if pub.State != "active" || pub.Generation.Principal != a.Actor || pub.Generation.Generation != "2" {
 		return fail(errors.New("exact enrolled publisher unavailable"))
 	}
-	if err:=pub.Generation.Validate();err!=nil{return fail(err)}
+	if err := pub.Generation.Validate(); err != nil {
+		return fail(err)
+	}
 	pd, err := pub.Generation.Digest()
 	if err != nil || pd != contracts.GoalsPublicationPublisher {
 		return fail(errors.New("publisher generation digest mismatch"))
@@ -66,6 +77,41 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		return fail(err)
 	}
 	return req, rd, nil
+}
+
+// ValidateGoalsPublicationChainedRecoveryBinding verifies the fixed two-
+// generation recovery chain. It intentionally accepts no arbitrary history.
+func (r Repository) ValidateGoalsPublicationChainedRecoveryBinding(ctx context.Context, a contracts.ActionIntent) error {
+	if err := contracts.ValidateGoalsPublicationChainedRecoveryIntent(a); err != nil {
+		return err
+	}
+	p := a.Parameters
+	var body []byte
+	if err := r.Store.DB().QueryRowContext(ctx, `SELECT payload FROM events WHERE event_id=? AND event_type='goals-publication-recovery.abandoned' AND event_version='1'`, p["prior_recovery_abandonment_event_id"]).Scan(&body); err != nil {
+		return err
+	}
+	if recoveryHash(body) != p["prior_recovery_abandonment_digest"] {
+		return errors.New("prior recovery abandonment digest mismatch")
+	}
+	var x struct {
+		Version, RequestID, RequestDigest, IntentID, IntentDigest, AuthorityDigest, ExecutionID, ExecutionStatus string
+		Effects                                                                                                  []struct {
+			ID, State                       string
+			Attempts                        int
+			Request, Result, Reconciliation string
+		}
+		CompletionEstablished bool
+	}
+	if err := json.Unmarshal(body, &x); err != nil {
+		return err
+	}
+	if x.Version != "1" || x.ExecutionStatus != "abandoned" || x.CompletionEstablished || x.RequestID != p["prior_recovery_request_id"] || x.RequestDigest != p["prior_recovery_request_digest"] || x.IntentID != p["prior_recovery_intent_id"] || x.IntentDigest != p["prior_recovery_intent_digest"] || x.AuthorityDigest != p["prior_recovery_authority_digest"] || x.ExecutionID != p["prior_recovery_execution_id"] || len(x.Effects) == 0 || x.Effects[0].State != "unknown" || x.Effects[0].Attempts != 1 {
+		return errors.New("prior recovery abandonment lineage mismatch")
+	}
+	if x.Effects[0].ID != p["prior_recovery_manifest_effect_id"] || x.Effects[0].Request != p["prior_recovery_manifest_request_digest"] || x.Effects[0].Result != p["prior_recovery_manifest_result_digest"] || x.Effects[0].Reconciliation != p["prior_recovery_manifest_reconciliation_digest"] {
+		return errors.New("prior recovery manifest evidence mismatch")
+	}
+	return nil
 }
 
 func recoveryHash(b []byte) string {

@@ -89,3 +89,19 @@ func TestGoalsRecoveryIntentRejectsStateAndLineageSubstitution(t *testing.T) {
 		})
 	}
 }
+
+func TestGoalsChainedRecoveryIntentBindsPriorRecovery(t *testing.T) {
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	in := GoalsChainedRecoveryInput{GoalsRecoveryInput: GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("b", 64), AccountID: 789, Sizes: [3]int64{12, 34, 56}, PredecessorRequestID: "goals-publication-request:old", PredecessorRequestDigest: "sha256:" + strings.Repeat("1", 64), PredecessorIntentID: "goals-initial-publication:old", PredecessorIntentDigest: "sha256:" + strings.Repeat("2", 64), AbandonmentEventID: "goals-publication-abandoned:old", AbandonmentDigest: "sha256:" + strings.Repeat("3", 64)}, PriorRecoveryRequestID: "goals-publication-recovery-request:prior", PriorRecoveryRequestDigest: "sha256:" + strings.Repeat("4", 64), PriorRecoveryIntentID: "goals-established-state-publication:prior", PriorRecoveryIntentDigest: "sha256:" + strings.Repeat("5", 64), PriorRecoveryAuthorityDigest: "sha256:" + strings.Repeat("6", 64), PriorRecoveryExecutionID: "goals-publication-recovery:prior", PriorRecoveryAbandonmentEventID: "goals-publication-recovery-abandoned:prior", PriorRecoveryAbandonmentDigest: "sha256:" + strings.Repeat("7", 64), PriorRecoveryManifestEffectID: "goals-publication-recovery:prior:manifest", PriorRecoveryManifestState: "unknown", PriorRecoveryManifestAttempts: 1, PriorRecoveryManifestRequestDigest: "sha256:" + strings.Repeat("8", 64), PriorRecoveryManifestResultDigest: "sha256:" + strings.Repeat("9", 64), PriorRecoveryManifestReconciliationDigest: "sha256:" + strings.Repeat("a", 64)}
+	a, err := NewGoalsPublicationChainedRecoveryIntent(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = ValidateGoalsPublicationRecoveryIntent(a); err != nil {
+		t.Fatal(err)
+	}
+	a.Parameters["prior_recovery_intent_id"] = ""
+	if ValidateGoalsPublicationRecoveryIntent(a) == nil {
+		t.Fatal("substituted prior recovery lineage accepted")
+	}
+}

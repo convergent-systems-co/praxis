@@ -40,8 +40,22 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityModelStatus(args[1:], os.Getenv, os.Stdout)
 	case "request-inspect":
 		return runAuthorityRequestInspect(args[1:], os.Getenv, os.Stdout)
+	case "package-deploy-preview":
+		return runPackageManagerAuthorityPreview(args[1:], os.Stdout)
+	case "package-deploy-proposal":
+		return runPackageManagerAuthorityProposal(args[1:], os.Getenv, os.Stdout)
+	case "package-deploy-review":
+		return runPackageManagerAuthorityReview(args[1:], os.Stdout)
+	case "package-deploy-request":
+		return runPackageManagerAuthorityRequest(args[1:], os.Getenv, os.Stdout)
+	case "package-deploy-approve":
+		return runPackageManagerDeploymentApprove(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "package-deploy-intent-preview":
+		return runPackageDeploymentIntentPreview(args[1:], os.Getenv, os.Stdout)
+	case "package-deploy-intent-request":
+		return runPackageDeploymentIntentRequest(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis authority {bootstrap|delegate|model-preview|model-adopt|model-status|request-inspect}")
+		return errors.New("usage: praxis authority {bootstrap|delegate|request-inspect|model-preview|model-adopt|model-status|package-deploy-preview|package-deploy-proposal|package-deploy-review|package-deploy-request|package-deploy-intent-preview|package-deploy-intent-request|package-deploy-approve}")
 	}
 }
 
@@ -131,11 +145,11 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 			return fmt.Errorf("decode delegation request: %w", err)
 		}
 	}
-	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
+	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish && request.RequestedAuthority != contracts.GovernedPackageDeploy) || request.Delegation == nil {
 		return errors.New("request must contain a supported closed delegation request")
 	}
-	if request.RequestedAuthority == contracts.GovernedPackagePublish && *requestFile != "" {
-		return errors.New("package.publish requires a durable canonical request reference")
+	if (request.RequestedAuthority == contracts.GovernedPackagePublish || request.RequestedAuthority == contracts.GovernedPackageDeploy) && *requestFile != "" {
+		return errors.New("package.publish and package.deploy require a durable canonical request reference")
 	}
 	now := time.Now().UTC()
 	if requestDigestValue == "" {
@@ -166,7 +180,7 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 		return errAuthorityBootstrapConfirmation
 	}
 	authorityDigest := contracts.AuthorityModelDigest()
-	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish {
+	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy {
 		authorityDigest = request.Delegation.PolicyDigest
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: authorityDigest, IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
@@ -207,6 +221,9 @@ type builtinDelegationPolicy struct{}
 func (builtinDelegationPolicy) ContainDelegation(parent contracts.AuthorityGeneration, request contracts.DelegationRequest, now time.Time) error {
 	if request.Profile == contracts.DelegationProfilePackagePublish {
 		return contracts.ValidateBuiltinPackagePublishDelegation(parent, request, now)
+	}
+	if request.Profile == contracts.DelegationProfilePackageDeploy {
+		return contracts.ValidateBuiltinPackageDeployDelegation(parent, request, now)
 	}
 	return contracts.ValidateBuiltinDelegation(parent, request, now)
 }

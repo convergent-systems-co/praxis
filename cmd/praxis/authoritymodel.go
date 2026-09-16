@@ -61,13 +61,23 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 	if err != nil {
 		return contracts.AuthorityModelAdoption{}, err
 	}
+	model, err := repo.LoadAuthorityModelState(ctx, now)
+	if err != nil {
+		return contracts.AuthorityModelAdoption{}, err
+	}
 	gens, err := repo.ListAuthorityGenerations(ctx, now)
 	if err != nil {
 		return contracts.AuthorityModelAdoption{}, err
 	}
 	for _, g := range gens {
 		if g.ParentRef == "" && g.Principal == owner {
-			return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v1-to-v2", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelVersion, FromDigest: contracts.AuthorityModelDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelSuccessorVersion, ToDigest: contracts.AuthorityModelSuccessorDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in authority model successor", CreatedAt: now.UTC()}, nil
+			if model.ActiveVersion == contracts.AuthorityModelVersion {
+				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v1-to-v2", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelVersion, FromDigest: contracts.AuthorityModelDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelSuccessorVersion, ToDigest: contracts.AuthorityModelSuccessorDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in authority model successor", CreatedAt: now.UTC()}, nil
+			}
+			if model.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
+				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now.UTC()}, nil
+			}
+			return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 		}
 	}
 	return contracts.AuthorityModelAdoption{}, errors.New("installation root generation unavailable")
@@ -163,7 +173,7 @@ func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.
 	if err != nil {
 		return err
 	}
-	return printJSONTo(out, map[string]any{"operation": "authority.model-adopt", "adoption_digest": result, "model": contracts.AuthorityModelSuccessorVersion})
+	return printJSONTo(out, map[string]any{"operation": "authority.model-adopt", "adoption_digest": result, "model": envelope.Adoption.ToVersion})
 }
 
 func runAuthorityModelStatus(args []string, getenv func(string) string, out io.Writer) error {

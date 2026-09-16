@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,5 +58,30 @@ func TestAuthorityGenerationDigestBindsCanonicalFields(t *testing.T) {
 	changed.Scope = "goal:other/proposal/other"
 	if err := changed.VerifyDigest(); err == nil {
 		t.Fatal("changed authority scope retained the original generation digest")
+	}
+}
+
+func TestPackageDeployDecisionSeparatesDecisionAndOperationalAuthority(t *testing.T) {
+	now := time.Now().UTC()
+	intent := ActionIntent{Version: "1", ID: "package-deployment:fixture", Actor: PackageManagerPrincipal(), Operation: GovernedPackageDeploy, Target: "fixture.package@1.0.0#sha256:" + strings.Repeat("a", 64), Parameters: map[string]string{"closure_digest": "sha256:" + strings.Repeat("b", 64), "verification_evidence_digest": "package-verification-closure:sha256:" + strings.Repeat("c", 64)}, Scope: "installation-governance:sha256:" + strings.Repeat("d", 64)}
+	intentDigest, err := intent.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := AuthorityRequest{ID: "package-deploy-request:" + intentDigest, Version: "1", RequestedAuthority: GovernedPackageDeploy, RequestedScope: intent.Scope, Reason: "test exact deployment", Status: AuthorityRequestPending, IntentDigest: intentDigest, InstallationDigest: "sha256:" + strings.Repeat("e", 64), ClosureDigest: intent.Parameters["closure_digest"], VerificationEvidenceDigest: intent.Parameters["verification_evidence_digest"], Intent: &intent}
+	root := PrincipalRef{ID: "installation-owner:root", Kind: "human"}
+	requestDigest, err := request.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision:fixture", DecisionVersion: "1", DecidedBy: root, AuthorityRef: "root", AuthorityVersion: "1", AuthorityGenerationDigest: "sha256:" + strings.Repeat("1", 64), GrantedScope: request.RequestedScope, Outcome: AuthorityApprove, AuthorityDigest: "sha256:" + strings.Repeat("2", 64), IssuedAt: now}
+	if err := decision.Validate(request, now); err == nil {
+		t.Fatal("package-deploy decision without operational authority was accepted")
+	}
+	decision.OperationalAuthorityRef = "authority-delegation:package-manager"
+	decision.OperationalAuthorityVersion = "1"
+	decision.OperationalAuthorityGenerationDigest = "sha256:" + strings.Repeat("3", 64)
+	if err := decision.Validate(request, now); err != nil {
+		t.Fatal(err)
 	}
 }

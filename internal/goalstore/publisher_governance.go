@@ -78,6 +78,13 @@ func (r Repository) LoadAuthorityModelState(ctx context.Context, now time.Time) 
 				}
 				return contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelSuccessorVersion, ActiveDigest: contracts.AuthorityModelSuccessorDigest(), AdoptionDigest: adoptionDigest, State: "committed-recoverable"}, nil
 			}
+			if journalErr := r.loadPublisherGovernance(ctx, "authority-model-adoption:v2-to-v3", "1", now, &adoption); journalErr == nil {
+				adoptionDigest, digestErr := adoption.Digest()
+				if digestErr != nil || adoption.FromModel != contracts.AuthorityModelID || adoption.FromVersion != contracts.AuthorityModelSuccessorVersion || adoption.FromDigest != contracts.AuthorityModelSuccessorDigest() || adoption.ToModel != contracts.AuthorityModelID || adoption.ToVersion != contracts.AuthorityModelDeploymentVersion || adoption.ToDigest != contracts.AuthorityModelDeploymentDigest() {
+					return contracts.AuthorityModelState{}, errors.New("authority-model v2-to-v3 adoption journal is invalid")
+				}
+				return contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelDeploymentVersion, ActiveDigest: contracts.AuthorityModelDeploymentDigest(), AdoptionDigest: adoptionDigest, State: "committed-recoverable"}, nil
+			}
 			return contracts.AuthorityModelState{Version: contracts.AuthorityModelVersion, ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelVersion, ActiveDigest: contracts.AuthorityModelDigest(), State: "implicit-v1"}, nil
 		}
 		return contracts.AuthorityModelState{}, err
@@ -125,12 +132,15 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 		return "", err
 	}
 	if current.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
-		if current.AdoptionDigest == digest {
+		if adoption.FromVersion == contracts.AuthorityModelSuccessorVersion && adoption.ToVersion == contracts.AuthorityModelDeploymentVersion && adoption.FromDigest == contracts.AuthorityModelSuccessorDigest() && adoption.ToDigest == contracts.AuthorityModelDeploymentDigest() {
+			// v2 remains immutable; this is the explicit v2-to-v3 successor transition.
+		} else if current.AdoptionDigest == digest {
 			return digest, nil
+		} else {
+			return "", errors.New("authority model v2 is already adopted by a different transition")
 		}
-		return "", errors.New("authority model v2 is already adopted by a different transition")
 	}
-	if current.ActiveVersion != contracts.AuthorityModelVersion || current.ActiveDigest != contracts.AuthorityModelDigest() || adoption.FromVersion != contracts.AuthorityModelVersion || adoption.FromDigest != contracts.AuthorityModelDigest() || adoption.ToVersion != contracts.AuthorityModelSuccessorVersion || adoption.ToDigest != contracts.AuthorityModelSuccessorDigest() {
+	if current.ActiveVersion != adoption.FromVersion || current.ActiveDigest != adoption.FromDigest || adoption.FromModel != contracts.AuthorityModelID || adoption.ToModel != contracts.AuthorityModelID || (adoption.FromVersion == contracts.AuthorityModelVersion && (adoption.ToVersion != contracts.AuthorityModelSuccessorVersion || adoption.FromDigest != contracts.AuthorityModelDigest() || adoption.ToDigest != contracts.AuthorityModelSuccessorDigest())) || (adoption.FromVersion == contracts.AuthorityModelSuccessorVersion && (adoption.ToVersion != contracts.AuthorityModelDeploymentVersion || adoption.FromDigest != contracts.AuthorityModelSuccessorDigest() || adoption.ToDigest != contracts.AuthorityModelDeploymentDigest())) {
 		return "", errors.New("authority-model adoption source or successor mismatch")
 	}
 	var prior contracts.AuthorityModelAdoption
@@ -146,7 +156,7 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	} else {
 		return "", err
 	}
-	active := contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: contracts.AuthorityModelSuccessorVersion, ActiveDigest: contracts.AuthorityModelSuccessorDigest(), AdoptionDigest: digest, State: "committed"}
+	active := contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: adoption.ToVersion, ActiveDigest: adoption.ToDigest, AdoptionDigest: digest, State: "committed"}
 	if _, err := r.savePublisherGovernance(ctx, authorityModelStateID, "1", active, now, nil); err != nil {
 		return "", fmt.Errorf("persist active authority model: %w", err)
 	}
@@ -196,8 +206,14 @@ func (r Repository) SaveAuthorityModelAdoption(ctx context.Context, adoption con
 	if e != nil {
 		return "", e
 	}
-	if adoption.ToVersion != contracts.AuthorityModelSuccessorVersion || adoption.ToDigest != contracts.AuthorityModelSuccessorDigest() {
+	if adoption.ToVersion != contracts.AuthorityModelSuccessorVersion && adoption.ToVersion != contracts.AuthorityModelDeploymentVersion {
+		return "", errors.New("adoption does not bind a supported successor")
+	}
+	if adoption.ToVersion == contracts.AuthorityModelSuccessorVersion && adoption.ToDigest != contracts.AuthorityModelSuccessorDigest() {
 		return "", errors.New("adoption does not bind authority-model v2")
+	}
+	if adoption.ToVersion == contracts.AuthorityModelDeploymentVersion && adoption.ToDigest != contracts.AuthorityModelDeploymentDigest() {
+		return "", errors.New("adoption does not bind authority-model v3")
 	}
 	if _, e = r.savePublisherGovernance(ctx, adoption.ID, adoption.Version, adoption, now, nil); e != nil {
 		return "", e

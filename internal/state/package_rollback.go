@@ -60,7 +60,7 @@ func (s *Store) RollbackPackage(ctx context.Context, request packagecatalog.Roll
 	if err != nil || gotDigest != wantDigest || !reflect.DeepEqual(request.Current, expected.Current) || !reflect.DeepEqual(request.Targets, expected.Targets) {
 		return errors.New("package rollback precondition or target closure changed after authorization")
 	}
-	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, gotDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, gotDigest, "", now); err != nil {
 		return err
 	}
 	affected := map[string]bool{}

@@ -87,6 +87,15 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		defer db.Close()
+		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, now, os.Getenv)
+		if err != nil {
+			return err
+		}
+		deployment.VerificationEvidenceDigest = evidenceDigest
+		deployment.Intent.Parameters["verification_evidence_digest"] = evidenceDigest
+		if err := revalidateDeploymentApproval(ctx, db, deployment, now, os.Getenv); err != nil {
+			return err
+		}
 		if err := state.New(db).DeployPackages(ctx, deployment, now); err != nil {
 			return err
 		}
@@ -132,6 +141,15 @@ func runPackageCommand(command string, args []string) error {
 		}
 		deployment, err := packageDeploymentRequest(resolution, os.Getenv)
 		if err != nil {
+			return err
+		}
+		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, now, os.Getenv)
+		if err != nil {
+			return err
+		}
+		deployment.VerificationEvidenceDigest = evidenceDigest
+		deployment.Intent.Parameters["verification_evidence_digest"] = evidenceDigest
+		if err := revalidateDeploymentApproval(ctx, db, deployment, now, os.Getenv); err != nil {
 			return err
 		}
 		if err := store.DeployPackages(ctx, deployment, now); err != nil {
@@ -310,11 +328,62 @@ func packageDeploymentRequest(resolution distribution.Resolution, getenv func(st
 	if getenv == nil {
 		return packagecatalog.DeploymentRequest{}, errors.New("package deployment authority environment is required")
 	}
-	approvalID, actorID, actorKind := getenv("PRAXIS_PACKAGE_APPROVAL_ID"), getenv("PRAXIS_AUTHORITY_ID"), getenv("PRAXIS_AUTHORITY_KIND")
-	if approvalID == "" || actorID == "" || actorKind == "" {
-		return packagecatalog.DeploymentRequest{}, errors.New("PRAXIS_PACKAGE_APPROVAL_ID, PRAXIS_AUTHORITY_ID, and PRAXIS_AUTHORITY_KIND are required; verified dependency evidence does not grant deployment authority")
+	approvalID := getenv("PRAXIS_PACKAGE_APPROVAL_ID")
+	if approvalID == "" {
+		return packagecatalog.DeploymentRequest{}, errors.New("PRAXIS_PACKAGE_APPROVAL_ID is required; package deployment authority is installation-bound and cannot be selected from the environment")
 	}
-	return packagecatalog.NewDeploymentRequest(resolution.Root, resolution.Dependencies, contracts.PrincipalRef{ID: actorID, Kind: actorKind}, approvalID)
+	// The package manager is selected by installation governance state, never by
+	// PRAXIS_AUTHORITY_ID/KIND. Those variables remain selectors for legacy
+	// non-deployment transitions and cannot manufacture an installation actor.
+	return packagecatalog.NewDeploymentRequest(resolution.Root, resolution.Dependencies, contracts.PackageManagerPrincipal(), approvalID)
+}
+
+func persistDeploymentEvidence(ctx context.Context, db *sql.DB, deployment packagecatalog.DeploymentRequest, now time.Time, getenv func(string) string) (string, error) {
+	repo, authDB, record, err := openGovernedRepositoryReadOnly(ctx, getenv)
+	if err != nil {
+		return "", err
+	}
+	defer authDB.Close()
+	bootstrapDigest, err := record.Digest()
+	if err != nil {
+		return "", err
+	}
+	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if err != nil {
+		return "", err
+	}
+	root, err := currentInstallationRoot(ctx, repo, owner, now)
+	if err != nil {
+		return "", err
+	}
+	evidence, err := packagecatalog.NewVerificationEvidenceRecord(deployment.Root, deployment.Packages, root.Digest, now)
+	if err != nil {
+		return "", err
+	}
+	if err := state.New(db).SaveVerificationEvidence(ctx, evidence); err != nil {
+		return "", err
+	}
+	return evidence.ID, nil
+}
+
+func revalidateDeploymentApproval(ctx context.Context, db *sql.DB, deployment packagecatalog.DeploymentRequest, now time.Time, getenv func(string) string) error {
+	requestID, requestVersion, err := state.New(db).PackageApprovalRequest(ctx, deployment.ApprovalID)
+	if err != nil {
+		return err
+	}
+	repo, authDB, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
+	if err != nil {
+		return err
+	}
+	defer authDB.Close()
+	derived, err := repo.DerivePackageDeploymentApproval(ctx, requestID, requestVersion, deployment.Intent, now)
+	if err != nil {
+		return err
+	}
+	if derived != deployment.ApprovalID {
+		return errors.New("approval selector does not resolve to the exact governed deployment lineage")
+	}
+	return nil
 }
 
 func packageTransitionRequest(manifest packagecatalog.Manifest, operation packagecatalog.TransitionOperation, getenv func(string) string) (packagecatalog.TransitionRequest, error) {

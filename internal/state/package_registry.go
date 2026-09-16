@@ -78,7 +78,7 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 	if err != nil {
 		return err
 	}
-	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, "", now); err != nil {
 		return err
 	}
 	manifest := request.Package.Manifest()
@@ -90,6 +90,34 @@ func (s *Store) ActivatePackage(ctx context.Context, request packagecatalog.Acti
 		return err
 	}
 	return tx.Commit()
+}
+
+func validateDeploymentEvidenceTx(ctx context.Context, tx *sql.Tx, evidenceID string, packages []packagecatalog.VerifiedPackage, closureDigest string) error {
+	var body []byte
+	if err := tx.QueryRowContext(ctx, `SELECT evidence_json FROM package_verification_evidence WHERE evidence_id=?`, evidenceID).Scan(&body); err != nil {
+		return errors.New("durable verification evidence is unavailable")
+	}
+	var record packagecatalog.VerificationEvidenceRecord
+	if err := json.Unmarshal(body, &record); err != nil || record.ID != evidenceID || record.ClosureDigest != closureDigest {
+		return errors.New("durable verification evidence identity or closure mismatch")
+	}
+	if err := packagecatalog.ValidateVerificationEvidenceRecord(record); err != nil {
+		return err
+	}
+	if len(record.Packages) != len(packages) {
+		return errors.New("verified package closure differs from approved evidence")
+	}
+	for i, pkg := range packages {
+		if err := pkg.Validate(); err != nil {
+			return err
+		}
+		evidence := pkg.Evidence()
+		approved := record.Packages[i]
+		if evidence.ID != approved.ID || evidence.PackageID != approved.PackageID || evidence.PackageVersion != approved.PackageVersion || evidence.ManifestDigest != approved.ManifestDigest || evidence.ArtifactDigest != approved.ArtifactDigest || evidence.SignatureEnvelopeDigest != approved.SignatureEnvelopeDigest || evidence.SourceKind != approved.SourceKind || evidence.SourceRef != approved.SourceRef {
+			return errors.New("newly verified package closure differs from approved evidence")
+		}
+	}
+	return nil
 }
 
 // DeployPackages activates an exact verified dependency closure in one
@@ -108,11 +136,19 @@ func (s *Store) DeployPackages(ctx context.Context, request packagecatalog.Deplo
 		return fmt.Errorf("begin package deployment: %w", err)
 	}
 	defer tx.Rollback()
+	if request.Intent.Actor == contracts.PackageManagerPrincipal() {
+		if request.VerificationEvidenceDigest == "" || request.Intent.Parameters["verification_evidence_digest"] != request.VerificationEvidenceDigest {
+			return errors.New("package deployment lacks exact durable verification evidence")
+		}
+		if err := validateDeploymentEvidenceTx(ctx, tx, request.VerificationEvidenceDigest, request.Packages, request.Intent.Parameters["closure_digest"]); err != nil {
+			return err
+		}
+	}
 	intentDigest, err := request.Intent.Digest()
 	if err != nil {
 		return err
 	}
-	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, request.Intent.Parameters["closure_digest"], now); err != nil {
 		return err
 	}
 	targets := make(map[string]packagecatalog.PackageIdentity, len(request.Packages))
@@ -347,13 +383,16 @@ func activateVerifiedPackageTx(ctx context.Context, tx *sql.Tx, pkg packagecatal
 	return nil
 }
 
-func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor contracts.PrincipalRef, intentDigest string, now time.Time) error {
+func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor contracts.PrincipalRef, intentDigest, closureDigest string, now time.Time) error {
 	var approverID, approverKind string
+	var authorityDecisionDigest, authorityGenerationDigest, installationDigest, persistedClosureDigest sql.NullString
+	var decisionAuthorityRef, decisionAuthorityVersion, decisionAuthorityDigest sql.NullString
+	var operationalAuthorityRef, operationalAuthorityVersion, operationalAuthorityDigest, verificationEvidenceDigest sql.NullString
 	var persistedDigest sql.NullString
 	var issued string
 	var expires, revoked sql.NullString
 	var remaining, version int64
-	if err := tx.QueryRowContext(ctx, `SELECT approver_id,approver_kind,intent_digest,issued_at,expires_at,revoked_at,remaining_uses,version FROM approvals WHERE approval_id=?`, id).Scan(&approverID, &approverKind, &persistedDigest, &issued, &expires, &revoked, &remaining, &version); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT approver_id,approver_kind,intent_digest,issued_at,expires_at,revoked_at,remaining_uses,version,authority_decision_digest,authority_generation_digest,installation_digest,closure_digest,decision_authority_ref,decision_authority_version,decision_authority_generation_digest,operational_authority_ref,operational_authority_version,operational_authority_generation_digest,verification_evidence_digest FROM approvals WHERE approval_id=?`, id).Scan(&approverID, &approverKind, &persistedDigest, &issued, &expires, &revoked, &remaining, &version, &authorityDecisionDigest, &authorityGenerationDigest, &installationDigest, &persistedClosureDigest, &decisionAuthorityRef, &decisionAuthorityVersion, &decisionAuthorityDigest, &operationalAuthorityRef, &operationalAuthorityVersion, &operationalAuthorityDigest, &verificationEvidenceDigest); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrApprovalUnavailable
 		}
@@ -361,6 +400,11 @@ func consumePackageApproval(ctx context.Context, tx *sql.Tx, id string, actor co
 	}
 	if approverID != actor.ID || approverKind != actor.Kind || !persistedDigest.Valid || persistedDigest.String != intentDigest || revoked.Valid || remaining < 1 {
 		return ErrApprovalUnavailable
+	}
+	if actor == contracts.PackageManagerPrincipal() {
+		if !authorityDecisionDigest.Valid || !authorityGenerationDigest.Valid || !installationDigest.Valid || !persistedClosureDigest.Valid || !decisionAuthorityRef.Valid || !decisionAuthorityVersion.Valid || !decisionAuthorityDigest.Valid || !operationalAuthorityRef.Valid || !operationalAuthorityVersion.Valid || !operationalAuthorityDigest.Valid || !verificationEvidenceDigest.Valid || persistedClosureDigest.String != closureDigest || operationalAuthorityDigest.String != authorityGenerationDigest.String || id != "package-approval:"+authorityDecisionDigest.String {
+			return ErrApprovalUnavailable
+		}
 	}
 	if _, err := time.Parse(time.RFC3339Nano, issued); err != nil {
 		return fmt.Errorf("parse package approval issue time: %w", err)
@@ -411,7 +455,7 @@ func (s *Store) TransitionPackage(ctx context.Context, request packagecatalog.Tr
 	if err != nil {
 		return err
 	}
-	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, intentDigest, "", now); err != nil {
 		return err
 	}
 	packageID := request.Identity.PackageID

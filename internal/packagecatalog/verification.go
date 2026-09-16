@@ -48,6 +48,83 @@ type VerificationEvidence struct {
 	VerifiedAt              time.Time               `json:"verified_at"`
 }
 
+// VerificationEvidenceRecord freezes one complete dependency closure for
+// governance before installation. It is evidence only; it grants no
+// installation or runtime authority.
+type VerificationEvidenceRecord struct {
+	Version            string                 `json:"version"`
+	ID                 string                 `json:"id"`
+	InstallationDigest string                 `json:"installation_digest"`
+	RootEvidenceID     string                 `json:"root_evidence_id"`
+	ClosureDigest      string                 `json:"closure_digest"`
+	Packages           []VerificationEvidence `json:"packages"`
+	VerifiedAt         time.Time              `json:"verified_at"`
+	VerifierVersion    string                 `json:"verifier_version"`
+}
+
+func NewVerificationEvidenceRecord(root VerifiedPackage, packages []VerifiedPackage, installationDigest string, verifiedAt time.Time) (VerificationEvidenceRecord, error) {
+	if err := root.Validate(); err != nil {
+		return VerificationEvidenceRecord{}, err
+	}
+	if installationDigest == "" || verifiedAt.IsZero() {
+		return VerificationEvidenceRecord{}, errors.New("verification evidence record requires installation and verification time")
+	}
+	items := make([]VerificationEvidence, 0, len(packages))
+	for _, pkg := range packages {
+		if err := pkg.Validate(); err != nil {
+			return VerificationEvidenceRecord{}, err
+		}
+		items = append(items, pkg.Evidence())
+	}
+	closureDigest, err := DeploymentClosureDigest(packages)
+	if err != nil {
+		return VerificationEvidenceRecord{}, err
+	}
+	record := VerificationEvidenceRecord{Version: VerificationEvidenceCurrentVersion(), InstallationDigest: installationDigest, RootEvidenceID: root.Evidence().ID, ClosureDigest: closureDigest, Packages: items, VerifiedAt: verifiedAt.UTC(), VerifierVersion: "package-verifier/" + VerificationEvidenceCurrentVersion()}
+	record.ID = "package-verification-closure:" + bytesDigest(mustJSON(recordWithoutID(record)))
+	return record, ValidateVerificationEvidenceRecord(record)
+}
+
+func recordWithoutID(record VerificationEvidenceRecord) VerificationEvidenceRecord {
+	record.ID = ""
+	return record
+}
+
+func ValidateVerificationEvidenceRecord(record VerificationEvidenceRecord) error {
+	if record.ID == "" || record.InstallationDigest == "" || record.RootEvidenceID == "" || record.ClosureDigest == "" || len(record.Packages) == 0 || record.VerifiedAt.IsZero() || record.VerifierVersion == "" {
+		return errors.New("verification evidence record is incomplete")
+	}
+	for _, evidence := range record.Packages {
+		if err := ValidateVerificationEvidence(evidence); err != nil {
+			return err
+		}
+	}
+	if record.ClosureDigest == "" {
+		return errors.New("verification evidence closure digest is required")
+	}
+	expected := "package-verification-closure:" + bytesDigest(mustJSON(recordWithoutID(record)))
+	if expected != record.ID {
+		return errors.New("verification evidence record identity mismatch")
+	}
+	return nil
+}
+
+// DeploymentClosureDigest is the same canonical identity used by the package
+// deployment intent, so evidence and authorization share one closure key.
+func DeploymentClosureDigest(packages []VerifiedPackage) (string, error) {
+	identity, err := deploymentClosureIdentity(packages)
+	if err != nil {
+		return "", err
+	}
+	body, err := json.Marshal(identity)
+	if err != nil {
+		return "", err
+	}
+	return bytesDigest(body), nil
+}
+
+func mustJSON(value any) []byte { body, _ := json.Marshal(value); return body }
+
 // VerifiedPackage is an in-process capability minted only by VerifyPackage.
 // Durable evidence remains inspectable, while bare caller-authored fields
 // cannot cross the activation boundary as "verified".

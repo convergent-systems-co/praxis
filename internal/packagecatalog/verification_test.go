@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,24 @@ func signedVerificationInput(t *testing.T, manifest Manifest, artifact []byte) (
 		VerifiedAt: time.Date(2026, 9, 13, 17, 0, 0, 0, time.UTC),
 	}
 	return input, Ed25519Verifier{TrustedKeys: map[string]ed25519.PublicKey{"publisher-key": pub}}
+}
+
+func TestVerificationEvidenceRecordBindsClosureAndInstallation(t *testing.T) {
+	manifest := Manifest{ContractVersion: ManifestContractCurrentVersion(), PackageID: "fixture.package", Version: "1.0.0", Publisher: "publisher:praxis-first-party"}
+	artifact := testBundle(t, map[string][]byte{"graphs/research.json": []byte(`{"graph":"fixture"}`)})
+	verified := verifiedFixture(t, manifest, artifact, nil)
+	record, err := NewVerificationEvidenceRecord(verified, []VerifiedPackage{verified}, "sha256:"+strings.Repeat("a", 64), time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateVerificationEvidenceRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	changed := record
+	changed.InstallationDigest = "sha256:" + strings.Repeat("b", 64)
+	if err := ValidateVerificationEvidenceRecord(changed); err == nil {
+		t.Fatal("changed installation retained evidence identity")
+	}
 }
 
 func testBundle(t *testing.T, files map[string][]byte) []byte {

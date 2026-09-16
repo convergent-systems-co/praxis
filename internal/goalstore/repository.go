@@ -719,6 +719,11 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 			return fmt.Errorf("validate issuing authority generation: %w", err)
 		}
 	}
+	if request.RequestedAuthority == contracts.GovernedPackageDeploy && request.Delegation == nil {
+		if err := r.validatePackageDeploymentDecision(ctx, request, decision, time.Now().UTC()); err != nil {
+			return err
+		}
+	}
 	if existing, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
 		left, _ := json.Marshal(existing)
 		right, _ := json.Marshal(decision)
@@ -741,6 +746,28 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 	}
 	if persistErr != nil {
 		return fmt.Errorf("persist authority decision: %w", persistErr)
+	}
+	return nil
+}
+
+func (r Repository) validatePackageDeploymentDecision(ctx context.Context, request contracts.AuthorityRequest, decision contracts.AuthorityDecision, now time.Time) error {
+	if request.Intent == nil || request.IntentDigest == "" || request.VerificationEvidenceDigest == "" || request.InstallationDigest == "" || request.ClosureDigest == "" || decision.OperationalAuthorityRef == "" || decision.OperationalAuthorityVersion == "" || decision.OperationalAuthorityGenerationDigest == "" {
+		return errors.New("package-deploy decision lacks exact intent, evidence, or operational authority lineage")
+	}
+	intentDigest, err := request.Intent.Digest()
+	if err != nil || intentDigest != request.IntentDigest || request.Intent.Operation != contracts.GovernedPackageDeploy || request.Intent.Actor != contracts.PackageManagerPrincipal() {
+		return errors.New("package-deploy decision intent mismatch")
+	}
+	evidence, err := r.Store.LoadVerificationEvidence(ctx, request.VerificationEvidenceDigest)
+	if err != nil || evidence.InstallationDigest != request.InstallationDigest || evidence.ClosureDigest != request.ClosureDigest {
+		return errors.New("package-deploy decision evidence mismatch")
+	}
+	operational, err := r.LoadAuthorityGeneration(ctx, decision.OperationalAuthorityRef, decision.OperationalAuthorityVersion, now)
+	if err != nil {
+		return err
+	}
+	if operational.Digest != decision.OperationalAuthorityGenerationDigest || operational.Principal != contracts.PackageManagerPrincipal() || operational.DelegationProfile != contracts.DelegationProfilePackageDeploy || operational.AuthorityModelVersion != contracts.AuthorityModelDeploymentVersion || operational.AuthorityModelDigest != contracts.AuthorityModelDeploymentDigest() || operational.ParentDigest != request.InstallationDigest || !containsAuthority(operational.Authorities, contracts.GovernedPackageDeploy) {
+		return errors.New("package-deploy decision does not bind exact operational authority")
 	}
 	return nil
 }
@@ -814,7 +841,7 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation request: %w", err)
 	}
-	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish) || request.Delegation == nil {
+	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish && request.RequestedAuthority != contracts.GovernedPackageDeploy) || request.Delegation == nil {
 		return contracts.AuthorityGeneration{}, errors.New("request is not a delegation request")
 	}
 	if err := decision.Validate(request, createdAt); err != nil {

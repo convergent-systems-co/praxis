@@ -215,24 +215,43 @@ type AuthorityRequest struct {
 	Alternatives          []string               `json:"alternatives,omitempty"`
 	Status                AuthorityRequestStatus `json:"status"`
 	Delegation            *DelegationRequest     `json:"delegation,omitempty"`
+	// Package deployment requests bind the exact verified action separately
+	// from the long-lived PACKAGE_DEPLOY delegation.
+	IntentDigest               string        `json:"intent_digest,omitempty"`
+	InstallationDigest         string        `json:"installation_digest,omitempty"`
+	ClosureDigest              string        `json:"closure_digest,omitempty"`
+	VerificationEvidenceDigest string        `json:"verification_evidence_digest,omitempty"`
+	Intent                     *ActionIntent `json:"intent,omitempty"`
 }
 
 func (r AuthorityRequest) Validate() error {
 	if r.ID == "" || r.Version == "" || r.RequestedAuthority == "" || r.RequestedScope == "" || r.Reason == "" {
 		return errors.New("authority request identity and decision scope are required")
 	}
-	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
+	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && r.RequestedAuthority != GovernedPackageDeploy && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
 		return errors.New("authority request requires exact evidence and decision scope")
 	}
 	if r.Status != AuthorityRequestPending && r.Status != AuthorityRequestResolved && r.Status != AuthorityRequestInvalidated {
 		return fmt.Errorf("unknown authority request status %q", r.Status)
 	}
-	if r.RequestedAuthority == AuthorityDelegateCapability || r.RequestedAuthority == GovernedPackagePublish {
+	if r.RequestedAuthority == AuthorityDelegateCapability || r.RequestedAuthority == GovernedPackagePublish || (r.RequestedAuthority == GovernedPackageDeploy && r.Delegation != nil) {
 		if r.Delegation == nil {
 			return errors.New("delegation authority request requires a delegation payload")
 		}
 		if err := r.Delegation.Validate(time.Now().UTC()); err != nil {
 			return err
+		}
+	}
+	if r.RequestedAuthority == GovernedPackageDeploy && r.Delegation == nil && (r.IntentDigest == "" || r.InstallationDigest == "" || r.ClosureDigest == "" || r.VerificationEvidenceDigest == "") {
+		return errors.New("exact package-deploy request requires intent, installation, closure, and verification evidence digests")
+	}
+	if r.RequestedAuthority == GovernedPackageDeploy && r.Delegation == nil {
+		if r.Intent == nil {
+			return errors.New("exact package-deploy request requires the canonical action intent")
+		}
+		d, err := r.Intent.Digest()
+		if err != nil || d != r.IntentDigest || r.Intent.Operation != GovernedPackageDeploy {
+			return errors.New("package-deploy request intent mismatch")
 		}
 	}
 	return nil
@@ -251,21 +270,24 @@ func (r AuthorityRequest) Digest() (string, error) {
 }
 
 type AuthorityDecision struct {
-	RequestID                 string                   `json:"request_id"`
-	RequestVersion            string                   `json:"request_version"`
-	RequestDigest             string                   `json:"request_digest"`
-	DecisionRef               string                   `json:"decision_ref"`
-	DecisionVersion           string                   `json:"decision_version"`
-	DecidedBy                 PrincipalRef             `json:"decided_by"`
-	AuthorityRef              string                   `json:"authority_ref"`
-	AuthorityVersion          string                   `json:"authority_version"`
-	AuthorityGenerationDigest string                   `json:"authority_generation_digest"`
-	GrantedScope              string                   `json:"granted_scope"`
-	Outcome                   AuthorityDecisionOutcome `json:"outcome"`
-	AuthorityDigest           string                   `json:"authority_digest"`
-	IssuedAt                  time.Time                `json:"issued_at"`
-	ExpiresAt                 *time.Time               `json:"expires_at,omitempty"`
-	Delegation                *DelegationRequest       `json:"delegation,omitempty"`
+	RequestID                            string                   `json:"request_id"`
+	RequestVersion                       string                   `json:"request_version"`
+	RequestDigest                        string                   `json:"request_digest"`
+	DecisionRef                          string                   `json:"decision_ref"`
+	DecisionVersion                      string                   `json:"decision_version"`
+	DecidedBy                            PrincipalRef             `json:"decided_by"`
+	AuthorityRef                         string                   `json:"authority_ref"`
+	AuthorityVersion                     string                   `json:"authority_version"`
+	AuthorityGenerationDigest            string                   `json:"authority_generation_digest"`
+	OperationalAuthorityRef              string                   `json:"operational_authority_ref,omitempty"`
+	OperationalAuthorityVersion          string                   `json:"operational_authority_version,omitempty"`
+	OperationalAuthorityGenerationDigest string                   `json:"operational_authority_generation_digest,omitempty"`
+	GrantedScope                         string                   `json:"granted_scope"`
+	Outcome                              AuthorityDecisionOutcome `json:"outcome"`
+	AuthorityDigest                      string                   `json:"authority_digest"`
+	IssuedAt                             time.Time                `json:"issued_at"`
+	ExpiresAt                            *time.Time               `json:"expires_at,omitempty"`
+	Delegation                           *DelegationRequest       `json:"delegation,omitempty"`
 }
 
 func (d AuthorityDecision) Digest() (string, error) {
@@ -337,7 +359,12 @@ func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) err
 	if d.IssuedAt.IsZero() || (d.ExpiresAt != nil && !now.Before(*d.ExpiresAt)) {
 		return errors.New("authority decision is missing or expired")
 	}
-	if request.RequestedAuthority == AuthorityDelegateCapability || request.RequestedAuthority == GovernedPackagePublish {
+	if request.RequestedAuthority == GovernedPackageDeploy && request.Delegation == nil {
+		if d.AuthorityRef == "" || d.AuthorityVersion == "" || d.AuthorityGenerationDigest == "" || d.OperationalAuthorityRef == "" || d.OperationalAuthorityVersion == "" || d.OperationalAuthorityGenerationDigest == "" {
+			return errors.New("exact package-deploy decision requires decision and operational authority lineage")
+		}
+	}
+	if request.RequestedAuthority == AuthorityDelegateCapability || request.RequestedAuthority == GovernedPackagePublish || (request.RequestedAuthority == GovernedPackageDeploy && request.Delegation != nil) {
 		if d.Delegation == nil || !reflect.DeepEqual(*d.Delegation, *request.Delegation) {
 			return errors.New("delegation decision does not match exact request")
 		}

@@ -14,10 +14,11 @@ import (
 // dependency-first package closure. Dependencies are executable generations,
 // not merely evidence attached to the root package.
 type DeploymentRequest struct {
-	Root       VerifiedPackage
-	Packages   []VerifiedPackage
-	Intent     contracts.ActionIntent
-	ApprovalID string
+	Root                       VerifiedPackage
+	Packages                   []VerifiedPackage
+	Intent                     contracts.ActionIntent
+	ApprovalID                 string
+	VerificationEvidenceDigest string
 }
 
 func NewDeploymentRequest(root VerifiedPackage, dependencies map[string]VerifiedPackage, actor contracts.PrincipalRef, approvalID string) (DeploymentRequest, error) {
@@ -96,6 +97,9 @@ func (r DeploymentRequest) Validate() error {
 	expectedIntent, err := NewDeploymentIntent(r.Root, expected, r.Intent.Actor)
 	if err != nil {
 		return err
+	}
+	if r.VerificationEvidenceDigest != "" {
+		expectedIntent.Parameters["verification_evidence_digest"] = r.VerificationEvidenceDigest
 	}
 	wantDigest, err := expectedIntent.Digest()
 	if err != nil {

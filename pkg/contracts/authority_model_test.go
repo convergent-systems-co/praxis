@@ -88,3 +88,27 @@ func TestBuiltinPackagePublishDelegationBindsExactPublisherAndNamespace(t *testi
 		})
 	}
 }
+
+func TestBuiltinPackageDeployDelegationIsInstallationBound(t *testing.T) {
+	parent, _, now := validBuiltinDelegation(t)
+	request := DelegationRequest{Profile: DelegationProfilePackageDeploy, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedPrincipal: PackageManagerPrincipal(), TargetKind: PackageManagerPrincipalKind, TargetIdentity: PackageManagerPrincipalID, TargetVersion: "1", TargetDigest: parent.Digest, TargetConstraints: []string{parent.Digest}, RequestedCapabilities: []string{}, RequestedOperations: []string{}, RequestedAuthority: GovernedPackageDeploy, RequestedOperation: "deploy", RequestedScope: "package-deployment:installation:" + parent.Digest, ProposalVersion: "1", ProposalDigest: "sha256:" + strings.Repeat("1", 64), ReviewVersion: "1", ReviewDigest: "sha256:" + strings.Repeat("2", 64), ExpiresAt: now.Add(time.Hour), Reason: "bounded package deployment", PolicyRef: AuthorityModelID, PolicyVersion: AuthorityModelDeploymentVersion, PolicyDigest: AuthorityModelDeploymentDigest(), SubjectKind: PackageManagerPrincipalKind, SubjectID: PackageManagerPrincipalID, SubjectVersion: "1", SubjectDigest: parent.Digest}
+	if err := ValidateBuiltinPackageDeployDelegation(parent, request, now); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*DelegationRequest){
+		"other installation": func(r *DelegationRequest) { r.TargetDigest = "sha256:" + strings.Repeat("3", 64) },
+		"publisher": func(r *DelegationRequest) {
+			r.DelegatedPrincipal = PrincipalRef{ID: FirstPartyPublisherPrincipal, Kind: "publisher"}
+		},
+		"activation": func(r *DelegationRequest) { r.RequestedAuthority = "package.activate" },
+		"root only":  func(r *DelegationRequest) { r.ParentRef = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := request
+			mutate(&candidate)
+			if err := ValidateBuiltinPackageDeployDelegation(parent, candidate, now); err == nil {
+				t.Fatal("invalid package-deploy delegation was accepted")
+			}
+		})
+	}
+}

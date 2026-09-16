@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ErrCommandExists        = errors.New("command already exists")
-	ErrAggregateVersion     = errors.New("aggregate version mismatch")
-	ErrApprovalUnavailable  = errors.New("approval unavailable")
-	ErrLeaseUnavailable     = errors.New("capability lease unavailable")
+	ErrCommandExists       = errors.New("command already exists")
+	ErrAggregateVersion    = errors.New("aggregate version mismatch")
+	ErrApprovalUnavailable = errors.New("approval unavailable")
+	ErrLeaseUnavailable    = errors.New("capability lease unavailable")
 )
 
 type Store struct {
@@ -22,6 +22,15 @@ type Store struct {
 }
 
 func New(db *sql.DB) *Store { return &Store{db: db} }
+
+// DB exposes the already-open authoritative database to repository-level
+// atomic compatibility-record writers; it does not create a second store.
+func (s *Store) DB() *sql.DB {
+	if s == nil {
+		return nil
+	}
+	return s.db
+}
 
 type CommandRecord struct {
 	ID            string
@@ -208,11 +217,15 @@ func insertEffect(ctx context.Context, tx *sql.Tx, e EffectRecord) error {
 }
 
 func nullable(v string) any {
-	if v == "" { return nil }
+	if v == "" {
+		return nil
+	}
 	return v
 }
 
 func bytesOrNil(v []byte) any {
-	if len(v) == 0 { return nil }
+	if len(v) == 0 {
+		return nil
+	}
 	return v
 }

@@ -132,14 +132,25 @@ func (a ActionIntent) Validate() error {
 
 // ApprovalBinding binds authority to an exact intent digest or an explicitly bounded policy.
 type ApprovalBinding struct {
-	ID           string       `json:"id"`
-	Approver     PrincipalRef `json:"approver"`
-	IntentDigest string       `json:"intent_digest,omitempty"`
-	PolicyRef    string       `json:"policy_ref,omitempty"`
-	IssuedAt     time.Time    `json:"issued_at"`
-	ExpiresAt    *time.Time   `json:"expires_at,omitempty"`
-	RemainingUses uint64      `json:"remaining_uses"`
-	RevokedAt    *time.Time   `json:"revoked_at,omitempty"`
+	ID                                   string       `json:"id"`
+	Approver                             PrincipalRef `json:"approver"`
+	IntentDigest                         string       `json:"intent_digest,omitempty"`
+	PolicyRef                            string       `json:"policy_ref,omitempty"`
+	IssuedAt                             time.Time    `json:"issued_at"`
+	ExpiresAt                            *time.Time   `json:"expires_at,omitempty"`
+	RemainingUses                        uint64       `json:"remaining_uses"`
+	RevokedAt                            *time.Time   `json:"revoked_at,omitempty"`
+	DecisionRef                          string       `json:"decision_ref,omitempty"`
+	DecisionVersion                      string       `json:"decision_version,omitempty"`
+	DecisionDigest                       string       `json:"decision_digest,omitempty"`
+	DecisionAuthorityRef                 string       `json:"decision_authority_ref,omitempty"`
+	DecisionAuthorityVersion             string       `json:"decision_authority_version,omitempty"`
+	DecisionAuthorityGenerationDigest    string       `json:"decision_authority_generation_digest,omitempty"`
+	OperationalAuthorityRef              string       `json:"operational_authority_ref,omitempty"`
+	OperationalAuthorityVersion          string       `json:"operational_authority_version,omitempty"`
+	OperationalAuthorityGenerationDigest string       `json:"operational_authority_generation_digest,omitempty"`
+	VerificationEvidenceDigest           string       `json:"verification_evidence_digest,omitempty"`
+	InstallationDigest                   string       `json:"installation_digest,omitempty"`
 }
 
 func (a ApprovalBinding) Validate(now time.Time) error {

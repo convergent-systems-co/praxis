@@ -130,7 +130,7 @@ func (s *Store) EnrollPublisherGeneration(ctx context.Context, generation contra
 	if err := compareAndAdvanceAggregate(ctx, tx, digest, "publisher_generation", 0, 1); err != nil {
 		return "", err
 	}
-	if err := consumePackageApproval(ctx, tx, approvalID, intent.Actor, intentDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, approvalID, intent.Actor, intentDigest, "", now); err != nil {
 		return "", err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO publisher_generations(publisher_generation_digest,principal_id,principal_kind,generation,record_json,state,enrollment_approval_id,enrolled_at) VALUES(?,?,?,?,?,'active',?,?)`, digest, generation.Principal.ID, generation.Principal.Kind, generation.Generation, body, approvalID, now.UTC().Format(time.RFC3339Nano)); err != nil {

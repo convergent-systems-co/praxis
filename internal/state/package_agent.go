@@ -93,7 +93,7 @@ func (s *Store) InstantiatePackageAgent(ctx context.Context, request contracts.P
 	if err != nil || gotDigest != wantDigest {
 		return contracts.PackageAgentInstance{}, errors.New("agent instantiation intent does not bind exact package definition and local identity")
 	}
-	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, gotDigest, now); err != nil {
+	if err := consumePackageApproval(ctx, tx, request.ApprovalID, request.Intent.Actor, gotDigest, "", now); err != nil {
 		return contracts.PackageAgentInstance{}, err
 	}
 

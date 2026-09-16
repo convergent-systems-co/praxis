@@ -14,10 +14,15 @@ const (
 	AuthorityModelID                = "praxis.authority-model"
 	AuthorityModelVersion           = "v1"
 	AuthorityModelSuccessorVersion  = "v2"
+	AuthorityModelDeploymentVersion = "v3"
 	GovernedWorkPlanAccept          = "workplan.accept"
 	GovernedPackagePublish          = "package.publish"
 	DelegationProfileWorkPlanAccept = "WORKPLAN_ACCEPT"
 	DelegationProfilePackagePublish = "PACKAGE_PUBLISH"
+	GovernedPackageDeploy           = "package.deploy"
+	DelegationProfilePackageDeploy  = "PACKAGE_DEPLOY"
+	PackageManagerPrincipalID       = "package-manager:praxis"
+	PackageManagerPrincipalKind     = "package-manager"
 )
 
 func AuthorityModelDigest() string {
@@ -34,9 +39,61 @@ func AuthorityModelSuccessorDigest() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// AuthorityModelDeploymentDigest identifies the immutable v3 profile set.
+// v1 and v2 remain independently valid historical model identities.
+func AuthorityModelDeploymentDigest() string {
+	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelDeploymentVersion, AuthorityDelegateCapability, GovernedWorkPlanAccept, GovernedPackagePublish, GovernedPackageDeploy, DelegationProfileWorkPlanAccept, DelegationProfilePackagePublish, DelegationProfilePackageDeploy})
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
 func ValidateAuthorityModel(id, version, digest string) error {
-	if id != AuthorityModelID || (version != AuthorityModelVersion && version != AuthorityModelSuccessorVersion) || (version == AuthorityModelVersion && digest != AuthorityModelDigest()) || (version == AuthorityModelSuccessorVersion && digest != AuthorityModelSuccessorDigest()) {
-		return errors.New("authority model identity or digest is not the supported v1 model")
+	if id != AuthorityModelID || (version != AuthorityModelVersion && version != AuthorityModelSuccessorVersion && version != AuthorityModelDeploymentVersion) || (version == AuthorityModelVersion && digest != AuthorityModelDigest()) || (version == AuthorityModelSuccessorVersion && digest != AuthorityModelSuccessorDigest()) || (version == AuthorityModelDeploymentVersion && digest != AuthorityModelDeploymentDigest()) {
+		return errors.New("authority model identity or digest is not a supported immutable model")
+	}
+	return nil
+}
+
+// PackageManagerPrincipal is the stable logical identity of the local package
+// lifecycle subsystem. Installation binding is carried by its delegated
+// generation's exact parent/root lineage, not by a global principal name.
+func PackageManagerPrincipal() PrincipalRef {
+	return PrincipalRef{ID: PackageManagerPrincipalID, Kind: PackageManagerPrincipalKind}
+}
+
+func PackageDeploymentScope(installationGenerationDigest string) (string, error) {
+	if !isSHA256Digest(installationGenerationDigest) {
+		return "", errors.New("package deployment scope requires an exact installation generation sha256 digest")
+	}
+	return "package-deployment:installation:" + installationGenerationDigest, nil
+}
+
+// ValidateBuiltinPackageDeployDelegation is the closed v3 containment rule.
+// It grants only governed package deployment; activation and runtime leases
+// remain separate effects/capabilities.
+func ValidateBuiltinPackageDeployDelegation(parent AuthorityGeneration, request DelegationRequest, now time.Time) error {
+	if request.Profile != DelegationProfilePackageDeploy || request.ParentRef != parent.Ref || request.ParentVersion != parent.Version || request.ParentDigest != parent.Digest || request.RequestedAuthority != GovernedPackageDeploy || request.RequestedOperation != "deploy" || len(request.RequestedCapabilities) != 0 || len(request.RequestedOperations) != 0 {
+		return errors.New("delegation is not the closed package-deploy profile")
+	}
+	if request.DelegatedPrincipal != PackageManagerPrincipal() {
+		return errors.New("package-deploy delegation requires the canonical package-manager principal")
+	}
+	if request.TargetKind != PackageManagerPrincipalKind || request.TargetIdentity != PackageManagerPrincipalID || request.TargetVersion == "" || !isSHA256Digest(request.TargetDigest) || request.TargetDigest != parent.Digest || request.SubjectKind != PackageManagerPrincipalKind || request.SubjectID != PackageManagerPrincipalID || request.SubjectVersion == "" || request.SubjectDigest != parent.Digest {
+		return errors.New("package-deploy delegation does not bind the exact package-manager generation")
+	}
+	if request.TargetConstraints == nil || len(request.TargetConstraints) != 1 || request.TargetConstraints[0] != request.TargetDigest {
+		return errors.New("package-deploy delegation requires the exact deployment constraint")
+	}
+	if request.PolicyRef != AuthorityModelID || request.PolicyVersion != AuthorityModelDeploymentVersion || request.PolicyDigest != AuthorityModelDeploymentDigest() {
+		return errors.New("package-deploy delegation must use authority-model v3")
+	}
+	installationScope, scopeErr := InstallationGovernanceScope(parent.ProvenanceDigest)
+	if scopeErr != nil || parent.ParentRef != "" || parent.Principal.Kind != "human" || parent.Principal.ID != "installation-owner:"+parent.ProvenanceDigest || parent.Scope != installationScope || !containsString(parent.Capabilities, AuthorityDelegateCapability) {
+		return errors.New("package-deploy parent is not the installation governance root")
+	}
+	scope, err := PackageDeploymentScope(request.TargetDigest)
+	if err != nil || request.RequestedScope != scope || request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
+		return errors.New("package-deploy scope or expiry is invalid")
 	}
 	return nil
 }

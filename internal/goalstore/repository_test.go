@@ -167,6 +167,25 @@ func TestHistoricalGenerationLoaderSeparatesDigestDomains(t *testing.T) {
 	if _, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref+"-wrong", generation.Version, generation.Digest); err == nil {
 		t.Fatal("wrong generation identity accepted")
 	}
+	if _, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref, "2", generation.Digest); err == nil {
+		t.Fatal("wrong generation version accepted")
+	}
+	tampered := generation
+	tampered.Ref = generation.Ref + "-tampered"
+	tamperedPayload, err := json.Marshal(tampered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tamperedEnvelope, err := repo.Crypto.Seal(context.Background(), repo.KeyRef, repo.Profile, tamperedPayload, state.SecureBlobAAD(authorityGenerationNamespace, tampered.Ref, tampered.Version, objectDigest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PutSecureBlob(context.Background(), state.SecureBlobRecord{Namespace: authorityGenerationNamespace, ObjectID: tampered.Ref, ObjectVersion: tampered.Version, ObjectDigest: objectDigest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: tamperedEnvelope, CreatedAt: tampered.EffectiveAt, ExpiresAt: &expired}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.loadHistoricalGeneration(context.Background(), tampered.Ref, tampered.Version, tampered.Digest); err == nil || !strings.Contains(err.Error(), "payload digest") {
+		t.Fatalf("tampered serialized payload must fail at object-digest layer: %v", err)
+	}
 }
 
 func TestAuthorityGenerationValidationRejectsPayloadAndGenerationSubstitution(t *testing.T) {

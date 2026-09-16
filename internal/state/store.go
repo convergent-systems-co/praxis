@@ -19,6 +19,9 @@ var (
 
 type Store struct {
 	db *sql.DB
+	// observationResolutionFault is test-only failure injection. It is nil in
+	// production and cannot alter normal transaction semantics.
+	observationResolutionFault func(string) error
 }
 
 func New(db *sql.DB) *Store { return &Store{db: db} }

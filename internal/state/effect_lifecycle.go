@@ -23,10 +23,28 @@ func (s *Store) CommitObservationResolution(ctx context.Context, cmd CommandReco
 		return err
 	}
 	defer tx.Rollback()
+	fault := func(stage string) error {
+		if s.observationResolutionFault != nil {
+			return s.observationResolutionFault(stage)
+		}
+		return nil
+	}
+	if err := fault("before-command"); err != nil {
+		return err
+	}
 	if err := insertCommand(ctx, tx, cmd); err != nil {
 		return err
 	}
+	if err := fault("after-command"); err != nil {
+		return err
+	}
 	if err := insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if err := fault("after-event"); err != nil {
+		return err
+	}
+	if err := fault("before-effect"); err != nil {
 		return err
 	}
 	res, err := tx.ExecContext(ctx, `UPDATE effects SET state=?, reconciliation_evidence=?, updated_at=? WHERE effect_id=? AND state=? AND attempts=1 AND observed_result IS NOT NULL`, string(EffectSucceeded), evidence, now.UTC().Format(time.RFC3339Nano), effectID, string(EffectUnknown))
@@ -37,7 +55,13 @@ func (s *Store) CommitObservationResolution(ctx context.Context, cmd CommandReco
 	if n != 1 {
 		return fmt.Errorf("effect %s is not an unresolved observational effect", effectID)
 	}
+	if err := fault("after-effect"); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE commands SET status='committed', completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return err
+	}
+	if err := fault("before-commit"); err != nil {
 		return err
 	}
 	return tx.Commit()

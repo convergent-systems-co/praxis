@@ -20,13 +20,13 @@ const (
 )
 
 type observationResolutionSnapshot struct {
-	RequestID, EffectID, IntentDigest, AuthorityDigest string
-	ExecutionID, Step, Adapter, Contract, Operation    string
-	Attempts                                           int
-	Original, Reconciliation                           Observation
-	OriginalResultDigest                               string
-	ReconciliationEventID, ReconciliationPayloadDigest string
-	EffectCreatedAt                                    time.Time
+	RequestID, RequestDigest, EffectID, IntentDigest, AuthorityDigest string
+	ExecutionID, Step, Adapter, Contract, Operation                   string
+	Attempts                                                          int
+	Original, Reconciliation                                          Observation
+	OriginalResultDigest                                              string
+	ReconciliationEventID, ReconciliationPayloadDigest                string
+	EffectCreatedAt                                                   time.Time
 }
 
 type canonicalObservationAsset struct {
@@ -100,13 +100,13 @@ func observationSemanticallyEqual(a, b Observation) error {
 
 func resolutionDigest(s observationResolutionSnapshot) (string, error) {
 	x := struct {
-		RequestID, EffectID, IntentDigest, AuthorityDigest, ExecutionID, Step, Adapter, Contract, Operation string
-		Attempts                                                                                            int
-		Original, Reconciliation                                                                            canonicalObservation
-		ReconciliationEventID, ReconciliationPayloadDigest                                                  string
-		OriginalResultDigest                                                                                string
-		EffectCreatedAt                                                                                     string
-	}{s.RequestID, s.EffectID, s.IntentDigest, s.AuthorityDigest, s.ExecutionID, s.Step, s.Adapter, s.Contract, s.Operation, s.Attempts, mustCanonical(s.Original), mustCanonical(s.Reconciliation), s.ReconciliationEventID, s.ReconciliationPayloadDigest, s.OriginalResultDigest, s.EffectCreatedAt.UTC().Format(time.RFC3339Nano)}
+		RequestID, RequestDigest, EffectID, IntentDigest, AuthorityDigest, ExecutionID, Step, Adapter, Contract, Operation string
+		Attempts                                                                                                           int
+		Original, Reconciliation                                                                                           canonicalObservation
+		ReconciliationEventID, ReconciliationPayloadDigest                                                                 string
+		OriginalResultDigest                                                                                               string
+		EffectCreatedAt                                                                                                    string
+	}{s.RequestID, s.RequestDigest, s.EffectID, s.IntentDigest, s.AuthorityDigest, s.ExecutionID, s.Step, s.Adapter, s.Contract, s.Operation, s.Attempts, mustCanonical(s.Original), mustCanonical(s.Reconciliation), s.ReconciliationEventID, s.ReconciliationPayloadDigest, s.OriginalResultDigest, s.EffectCreatedAt.UTC().Format(time.RFC3339Nano)}
 	b, err := json.Marshal(x)
 	if err != nil {
 		return "", err
@@ -162,6 +162,10 @@ func (e RecoveryExecution) loadObservationResolution(ctx context.Context, reques
 	}
 	if !sameRecoveryAuthorization(sp.Authority, authAt) {
 		return observationResolutionSnapshot{}, errors.New("observation resolution authority mismatch")
+	}
+	requestDigest, err := authAt.Request.DigestAt(at)
+	if err != nil {
+		return observationResolutionSnapshot{}, err
 	}
 	if at.Before(authAt.Generation.EffectiveAt) || authAt.Generation.ExpiresAt == nil || !at.Before(*authAt.Generation.ExpiresAt) {
 		return observationResolutionSnapshot{}, errors.New("original dispatch was outside authority interval")
@@ -242,7 +246,7 @@ func (e RecoveryExecution) loadObservationResolution(ctx context.Context, reques
 		return observationResolutionSnapshot{}, errors.New("observation resolution already exists")
 	}
 	dig := hash(recPayload)
-	return observationResolutionSnapshot{RequestID: requestID, EffectID: effectID, IntentDigest: intentDigest, AuthorityDigest: current.Generation.Digest, ExecutionID: key, Step: "verify-draft", Adapter: adapter, Contract: sp.Intent.Parameters["contract"], Operation: sp.Intent.Operation, Attempts: attempts, Original: original, Reconciliation: rr.Observation, OriginalResultDigest: hash(observed), ReconciliationEventID: reconciliationEventID, ReconciliationPayloadDigest: dig, EffectCreatedAt: at}, nil
+	return observationResolutionSnapshot{RequestID: requestID, RequestDigest: requestDigest, EffectID: effectID, IntentDigest: intentDigest, AuthorityDigest: current.Generation.Digest, ExecutionID: key, Step: "verify-draft", Adapter: adapter, Contract: sp.Intent.Parameters["contract"], Operation: sp.Intent.Operation, Attempts: attempts, Original: original, Reconciliation: rr.Observation, OriginalResultDigest: hash(observed), ReconciliationEventID: reconciliationEventID, ReconciliationPayloadDigest: dig, EffectCreatedAt: at}, nil
 }
 
 // ObservationResolutionChallenge performs all validation without writing or

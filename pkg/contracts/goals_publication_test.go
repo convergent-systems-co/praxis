@@ -128,6 +128,29 @@ func TestOrderedRecoveryChainIsDeterministicAndRejectsOrderOrOmission(t *testing
 	}
 }
 
+func TestFailedVerificationRecoveryClosesScopeAndPreservesFailedProof(t *testing.T) {
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	d := func(c byte) string { return "sha256:" + strings.Repeat("1", 64) }
+	in := GoalsFailedVerificationInput{
+		GoalsOrderedRecoveryInput: GoalsOrderedRecoveryInput{GoalsRecoveryInput: GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("d", 64), AccountID: 789, Sizes: [3]int64{12, 34, 56}, PredecessorRequestID: "goals-publication-request:old", PredecessorRequestDigest: d('1'), PredecessorIntentID: "goals-initial-publication:old", PredecessorIntentDigest: d('2'), AbandonmentEventID: "goals-publication-abandoned:old", AbandonmentDigest: d('3')}},
+		FailedRequestID:           "goals-publication-recovery-request:failed", FailedRequestDigest: d('4'), FailedIntentID: "goals-established-state-publication:failed", FailedIntentDigest: d('5'), FailedAuthorityDigest: d('6'), FailedExecutionID: "goals-publication-recovery:failed", FailedManifestEffectID: "goals-publication-recovery:failed:manifest", FailedArchiveEffectID: "goals-publication-recovery:failed:archive", FailedSignatureEffectID: "goals-publication-recovery:failed:signature", FailedVerifyEffectID: "goals-publication-recovery:failed:verify-draft", FailedManifestState: "succeeded", FailedArchiveState: "succeeded", FailedSignatureState: "succeeded", FailedVerifyState: "failed", FailedVerifyAttempts: 1, FailedManifestRequestDigest: d('7'), FailedArchiveRequestDigest: d('8'), FailedSignatureRequestDigest: d('9'), FailedVerifyRequestDigest: d('a'), FailedVerifyResultDigest: d('b'), FailedVerifyReconciliationDigest: d('c'), AssetIDs: [3]string{"1", "2", "3"},
+	}
+	a, err := NewGoalsPublicationFailedVerificationIntent(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateGoalsPublicationRecoveryIntent(a); err != nil {
+		t.Fatal(err)
+	}
+	if a.Parameters["permitted_effects"] != "verify-draft-assets,publish-existing-release,verify-published-release" {
+		t.Fatal("upload effects remain authorized")
+	}
+	a.Parameters["failed_verify_state"] = "succeeded"
+	if ValidateGoalsPublicationRecoveryIntent(a) == nil {
+		t.Fatal("failed proof substitution accepted")
+	}
+}
+
 func mustChainEncode(t *testing.T, c []RecoveryGenerationBinding) string {
 	t.Helper()
 	s, err := EncodeRecoveryChain(c)

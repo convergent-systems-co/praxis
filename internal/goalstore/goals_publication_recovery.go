@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -30,6 +31,11 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		}
 	} else if a.Parameters["contract"] == contracts.GoalsOrderedRecoveryContract {
 		bindErr = r.ValidateGoalsPublicationOrderedRecoveryBinding(ctx, a)
+		if bindErr == nil {
+			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
+		}
+	} else if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract {
+		bindErr = r.ValidateGoalsPublicationFailedVerificationBinding(ctx, a)
 		if bindErr == nil {
 			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
 		}
@@ -82,6 +88,46 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		return fail(err)
 	}
 	return req, rd, nil
+}
+
+// ValidateGoalsPublicationFailedVerificationBinding binds the exact failed
+// ordered-recovery execution and its three established uploads. It does not
+// alter any historical effect and authorizes no upload operation.
+func (r Repository) ValidateGoalsPublicationFailedVerificationBinding(ctx context.Context, a contracts.ActionIntent) error {
+	if err := contracts.ValidateGoalsPublicationFailedVerificationIntent(a); err != nil {
+		return err
+	}
+	p := a.Parameters
+	for _, k := range []string{"failed_manifest_effect_id", "failed_archive_effect_id", "failed_signature_effect_id", "failed_verify_effect_id"} {
+		var state string
+		var attempts int
+		var payload []byte
+		if err := r.Store.DB().QueryRowContext(ctx, `SELECT state,attempts,request_payload FROM effects WHERE effect_id=?`, p[k]).Scan(&state, &attempts, &payload); err != nil {
+			return err
+		}
+		want := p["failed_"+strings.TrimSuffix(strings.TrimPrefix(k, "failed_"), "_effect_id")+"_state"]
+		if state != want {
+			return errors.New("failed verification effect state mismatch")
+		}
+		if k == "failed_verify_effect_id" && attempts != 1 {
+			return errors.New("failed verification attempts mismatch")
+		}
+		var step struct {
+			RequestID, Step string
+			Intent          contracts.ActionIntent
+			Authority       contracts.PackagePublishAuthorization
+		}
+		wantStep := strings.TrimSuffix(strings.TrimPrefix(k, "failed_"), "_effect_id")
+		if err := json.Unmarshal(payload, &step); err != nil || step.RequestID != p["failed_predecessor_request_id"] || step.Step != wantStep || step.Intent.ID != p["failed_predecessor_intent_id"] || step.Authority.Generation.Digest != p["failed_predecessor_authority_digest"] {
+			return errors.New("failed verification lineage payload mismatch")
+		}
+	}
+	for _, k := range []string{"failed_predecessor_request_id", "failed_predecessor_intent_id", "failed_predecessor_authority_digest", "failed_predecessor_execution_id"} {
+		if p[k] == "" {
+			return errors.New("failed predecessor identity missing")
+		}
+	}
+	return nil
 }
 
 func (r Repository) ValidateGoalsPublicationOrderedRecoveryBinding(ctx context.Context, a contracts.ActionIntent) error {

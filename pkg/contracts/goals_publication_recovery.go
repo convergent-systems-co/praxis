@@ -12,18 +12,19 @@ import (
 )
 
 const (
-	GoalsRecoveryOperation       = "publish-goals-from-established-state"
-	GoalsRecoveryContract        = "goals-established-state-publication/1"
-	GoalsChainedRecoveryContract = "goals-established-state-publication/2"
-	GoalsOrderedRecoveryContract = "goals-established-state-publication/3"
-	GoalsRecoveryRepositoryID    = "1372388187"
-	GoalsRecoveryOwnerID         = "263966243"
-	GoalsRecoveryCommit          = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
-	GoalsRecoveryTree            = "06476050446988f592cd2064823ff73c5a7a09f0"
-	GoalsRecoveryReleaseID       = "389997269"
-	GoalsRecoveryNonce           = "7faf8b95afeb3bdd58534b0e1139f01169b4d417cd8d30e3b77a1533ad84aad1"
-	GoalsRecoveryAuthorityRoot   = "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
-	GoalsRecoveryPublisherKey    = "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+	GoalsRecoveryOperation          = "publish-goals-from-established-state"
+	GoalsRecoveryContract           = "goals-established-state-publication/1"
+	GoalsChainedRecoveryContract    = "goals-established-state-publication/2"
+	GoalsOrderedRecoveryContract    = "goals-established-state-publication/3"
+	GoalsFailedVerificationContract = "goals-established-state-publication/4"
+	GoalsRecoveryRepositoryID       = "1372388187"
+	GoalsRecoveryOwnerID            = "263966243"
+	GoalsRecoveryCommit             = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
+	GoalsRecoveryTree               = "06476050446988f592cd2064823ff73c5a7a09f0"
+	GoalsRecoveryReleaseID          = "389997269"
+	GoalsRecoveryNonce              = "7faf8b95afeb3bdd58534b0e1139f01169b4d417cd8d30e3b77a1533ad84aad1"
+	GoalsRecoveryAuthorityRoot      = "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
+	GoalsRecoveryPublisherKey       = "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
 )
 
 type GoalsRecoveryInput struct {
@@ -65,6 +66,73 @@ type RecoveryGenerationBinding struct {
 type GoalsOrderedRecoveryInput struct {
 	GoalsRecoveryInput
 	Chain []RecoveryGenerationBinding
+}
+
+type GoalsFailedVerificationInput struct {
+	GoalsOrderedRecoveryInput
+	FailedRequestID, FailedRequestDigest, FailedIntentID, FailedIntentDigest                                         string
+	FailedAuthorityDigest, FailedExecutionID                                                                         string
+	FailedManifestEffectID, FailedArchiveEffectID, FailedSignatureEffectID, FailedVerifyEffectID                     string
+	FailedManifestState, FailedArchiveState, FailedSignatureState, FailedVerifyState                                 string
+	FailedVerifyAttempts                                                                                             int
+	FailedManifestRequestDigest, FailedArchiveRequestDigest, FailedSignatureRequestDigest, FailedVerifyRequestDigest string
+	FailedVerifyResultDigest, FailedVerifyReconciliationDigest                                                       string
+	AssetIDs                                                                                                         [3]string
+}
+
+func NewGoalsPublicationFailedVerificationIntent(in GoalsFailedVerificationInput) (ActionIntent, error) {
+	a, err := NewGoalsPublicationOrderedRecoveryIntent(in.GoalsOrderedRecoveryInput)
+	if err != nil {
+		return ActionIntent{}, err
+	}
+	if in.FailedRequestID == "" || in.FailedIntentID == "" || in.FailedAuthorityDigest == "" || in.FailedExecutionID == "" || in.FailedVerifyAttempts != 1 {
+		return ActionIntent{}, errors.New("failed verification lineage missing")
+	}
+	for _, d := range []string{in.FailedRequestDigest, in.FailedIntentDigest, in.FailedManifestRequestDigest, in.FailedArchiveRequestDigest, in.FailedSignatureRequestDigest, in.FailedVerifyRequestDigest, in.FailedVerifyResultDigest, in.FailedVerifyReconciliationDigest} {
+		if !isSHA256Digest(d) {
+			return ActionIntent{}, errors.New("failed verification digest invalid")
+		}
+	}
+	for _, s := range []string{in.FailedManifestEffectID, in.FailedArchiveEffectID, in.FailedSignatureEffectID, in.FailedVerifyEffectID} {
+		if s == "" {
+			return ActionIntent{}, errors.New("failed verification effect binding missing")
+		}
+	}
+	for i, id := range in.AssetIDs {
+		if id == "" {
+			return ActionIntent{}, fmt.Errorf("asset %d identity missing", i)
+		}
+	}
+	if in.FailedManifestState != "succeeded" || in.FailedArchiveState != "succeeded" || in.FailedSignatureState != "succeeded" || in.FailedVerifyState != "failed" {
+		return ActionIntent{}, errors.New("failed verification states invalid")
+	}
+	a.Parameters["contract"] = GoalsFailedVerificationContract
+	a.Parameters["failed_predecessor_request_id"] = in.FailedRequestID
+	a.Parameters["failed_predecessor_request_digest"] = in.FailedRequestDigest
+	a.Parameters["failed_predecessor_intent_id"] = in.FailedIntentID
+	a.Parameters["failed_predecessor_intent_digest"] = in.FailedIntentDigest
+	a.Parameters["failed_predecessor_authority_digest"] = in.FailedAuthorityDigest
+	a.Parameters["failed_predecessor_execution_id"] = in.FailedExecutionID
+	a.Parameters["failed_manifest_effect_id"] = in.FailedManifestEffectID
+	a.Parameters["failed_archive_effect_id"] = in.FailedArchiveEffectID
+	a.Parameters["failed_signature_effect_id"] = in.FailedSignatureEffectID
+	a.Parameters["failed_verify_effect_id"] = in.FailedVerifyEffectID
+	a.Parameters["failed_manifest_state"] = in.FailedManifestState
+	a.Parameters["failed_archive_state"] = in.FailedArchiveState
+	a.Parameters["failed_signature_state"] = in.FailedSignatureState
+	a.Parameters["failed_verify_state"] = in.FailedVerifyState
+	a.Parameters["failed_verify_attempts"] = strconv.Itoa(in.FailedVerifyAttempts)
+	a.Parameters["failed_manifest_request_digest"] = in.FailedManifestRequestDigest
+	a.Parameters["failed_archive_request_digest"] = in.FailedArchiveRequestDigest
+	a.Parameters["failed_signature_request_digest"] = in.FailedSignatureRequestDigest
+	a.Parameters["failed_verify_request_digest"] = in.FailedVerifyRequestDigest
+	a.Parameters["failed_verify_result_digest"] = in.FailedVerifyResultDigest
+	a.Parameters["failed_verify_reconciliation_digest"] = in.FailedVerifyReconciliationDigest
+	a.Parameters["asset_manifest_id"] = in.AssetIDs[0]
+	a.Parameters["asset_archive_id"] = in.AssetIDs[1]
+	a.Parameters["asset_signature_id"] = in.AssetIDs[2]
+	a.Parameters["permitted_effects"] = "verify-draft-assets,publish-existing-release,verify-published-release"
+	return a, nil
 }
 
 func EncodeRecoveryChain(chain []RecoveryGenerationBinding) (string, error) {
@@ -213,6 +281,9 @@ func NewGoalsPublicationRecoveryIntent(in GoalsRecoveryInput) (ActionIntent, err
 }
 
 func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
+	if a.Parameters["contract"] == GoalsFailedVerificationContract {
+		return ValidateGoalsPublicationFailedVerificationIntent(a)
+	}
 	if a.Parameters["contract"] == GoalsOrderedRecoveryContract {
 		return ValidateGoalsPublicationOrderedRecoveryIntent(a)
 	}
@@ -221,6 +292,53 @@ func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
 	}
 	return validateGoalsPublicationRecoveryIntentV1(a)
 }
+
+// ValidateGoalsPublicationFailedVerificationIntent closes the narrowly scoped
+// successor created after a terminal local draft-verification failure. The
+// earlier upload effects are historical bindings and cannot be re-authorized.
+func ValidateGoalsPublicationFailedVerificationIntent(a ActionIntent) error {
+	p := a.Parameters
+	if p["contract"] != GoalsFailedVerificationContract || p["permitted_effects"] != "verify-draft-assets,publish-existing-release,verify-published-release" {
+		return errors.New("failed-verification contract is not closed")
+	}
+	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
+	expiry, e2 := time.Parse(time.RFC3339Nano, p["expires_at"])
+	if e1 != nil || e2 != nil {
+		return errors.New("successor intent timestamps malformed")
+	}
+	base, err := NewGoalsPublicationOrderedRecoveryIntent(GoalsOrderedRecoveryInput{GoalsRecoveryInput: GoalsRecoveryInput{CreatedAt: created, ExpiresAt: expiry, Identity: stringsTrimPrefix(a.ID, "goals-established-state-publication:"), AccountID: parseInt(p["account_id"]), Sizes: [3]int64{parseInt(p["manifest_size"]), parseInt(p["archive_size"]), parseInt(p["signature_size"])}, PredecessorRequestID: p["predecessor_request_id"], PredecessorRequestDigest: p["predecessor_request_digest"], PredecessorIntentID: p["predecessor_intent_id"], PredecessorIntentDigest: p["predecessor_intent_digest"], AbandonmentEventID: p["abandonment_event_id"], AbandonmentDigest: p["abandonment_digest"]}, Chain: mustParseChain(p["recovery_chain"])})
+	if err != nil {
+		return err
+	}
+	for k, v := range p {
+		if strings.HasPrefix(k, "failed_") || strings.HasPrefix(k, "asset_") {
+			base.Parameters[k] = v
+		}
+	}
+	base.Parameters["contract"] = GoalsFailedVerificationContract
+	base.Parameters["permitted_effects"] = p["permitted_effects"]
+	x, _ := json.Marshal(base)
+	y, _ := json.Marshal(a)
+	if !reflect.DeepEqual(x, y) {
+		return errors.New("failed-verification intent differs from closed contract")
+	}
+	if p["failed_manifest_state"] != "succeeded" || p["failed_archive_state"] != "succeeded" || p["failed_signature_state"] != "succeeded" || p["failed_verify_state"] != "failed" || parseInt(p["failed_verify_attempts"]) != 1 {
+		return errors.New("failed verification state invalid")
+	}
+	for _, k := range []string{"failed_predecessor_request_digest", "failed_predecessor_intent_digest", "failed_manifest_request_digest", "failed_archive_request_digest", "failed_signature_request_digest", "failed_verify_request_digest", "failed_verify_result_digest", "failed_verify_reconciliation_digest"} {
+		if !isSHA256Digest(p[k]) {
+			return errors.New("failed verification digest invalid")
+		}
+	}
+	for _, k := range []string{"failed_predecessor_request_id", "failed_predecessor_intent_id", "failed_predecessor_authority_digest", "failed_predecessor_execution_id", "failed_manifest_effect_id", "failed_archive_effect_id", "failed_signature_effect_id", "failed_verify_effect_id", "asset_manifest_id", "asset_archive_id", "asset_signature_id"} {
+		if p[k] == "" {
+			return errors.New("failed verification binding missing")
+		}
+	}
+	return nil
+}
+
+func mustParseChain(s string) []RecoveryGenerationBinding { c, _ := ParseRecoveryChain(s); return c }
 
 func ValidateGoalsPublicationOrderedRecoveryIntent(a ActionIntent) error {
 	p := a.Parameters

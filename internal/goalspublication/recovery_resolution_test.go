@@ -2,10 +2,14 @@ package goalspublication
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	pc "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -21,6 +25,16 @@ type persistedObservationResolutionFixture struct {
 	original Observation
 	now      time.Time
 	adapter  *resolutionSpy
+}
+
+func reopenResolutionFixture(t *testing.T, f persistedObservationResolutionFixture) goalstore.Repository {
+	t.Helper()
+	var path string
+	must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `PRAGMA database_list`).Scan(new(int), new(string), &path))
+	must(t, f.repo.Store.DB().Close())
+	db, err := state.OpenSQLite(context.Background(), path)
+	must(t, err)
+	return goalstore.Repository{Store: state.New(db), Crypto: f.repo.Crypto, KeyRef: f.repo.KeyRef, Profile: f.repo.Profile, Sensitivity: f.repo.Sensitivity}
 }
 
 func persistedResolutionFixture(t *testing.T) persistedObservationResolutionFixture {
@@ -200,8 +214,59 @@ func TestObservationResolutionChallengeStableAcrossResolverInstances(t *testing.
 	}
 }
 
+func TestObservationResolutionSubprocessChallengeHelper(t *testing.T) {
+	if os.Getenv("PRAXIS_RESOLUTION_HELPER") != "1" {
+		t.Skip("subprocess helper")
+	}
+	dbPath := os.Getenv("PRAXIS_RESOLUTION_DB")
+	db, err := state.OpenSQLite(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	r := goalstore.Repository{Store: state.New(db), Crypto: pc.EnvelopeService{Wrapper: testWrapper{}}, KeyRef: "test-only", Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential}
+	run := RecoveryExecution{Repository: r, Now: func() time.Time {
+		at, _ := time.Parse(time.RFC3339Nano, os.Getenv("PRAXIS_RESOLUTION_NOW"))
+		return at
+	}}
+	d, err := run.ObservationResolutionChallenge(context.Background(), os.Getenv("PRAXIS_RESOLUTION_REQUEST"), os.Getenv("PRAXIS_RESOLUTION_EFFECT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Print(d)
+}
+
+func TestObservationResolutionSeparateProcessChallengeStability(t *testing.T) {
+	f := persistedResolutionFixture(t)
+	var dbPath string
+	must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `PRAGMA database_list`).Scan(new(int), new(string), &dbPath))
+	run := func(now time.Time) string {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestObservationResolutionSubprocessChallengeHelper$")
+		cmd.Env = append(os.Environ(), "PRAXIS_RESOLUTION_HELPER=1", "PRAXIS_RESOLUTION_DB="+dbPath, "PRAXIS_RESOLUTION_REQUEST="+f.request.ID, "PRAXIS_RESOLUTION_EFFECT="+f.effectID, "PRAXIS_RESOLUTION_NOW="+now.Format(time.RFC3339Nano))
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("subprocess challenge: %v: %s", err, out)
+		}
+		return string(out)
+	}
+	d1 := run(f.now)
+	d2 := run(f.now.Add(30 * time.Second))
+	if d1 == "" || d1 != d2 {
+		t.Fatalf("separate-process challenge changed: %q != %q", d1, d2)
+	}
+	var commands, events int
+	must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM commands WHERE command_type=?`, observationResolutionCommandType).Scan(&commands))
+	must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type=?`, observationResolutionEventType).Scan(&events))
+	if commands != 0 || events != 0 || f.adapter.dispatch != 0 || f.adapter.reconcile != 0 {
+		t.Fatalf("subprocess challenge mutated or called adapter")
+	}
+}
+
 func TestObservationResolutionPersistedAdversarialEligibility(t *testing.T) {
 	cases := map[string]func(*persistedObservationResolutionFixture){
+		"wrong-request-version": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), '"Version":"1"', '"Version":"9"') WHERE effect_id=?`, f.effectID)
+		},
 		"attempt-zero": func(f *persistedObservationResolutionFixture) {
 			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET attempts=0 WHERE effect_id=?`, f.effectID)
 		},
@@ -274,6 +339,112 @@ func TestObservationResolutionPersistedAdversarialEligibility(t *testing.T) {
 	}
 }
 
+func TestObservationResolutionCompletePersistedAdversarialMatrix(t *testing.T) {
+	cases := map[string]func(*persistedObservationResolutionFixture){
+		"wrong-request-id": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), ?, ?) WHERE effect_id=?`, f.request.ID, "request:wrong", f.effectID)
+		},
+		"wrong-intent-id": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'goals-established-state-publication:', 'substituted-intent:') WHERE effect_id=?`, f.effectID)
+		},
+		"wrong-intent-version": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), '"Version":"1"', '"Version":"2"') WHERE effect_id=?`, f.effectID)
+		},
+		"wrong-intent-digest": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET action_intent_digest=? WHERE effect_id=?`, "sha256:"+strings.Repeat("b", 64), f.effectID)
+		},
+		"wrong-execution-id": func(f *persistedObservationResolutionFixture) {
+			f.effectID = strings.Replace(f.effectID, recoveryKey(f.request.ID), "execution:wrong", 1)
+		},
+		"wrong-effect-id": func(f *persistedObservationResolutionFixture) { f.effectID = recoveryKey(f.request.ID) + ":publish" },
+		"wrong-step": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'verify-draft', 'manifest') WHERE effect_id=?`, f.effectID)
+		},
+		"wrong-adapter": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET target_adapter='other' WHERE effect_id=?`, f.effectID)
+		},
+		"unsupported-contract": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'goals-established-state-publication/4', 'unsupported/9') WHERE effect_id=?`, f.effectID)
+		},
+		"contradictory-operation": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'publish-goals-from-established-state', 'publish-other') WHERE effect_id=?`, f.effectID)
+		},
+		"mutation-capable-step": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'verify-draft', 'publish') WHERE effect_id=?`, f.effectID)
+		},
+		"state-succeeded": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET state='succeeded' WHERE effect_id=?`, f.effectID)
+		},
+		"attempts-zero": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET attempts=0 WHERE effect_id=?`, f.effectID)
+		},
+		"attempts-two": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET attempts=2 WHERE effect_id=?`, f.effectID)
+		},
+		"wrong-authority-digest": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'd6f0c214d8179179e0a61ce3fa468ffffc194337c5d6bff3677e1a20357be335', ?) WHERE effect_id=?`, strings.Repeat("c", 64), f.effectID)
+		},
+		"dispatch-before-effective": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET created_at=? WHERE effect_id=?`, f.now.Add(-24*time.Hour).Format(time.RFC3339Nano), f.effectID)
+		},
+		"authority-expired-now": func(f *persistedObservationResolutionFixture) { f.now = f.now.Add(2 * time.Hour) },
+		"missing-reconciliation": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`DELETE FROM events WHERE event_type='goals-publication-recovery.reconciled'`)
+		},
+		"substituted-reconciliation-id": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE events SET payload=replace(CAST(payload AS TEXT), 'verify-draft', 'verify-other') WHERE event_type='goals-publication-recovery.reconciled'`)
+		},
+		"wrong-reconciliation-version": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE events SET event_version='2' WHERE event_type='goals-publication-recovery.reconciled'`)
+		},
+		"reconciliation-payload-substituted": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE events SET payload='{}' WHERE event_type='goals-publication-recovery.reconciled'`)
+		},
+		"reconciliation-outcome": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE events SET payload=replace(CAST(payload AS TEXT),'unresolved','succeeded') WHERE event_type='goals-publication-recovery.reconciled'`)
+		},
+		"command-event-disagreement": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE commands SET payload='{}' WHERE command_type='goals-publication-recovery.reconcile'`)
+		},
+		"missing-original": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result=NULL WHERE effect_id=?`, f.effectID)
+		},
+		"substituted-original": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result='{}' WHERE effect_id=?`, f.effectID)
+		},
+		"semantic-disagreement": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result=replace(CAST(observed_result AS TEXT), '389997269', '999999999') WHERE effect_id=?`, f.effectID)
+		},
+		"missing-asset": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result='{}' WHERE effect_id=?`, f.effectID)
+		},
+		"unknown-asset": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result=replace(CAST(observed_result AS TEXT), '568522192', '999999999') WHERE effect_id=?`, f.effectID)
+		},
+		"swapped-content": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET observed_result=replace(CAST(observed_result AS TEXT), ?, ?) WHERE effect_id=?`, assetDigests[0], assetDigests[1], f.effectID)
+		},
+		"abandonment": func(f *persistedObservationResolutionFixture) {
+			_, _ = f.repo.Store.DB().Exec(`UPDATE effects SET request_payload=replace(CAST(request_payload AS TEXT), 'PredecessorAbandonment', 'WrongAbandonment') WHERE effect_id=?`, f.effectID)
+		},
+	}
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := persistedResolutionFixture(t)
+			mutate(&f)
+			run := RecoveryExecution{Repository: f.repo, Adapter: f.adapter, Now: func() time.Time { return f.now }}
+			if _, err := run.ObservationResolutionChallenge(context.Background(), f.request.ID, f.effectID); err == nil {
+				t.Fatal("malformed persisted case accepted")
+			}
+			var n int
+			must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type=?`, observationResolutionEventType).Scan(&n))
+			if n != 0 || f.adapter.dispatch != 0 || f.adapter.reconcile != 0 {
+				t.Fatalf("rejected case mutated or called adapter: events=%d spy=%+v", n, f.adapter)
+			}
+		})
+	}
+}
+
 func TestObservationResolutionAlreadySucceededWithoutResolutionFailsClosed(t *testing.T) {
 	f := persistedResolutionFixture(t)
 	_, err := f.repo.Store.DB().Exec(`UPDATE effects SET state='succeeded' WHERE effect_id=?`, f.effectID)
@@ -281,6 +452,41 @@ func TestObservationResolutionAlreadySucceededWithoutResolutionFailsClosed(t *te
 	run := RecoveryExecution{Repository: f.repo, Adapter: f.adapter, Now: func() time.Time { return f.now }}
 	if _, err := run.ResolveObservation(context.Background(), f.request.ID, f.effectID, "RESOLVE sha256:"+strings.Repeat("0", 64)); err == nil {
 		t.Fatal("succeeded effect without resolution identity accepted")
+	}
+}
+
+func TestObservationResolutionRestartSafeAndPostRestartConflict(t *testing.T) {
+	f := persistedResolutionFixture(t)
+	run := RecoveryExecution{Repository: f.repo, Adapter: f.adapter, Now: func() time.Time { return f.now }}
+	digest, err := run.ObservationResolutionChallenge(context.Background(), f.request.ID, f.effectID)
+	must(t, err)
+	_, err = run.ResolveObservation(context.Background(), f.request.ID, f.effectID, "RESOLVE "+digest)
+	must(t, err)
+	r2 := reopenResolutionFixture(t, f)
+	defer r2.Store.DB().Close()
+	var stateValue string
+	var attempts int
+	var observed []byte
+	must(t, r2.Store.DB().QueryRowContext(context.Background(), `SELECT state,attempts,observed_result FROM effects WHERE effect_id=?`, f.effectID).Scan(&stateValue, &attempts, &observed))
+	if stateValue != "succeeded" || attempts != 1 || string(observed) != string(mustJSON(f.original)) {
+		t.Fatalf("restart state mismatch: %s %d", stateValue, attempts)
+	}
+	var n int
+	must(t, r2.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type='goals-publication-recovery.reconciled'`).Scan(&n))
+	if n != 1 {
+		t.Fatalf("unresolved reconciliation was lost: %d", n)
+	}
+	must(t, r2.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type=?`, observationResolutionEventType).Scan(&n))
+	if n != 1 {
+		t.Fatalf("resolution event count: %d", n)
+	}
+	conflict := RecoveryExecution{Repository: r2, Now: func() time.Time { return f.now }}
+	if _, err := conflict.ResolveObservation(context.Background(), f.request.ID, f.effectID, "RESOLVE sha256:"+strings.Repeat("f", 64)); err == nil {
+		t.Fatal("post-restart conflicting resolution accepted")
+	}
+	must(t, r2.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type=?`, observationResolutionEventType).Scan(&n))
+	if n != 1 {
+		t.Fatalf("conflict changed resolution history: %d", n)
 	}
 }
 

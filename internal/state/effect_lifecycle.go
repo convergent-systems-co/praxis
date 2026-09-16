@@ -2,10 +2,46 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 )
+
+// CommitObservationResolution atomically appends the resolution command/event
+// and closes one UNKNOWN observational effect. It preserves the original
+// observed result and is deliberately narrower than general reconciliation.
+func (s *Store) CommitObservationResolution(ctx context.Context, cmd CommandRecord, event EventRecord, effectID string, evidence []byte, now time.Time) error {
+	if s == nil || s.db == nil || effectID == "" || len(evidence) == 0 {
+		return errors.New("observation resolution inputs are required")
+	}
+	if cmd.ID == "" || event.ID == "" || event.CommandID != cmd.ID {
+		return errors.New("observation resolution command/event identity is required")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := insertCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	if err := insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE effects SET state=?, reconciliation_evidence=?, updated_at=? WHERE effect_id=? AND state=? AND attempts=1 AND observed_result IS NOT NULL`, string(EffectSucceeded), evidence, now.UTC().Format(time.RFC3339Nano), effectID, string(EffectUnknown))
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n != 1 {
+		return fmt.Errorf("effect %s is not an unresolved observational effect", effectID)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE commands SET status='committed', completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 
 // MarkEffectDispatched records that an external dispatch was attempted. It is
 // separate from the external result and therefore remains safe across a crash.

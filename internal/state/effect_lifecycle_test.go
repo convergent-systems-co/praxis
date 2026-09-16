@@ -2,10 +2,42 @@ package state
 
 import (
 	"context"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestCommitObservationResolutionIsAtomic(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	s := New(db)
+	if _, err = db.ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES('effect-cmd','goals-publication-recovery.step','1','publisher','publisher','scope','execution','{}','committed',?)`, now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, `INSERT INTO effects(effect_id,command_id,action_intent_digest,target_adapter,state,attempts,request_payload,observed_result,created_at,updated_at) VALUES('effect','effect-cmd','sha256:intent','goals-recovery-github','unknown',1,'{}','{}',?,?)`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	actor := contracts.PrincipalRef{ID: "publisher", Kind: "publisher"}
+	cmd := CommandRecord{ID: "resolution", Type: "resolve", Version: "1", Actor: actor, Scope: "effect", CorrelationID: "execution", Payload: []byte(`{"x":1}`), CreatedAt: now}
+	ev := EventRecord{ID: "resolution", AggregateID: "resolution", AggregateType: "resolution", AggregateVersion: 1, Type: "resolved", Version: "1", Actor: actor, CommandID: "resolution", CorrelationID: "execution", Payload: []byte(`{"x":1}`), CreatedAt: now}
+	if err := s.CommitObservationResolution(ctx, cmd, ev, "effect", []byte(`{"evidence":1}`), now); err != nil {
+		t.Fatal(err)
+	}
+	var st string
+	var obs []byte
+	if err := db.QueryRowContext(ctx, `SELECT state,observed_result FROM effects WHERE effect_id='effect'`).Scan(&st, &obs); err != nil {
+		t.Fatal(err)
+	}
+	if st != "succeeded" || string(obs) != "{}" {
+		t.Fatalf("resolution did not preserve observation: %s %s", st, obs)
+	}
+}
 
 func TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart(t *testing.T) {
 	ctx := context.Background()

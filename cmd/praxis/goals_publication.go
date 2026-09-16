@@ -25,6 +25,7 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	f.SetOutput(out)
 	dir := f.String("package-dir", "", "directory containing the exact existing signed Goals assets")
 	request := f.String("request-id", "", "exact system-produced publication request ID")
+	effectID := f.String("effect-id", "", "exact observational effect ID")
 	priorRequest := f.String("prior-recovery-request-id", "", "exact prior abandoned recovery request ID")
 	expiry := f.String("expires-at", "", "finite authorization expiry (RFC3339)")
 	ownerConfirmation := f.String("confirmation", "", "exact owner confirmation: ABANDON <payload-digest>")
@@ -232,6 +233,32 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 		}
 		defer db.Close()
 		return (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}}).Reconcile(ctx, *request)
+	case "recovery-resolve-observation":
+		if *request == "" || *effectID == "" || *dir != "" || *expiry != "" || *reason != "" || *previewFile != "" || *output != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-resolve-observation --request-id <id> --effect-id <id> [--confirmation 'RESOLVE <digest>']")
+		}
+		if *ownerConfirmation == "" {
+			repo, db, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+			digest, err := (goalspublication.RecoveryExecution{Repository: repo}).ObservationResolutionChallenge(ctx, *request, *effectID)
+			if err != nil {
+				return err
+			}
+			return printJSONTo(out, map[string]any{"request_id": *request, "effect_id": *effectID, "resolution_digest": digest, "confirmation": "RESOLVE " + digest, "resolved": false})
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		id, err := (goalspublication.RecoveryExecution{Repository: repo}).ResolveObservation(ctx, *request, *effectID, *ownerConfirmation)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"resolution_event": id, "resolved": true})
 	case "recovery-abandon-preview":
 		if *request == "" || *reason == "" || *output == "" || *dir != "" || *previewFile != "" || *ownerConfirmation != "" {
 			return errors.New("usage: praxis publisher goals-publication-recovery-abandon-preview --request-id <id> --reason <text> --output <new-file>")

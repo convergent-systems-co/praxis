@@ -75,6 +75,32 @@ func TestGitHubReleasesRejectsMissingRequiredSignatureAsset(t *testing.T) {
 	}
 }
 
+func TestGitHubReleasesResolveFamilyTagWithSlash(t *testing.T) {
+	manifest := []byte(`{"contract_version":"v1","package_id":"acme/tool","version":"0.1.0","content_digest":"sha256:abc","invocations":[{"version":"v1","package_id":"acme/tool","package_version":"0.1.0","graph_id":"graph","graph_version":"1","entry_point_id":"acme.tool.default","aliases":["tool"]}]}`)
+	manifestDigest := sha256Digest(manifest)
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/tool/releases/tags/goals/v0.1.0" {
+			t.Fatalf("unexpected family-tag request path=%q escaped=%q", r.URL.Path, r.URL.EscapedPath())
+		}
+		fmt.Fprintf(w, `{"tag_name":"goals/v0.1.0","assets":[{"name":"%s","browser_download_url":"%s/manifest"},{"name":"%s","browser_download_url":"%s/artifact"},{"name":"%s","browser_download_url":"%s/signature"}]}`, ManifestAssetName, server.URL, ArtifactAssetName, server.URL, SignatureAssetName, server.URL)
+	})
+	mux.HandleFunc("/manifest", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(manifest) })
+	mux.HandleFunc("/signature", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"version":"v1","profile":"classical-compatible","manifest_digest":%q,"artifact_digest":"sha256:abc","proofs":[{"algorithm":"ed25519","key_id":"publisher","signature":"AA=="}]}`, manifestDigest)
+	})
+	mux.HandleFunc("/artifact", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "payload") })
+	release, err := (GitHubReleases{APIBase: server.URL, Client: server.Client()}).Resolve(context.Background(), PackageRef{Source: "github-releases", Owner: "acme", Repo: "tool"}, "goals/v0.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release.Tag != "goals/v0.1.0" {
+		t.Fatalf("unexpected family tag %q", release.Tag)
+	}
+}
+
 func TestGitHubReleasesRejectsOversizedArtifact(t *testing.T) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)

@@ -236,6 +236,16 @@ func TestInstallArgsRequireExplicitFallbackFlag(t *testing.T) {
 	}
 }
 
+func TestParseGitHubPackageRefAllowsFamilyTagSlash(t *testing.T) {
+	ref, tag, err := parseGitHubPackageRef("convergent-systems-co/praxis-packages@goals/v0.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.Owner != "convergent-systems-co" || ref.Repo != "praxis-packages" || tag != "goals/v0.1.0" {
+		t.Fatalf("unexpected family package reference: %#v %q", ref, tag)
+	}
+}
+
 func TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration(t *testing.T) {
 	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: "research/pkg", Version: "2", ContentDigest: "sha256:generation"}
 	getenv := func(key string) string {

@@ -166,12 +166,15 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	} else {
 		return "", err
 	}
+	var decision contracts.AuthorityModelAdoptionDecision
 	if priorExists {
-		if _, err := r.LoadAuthorityModelAdoptionDecision(ctx, digest, now); err != nil {
+		decision, err = r.LoadAuthorityModelAdoptionDecision(ctx, digest, now)
+		if err != nil {
 			return "", errors.New("historical authority-model adoption has no durable owner decision; supersede it before retrying")
 		}
+	} else {
+		decision = contracts.AuthorityModelAdoptionDecision{ID: authorityModelAdoptionDecisionPrefix + digest, Version: "1", Kind: contracts.AuthorityModelAdoptionDecisionKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, RootRef: root.Ref, RootVersion: root.Version, RootDigest: root.Digest, AdoptionID: adoption.ID, AdoptionVersion: adoption.Version, AdoptionDigest: digest, Decision: "approve", Confirmation: confirmation, ProvenanceRef: "authority-model-adoption:" + digest + ":os-user:" + osUser, ProvenanceDigest: bootstrapDigest, DecidedAt: now.UTC()}
 	}
-	decision := contracts.AuthorityModelAdoptionDecision{ID: authorityModelAdoptionDecisionPrefix + digest, Version: "1", Kind: contracts.AuthorityModelAdoptionDecisionKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, RootRef: root.Ref, RootVersion: root.Version, RootDigest: root.Digest, AdoptionID: adoption.ID, AdoptionVersion: adoption.Version, AdoptionDigest: digest, Decision: "approve", Confirmation: confirmation, ProvenanceRef: "authority-model-adoption:" + digest + ":os-user:" + osUser, ProvenanceDigest: bootstrapDigest, DecidedAt: now.UTC()}
 	if _, err := decision.Digest(); err != nil {
 		return "", err
 	}

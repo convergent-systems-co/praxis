@@ -109,22 +109,22 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v46.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v7.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v47.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v8.json"
 	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v2.json"
-	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v2.json"
-	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v2.json"
-	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v2.json"
+	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v3.json"
+	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v3.json"
+	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v3.json"
 	trustBoundaryAttestation      = "docs/research/conformance/attestations/untrusted-content-boundary-v1.json"
 	clientSurfaceAttestation      = "docs/research/conformance/attestations/client-surface-v1.json"
 	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v1.json"
 	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v1.json"
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
-	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v2.json"
-	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v38.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v38.json"
+	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v3.json"
+	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v39.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v39.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
-	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v2.json"
+	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v3.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -170,7 +170,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "scheduler-lease-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"},
 		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025"}},
 		{ID: "mutation-effect-boundary", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state", ClaimIDs: []string{"OI-025"}, AttestationRef: mutationBoundaryAttestation, Observation: "TestCommitTransitionIsAtomic"},
-		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
+		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v2.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
 		{ID: "client-enforcement", Kind: "security_test", Stage: StageBehavior, Ref: "internal/client/enforcement_test.go", ClaimIDs: []string{"OI-026", "OI-027"}},
 		{ID: "client-surface-equivalence", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/clientadapt", ClaimIDs: []string{"OI-026"}, AttestationRef: clientSurfaceAttestation, Observation: "TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances"},
 		{ID: "mediation-gate", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/mediation", ClaimIDs: []string{"OI-027"}, AttestationRef: mediationAttestation, Observation: "TestAuthorizeRequiresDeterministicClientMediation"},
@@ -179,7 +179,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "workspace-intelligence-lifecycle", Kind: "integration_test", Stage: StageIntegration, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}, AttestationRef: workspaceAttestation, Observation: "TestIndexDetectsContentChange"},
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
 		{ID: "plugin-isolation-enforcement", Kind: "security_test", Stage: StageIntegration, Ref: "internal/plugin/process_test.go", ClaimIDs: []string{"OI-030"}, AttestationRef: isolationAttestation, Observation: "TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation"},
-		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
+		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v2.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
 		{ID: "crypto-profiles", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestKeyLifecycleRotationRevocationAndHistoricalVerification"},
 		{ID: "crypto-profiles-security", Kind: "security_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestEnvelopePQRequiredFailsBeforeClassicalFallback"},
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},

@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/state",
+    "./internal/effect"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-16T23:19:06.116644Z",
+  "finished_at": "2026-09-16T23:19:11.061691Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/authority-effect-commit-v2.log",
+  "output_digest": "sha256:f72a83555ba2ffe6cb0904583f3bd9e525d8f9a60eb46bdd53d8e48be3621b64",
+  "source_digests": {
+    "internal/effect/coordinator_test.go": "sha256:bb0df1a5de66528bd9a9c7f1055200ddf4bf7f442efd2fe03269cf646600e253",
+    "internal/state/authorized_transition_test.go": "sha256:420e69c443030dc77dc68163491683e2cc3c52798f637be38992f2a30bf0358f"
+  },
+  "observations": [
+    "TestCommitRevalidatesImmediatelyBeforeDispatch",
+    "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:306adbd40c176f90c6e42b3da6d3eb281bc05ea27ba59dc04bdc02ccc9e133ec"
+}

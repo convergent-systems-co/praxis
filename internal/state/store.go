@@ -177,10 +177,70 @@ func (s *Store) CommitGoalsPublicationAbandonment(ctx context.Context, cmd Comma
 	return tx.Commit()
 }
 
+// CommitGoalsPublicationRecoveryAbandonment records the recovery-specific
+// terminal fence without rewriting any recovery effects or authority state.
+func (s *Store) CommitGoalsPublicationRecoveryAbandonment(ctx context.Context, cmd CommandRecord, event EventRecord, executionID string) error {
+	if s == nil || s.db == nil || executionID == "" || cmd.ID != event.ID || event.Type != "goals-publication-recovery.abandoned" {
+		return errors.New("invalid Goals recovery abandonment")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var claimed int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM effects e JOIN commands c ON c.command_id=e.command_id WHERE c.command_type='goals-publication-recovery.step' AND c.correlation_id=? AND e.state='dispatched'`, executionID).Scan(&claimed); err != nil {
+		return err
+	}
+	if claimed != 0 {
+		return errors.New("recovery dispatch is in flight; abandonment refused")
+	}
+	if err = insertCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	if err = compareAndAdvanceAggregate(ctx, tx, event.AggregateID, event.AggregateType, 0, 1); err != nil {
+		return err
+	}
+	if err = insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE commands SET status='committed', completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // CommitGoalsPublicationCompletion serializes the old fixed execution's final
 // event against its terminal abandonment fence.
-func (s *Store) CommitGoalsPublicationCompletion(ctx context.Context,cmd CommandRecord,expected int64,event EventRecord,executionID string)error{
-	if s==nil||s.db==nil||executionID==""||event.Type!="goals-publication.completed"{return errors.New("invalid Goals publication completion")};tx,err:=s.db.BeginTx(ctx,&sql.TxOptions{});if err!=nil{return err};defer tx.Rollback();var fenced int;if err=tx.QueryRowContext(ctx,`SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?`,executionID).Scan(&fenced);err!=nil{return err};if fenced!=0{return errors.New("abandoned Goals publication cannot complete")};if err=insertCommand(ctx,tx,cmd);err!=nil{return err};if err=compareAndAdvanceAggregate(ctx,tx,event.AggregateID,event.AggregateType,expected,expected+1);err!=nil{return err};if err=insertEvent(ctx,tx,event);err!=nil{return err};if _,err=tx.ExecContext(ctx,`UPDATE commands SET status='committed',completed_at=? WHERE command_id=?`,event.CreatedAt.UTC().Format(time.RFC3339Nano),cmd.ID);err!=nil{return err};return tx.Commit()
+func (s *Store) CommitGoalsPublicationCompletion(ctx context.Context, cmd CommandRecord, expected int64, event EventRecord, executionID string) error {
+	if s == nil || s.db == nil || executionID == "" || event.Type != "goals-publication.completed" {
+		return errors.New("invalid Goals publication completion")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var fenced int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?`, executionID).Scan(&fenced); err != nil {
+		return err
+	}
+	if fenced != 0 {
+		return errors.New("abandoned Goals publication cannot complete")
+	}
+	if err = insertCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	if err = compareAndAdvanceAggregate(ctx, tx, event.AggregateID, event.AggregateType, expected, expected+1); err != nil {
+		return err
+	}
+	if err = insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE commands SET status='committed',completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func insertCommand(ctx context.Context, tx *sql.Tx, c CommandRecord) error {

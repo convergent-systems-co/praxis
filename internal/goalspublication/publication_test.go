@@ -533,6 +533,53 @@ func TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry(t *testing.T
 	}
 }
 
+func TestRecoveryAbandonmentPreservesUnknownAndFencesExecution(t *testing.T) {
+	assets := exactAssets(t)
+	r, at, q, assets := authorizedRecoveryFixture(t, assets)
+	adapter := &recoveryFakeAdapter{failStep: "manifest", failure: DispatchOutcome{Version: "1", Process: "started", Class: "provider_response", HTTPStatus: 400}}
+	run := RecoveryExecution{Repository: r, Adapter: adapter, Assets: assets, Now: func() time.Time { return at }}
+	if _, err := run.Execute(context.Background(), q.ID); err == nil {
+		t.Fatal("expected unresolved manifest")
+	}
+	gens, err := r.ListAuthorityGenerations(context.Background(), at)
+	must(t, err)
+	owner := ""
+	root, _ := contracts.InstallationOwnerPrincipal(contracts.GoalsPublicationBootstrap)
+	for _, g := range gens {
+		if g.ParentRef == "" && g.Principal == root {
+			parts := strings.Split(g.ProvenanceRef, ":os-user:")
+			if len(parts) == 2 {
+				owner = parts[1]
+			}
+			break
+		}
+	}
+	if owner == "" {
+		t.Fatal("fixture owner missing")
+	}
+	frozen, digest, err := run.PrepareAbandonment(context.Background(), q.ID, owner, "provider outcome remains unresolved")
+	must(t, err)
+	if digest == "" {
+		t.Fatal("missing abandonment digest")
+	}
+	if _, err = run.ConfirmAbandonment(context.Background(), frozen, owner, "ABANDON "+digest); err != nil {
+		t.Fatal(err)
+	}
+	var p recoveryAbandonmentPayload
+	must(t, json.Unmarshal(frozen, &p))
+	if p.ExecutionStatus != "abandoned" || p.CompletionEstablished || p.Effects[0].State != string(state.EffectUnknown) {
+		t.Fatalf("abandonment changed uncertainty: %+v", p)
+	}
+	if _, err = run.Execute(context.Background(), q.ID); err == nil || !strings.Contains(err.Error(), "permanently fenced") {
+		t.Fatalf("abandoned recovery was executable: %v", err)
+	}
+	var st string
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT state FROM effects WHERE effect_id=?`, recoveryKey(q.ID)+":manifest").Scan(&st))
+	if st != string(state.EffectUnknown) {
+		t.Fatalf("manifest state changed: %s", st)
+	}
+}
+
 func authorizedRecoveryFixture(t *testing.T, assets Assets) (goalstore.Repository, time.Time, contracts.AuthorityRequest, Assets) {
 	t.Helper()
 	r, f, at, pred, _, _ := predecessorExecutionFixture(t, assets)

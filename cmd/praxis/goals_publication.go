@@ -141,6 +141,49 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 		}
 		defer db.Close()
 		return (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}}).Reconcile(ctx, *request)
+	case "recovery-abandon-preview":
+		if *request == "" || *reason == "" || *output == "" || *dir != "" || *previewFile != "" || *ownerConfirmation != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-abandon-preview --request-id <id> --reason <text> --output <new-file>")
+		}
+		current, err := user.Current()
+		if err != nil || current.Username == "" {
+			return errors.New("cannot authenticate current OS user")
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		payload, digest, err := (goalspublication.RecoveryExecution{Repository: repo}).PrepareAbandonment(ctx, *request, current.Username, *reason)
+		if err != nil {
+			return err
+		}
+		if err = writeCanonicalPreviewFile(*output, payload); err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"preview_file": *output, "payload_digest": digest, "confirmation": "ABANDON " + digest})
+	case "recovery-abandon":
+		if *previewFile == "" || *ownerConfirmation == "" || *request != "" || *dir != "" || *reason != "" || *output != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-abandon --preview-file <frozen-payload> --confirmation 'ABANDON <digest>'")
+		}
+		current, err := user.Current()
+		if err != nil || current.Username == "" {
+			return errors.New("cannot authenticate current OS user")
+		}
+		payload, err := os.ReadFile(*previewFile)
+		if err != nil {
+			return err
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		id, err := (goalspublication.RecoveryExecution{Repository: repo}).ConfirmAbandonment(ctx, payload, current.Username, *ownerConfirmation)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"abandonment_event": id, "completion_established": false, "authority_revoked": false})
 	case "prepare":
 		if *dir == "" || *expiry == "" || *request != "" {
 			return errors.New("usage: praxis publisher goals-publication-prepare --package-dir <dir> --expires-at <RFC3339>")

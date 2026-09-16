@@ -148,6 +148,11 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	if !strings.HasPrefix(requestID, "goals-publication-recovery-request:") {
 		return "", errors.New("not a Goals recovery request")
 	}
+	if stopped, err := e.recoveryAbandoned(ctx, requestID); err != nil {
+		return "", err
+	} else if stopped {
+		return "", errors.New("abandoned Goals recovery execution is permanently fenced")
+	}
 	now := e.now()
 	auth, err := e.current(ctx, requestID)
 	if err != nil {
@@ -173,6 +178,11 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	key := recoveryKey(requestID)
 	previous := []Observation{}
 	for i, step := range recoverySteps {
+		if stopped, err := e.recoveryAbandoned(ctx, requestID); err != nil {
+			return "", err
+		} else if stopped {
+			return "", errors.New("abandoned Goals recovery execution is permanently fenced")
+		}
 		id := key + ":" + step
 		v, loadErr := e.load(ctx, id)
 		if errors.Is(loadErr, sql.ErrNoRows) {
@@ -261,6 +271,11 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	}
 	if _, err = e.predecessor(ctx, intent); err != nil {
 		return "", err
+	}
+	if stopped, err := e.recoveryAbandoned(ctx, requestID); err != nil {
+		return "", err
+	} else if stopped {
+		return "", errors.New("abandoned Goals recovery execution is permanently fenced")
 	}
 	effectHashes := make([]string, 0, len(recoverySteps))
 	for _, step := range recoverySteps {
@@ -381,6 +396,11 @@ func validateRecoveryObservation(a contracts.ActionIntent, step string, o Observ
 // Reconcile appends inspection evidence for the one uncertain successor
 // effect; it never changes that effect state or dispatches another mutation.
 func (e RecoveryExecution) Reconcile(ctx context.Context, requestID string) error {
+	if stopped, err := e.recoveryAbandoned(ctx, requestID); err != nil {
+		return err
+	} else if stopped {
+		return errors.New("abandoned Goals recovery execution is permanently fenced")
+	}
 	key := recoveryKey(requestID)
 	previous := []Observation{}
 	for _, step := range recoverySteps {

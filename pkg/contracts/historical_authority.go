@@ -32,6 +32,9 @@ type ExpiredHistoricalAuthorityEvidence struct {
 	DecisionRef                   string                    `json:"decision_ref"`
 	DecisionVersion               string                    `json:"decision_version"`
 	DecisionDigest                string                    `json:"decision_digest"`
+	ParentRef                     string                    `json:"parent_ref"`
+	ParentVersion                 string                    `json:"parent_version"`
+	ParentDigest                  string                    `json:"parent_digest"`
 	DelegationRef                 string                    `json:"delegation_ref"`
 	DelegationDigest              string                    `json:"delegation_digest"`
 	GenerationRef                 string                    `json:"generation_ref"`
@@ -49,7 +52,7 @@ type ExpiredHistoricalAuthorityEvidence struct {
 }
 
 func (e ExpiredHistoricalAuthorityEvidence) Validate() error {
-	if e.ObjectKind != "authority request" || e.ObjectID == "" || e.ObjectVersion == "" || e.InstallationDigest == "" || e.RequestDigest == "" || e.IntentID == "" || e.IntentDigest == "" || e.DecisionRef == "" || e.DecisionVersion == "" || e.DecisionDigest == "" || e.GenerationRef == "" || e.GenerationVersion == "" || e.GenerationDigest == "" || e.ExecutionID == "" || len(e.EffectIDs) == 0 || e.EffectiveAt.IsZero() || e.ExpiresAt.IsZero() || e.Status != HistoricalAuthorityExpired || !e.HistoricalValidityEstablished || !e.Historical || !e.NonExecutable {
+	if e.ObjectKind != "authority request" || e.ObjectID == "" || e.ObjectVersion == "" || e.InstallationDigest == "" || e.RequestDigest == "" || e.IntentID == "" || e.IntentDigest == "" || e.DecisionRef == "" || e.DecisionVersion == "" || e.DecisionDigest == "" || e.ParentRef == "" || e.ParentVersion == "" || e.ParentDigest == "" || e.GenerationRef == "" || e.GenerationVersion == "" || e.GenerationDigest == "" || e.ExecutionID == "" || len(e.EffectIDs) == 0 || e.EffectiveAt.IsZero() || e.ExpiresAt.IsZero() || e.Status != HistoricalAuthorityExpired || !e.HistoricalValidityEstablished || !e.Historical || !e.NonExecutable {
 		return errors.New("expired historical authority evidence is incomplete")
 	}
 	if err := e.Principal.Validate(); err != nil {

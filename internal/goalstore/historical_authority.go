@@ -59,14 +59,48 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 	if err != nil {
 		return contracts.ExpiredHistoricalAuthorityEvidence{}, err
 	}
-	gen, err := r.loadHistoricalGeneration(ctx, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest)
+	parent, err := r.loadHistoricalGeneration(ctx, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest)
 	if err != nil {
 		return contracts.ExpiredHistoricalAuthorityEvidence{}, err
 	}
-	if gen.Principal != decision.DecidedBy || gen.Scope != decision.GrantedScope || gen.ExpiresAt == nil || now.Before(*gen.ExpiresAt) {
-		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical authority generation is not exact and expired")
+	if request.Delegation == nil {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical authority request has no delegation")
 	}
-	if request.Delegation == nil || request.Delegation.ParentDigest != gen.ParentDigest && gen.ParentDigest != "" {
+	rootScope, _ := contracts.InstallationGovernanceScope(contracts.GoalsPublicationBootstrap)
+	if parent.Ref != request.Delegation.ParentRef || parent.Version != request.Delegation.ParentVersion || parent.Digest != request.Delegation.ParentDigest || parent.Principal != decision.DecidedBy || parent.Scope != rootScope {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical parent authority lineage mismatch")
+	}
+	var childDigest string
+	for _, id := range effectIDs {
+		var body []byte
+		if err := r.Store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, id).Scan(&body); err != nil {
+			return contracts.ExpiredHistoricalAuthorityEvidence{}, fmt.Errorf("historical effect %s: %w", id, err)
+		}
+		var effect struct {
+			RequestID string                                `json:"request_id"`
+			Authority contracts.PackagePublishAuthorization `json:"authority"`
+		}
+		if err := json.Unmarshal(body, &effect); err != nil || effect.RequestID != requestID {
+			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect request lineage mismatch")
+		}
+		if childDigest == "" {
+			childDigest = effect.Authority.Generation.Digest
+		} else if childDigest != effect.Authority.Generation.Digest {
+			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effects bind different authority generations")
+		}
+	}
+	childRef := "authority-delegation:" + requestID
+	child, err := r.loadHistoricalGeneration(ctx, childRef, "1", childDigest)
+	if err != nil {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, err
+	}
+	if request.Delegation == nil || child.Principal != request.Delegation.DelegatedPrincipal || child.Scope != request.Delegation.RequestedScope || child.Scope != decision.GrantedScope || child.ExpiresAt == nil || !child.ExpiresAt.Equal(request.Delegation.ExpiresAt) || child.DelegatedBy != decision.DecidedBy || child.ParentRef != parent.Ref || child.ParentVersion != parent.Version || child.ParentDigest != parent.Digest || child.Ref != childRef {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical delegated authority lineage mismatch")
+	}
+	if now.Before(*child.ExpiresAt) {
+		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical delegated authority is not expired")
+	}
+	if request.Delegation.ParentDigest != parent.Digest {
 		return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical delegation lineage mismatch")
 	}
 	for _, id := range effectIDs {
@@ -76,22 +110,18 @@ func (r Repository) LoadExpiredHistoricalAuthorityEvidence(ctx context.Context, 
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, fmt.Errorf("historical effect %s: %w", id, err)
 		}
 		at, err := time.Parse(time.RFC3339Nano, created)
-		if err != nil || at.Before(gen.EffectiveAt) || !at.Before(*gen.ExpiresAt) {
+		if err != nil || at.Before(child.EffectiveAt) || !at.Before(*child.ExpiresAt) {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical authority was not valid when effect occurred")
 		}
 		var effect struct {
 			RequestID string                                `json:"request_id"`
 			Authority contracts.PackagePublishAuthorization `json:"authority"`
 		}
-		if err := json.Unmarshal(effectPayload, &effect); err != nil || effect.RequestID != requestID || effect.Authority.Generation.Digest != gen.Digest || effect.Authority.Request.ID != requestID || effect.Authority.Request.Version != version {
+		if err := json.Unmarshal(effectPayload, &effect); err != nil || effect.RequestID != requestID || effect.Authority.Generation.Digest != child.Digest || effect.Authority.Request.ID != requestID || effect.Authority.Request.Version != version {
 			return contracts.ExpiredHistoricalAuthorityEvidence{}, errors.New("historical effect is not governed by exact authority")
 		}
 	}
-	delegationDigest := ""
-	if request.Delegation != nil {
-		delegationDigest, _ = request.DigestAt(record.CreatedAt)
-	}
-	e := contracts.ExpiredHistoricalAuthorityEvidence{ObjectKind: "authority request", ObjectID: requestID, ObjectVersion: version, ObjectDigest: record.ObjectDigest, InstallationDigest: installationDigest, Principal: gen.Principal, RequestDigest: expectedDigest, IntentID: request.Intent.ID, IntentDigest: intentDigest, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, DelegationRef: gen.DelegationRef, DelegationDigest: delegationDigest, GenerationRef: gen.Ref, GenerationVersion: gen.Version, GenerationDigest: gen.Digest, ExecutionID: executionID, EffectIDs: append([]string(nil), effectIDs...), EffectiveAt: gen.EffectiveAt, ExpiresAt: *gen.ExpiresAt, HistoricalValidityEstablished: true, Historical: true, NonExecutable: true, Status: contracts.HistoricalAuthorityExpired}
+	e := contracts.ExpiredHistoricalAuthorityEvidence{ObjectKind: "authority request", ObjectID: requestID, ObjectVersion: version, ObjectDigest: record.ObjectDigest, InstallationDigest: installationDigest, Principal: child.Principal, RequestDigest: expectedDigest, IntentID: request.Intent.ID, IntentDigest: intentDigest, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegationRef: child.DelegationRef, DelegationDigest: child.DelegationDigest, GenerationRef: child.Ref, GenerationVersion: child.Version, GenerationDigest: child.Digest, ExecutionID: executionID, EffectIDs: append([]string(nil), effectIDs...), EffectiveAt: child.EffectiveAt, ExpiresAt: *child.ExpiresAt, HistoricalValidityEstablished: true, Historical: true, NonExecutable: true, Status: contracts.HistoricalAuthorityExpired}
 	e.Digest, err = e.ComputeDigest()
 	if err != nil {
 		return contracts.ExpiredHistoricalAuthorityEvidence{}, err

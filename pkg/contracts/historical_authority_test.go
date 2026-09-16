@@ -12,6 +12,7 @@ func TestExpiredHistoricalAuthorityEvidenceIsDistinctAndDeterministic(t *testing
 		ObjectKind: "authority request", ObjectID: "authority-request:test", ObjectVersion: "1", ObjectDigest: d,
 		InstallationDigest: d, Principal: PrincipalRef{Kind: "human", ID: "owner"}, RequestDigest: d,
 		IntentID: "intent:test", IntentDigest: d, DecisionRef: "decision:test", DecisionVersion: "1", DecisionDigest: d,
+		ParentRef: "parent:test", ParentVersion: "1", ParentDigest: d,
 		GenerationRef: "generation:test", GenerationVersion: "1", GenerationDigest: d, ExecutionID: "execution:test",
 		EffectIDs: []string{"execution:test:effect"}, EffectiveAt: time.Unix(100, 0).UTC(), ExpiresAt: time.Unix(200, 0).UTC(),
 		HistoricalValidityEstablished: true, Historical: true, NonExecutable: true, Status: HistoricalAuthorityExpired,
@@ -37,7 +38,7 @@ func TestExpiredHistoricalAuthorityEvidenceIsDistinctAndDeterministic(t *testing
 
 func TestExpiredHistoricalAuthorityEvidenceRejectsExecutableStatus(t *testing.T) {
 	d := "sha256:" + strings.Repeat("b", 64)
-	exp := ExpiredHistoricalAuthorityEvidence{ObjectKind: "authority request", ObjectID: "r", ObjectVersion: "1", ObjectDigest: d, InstallationDigest: d, Principal: PrincipalRef{Kind: "human", ID: "o"}, RequestDigest: d, IntentID: "i", IntentDigest: d, DecisionRef: "d", DecisionVersion: "1", DecisionDigest: d, GenerationRef: "g", GenerationVersion: "1", GenerationDigest: d, ExecutionID: "e", EffectIDs: []string{"x"}, EffectiveAt: time.Unix(1, 0), ExpiresAt: time.Unix(2, 0), HistoricalValidityEstablished: true, Historical: true, NonExecutable: true, Status: "active", Digest: d}
+	exp := ExpiredHistoricalAuthorityEvidence{ObjectKind: "authority request", ObjectID: "r", ObjectVersion: "1", ObjectDigest: d, InstallationDigest: d, Principal: PrincipalRef{Kind: "human", ID: "o"}, RequestDigest: d, IntentID: "i", IntentDigest: d, DecisionRef: "d", DecisionVersion: "1", DecisionDigest: d, ParentRef: "p", ParentVersion: "1", ParentDigest: d, GenerationRef: "g", GenerationVersion: "1", GenerationDigest: d, ExecutionID: "e", EffectIDs: []string{"x"}, EffectiveAt: time.Unix(1, 0), ExpiresAt: time.Unix(2, 0), HistoricalValidityEstablished: true, Historical: true, NonExecutable: true, Status: "active", Digest: d}
 	if exp.Validate() == nil {
 		t.Fatal("active status must not validate as historical evidence")
 	}

@@ -1,6 +1,7 @@
 package goalspublication
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -195,12 +196,9 @@ func TestV5SuccessorRequestRequiresFreshExactDecisionAndGeneration(t *testing.T)
 	old := Execution{Repository: r, Now: func() time.Time { return at }}
 	root := rootOf(f)
 	user := strings.Split(root.ProvenanceRef, ":os-user:")[1]
-	_, err := old.Abandon(context.Background(), predecessor.ID, user, "fixture abandonment", "wrong")
-	if err == nil {
-		t.Fatal("expected frozen owner confirmation")
-	}
-	confirmation := strings.TrimPrefix(err.Error(), "exact owner confirmation required: ABANDON ")
-	abandonmentID, err := old.Abandon(context.Background(), predecessor.ID, user, "fixture abandonment", "ABANDON "+confirmation)
+	frozen, confirmation, err := old.PrepareAbandonment(context.Background(), predecessor.ID, user, "fixture abandonment")
+	must(t, err)
+	abandonmentID, err := old.ConfirmAbandonment(context.Background(), frozen, user, "ABANDON "+confirmation)
 	must(t, err)
 	var abandonmentBytes []byte
 	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT payload FROM events WHERE event_id=?`, abandonmentID).Scan(&abandonmentBytes))
@@ -277,12 +275,12 @@ func TestAbandonmentPreservesLineageAndPermanentlyFencesPredecessor(t *testing.T
 	r, f, at, q, auth, key := predecessorExecutionFixture(t)
 	ctx := context.Background()
 	e := Execution{Repository: r, Adapter: &fakeAdapter{}, Now: func() time.Time { return at }}
-	if _, err := e.Abandon(ctx, "goals-publication-request:substituted", "test", "reason", "ABANDON anything"); err == nil {
+	if _, _, err := e.PrepareAbandonment(ctx, "goals-publication-request:substituted", "test", "reason"); err == nil {
 		t.Fatal("wrong request accepted")
 	}
 	root := rootOf(f)
 	user := strings.Split(root.ProvenanceRef, ":os-user:")[1]
-	if _, err := e.Abandon(ctx, q.ID, "other-user", "reason", "ABANDON anything"); err == nil {
+	if _, _, err := e.PrepareAbandonment(ctx, q.ID, "other-user", "reason"); err == nil {
 		t.Fatal("non-owner accepted")
 	}
 	before := make(map[string]string)
@@ -294,20 +292,20 @@ func TestAbandonmentPreservesLineageAndPermanentlyFencesPredecessor(t *testing.T
 		must(t, r.Store.DB().QueryRowContext(ctx, `SELECT reconciliation_evidence FROM effects WHERE effect_id=?`, key+":"+step).Scan(&rec))
 		before[step] += "/" + hash(rec)
 	}
-	_, err := e.Abandon(ctx, q.ID, user, "fixed reason", "wrong")
-	if err == nil {
-		t.Fatal("missing exact owner confirmation accepted")
-	} else if !strings.Contains(err.Error(), "exact owner confirmation required: ABANDON ") {
-		t.Fatal(err)
-	}
-	digest := strings.TrimPrefix(err.Error(), "exact owner confirmation required: ABANDON ")
-	id, err := e.Abandon(ctx, q.ID, user, "fixed reason", "ABANDON "+digest)
+	frozen, digest, err := e.PrepareAbandonment(ctx, q.ID, user, "fixed reason")
 	must(t, err)
-	if again, err := e.Abandon(ctx, q.ID, user, "fixed reason", "ABANDON "+digest); err != nil || again != id {
+	if _, err = e.ConfirmAbandonment(ctx, frozen, user, "wrong"); err == nil || !strings.Contains(err.Error(), "exact owner confirmation required: ABANDON "+digest) {
+		t.Fatalf("exact frozen-payload confirmation was not required: %v", err)
+	}
+	id, err := e.ConfirmAbandonment(ctx, frozen, user, "ABANDON "+digest)
+	must(t, err)
+	if again, err := e.ConfirmAbandonment(ctx, frozen, user, "ABANDON "+digest); err != nil || again != id {
 		t.Fatalf("byte-identical replay failed: %s %v", again, err)
 	}
-	if _, err = e.Abandon(ctx, q.ID, user, "altered reason", "ABANDON "+digest); err == nil {
-		t.Fatal("altered replay accepted")
+	if altered, alteredDigest, prepErr := e.PrepareAbandonment(ctx, q.ID, user, "altered reason"); prepErr == nil {
+		if _, err = e.ConfirmAbandonment(ctx, altered, user, "ABANDON "+alteredDigest); err == nil {
+			t.Fatal("altered replay accepted")
+		}
 	}
 	for _, step := range []string{"refs", "draft", "manifest"} {
 		v, err := e.load(ctx, key+":"+step)
@@ -350,6 +348,61 @@ func TestAbandonmentPreservesLineageAndPermanentlyFencesPredecessor(t *testing.T
 	}
 }
 
+func TestAbandonmentConfirmationAppendsExactFrozenPayload(t *testing.T) {
+	r, f, at, q, _, _ := predecessorExecutionFixture(t)
+	root := rootOf(f)
+	user := strings.Split(root.ProvenanceRef, ":os-user:")[1]
+	e := Execution{Repository: r, Now: func() time.Time { return at }}
+	frozen, digest, err := e.PrepareAbandonment(context.Background(), q.ID, user, "frozen exact reason")
+	must(t, err)
+	var prepared abandonmentPayload
+	must(t, json.Unmarshal(frozen, &prepared))
+	if hash(frozen) != digest || prepared.RequestDigest == "" || prepared.IntentDigest == "" || prepared.AuthorityDigest == "" {
+		t.Fatal("prepared abandonment identity does not bind exact lineage bytes")
+	}
+	e.Now = func() time.Time { return at.Add(time.Minute) }
+	id, err := e.ConfirmAbandonment(context.Background(), frozen, user, "ABANDON "+digest)
+	must(t, err)
+	var appended []byte
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT payload FROM events WHERE event_id=?`, id).Scan(&appended))
+	if !bytes.Equal(appended, frozen) || hash(appended) != digest || id != "goals-publication-abandoned:"+digest {
+		t.Fatal("command did not append the exact owner-confirmed frozen payload")
+	}
+	var after abandonmentPayload
+	must(t, json.Unmarshal(appended, &after))
+	if after.CreatedAt != prepared.CreatedAt {
+		t.Fatal("confirmation reconstructed the payload with a fresh timestamp")
+	}
+}
+
+func TestAbandonmentConfirmationRejectsChangedStateAndSubstitutedBytes(t *testing.T) {
+	for _, tc := range []string{"changed-state", "substituted-bytes"} {
+		t.Run(tc, func(t *testing.T) {
+			r, f, at, q, _, key := predecessorExecutionFixture(t)
+			root := rootOf(f)
+			user := strings.Split(root.ProvenanceRef, ":os-user:")[1]
+			e := Execution{Repository: r, Now: func() time.Time { return at }}
+			frozen, digest, err := e.PrepareAbandonment(context.Background(), q.ID, user, "frozen exact reason")
+			must(t, err)
+			confirmed := frozen
+			if tc == "changed-state" {
+				_, err = r.Store.DB().ExecContext(context.Background(), `UPDATE effects SET state='failed' WHERE effect_id=?`, key+":manifest")
+				must(t, err)
+			} else {
+				confirmed = append(append([]byte(nil), frozen...), ' ')
+			}
+			if _, err = e.ConfirmAbandonment(context.Background(), confirmed, user, "ABANDON "+digest); err == nil {
+				t.Fatal("changed or substituted abandonment payload was accepted")
+			}
+			var count int
+			must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?`, key).Scan(&count))
+			if count != 0 {
+				t.Fatal("failed confirmation appended abandonment evidence")
+			}
+		})
+	}
+}
+
 func TestAbandonmentRejectsRequestIntentGenerationAndEffectSubstitution(t *testing.T) {
 	for name, mutate := range map[string]func(*testing.T, goalstore.Repository, string){
 		"intent": func(t *testing.T, r goalstore.Repository, key string) {
@@ -387,7 +440,7 @@ func TestAbandonmentRejectsRequestIntentGenerationAndEffectSubstitution(t *testi
 			root := rootOf(f)
 			user := strings.Split(root.ProvenanceRef, ":os-user:")[1]
 			e := Execution{Repository: r, Now: func() time.Time { return at }}
-			if _, err := e.Abandon(context.Background(), q.ID, user, "reason", "ABANDON forged"); err == nil {
+			if _, _, err := e.PrepareAbandonment(context.Background(), q.ID, user, "reason"); err == nil {
 				t.Fatal("substituted predecessor lineage accepted")
 			}
 		})
@@ -486,12 +539,9 @@ func authorizedRecoveryFixture(t *testing.T, assets Assets) (goalstore.Repositor
 	old := Execution{Repository: r, Adapter: &fakeAdapter{}, Now: func() time.Time { return at }}
 	root := rootOf(f)
 	owner := strings.Split(root.ProvenanceRef, ":os-user:")[1]
-	_, err := old.Abandon(context.Background(), pred.ID, owner, "fixture abandonment", "wrong")
-	if err == nil {
-		t.Fatal("expected owner confirmation")
-	}
-	confirmation := strings.TrimPrefix(err.Error(), "exact owner confirmation required: ABANDON ")
-	abandonID, err := old.Abandon(context.Background(), pred.ID, owner, "fixture abandonment", "ABANDON "+confirmation)
+	frozen, confirmation, err := old.PrepareAbandonment(context.Background(), pred.ID, owner, "fixture abandonment")
+	must(t, err)
+	abandonID, err := old.ConfirmAbandonment(context.Background(), frozen, owner, "ABANDON "+confirmation)
 	must(t, err)
 	var raw []byte
 	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT payload FROM events WHERE event_id=?`, abandonID).Scan(&raw))

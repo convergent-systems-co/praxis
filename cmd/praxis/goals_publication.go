@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"os"
 	"os/user"
 	"time"
 
@@ -27,6 +28,8 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	expiry := f.String("expires-at", "", "finite authorization expiry (RFC3339)")
 	ownerConfirmation := f.String("confirmation", "", "exact owner confirmation: ABANDON <payload-digest>")
 	reason := f.String("reason", "", "reason for terminally abandoning the exact execution")
+	previewFile := f.String("preview-file", "", "exact frozen abandonment payload to confirm")
+	output := f.String("output", "", "write the exact frozen abandonment payload to this new file")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -37,20 +40,45 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	now := time.Now().UTC()
 	remote := goalspublication.GitHub{}
 	switch mode {
-	case "abandon":
-		if *request == "" || *dir != "" || *expiry != "" || *reason == "" || *ownerConfirmation == "" {
-			return errors.New("usage: praxis publisher goals-publication-abandon --request-id <id> --reason <text> --confirmation 'ABANDON <digest>'")
+	case "abandon-preview":
+		if *request == "" || *dir != "" || *expiry != "" || *reason == "" || *ownerConfirmation != "" || *previewFile != "" || *output == "" {
+			return errors.New("usage: praxis publisher goals-publication-abandon-preview --request-id <id> --reason <text> --output <new-file>")
 		}
 		current, err := user.Current()
 		if err != nil || current.Username == "" {
 			return errors.New("cannot authenticate current OS user")
+		}
+		repo, db, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		payload, digest, err := (goalspublication.Execution{Repository: repo}).PrepareAbandonment(ctx, *request, current.Username, *reason)
+		if err != nil {
+			return err
+		}
+		if err := writeCanonicalPreviewFile(*output, payload); err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"preview_file": *output, "payload_digest": digest, "confirmation": "ABANDON " + digest})
+	case "abandon":
+		if *request != "" || *dir != "" || *expiry != "" || *reason != "" || *ownerConfirmation == "" || *previewFile == "" || *output != "" {
+			return errors.New("usage: praxis publisher goals-publication-abandon --preview-file <frozen-payload> --confirmation 'ABANDON <digest>'")
+		}
+		current, err := user.Current()
+		if err != nil || current.Username == "" {
+			return errors.New("cannot authenticate current OS user")
+		}
+		payload, err := os.ReadFile(*previewFile)
+		if err != nil {
+			return err
 		}
 		repo, db, err := openGovernedRepository(ctx, getenv)
 		if err != nil {
 			return err
 		}
 		defer db.Close()
-		id, err := (goalspublication.Execution{Repository: repo}).Abandon(ctx, *request, current.Username, *reason, *ownerConfirmation)
+		id, err := (goalspublication.Execution{Repository: repo}).ConfirmAbandonment(ctx, payload, current.Username, *ownerConfirmation)
 		if err != nil {
 			return err
 		}

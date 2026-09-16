@@ -37,6 +37,8 @@ func runPublisherCommand(args []string) error {
 		return runGoalsPublication("inspect", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-abandon":
 		return runGoalsPublication("abandon", args[1:], os.Getenv, os.Stdout)
+	case "goals-publication-abandon-preview":
+		return runGoalsPublication("abandon-preview", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-recovery-prepare":
 		return runGoalsPublication("recovery-prepare", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-recovery-execute":
@@ -72,12 +74,12 @@ func runPublisherCommand(args []string) error {
 	case "receipt":
 		return runPublisherReceipt(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect|goals-publication-reconcile|goals-publication-abandon|goals-publication-recovery-prepare|goals-publication-recovery-execute|goals-publication-recovery-reconcile}")
+		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect|goals-publication-reconcile|goals-publication-abandon-preview|goals-publication-abandon|goals-publication-recovery-prepare|goals-publication-recovery-execute|goals-publication-recovery-reconcile}")
 	}
 }
 
 func writePublisherHelp(w io.Writer) error {
-	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect|goals-publication-reconcile|goals-publication-abandon|goals-publication-recovery-prepare|goals-publication-recovery-execute|goals-publication-recovery-reconcile>\n\nSigning previews persist an immutable intent but do not sign. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
+	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect|goals-publication-reconcile|goals-publication-abandon-preview|goals-publication-abandon|goals-publication-recovery-prepare|goals-publication-recovery-execute|goals-publication-recovery-reconcile>\n\nSigning previews persist an immutable intent but do not sign. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
 	return err
 }
 

@@ -651,11 +651,40 @@ func validateRecoveryObservation(a contracts.ActionIntent, step string, o Observ
 		return errors.New("successor release state mismatch")
 	}
 	if step == "verify-draft" || step == "verify-published" {
-		if len(o.AssetDigests) != 3 || o.AssetDigests[0] != contracts.GoalsPublicationManifest || o.AssetDigests[1] != contracts.GoalsPublicationArchive || o.AssetDigests[2] != contracts.GoalsPublicationSignature {
-			return errors.New("successor asset read-back mismatch")
+		if err := validateRecoveryAssetReadBack(a, *o.Release, o.AssetDigests); err != nil {
+			return err
 		}
 	}
 	_ = previous
+	return nil
+}
+
+// validateRecoveryAssetReadBack binds each downloaded digest to the asset
+// identity that produced it. Provider enumeration order is evidence only and
+// has no semantic meaning.
+func validateRecoveryAssetReadBack(a contracts.ActionIntent, release Release, digests []string) error {
+	if len(release.Assets) != len(assetNames) || len(digests) != len(assetNames) {
+		return errors.New("successor asset read-back mismatch")
+	}
+	seenNames := map[string]bool{}
+	seenIDs := map[int64]bool{}
+	indices := map[string]int{"praxis-package.json": 0, "praxis-package.tar.gz": 1, "praxis-package.sig.json": 2}
+	for i, asset := range release.Assets {
+		idx, ok := indices[asset.Name]
+		if !ok || seenNames[asset.Name] || seenIDs[asset.ID] || asset.ID <= 0 || asset.State != "uploaded" || fmt.Sprint(asset.Uploader.ID) != a.Parameters["account_id"] {
+			return errors.New("successor asset read-back mismatch")
+		}
+		seenNames[asset.Name] = true
+		seenIDs[asset.ID] = true
+		wantID := []string{"asset_manifest_id", "asset_archive_id", "asset_signature_id"}[idx]
+		wantSize := []string{"manifest_size", "archive_size", "signature_size"}[idx]
+		if fmt.Sprint(asset.ID) != a.Parameters[wantID] || fmt.Sprint(asset.Size) != a.Parameters[wantSize] || digests[i] != assetDigests[idx] {
+			return errors.New("successor asset read-back mismatch")
+		}
+	}
+	if len(seenNames) != len(assetNames) || len(seenIDs) != len(assetNames) {
+		return errors.New("successor asset read-back mismatch")
+	}
 	return nil
 }
 

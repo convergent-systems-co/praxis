@@ -103,3 +103,49 @@ func TestSigningPreviewRejectsStorageDigestSubstitution(t *testing.T) {
 		t.Fatal("storage identity substitution must fail closed")
 	}
 }
+
+func TestSigningPreviewAttemptsForSamePackageAreDistinctAndReplayable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	firstAt := time.Unix(1700000000, 1).UTC()
+	secondAt := firstAt.Add(time.Nanosecond)
+	repo, db := signingPreviewRepo(t, path)
+	t.Cleanup(func() { db.Close() })
+
+	first := signingPreviewFixture(firstAt)
+	firstDigest, err := repo.SaveSigningPreview(context.Background(), first, firstAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay, err := repo.SaveSigningPreview(context.Background(), first, secondAt); err != nil || replay != firstDigest {
+		t.Fatalf("exact preview replay = %s, %v; want %s", replay, err, firstDigest)
+	}
+
+	second := signingPreviewFixture(secondAt)
+	second.ID = "publisher-signing-preview:test:attempt-2"
+	secondDigest, err := repo.SaveSigningPreview(context.Background(), second, secondAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secondDigest == firstDigest {
+		t.Fatal("distinct signing attempts must have distinct semantic digests")
+	}
+	if _, err := repo.LoadSigningPreviewByDigest(context.Background(), firstDigest, secondAt); err != nil {
+		t.Fatalf("first preview was not preserved: %v", err)
+	}
+	if _, err := repo.LoadSigningPreviewByDigest(context.Background(), secondDigest, secondAt); err != nil {
+		t.Fatalf("second preview was not persisted: %v", err)
+	}
+
+	conflict := first
+	conflict.ArtifactDigest = hexDigest('z')
+	if _, err := repo.SaveSigningPreview(context.Background(), conflict, secondAt); err == nil {
+		t.Fatal("substituted package identity must not replay the first attempt")
+	}
+	var count int
+	if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id LIKE ?`, publisherGovernanceNamespace, signingPreviewPrefix+"%").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("unexpected signing preview count %d; want 2", count)
+	}
+}

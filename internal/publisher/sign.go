@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -86,13 +87,21 @@ func BuildSigningPreview(ctx context.Context, store *state.Store, authority Exac
 	if auth.Generation.ExpiresAt == nil {
 		return contracts.SigningPreview{}, errors.New("package.publish authority has no expiry")
 	}
-	preview := contracts.SigningPreview{ID: "publisher-signing-preview:" + generationDigest + ":" + built.ArtifactDigest, Version: "1", PackageID: built.Manifest.PackageID, PackageVersion: built.Manifest.Version, PackageNamespace: record.Generation.PackageNamespace, ManifestDigest: built.ManifestDigest, ArtifactDigest: built.ArtifactDigest, ExecutableDigest: binding.ExecutableDigest, InvocationContractDigest: contractDigest, ExecutableBindingDigest: bindingDigest, PluginDefinitionDigest: binding.PluginDefinitionDigest, RuntimeID: binding.RuntimeID, RuntimeVersion: binding.RuntimeVersion, RuntimeDigest: binding.RuntimeDigest, SourceIdentity: sourceIdentity, BuilderIdentity: builderIdentity, QualificationRef: qualificationRef, PublisherPrincipal: record.Generation.Principal.ID, PublisherGenerationDigest: generationDigest, PublisherGenerationVersion: record.Generation.Version, PublicKeyDigest: record.Generation.PublicKeyDigest, KeyID: record.Generation.KeyID, Algorithm: record.Generation.Algorithm, AuthorityGenerationRef: auth.Generation.Ref, AuthorityGenerationVersion: auth.Generation.Version, AuthorityGenerationDigest: auth.Generation.Digest, AuthorityModel: auth.Generation.AuthorityModel, AuthorityModelVersion: auth.Generation.AuthorityModelVersion, AuthorityModelDigest: auth.Generation.AuthorityModelDigest, ParentRef: auth.Generation.ParentRef, ParentVersion: auth.Generation.ParentVersion, ParentDigest: auth.Generation.ParentDigest, AuthorityScope: auth.Generation.Scope, AuthorityRequestID: auth.Request.ID, AuthorityRequestVersion: auth.Request.Version, AuthorityRequestDigest: requestDigest, AuthorityDecisionRef: auth.Decision.DecisionRef, AuthorityDecisionVersion: auth.Decision.DecisionVersion, AuthorityDecisionDigest: decisionDigest, ExpiresAt: *auth.Generation.ExpiresAt, CreatedAt: now.UTC()}
+	createdAt := now.UTC()
+	preview := contracts.SigningPreview{ID: signingPreviewAttemptID(generationDigest, built.ArtifactDigest, createdAt), Version: "1", PackageID: built.Manifest.PackageID, PackageVersion: built.Manifest.Version, PackageNamespace: record.Generation.PackageNamespace, ManifestDigest: built.ManifestDigest, ArtifactDigest: built.ArtifactDigest, ExecutableDigest: binding.ExecutableDigest, InvocationContractDigest: contractDigest, ExecutableBindingDigest: bindingDigest, PluginDefinitionDigest: binding.PluginDefinitionDigest, RuntimeID: binding.RuntimeID, RuntimeVersion: binding.RuntimeVersion, RuntimeDigest: binding.RuntimeDigest, SourceIdentity: sourceIdentity, BuilderIdentity: builderIdentity, QualificationRef: qualificationRef, PublisherPrincipal: record.Generation.Principal.ID, PublisherGenerationDigest: generationDigest, PublisherGenerationVersion: record.Generation.Version, PublicKeyDigest: record.Generation.PublicKeyDigest, KeyID: record.Generation.KeyID, Algorithm: record.Generation.Algorithm, AuthorityGenerationRef: auth.Generation.Ref, AuthorityGenerationVersion: auth.Generation.Version, AuthorityGenerationDigest: auth.Generation.Digest, AuthorityModel: auth.Generation.AuthorityModel, AuthorityModelVersion: auth.Generation.AuthorityModelVersion, AuthorityModelDigest: auth.Generation.AuthorityModelDigest, ParentRef: auth.Generation.ParentRef, ParentVersion: auth.Generation.ParentVersion, ParentDigest: auth.Generation.ParentDigest, AuthorityScope: auth.Generation.Scope, AuthorityRequestID: auth.Request.ID, AuthorityRequestVersion: auth.Request.Version, AuthorityRequestDigest: requestDigest, AuthorityDecisionRef: auth.Decision.DecisionRef, AuthorityDecisionVersion: auth.Decision.DecisionVersion, AuthorityDecisionDigest: decisionDigest, ExpiresAt: *auth.Generation.ExpiresAt, CreatedAt: createdAt}
 	d, err := preview.DigestValue()
 	if err != nil {
 		return contracts.SigningPreview{}, err
 	}
 	preview.Digest = d
 	return preview, nil
+}
+
+// signingPreviewAttemptID separates a signing attempt from the immutable
+// package identity. The timestamp is part of the attempt identity; the
+// package and authority digests remain bound in the preview body.
+func signingPreviewAttemptID(generationDigest, artifactDigest string, createdAt time.Time) string {
+	return "publisher-signing-preview:" + generationDigest + ":" + artifactDigest + ":" + strconv.FormatInt(createdAt.UTC().UnixNano(), 10)
 }
 
 // SignWithPreview consumes only a durable, exact signing preview. It

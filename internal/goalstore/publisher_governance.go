@@ -34,6 +34,16 @@ func (r Repository) SaveSigningPreview(ctx context.Context, preview contracts.Si
 		return "", errors.New("signing preview digest mismatch")
 	}
 	preview.Digest = d
+	var existing contracts.SigningPreview
+	if err := r.loadPublisherGovernance(ctx, preview.ID, preview.Version, now, &existing); err == nil {
+		existingDigest, digestErr := existing.DigestValue()
+		if digestErr != nil || existingDigest != d {
+			return "", errors.New("signing preview attempt identity conflict")
+		}
+		return d, nil
+	} else if !errors.Is(err, statepkg.ErrSecureBlobNotFound) {
+		return "", err
+	}
 	if _, err := r.savePublisherGovernance(ctx, preview.ID, preview.Version, preview, now, &preview.ExpiresAt); err != nil {
 		return "", err
 	}

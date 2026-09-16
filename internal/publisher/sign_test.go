@@ -1,6 +1,7 @@
 package publisher
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,6 +64,19 @@ func TestSignRequiresEnrolledGenerationAndPackagePublish(t *testing.T) {
 	}
 	if _, err := Sign(ctx, store, allowPublisher{}, praxiscrypto.MemoryPublisherSigner{ID: generation.KeyID, Private: private}, generationDigest, built, "commit:test", "builder:test", "", now); err == nil {
 		t.Fatal("legacy direct signing path must require a canonical signing preview")
+	}
+}
+
+func TestSigningPreviewAttemptIdentityChangesForSamePackage(t *testing.T) {
+	generation := "sha256:" + hex.EncodeToString(make([]byte, sha256.Size))
+	artifact := "sha256:" + hex.EncodeToString(bytes.Repeat([]byte{1}, sha256.Size))
+	a := signingPreviewAttemptID(generation, artifact, time.Unix(1700000000, 1).UTC())
+	b := signingPreviewAttemptID(generation, artifact, time.Unix(1700000000, 2).UTC())
+	if a == b {
+		t.Fatal("same package identity must receive distinct signing-attempt identities")
+	}
+	if !strings.HasPrefix(a, "publisher-signing-preview:"+generation+":"+artifact+":") {
+		t.Fatalf("attempt identity lost package binding: %q", a)
 	}
 }
 

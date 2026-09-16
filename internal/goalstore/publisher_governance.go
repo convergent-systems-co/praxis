@@ -1,6 +1,7 @@
 package goalstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -289,7 +290,7 @@ func (r Repository) SaveAuthorityModelAdoptionSupersession(ctx context.Context, 
 	var prior contracts.AuthorityModelAdoptionSupersession
 	if err := r.loadPublisherGovernance(ctx, supersession.ID, supersession.Version, now, &prior); err == nil {
 		priorDigest, digestErr := prior.Digest()
-		if digestErr != nil || priorDigest != digest {
+		if digestErr != nil || priorDigest == "" || !sameSupersessionStableIdentity(prior, supersession) {
 			return "", errors.New("conflicting authority-model supersession already exists")
 		}
 		return digest, nil
@@ -322,6 +323,14 @@ func (r Repository) SaveAuthorityModelAdoptionSupersession(ctx context.Context, 
 		return "", err
 	}
 	return digest, nil
+}
+
+func sameSupersessionStableIdentity(existing, replay contracts.AuthorityModelAdoptionSupersession) bool {
+	existing.DecidedAt = time.Time{}
+	replay.DecidedAt = time.Time{}
+	left, leftErr := json.Marshal(existing)
+	right, rightErr := json.Marshal(replay)
+	return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
 }
 
 func (r Repository) AbandonAuthorityModelAdoption(ctx context.Context, adoptionDigest, bootstrapDigest, osUser, confirmation string, now time.Time) (string, error) {

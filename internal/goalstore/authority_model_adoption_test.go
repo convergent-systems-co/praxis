@@ -209,6 +209,9 @@ func TestHistoricalUndecidedV3AdoptionMustBeAbandonedBeforeNewAttempt(t *testing
 	if got, err := repo.AbandonAuthorityModelAdoption(context.Background(), staleDigest, bootstrapDigest, "test", "ABANDON "+staleDigest, now); err != nil || got == "" {
 		t.Fatalf("exact supersession replay must be idempotent: digest=%q err=%v", got, err)
 	}
+	if got, err := repo.AbandonAuthorityModelAdoption(context.Background(), staleDigest, bootstrapDigest, "test", "ABANDON "+staleDigest, now.Add(time.Hour)); err != nil || got == "" {
+		t.Fatalf("replay after time advanced must resolve original supersession: digest=%q err=%v", got, err)
+	}
 	newAttempt := stale
 	newAttempt.ID = "authority-model-adoption:v2-to-v3:attempt-2"
 	newDigest := mustDigest(t, newAttempt)

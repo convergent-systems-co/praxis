@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -49,15 +50,69 @@ type Release struct {
 	Assets     []Asset    `json:"assets"`
 }
 type Observation struct {
-	RepositoryID     int64    `json:"repository_id"`
-	OwnerID          int64    `json:"owner_id"`
-	AccountID        int64    `json:"account_id"`
-	Commit           string   `json:"commit"`
-	Tree             string   `json:"tree"`
-	Release          *Release `json:"release,omitempty"`
-	Asset            *Asset   `json:"asset,omitempty"`
-	AssetDigests     []string `json:"asset_digests,omitempty"`
-	DispatchEvidence string   `json:"dispatch_evidence,omitempty"`
+	RepositoryID     int64            `json:"repository_id"`
+	OwnerID          int64            `json:"owner_id"`
+	AccountID        int64            `json:"account_id"`
+	Commit           string           `json:"commit"`
+	Tree             string           `json:"tree"`
+	Release          *Release         `json:"release,omitempty"`
+	Asset            *Asset           `json:"asset,omitempty"`
+	AssetDigests     []string         `json:"asset_digests,omitempty"`
+	DispatchEvidence string           `json:"dispatch_evidence,omitempty"`
+	DispatchOutcome  *DispatchOutcome `json:"dispatch_outcome,omitempty"`
+}
+
+// DispatchOutcome is the bounded, credential-free evidence retained for one
+// fixed Goals GitHub mutation. Raw provider diagnostics are never persisted.
+type DispatchOutcome struct {
+	Version    string `json:"version"`
+	Process    string `json:"process"` // launch_failed | started
+	Class      string `json:"class"`   // local_pre_dispatch_failure | provider_response | acknowledged_success | ambiguous
+	Stdout     string `json:"stdout,omitempty"`
+	Stderr     string `json:"stderr,omitempty"`
+	HTTPStatus int    `json:"http_status,omitempty"`
+	RequestID  string `json:"request_id,omitempty"`
+}
+
+type dispatchFailure struct {
+	outcome DispatchOutcome
+	err     error
+}
+
+type boundedCapture struct {
+	bytes.Buffer
+	limit int
+}
+
+func (b *boundedCapture) Write(p []byte) (int, error) {
+	n := len(p)
+	remaining := b.limit - b.Len()
+	if remaining > 0 {
+		if remaining > len(p) {
+			remaining = len(p)
+		}
+		_, _ = b.Buffer.Write(p[:remaining])
+	}
+	return n, nil
+}
+
+func (e dispatchFailure) Error() string    { return e.err.Error() }
+func (e dispatchFailure) Unwrap() error    { return e.err }
+func (e dispatchFailure) Evidence() []byte { b, _ := json.Marshal(e.outcome); return b }
+
+const maxDiagnosticBytes = 1024
+
+var statusPattern = regexp.MustCompile(`(?i)(?:HTTP(?:/[^ ]+)?[ :]+|status[=: ]+)([1-5][0-9]{2})`)
+var requestIDPattern = regexp.MustCompile(`(?i)(?:x-github-request-id|request[- ]id)[=: ]+([A-F0-9-]{8,80})`)
+var secretPattern = regexp.MustCompile(`(?i)(gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|(token|authorization|password|secret|cookie)[=: ]+[^\s,;]+)`)
+
+func safeDiagnostic(s string) string {
+	s = strings.ToValidUTF8(s, "�")
+	s = secretPattern.ReplaceAllString(s, "[REDACTED]")
+	if len(s) > maxDiagnosticBytes {
+		s = s[:maxDiagnosticBytes]
+	}
+	return s
 }
 
 const apiRepo = "repos/" + contracts.GoalsPublicationRepository
@@ -65,12 +120,32 @@ const apiRepo = "repos/" + contracts.GoalsPublicationRepository
 func gh(ctx context.Context, args []string, body []byte) ([]byte, error) {
 	c := exec.CommandContext(ctx, "gh", args...)
 	c.Stdin = bytes.NewReader(body)
-	var out bytes.Buffer
-	c.Stdout = &out
-	// Avoid forwarding transport stderr, which may contain authentication details.
+	out := &boundedCapture{limit: 8192}
+	stderr := &boundedCapture{limit: 8192}
+	c.Stdout = out
+	c.Stderr = stderr
 	if e := c.Run(); e != nil {
-		return nil, fmt.Errorf("GitHub transport failed (%s): %w", args[0], e)
+		o := DispatchOutcome{Version: "1", Process: "started", Class: "ambiguous"}
+		if c.ProcessState == nil {
+			o.Process = "launch_failed"
+			o.Class = "local_pre_dispatch_failure"
+			o.Stderr = "process launch failed; no provider request was sent"
+		}
+		if m := statusPattern.FindStringSubmatch(stderr.String() + " " + out.String()); len(m) > 1 {
+			fmt.Sscanf(m[1], "%d", &o.HTTPStatus)
+			o.Class = "provider_response"
+			o.Stderr = fmt.Sprintf("provider returned HTTP status %d", o.HTTPStatus)
+		} else if c.ProcessState != nil {
+			o.Stderr = "process started but no provider response was acknowledged"
+		}
+		if m := requestIDPattern.FindStringSubmatch(stderr.String() + " " + out.String()); len(m) > 1 {
+			o.RequestID = m[1]
+		}
+		// stdout and raw stderr may contain response bodies or echoed request data.
+		// Only the parsed allow-listed status and request ID are retained.
+		return nil, dispatchFailure{o, fmt.Errorf("GitHub transport failed (%s): %w", args[0], e)}
 	}
+	// A successful process is only acknowledged; callers still read back exact state.
 	return out.Bytes(), nil
 }
 func api(ctx context.Context, method, path string, input any, result any) error {
@@ -352,6 +427,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 			return o, errors.New("did not create exactly the authorized refs")
 		}
 		o.DispatchEvidence = string(b)
+		o.DispatchOutcome = &DispatchOutcome{Version: "1", Process: "started", Class: "acknowledged_success"}
 	case "draft":
 		var r Release
 		e = api(ctx, "POST", apiRepo+"/releases", map[string]any{"tag_name": contracts.GoalsPublicationTag, "target_commitish": a.Parameters["commit"], "name": a.Parameters["release_name"], "body": a.Parameters["release_body"], "draft": true, "prerelease": false, "generate_release_notes": false, "make_latest": "false"}, &r)
@@ -365,6 +441,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 			return o, errors.New("new draft has unexpected assets")
 		}
 		o.Release = &r
+		o.DispatchOutcome = &DispatchOutcome{Version: "1", Process: "started", Class: "acknowledged_success"}
 	case "manifest", "archive", "signature":
 		idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[step]
 		releaseID := previous[1].Release.ID
@@ -381,6 +458,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 			return o, errors.New("uploaded asset mismatch")
 		}
 		o.Asset = &asset
+		o.DispatchOutcome = &DispatchOutcome{Version: "1", Process: "started", Class: "acknowledged_success"}
 	case "verify", "verify-published":
 		r, e := readRelease(ctx, previous[1].Release.ID)
 		if e != nil {
@@ -414,6 +492,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 			return o, e
 		}
 		o.Release = &r
+		o.DispatchOutcome = &DispatchOutcome{Version: "1", Process: "started", Class: "acknowledged_success"}
 	default:
 		return o, errors.New("unrecognized publication step")
 	}

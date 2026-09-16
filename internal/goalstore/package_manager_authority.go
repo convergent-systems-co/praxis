@@ -19,7 +19,7 @@ func (r Repository) ResolvePackageManagerAuthority(ctx context.Context, installa
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	if !((model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest()) || (model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest())) {
+	if !((model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest()) || (model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest()) || (model.ActiveVersion == contracts.AuthorityModelGoalsRecoveryVersion && model.ActiveDigest == contracts.AuthorityModelGoalsRecoveryDigest())) {
 		return contracts.AuthorityGeneration{}, errors.New("authority-model v3 is not adopted")
 	}
 	generations, err := r.ListAuthorityGenerations(ctx, now)

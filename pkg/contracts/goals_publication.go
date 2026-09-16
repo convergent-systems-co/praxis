@@ -16,7 +16,9 @@ import (
 
 const (
 	AuthorityModelGoalsPublicationVersion = "v4"
+	AuthorityModelGoalsRecoveryVersion    = "v5"
 	GoalsPublicationProfile               = "GOALS_INITIAL_PUBLICATION"
+	GoalsPublicationRecoveryProfile       = "GOALS_PUBLICATION_FROM_ESTABLISHED_STATE"
 	GoalsPublicationOperation             = "publish-initial-goals"
 	GoalsPublicationBootstrap             = "sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00"
 	GoalsPublicationRoot                  = "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
@@ -35,6 +37,13 @@ const (
 // display name. Historical model digest functions are deliberately unchanged.
 func AuthorityModelGoalsPublicationDigest() string {
 	b, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelGoalsPublicationVersion, AuthorityModelDeploymentDigest(), GoalsPublicationProfile, GoalsPublicationOperation, "sha256:f8e107bec312b1754a71280550df7729f67bc142eaebe46c081fb98ef081da7e"})
+	return publicationSHA(b)
+}
+
+// AuthorityModelGoalsRecoveryDigest is the sole additive v5 rule. It retains
+// the immutable v4 identity and adds the one closed established-state profile.
+func AuthorityModelGoalsRecoveryDigest() string {
+	b, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelGoalsRecoveryVersion, AuthorityModelGoalsPublicationDigest(), GoalsPublicationRecoveryProfile, "publish-goals-from-established-state", "sha256:deda0d3ab0c8ab6f62ead7754856d6d8037a8612bfc51021203d5483d5ce0f4a"})
 	return publicationSHA(b)
 }
 func publicationSHA(b []byte) string { s := sha256.Sum256(b); return fmt.Sprintf("sha256:%x", s) }

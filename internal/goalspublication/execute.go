@@ -74,6 +74,11 @@ AND ((e.state='pending' AND e.attempts=0) OR (e.state!='pending' AND e.attempts=
 	return v, err
 }
 func executionKey(req string) string { return "goals-initial-publication:" + hash([]byte(req)) }
+func (e Execution) abandoned(ctx context.Context, requestID string) (bool, error) {
+	var n int
+	err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?`, executionKey(requestID)).Scan(&n)
+	return n != 0, err
+}
 func (e Execution) current(ctx context.Context, requestID string) (contracts.PackagePublishAuthorization, error) {
 	now := e.now()
 	model, err := e.Repository.LoadAuthorityModelState(ctx, now)
@@ -121,6 +126,11 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 	if !strings.HasPrefix(requestID, "goals-publication-request:") {
 		return "", errors.New("not a Goals publication request")
 	}
+	if stopped, err := e.abandoned(ctx, requestID); err != nil {
+		return "", err
+	} else if stopped {
+		return "", errors.New("publication execution is terminally abandoned")
+	}
 	if err := VerifySigning(ctx, e.Repository, e.Assets, e.now()); err != nil {
 		return "", err
 	}
@@ -160,6 +170,11 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 		if err = e.Assets.Match(intent); err != nil {
 			return "", err
 		}
+		if stopped, fenceErr := e.abandoned(ctx, requestID); fenceErr != nil {
+			return "", fenceErr
+		} else if stopped {
+			return "", errors.New("publication execution is terminally abandoned")
+		}
 		if v.State == string(state.EffectSucceeded) {
 			var o Observation
 			if err = json.Unmarshal(v.Result, &o); err != nil {
@@ -180,7 +195,7 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 		boundary := stepBoundary{execution: e, requestID: requestID, intent: intent, step: step, previous: previous}
 		d, _ := intent.Digest()
 		// CAS claim before dispatch prevents concurrent execution of a pending step.
-		res, claimErr := e.Repository.Store.DB().ExecContext(ctx, `UPDATE effects SET state='dispatched',attempts=attempts+1,updated_at=? WHERE effect_id=? AND state='pending'`, e.now().Format(time.RFC3339Nano), id)
+		res, claimErr := e.Repository.Store.DB().ExecContext(ctx, `UPDATE effects SET state='dispatched',attempts=attempts+1,updated_at=? WHERE effect_id=? AND state='pending' AND NOT EXISTS (SELECT 1 FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?)`, e.now().Format(time.RFC3339Nano), id, key)
 		if claimErr != nil {
 			return "", claimErr
 		}
@@ -190,7 +205,16 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 		}
 		result, err := (effect.Coordinator{Revalidator: boundary, Preconditions: boundary, Dispatcher: boundary}).Commit(ctx, intent, effect.AuthorizationSnapshot{IntentDigest: d}, "")
 		if err != nil {
-			saveErr := e.Repository.Store.MarkEffectOutcome(ctx, id, state.EffectUnknown, nil, nil, e.now())
+			var evidence []byte
+			var dispatched dispatchFailure
+			outcome := state.EffectUnknown
+			if errors.As(err, &dispatched) {
+				evidence = dispatched.Evidence()
+				if dispatched.outcome.Class == "local_pre_dispatch_failure" {
+					outcome = state.EffectFailed
+				}
+			}
+			saveErr := e.Repository.Store.MarkEffectOutcome(ctx, id, outcome, evidence, nil, e.now())
 			return "", errors.Join(err, saveErr)
 		}
 		var o Observation
@@ -208,6 +232,11 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 	}
 	// Completion is an existing event; no separate receipt protocol or table.
 	completion := key + ":completed"
+	if stopped, fenceErr := e.abandoned(ctx, requestID); fenceErr != nil {
+		return "", fenceErr
+	} else if stopped {
+		return "", errors.New("publication execution is terminally abandoned")
+	}
 	evidence := make([]string, 0, len(steps))
 	for _, step := range steps {
 		v, err := e.load(ctx, key+":"+step)
@@ -237,7 +266,7 @@ func (e Execution) Execute(ctx context.Context, requestID string) (string, error
 	now := e.now()
 	cmd := state.CommandRecord{ID: completion, Type: "goals-publication.complete", Version: "1", Actor: intent.Actor, Scope: intent.Scope, CorrelationID: key, Payload: payload, CreatedAt: now}
 	event := state.EventRecord{ID: completion, AggregateID: key, AggregateType: "goals-initial-publication", AggregateVersion: int64(len(steps) + 1), Type: "goals-publication.completed", Version: "1", Actor: intent.Actor, CommandID: completion, CorrelationID: key, TrustClass: contracts.TrustObserved, Payload: payload, CreatedAt: now}
-	if err = e.Repository.Store.CommitTransition(ctx, cmd, int64(len(steps)), event, "", "", nil); err != nil {
+	if err = e.Repository.Store.CommitGoalsPublicationCompletion(ctx, cmd, int64(len(steps)), event, key); err != nil {
 		return "", err
 	}
 	return completion, nil
@@ -260,21 +289,24 @@ type stepBoundary struct {
 
 func (b stepBoundary) Revalidate(ctx context.Context, a contracts.ActionIntent, s effect.AuthorizationSnapshot) error {
 	if err := VerifySigning(ctx, b.execution.Repository, b.execution.Assets, b.execution.now()); err != nil {
-		return err
+		return dispatchFailure{outcome: DispatchOutcome{Version: "1", Process: "not_started", Class: "local_pre_dispatch_failure"}, err: err}
 	}
 	auth, err := b.execution.current(ctx, b.requestID)
 	if err != nil {
-		return err
+		return dispatchFailure{outcome: DispatchOutcome{Version: "1", Process: "not_started", Class: "local_pre_dispatch_failure"}, err: err}
 	}
 	d, _ := auth.Request.Intent.Digest()
 	got, _ := a.Digest()
 	if d != got || d != s.IntentDigest {
-		return errors.New("publication authority changed")
+		return dispatchFailure{outcome: DispatchOutcome{Version: "1", Process: "not_started", Class: "local_pre_dispatch_failure"}, err: errors.New("publication authority changed")}
 	}
 	return nil
 }
 func (b stepBoundary) Check(ctx context.Context, a contracts.ActionIntent) error {
-	return b.execution.Adapter.Check(ctx, a, b.step, b.previous)
+	if err := b.execution.Adapter.Check(ctx, a, b.step, b.previous); err != nil {
+		return dispatchFailure{outcome: DispatchOutcome{Version: "1", Process: "not_started", Class: "local_pre_dispatch_failure"}, err: err}
+	}
+	return nil
 }
 func (b stepBoundary) Dispatch(ctx context.Context, a contracts.ActionIntent, _ string) (effect.Result, error) {
 	// Preconditions may involve slow downloads. Fence authority again immediately

@@ -42,9 +42,9 @@ type Result struct {
 }
 
 type Coordinator struct {
-	Revalidator Revalidator
+	Revalidator   Revalidator
 	Preconditions PreconditionChecker
-	Dispatcher Dispatcher
+	Dispatcher    Dispatcher
 }
 
 func (c Coordinator) Commit(ctx context.Context, intent contracts.ActionIntent, auth AuthorizationSnapshot, idempotencyKey string) (Result, error) {
@@ -62,7 +62,9 @@ func (c Coordinator) Commit(ctx context.Context, intent contracts.ActionIntent, 
 		return Result{}, fmt.Errorf("commit-time authorization failed: %w", err)
 	}
 	if err := c.Preconditions.Check(ctx, intent); err != nil {
-		return Result{}, fmt.Errorf("%w: %v", ErrPreconditionChanged, err)
+		// Preserve provider/transport evidence carried by a typed precondition
+		// error while retaining the coordinator's stable sentinel for callers.
+		return Result{}, fmt.Errorf("%w: %w", ErrPreconditionChanged, err)
 	}
 	result, err := c.Dispatcher.Dispatch(ctx, intent, idempotencyKey)
 	if err != nil {

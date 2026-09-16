@@ -3,11 +3,14 @@ package goalspublication
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 // Test the production subprocess adapter with local scripted transports. The
@@ -176,6 +179,117 @@ func TestGitHubReadbackActualBytesAndAssetIdentity(t *testing.T) {
 				must(t, validateObservation(a, "verify", o, prior))
 			} else if err == nil {
 				t.Fatal("readback substitution accepted")
+			}
+		})
+	}
+}
+
+func TestDispatchDiagnosticsAreBoundedAndSanitized(t *testing.T) {
+	got := safeDiagnostic("HTTP 503 x-github-request-id: ABCDEF12 ghp_1234567890 secret=hunter2")
+	if strings.Contains(got, "ghp_") || strings.Contains(got, "hunter2") || len(got) > maxDiagnosticBytes {
+		t.Fatalf("unsafe diagnostic: %q", got)
+	}
+	if !strings.Contains(got, "[REDACTED]") {
+		t.Fatalf("secret was not redacted: %q", got)
+	}
+	if m := statusPattern.FindStringSubmatch(got); len(m) < 2 || m[1] != "503" {
+		t.Fatalf("status not extractable from safe evidence: %q", got)
+	}
+}
+
+func TestGitHubProcessOutcomeClassificationIsSafeAndBounded(t *testing.T) {
+	t.Run("launch-failure", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("PATH", dir)
+		_, err := gh(context.Background(), []string{"api", "--method", "POST", "repos/fixed/assets"}, []byte("protected-body"))
+		var failure dispatchFailure
+		if !errors.As(err, &failure) || failure.outcome.Process != "launch_failed" || failure.outcome.Class != "local_pre_dispatch_failure" {
+			t.Fatalf("launch result not distinguished: %#v %v", failure, err)
+		}
+	})
+	t.Run("provider-response", func(t *testing.T) {
+		dir := t.TempDir()
+		script := "#!/bin/sh\nprintf '%s' 'HTTP 422 x-github-request-id: ABCDEF12 token=ghp_1234567890 body=protected-data' >&2\nexit 1\n"
+		must(t, os.WriteFile(filepath.Join(dir, "gh"), []byte(script), 0700))
+		t.Setenv("PATH", dir)
+		_, err := gh(context.Background(), []string{"api", "--method", "POST", "repos/fixed/assets"}, []byte("protected-request-body"))
+		var failure dispatchFailure
+		if !errors.As(err, &failure) || failure.outcome.Class != "provider_response" || failure.outcome.HTTPStatus != 422 || failure.outcome.RequestID != "ABCDEF12" {
+			t.Fatalf("provider response missing: %+v %v", failure, err)
+		}
+		evidence := string(failure.Evidence())
+		for _, secret := range []string{"ghp_", "protected-data", "protected-request-body", "token="} {
+			if strings.Contains(evidence, secret) {
+				t.Fatalf("sensitive transport content persisted: %s", evidence)
+			}
+		}
+		if len(evidence) > 2048 {
+			t.Fatal("dispatch evidence exceeded bound")
+		}
+	})
+	t.Run("lost-response", func(t *testing.T) {
+		dir := t.TempDir()
+		must(t, os.WriteFile(filepath.Join(dir, "gh"), []byte("#!/bin/sh\nprintf '%s' 'connection reset after request secret=hidden' >&2\nexit 1\n"), 0700))
+		t.Setenv("PATH", dir)
+		_, err := gh(context.Background(), []string{"api", "--method", "POST", "repos/fixed/assets"}, nil)
+		var failure dispatchFailure
+		if !errors.As(err, &failure) || failure.outcome.Class != "ambiguous" || failure.outcome.Process != "started" || strings.Contains(string(failure.Evidence()), "hidden") {
+			t.Fatalf("lost response was not safely ambiguous: %+v", failure)
+		}
+	})
+}
+
+func TestRecoveryGitHubRejectsEstablishedStateSubstitutionReadOnly(t *testing.T) {
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	a, err := contracts.NewGoalsPublicationRecoveryIntent(contracts.GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("e", 64), AccountID: 789, Sizes: [3]int64{1, 2, 3}, PredecessorRequestID: "goals-publication-request:old", PredecessorRequestDigest: "sha256:" + strings.Repeat("1", 64), PredecessorIntentID: "goals-initial-publication:old", PredecessorIntentDigest: "sha256:" + strings.Repeat("2", 64), AbandonmentEventID: "goals-publication-abandoned:old", AbandonmentDigest: "sha256:" + strings.Repeat("3", 64)})
+	must(t, err)
+	for _, tc := range []string{"valid", "repository", "owner", "main", "tag", "commit-tree", "release-id", "release-settings", "nonempty-inventory", "extra-ref"} {
+		t.Run(tc, func(t *testing.T) {
+			responses := identityResponses()
+			responses["GET "+apiRepo] = map[string]any{"id": 1372388187, "owner": map[string]any{"id": 263966243}, "full_name": contracts.GoalsPublicationRepository, "permissions": map[string]bool{"push": true}}
+			responses["GET user"] = githubUser{789}
+			commit := map[string]any{"sha": contracts.GoalsRecoveryCommit, "tree": map[string]string{"sha": contracts.GoalsRecoveryTree}, "parents": []any{}}
+			if tc == "commit-tree" {
+				commit["tree"] = map[string]string{"sha": strings.Repeat("f", 40)}
+			}
+			responses["GET "+apiRepo+"/git/commits/"+contracts.GoalsRecoveryCommit] = commit
+			refText := contracts.GoalsRecoveryCommit + "\trefs/heads/main\n" + contracts.GoalsRecoveryCommit + "\trefs/tags/" + contracts.GoalsPublicationTag + "\n"
+			if tc == "main" {
+				refText = strings.Repeat("a", 40) + "\trefs/heads/main\n" + contracts.GoalsRecoveryCommit + "\trefs/tags/" + contracts.GoalsPublicationTag + "\n"
+			}
+			if tc == "tag" {
+				refText = contracts.GoalsRecoveryCommit + "\trefs/heads/main\n" + strings.Repeat("a", 40) + "\trefs/tags/" + contracts.GoalsPublicationTag + "\n"
+			}
+			if tc == "extra-ref" {
+				refText += contracts.GoalsRecoveryCommit + "\trefs/heads/other\n"
+			}
+			if tc == "repository" {
+				responses["GET "+apiRepo] = map[string]any{"id": 999, "owner": map[string]any{"id": 263966243}, "full_name": contracts.GoalsPublicationRepository, "permissions": map[string]bool{"push": true}}
+			}
+			if tc == "owner" {
+				responses["GET "+apiRepo] = map[string]any{"id": 1372388187, "owner": map[string]any{"id": 999}, "full_name": contracts.GoalsPublicationRepository, "permissions": map[string]bool{"push": true}}
+			}
+			release := Release{ID: 389997269, Tag: contracts.GoalsPublicationTag, Target: contracts.GoalsRecoveryCommit, Name: contracts.GoalsPublicationPackage, Body: "Exact signed Goals initial publication; intent " + contracts.GoalsRecoveryNonce, Draft: true, Author: githubUser{789}}
+			if tc == "release-id" {
+				release.ID++
+			}
+			if tc == "release-settings" {
+				release.Prerelease = true
+			}
+			if tc == "nonempty-inventory" {
+				release.Assets = []Asset{{ID: 100, Name: "unexpected", Size: 10, State: "uploaded", Uploader: githubUser{789}}}
+			}
+			responses["GET "+apiRepo+"/releases/389997269"] = release
+			dir := scriptedTransport(t, responses, refText, "")
+			err := (RecoveryGitHub{}).Check(context.Background(), a, "manifest", nil)
+			if tc == "valid" {
+				must(t, err)
+			} else if err == nil {
+				t.Fatal("mutated established state accepted")
+			}
+			calls, _ := os.ReadFile(filepath.Join(dir, "calls"))
+			if strings.Contains(string(calls), "POST") || strings.Contains(string(calls), "PATCH") {
+				t.Fatalf("precondition check mutated GitHub: %s", calls)
 			}
 		})
 	}

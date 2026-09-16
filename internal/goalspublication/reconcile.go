@@ -19,6 +19,11 @@ func (e Execution) Reconcile(ctx context.Context, requestID string) error {
 		return errors.New("reconciliation dependencies missing")
 	}
 	key := executionKey(requestID)
+	if stopped, err := e.abandoned(ctx, requestID); err != nil {
+		return err
+	} else if stopped {
+		return errors.New("abandoned publication execution is permanently fenced")
+	}
 	previous := []Observation{}
 	for _, step := range steps {
 		id := key + ":" + step

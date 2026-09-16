@@ -93,6 +93,9 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 			if model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
 				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v3-to-v4:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelDeploymentVersion, FromDigest: contracts.AuthorityModelDeploymentDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsPublicationVersion, ToDigest: contracts.AuthorityModelGoalsPublicationDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals initial-publication edge", CreatedAt: now.UTC()}, nil
 			}
+			if model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
+				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v4-to-v5:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsPublicationVersion, FromDigest: contracts.AuthorityModelGoalsPublicationDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsRecoveryVersion, ToDigest: contracts.AuthorityModelGoalsRecoveryDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals established-state successor edge", CreatedAt: now.UTC()}, nil
+			}
 			return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 		}
 	}

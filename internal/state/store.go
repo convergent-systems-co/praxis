@@ -143,6 +143,46 @@ func (s *Store) CommitTransition(
 	return nil
 }
 
+// CommitGoalsPublicationAbandonment serializes the fixed-case owner fence with
+// publication dispatch claims. It records only command/event history and does
+// not rewrite effects or authority generations.
+func (s *Store) CommitGoalsPublicationAbandonment(ctx context.Context, cmd CommandRecord, event EventRecord, requestID string) error {
+	if s == nil || s.db == nil || requestID == "" || cmd.ID != event.ID || event.Type != "goals-publication.abandoned" {
+		return errors.New("invalid Goals publication abandonment")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var claimed int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM effects e JOIN commands c ON c.command_id=e.command_id WHERE c.command_type='goals-publication.step' AND c.correlation_id=? AND e.state='dispatched'`, requestID).Scan(&claimed); err != nil {
+		return err
+	}
+	if claimed != 0 {
+		return errors.New("publication dispatch is in flight; abandonment refused")
+	}
+	if err = insertCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	if err = compareAndAdvanceAggregate(ctx, tx, event.AggregateID, event.AggregateType, 0, 1); err != nil {
+		return err
+	}
+	if err = insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE commands SET status='committed', completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// CommitGoalsPublicationCompletion serializes the old fixed execution's final
+// event against its terminal abandonment fence.
+func (s *Store) CommitGoalsPublicationCompletion(ctx context.Context,cmd CommandRecord,expected int64,event EventRecord,executionID string)error{
+	if s==nil||s.db==nil||executionID==""||event.Type!="goals-publication.completed"{return errors.New("invalid Goals publication completion")};tx,err:=s.db.BeginTx(ctx,&sql.TxOptions{});if err!=nil{return err};defer tx.Rollback();var fenced int;if err=tx.QueryRowContext(ctx,`SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id=?`,executionID).Scan(&fenced);err!=nil{return err};if fenced!=0{return errors.New("abandoned Goals publication cannot complete")};if err=insertCommand(ctx,tx,cmd);err!=nil{return err};if err=compareAndAdvanceAggregate(ctx,tx,event.AggregateID,event.AggregateType,expected,expected+1);err!=nil{return err};if err=insertEvent(ctx,tx,event);err!=nil{return err};if _,err=tx.ExecContext(ctx,`UPDATE commands SET status='committed',completed_at=? WHERE command_id=?`,event.CreatedAt.UTC().Format(time.RFC3339Nano),cmd.ID);err!=nil{return err};return tx.Commit()
+}
+
 func insertCommand(ctx context.Context, tx *sql.Tx, c CommandRecord) error {
 	_, err := tx.ExecContext(ctx, `INSERT INTO commands(command_id, command_type, command_version, actor_id, actor_kind, scope, correlation_id, causation_id, payload, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,'processing',?)`,
 		c.ID, c.Type, c.Version, c.Actor.ID, c.Actor.Kind, c.Scope, c.CorrelationID, nullable(c.CausationID), c.Payload, c.CreatedAt.UTC().Format(time.RFC3339Nano))

@@ -55,6 +55,43 @@ func TestCommitTransitionIsAtomic(t *testing.T) {
 	assertScalarInt(t, db, `SELECT version FROM aggregate_versions WHERE aggregate_id='aggregate-1'`, 1)
 }
 
+func TestGoalsPublicationAbandonmentSerializesAgainstDispatch(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "fence.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	now := time.Now().UTC()
+	cmd := CommandRecord{ID: "step", Type: "goals-publication.step", Version: "1", Actor: contracts.PrincipalRef{ID: "publisher", Kind: "publisher"}, Scope: "fixed", CorrelationID: "execution", Payload: []byte(`{}`), CreatedAt: now}
+	ev := EventRecord{ID: "step", AggregateID: "execution", AggregateType: "goals", AggregateVersion: 1, Type: "goals-publication.step-admitted", Version: "1", Actor: cmd.Actor, CommandID: "step", CorrelationID: "execution", Payload: []byte(`{}`), CreatedAt: now}
+	effect := &EffectRecord{ID: "step", CommandID: "step", ActionIntentDigest: "sha256:abc", TargetAdapter: "goals-initial-github", TargetPrincipal: "publisher", State: "dispatched", RequestPayload: []byte(`{}`), CreatedAt: now, UpdatedAt: now}
+	if err = store.CommitTransition(ctx, cmd, 0, ev, "", "", effect); err != nil {
+		t.Fatal(err)
+	}
+	abandon := CommandRecord{ID: "abandon", Type: "goals-publication.abandon", Version: "1", Actor: contracts.PrincipalRef{ID: "owner", Kind: "human"}, Scope: "fixed", CorrelationID: "execution", Payload: []byte(`{}`), CreatedAt: now}
+	ae := EventRecord{ID: "abandon", AggregateID: "abandon", AggregateType: "goals-publication-abandonment", AggregateVersion: 1, Type: "goals-publication.abandoned", Version: "1", Actor: abandon.Actor, CommandID: "abandon", CorrelationID: "execution", Payload: []byte(`{}`), CreatedAt: now}
+	if err = store.CommitGoalsPublicationAbandonment(ctx, abandon, ae, "execution"); err == nil {
+		t.Fatal("in-flight mutation must prevent abandonment")
+	}
+	if _, err = db.ExecContext(ctx, `UPDATE effects SET state='unknown' WHERE effect_id='step'`); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.CommitGoalsPublicationAbandonment(ctx, abandon, ae, "execution"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := db.ExecContext(ctx, `UPDATE effects SET state='dispatched',attempts=attempts+1 WHERE effect_id='step' AND state='pending' AND NOT EXISTS (SELECT 1 FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id='execution')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := res.RowsAffected()
+	if n != 0 {
+		t.Fatal("abandoned execution passed dispatch fence")
+	}
+	assertScalarInt(t, db, `SELECT count(*) FROM events WHERE event_type='goals-publication.abandoned' AND correlation_id='execution'`, 1)
+}
+
 func TestCommitTransitionRollsBackAuthorityOnVersionConflict(t *testing.T) {
 	ctx := context.Background()
 	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))

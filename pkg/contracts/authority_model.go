@@ -48,7 +48,7 @@ func AuthorityModelDeploymentDigest() string {
 }
 
 func ValidateAuthorityModel(id, version, digest string) error {
-	if id == AuthorityModelID && version == AuthorityModelGoalsPublicationVersion && digest == AuthorityModelGoalsPublicationDigest() {
+	if id == AuthorityModelID && ((version == AuthorityModelGoalsPublicationVersion && digest == AuthorityModelGoalsPublicationDigest()) || (version == AuthorityModelGoalsRecoveryVersion && digest == AuthorityModelGoalsRecoveryDigest())) {
 		return nil
 	}
 	if id != AuthorityModelID || (version != AuthorityModelVersion && version != AuthorityModelSuccessorVersion && version != AuthorityModelDeploymentVersion) || (version == AuthorityModelVersion && digest != AuthorityModelDigest()) || (version == AuthorityModelSuccessorVersion && digest != AuthorityModelSuccessorDigest()) || (version == AuthorityModelDeploymentVersion && digest != AuthorityModelDeploymentDigest()) {

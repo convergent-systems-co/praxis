@@ -15,6 +15,7 @@ import (
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
+	"github.com/convergent-systems-co/praxis/internal/goalspublication"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -172,6 +173,11 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if request.Delegation.Profile == contracts.GoalsPublicationProfile {
 		delegationPolicy = goalstore.GoalsPublicationPolicy{Repository: repo, Request: request}
 	}
+	if request.Delegation.Profile == contracts.GoalsPublicationRecoveryProfile {
+		delegationPolicy = goalstore.GoalsPublicationRecoveryPolicy{Repository: repo, Request: request}
+		if request.Intent==nil{return errors.New("successor request has no protected ActionIntent")}
+		if err:= (goalspublication.RecoveryGitHub{}).Check(context.Background(),*request.Intent,"manifest",nil);err!=nil{return fmt.Errorf("established Goals release precondition changed before delegation: %w",err)}
+	}
 	if err := delegationPolicy.ContainDelegation(parent, *request.Delegation, now); err != nil {
 		return err
 	}
@@ -186,7 +192,7 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 		return errAuthorityBootstrapConfirmation
 	}
 	authorityDigest := contracts.AuthorityModelDigest()
-	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy || request.Delegation.Profile == contracts.GoalsPublicationProfile {
+	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy || request.Delegation.Profile == contracts.GoalsPublicationProfile || request.Delegation.Profile == contracts.GoalsPublicationRecoveryProfile {
 		authorityDigest = request.Delegation.PolicyDigest
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: authorityDigest, IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}

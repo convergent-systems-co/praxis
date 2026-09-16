@@ -56,6 +56,21 @@ func (a Assets) Match(intent contracts.ActionIntent) error {
 	return nil
 }
 
+func (a Assets) MatchRecovery(intent contracts.ActionIntent) error {
+	if err := contracts.ValidateGoalsPublicationRecoveryIntent(intent); err != nil {
+		return err
+	}
+	if err := a.Validate(); err != nil {
+		return err
+	}
+	for i, k := range []string{"manifest_size", "archive_size", "signature_size"} {
+		if fmt.Sprint(len(a[i])) != intent.Parameters[k] {
+			return errors.New("successor asset size differs from exact intent")
+		}
+	}
+	return nil
+}
+
 // VerifySigning loads the original receipt and exact historical authorization.
 // It never calls a signer or substitutes today's publishing authorization.
 func VerifySigning(ctx context.Context, r goalstore.Repository, a Assets, now time.Time) error {

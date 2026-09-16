@@ -165,7 +165,7 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	if current.ActiveVersion != adoption.FromVersion || current.ActiveDigest != adoption.FromDigest || !validModelSuccessor(adoption) {
 		return "", errors.New("authority-model adoption source or successor mismatch")
 	}
-	if adoption.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && (bootstrapDigest != contracts.GoalsPublicationBootstrap || root.Digest != contracts.GoalsPublicationRoot) {
+	if (adoption.ToVersion == contracts.AuthorityModelGoalsPublicationVersion || adoption.ToVersion == contracts.AuthorityModelGoalsRecoveryVersion) && (bootstrapDigest != contracts.GoalsPublicationBootstrap || root.Digest != contracts.GoalsPublicationRoot) {
 		return "", errors.New("Goals publication model is limited to the accepted installation")
 	}
 
@@ -818,6 +818,8 @@ func validModelSuccessor(a contracts.AuthorityModelAdoption) bool {
 		return a.FromDigest == contracts.AuthorityModelSuccessorDigest() && a.ToVersion == contracts.AuthorityModelDeploymentVersion && a.ToDigest == contracts.AuthorityModelDeploymentDigest()
 	case contracts.AuthorityModelDeploymentVersion:
 		return a.FromDigest == contracts.AuthorityModelDeploymentDigest() && a.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && a.ToDigest == contracts.AuthorityModelGoalsPublicationDigest()
+	case contracts.AuthorityModelGoalsPublicationVersion:
+		return a.FromDigest == contracts.AuthorityModelGoalsPublicationDigest() && a.ToVersion == contracts.AuthorityModelGoalsRecoveryVersion && a.ToDigest == contracts.AuthorityModelGoalsRecoveryDigest()
 	}
 	return false
 }

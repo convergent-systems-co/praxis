@@ -16,11 +16,11 @@ import (
 )
 
 type controlArgs struct {
-	runID     string
-	dbPath    string
-	actor     contracts.PrincipalRef
-	waitKind  kernel.WaitKind
-	waitRef   string
+	runID    string
+	dbPath   string
+	actor    contracts.PrincipalRef
+	waitKind kernel.WaitKind
+	waitRef  string
 }
 
 func runControlCommand(operation string, args []string) error {

@@ -1,0 +1,252 @@
+package goalstore
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+// SaveGoalsPublicationRecoveryRequest persists one fresh successor intent in
+// the existing protected authority-request store.
+func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a contracts.ActionIntent, now time.Time) (contracts.AuthorityRequest, string, error) {
+	fail := func(err error) (contracts.AuthorityRequest, string, error) {
+		return contracts.AuthorityRequest{}, "", err
+	}
+	if err := contracts.ValidateGoalsPublicationRecoveryIntent(a); err != nil {
+		return fail(err)
+	}
+	if err := r.ValidateGoalsPublicationAbandonmentBinding(ctx, a); err != nil {
+		return fail(err)
+	}
+	m, err := r.LoadAuthorityModelState(ctx, now)
+	if err != nil {
+		return fail(err)
+	}
+	if m.ActiveVersion != contracts.AuthorityModelGoalsRecoveryVersion || m.ActiveDigest != contracts.AuthorityModelGoalsRecoveryDigest() || m.State != "committed" {
+		return fail(errors.New("v5 Goals recovery model must be explicitly adopted"))
+	}
+	root, err := r.LoadAuthorityGeneration(ctx, contracts.InstallationGovernanceScopePrefix+contracts.GoalsPublicationBootstrap, "1", now)
+	if err != nil {
+		return fail(err)
+	}
+	if err = r.CheckGoalsPublicationInvalidation(ctx, root.Ref, root.Version, "", "", now); err != nil {
+		return fail(err)
+	}
+	pub, err := r.Store.PublisherGeneration(ctx, contracts.GoalsPublicationPublisher)
+	if err != nil {
+		return fail(err)
+	}
+	if pub.State != "active" || pub.Generation.Principal != a.Actor || pub.Generation.Generation != "2" {
+		return fail(errors.New("exact enrolled publisher unavailable"))
+	}
+	if err:=pub.Generation.Validate();err!=nil{return fail(err)}
+	pd, err := pub.Generation.Digest()
+	if err != nil || pd != contracts.GoalsPublicationPublisher {
+		return fail(errors.New("publisher generation digest mismatch"))
+	}
+	id, err := a.Digest()
+	if err != nil {
+		return fail(err)
+	}
+	expiry, _ := time.Parse(time.RFC3339Nano, a.Parameters["expires_at"])
+	d := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: a.Actor, TargetKind: "action-intent", TargetIdentity: a.ID, TargetVersion: a.Version, TargetDigest: id, TargetConstraints: []string{a.Target, a.Parameters["repository_id"]}, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: contracts.GoalsRecoveryOperation, RequestedScope: a.Scope, ProposalVersion: a.Version, ProposalDigest: id, ReviewVersion: a.Version, ReviewDigest: id, ExpiresAt: expiry, Reason: "publish the exact signed Goals assets to the established draft release", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest(), SubjectKind: "publisher", SubjectID: a.Actor.ID, SubjectVersion: "2", SubjectDigest: pd, SubjectKeyDigest: pub.Generation.PublicKeyDigest}
+	if err = contracts.ValidateGoalsPublicationRecoveryDelegation(root, d, a, now); err != nil {
+		return fail(err)
+	}
+	req := contracts.AuthorityRequest{ID: "goals-publication-recovery-request:" + id, Version: "1", RequestedAuthority: contracts.GovernedPackagePublish, RequestedScope: a.Scope, Reason: d.Reason, Status: contracts.AuthorityRequestPending, Delegation: &d, Intent: &a, IntentDigest: id, InstallationDigest: contracts.GoalsPublicationRoot}
+	rd, err := r.SaveAuthorityRequest(ctx, req, now, &expiry)
+	if err != nil {
+		return fail(err)
+	}
+	return req, rd, nil
+}
+
+func recoveryHash(b []byte) string {
+	s := sha256.Sum256(b)
+	return "sha256:" + hex.EncodeToString(s[:])
+}
+
+type abandonmentLineage struct {
+	Version, RequestID, RequestDigest, IntentID, IntentDigest, AuthorityRef, AuthorityVersion, AuthorityDigest, ExecutionID, ExecutionStatus string
+	Effects                                                                                                                                  []struct {
+		ID, State                       string
+		Attempts                        int
+		Request, Result, Reconciliation string
+	}
+	Owner                 contracts.PrincipalRef
+	Reason                string
+	CompletionEstablished bool
+}
+
+func (r Repository) ValidateGoalsPublicationAbandonmentBinding(ctx context.Context, a contracts.ActionIntent) error {
+	p := a.Parameters
+	var body []byte
+	if err := r.Store.DB().QueryRowContext(ctx, `SELECT payload FROM events WHERE event_id=? AND event_type='goals-publication.abandoned' AND event_version='1'`, p["abandonment_event_id"]).Scan(&body); err != nil {
+		return err
+	}
+	if recoveryHash(body) != p["abandonment_digest"] {
+		return errors.New("abandonment event digest mismatch")
+	}
+	var x abandonmentLineage
+	if err := json.Unmarshal(body, &x); err != nil {
+		return err
+	}
+	if x.Version != "1" || x.ExecutionStatus != "abandoned" || x.CompletionEstablished || x.RequestID != p["predecessor_request_id"] || x.RequestDigest != p["predecessor_request_digest"] || x.IntentID != p["predecessor_intent_id"] || x.IntentDigest != p["predecessor_intent_digest"] || len(x.Effects) != 3 || x.Effects[0].State != "succeeded" || x.Effects[1].State != "succeeded" || x.Effects[2].State != "unknown" {
+		return errors.New("abandonment lineage does not bind exact unresolved predecessor")
+	}
+	key := "goals-initial-publication:" + recoveryHash([]byte(x.RequestID))
+	var done int
+	if err := r.Store.DB().QueryRowContext(ctx, `SELECT count(*) FROM events WHERE event_id=?`, key+":completed").Scan(&done); err != nil || done != 0 {
+		return errors.New("predecessor completion is present")
+	}
+	rows, err := r.Store.DB().QueryContext(ctx, `SELECT e.effect_id,e.state,e.attempts,e.request_payload,COALESCE(e.observed_result,''),COALESCE(e.reconciliation_evidence,'') FROM effects e JOIN commands c ON c.command_id=e.command_id JOIN events v ON v.event_id=e.effect_id WHERE c.command_type='goals-publication.step' AND c.correlation_id=? ORDER BY v.aggregate_version`, key)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	i := 0
+	for rows.Next() {
+		var id, st string
+		var attempts int
+		var req, obs, rec []byte
+		if err = rows.Scan(&id, &st, &attempts, &req, &obs, &rec); err != nil {
+			return err
+		}
+		if i >= len(x.Effects) {
+			return errors.New("unexpected predecessor effect")
+		}
+		q := x.Effects[i]
+		if q.ID != id || q.State != st || q.Attempts != attempts || q.Request != recoveryHash(req) || q.Result != recoveryHash(obs) || q.Reconciliation != recoveryHash(rec) {
+			return errors.New("predecessor effect changed since abandonment")
+		}
+		i++
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if i != 3 {
+		return errors.New("predecessor effect lineage incomplete")
+	}
+	return nil
+}
+
+type GoalsPublicationRecoveryPolicy struct {
+	Repository Repository
+	Request    contracts.AuthorityRequest
+}
+
+func (p GoalsPublicationRecoveryPolicy) ContainDelegation(parent contracts.AuthorityGeneration, d contracts.DelegationRequest, now time.Time) error {
+	ctx := context.Background()
+	m, err := p.Repository.LoadAuthorityModelState(ctx, now)
+	if err != nil {
+		return err
+	}
+	if m.ActiveVersion != contracts.AuthorityModelGoalsRecoveryVersion || m.ActiveDigest != contracts.AuthorityModelGoalsRecoveryDigest() || m.State != "committed" {
+		return errors.New("v5 successor model is not active")
+	}
+	req, err := p.Repository.LoadAuthorityRequest(ctx, p.Request.ID, p.Request.Version, now)
+	if err != nil {
+		return err
+	}
+	if req.Intent == nil || req.Delegation == nil {
+		return errors.New("protected successor intent missing")
+	}
+	id, err := req.Intent.Digest()
+	if err != nil {
+		return err
+	}
+	if req.ID != "goals-publication-recovery-request:"+id || req.IntentDigest != id || req.InstallationDigest != contracts.GoalsPublicationRoot || req.RequestedAuthority != contracts.GovernedPackagePublish || req.RequestedScope != req.Intent.Scope || req.Status != contracts.AuthorityRequestPending {
+		return errors.New("successor request identity mismatch")
+	}
+	a, _ := json.Marshal(d)
+	b, _ := json.Marshal(req.Delegation)
+	if string(a) != string(b) {
+		return errors.New("successor delegation substitution")
+	}
+	if err = p.Repository.CheckGoalsPublicationInvalidation(ctx, parent.Ref, parent.Version, "", "", now); err != nil {
+		return err
+	}
+	return contracts.ValidateGoalsPublicationRecoveryDelegation(parent, d, *req.Intent, now)
+}
+
+// LoadGoalsPublicationRecoveryAuthorization resolves the exact v5 request,
+// owner decision and child generation. It never falls back to the v4 grant.
+func (r Repository) LoadGoalsPublicationRecoveryAuthorization(ctx context.Context, id string, at, current time.Time) (contracts.PackagePublishAuthorization, error) {
+	fail := func(e error) (contracts.PackagePublishAuthorization, error) {
+		return contracts.PackagePublishAuthorization{}, e
+	}
+	payload, _, err := r.loadWorkPlanBlob(ctx, authorityRequestNamespace, id, "1", at)
+	if err != nil {
+		return fail(err)
+	}
+	var req contracts.AuthorityRequest
+	if err = json.Unmarshal(payload, &req); err != nil {
+		return fail(err)
+	}
+	if req.ID != id || req.Version != "1" || req.Delegation == nil || req.Intent == nil || req.Delegation.Profile != contracts.GoalsPublicationRecoveryProfile {
+		return fail(errors.New("not a protected Goals successor request"))
+	}
+	d := req.Delegation
+	root, err := r.LoadAuthorityGeneration(ctx, d.ParentRef, d.ParentVersion, at)
+	if err != nil {
+		return fail(err)
+	}
+	if err = contracts.ValidateGoalsPublicationRecoveryDelegation(root, *d, *req.Intent, at); err != nil {
+		return fail(err)
+	}
+	idigest, err := req.Intent.Digest()
+	if err != nil || req.ID != "goals-publication-recovery-request:"+idigest || req.IntentDigest != idigest || req.InstallationDigest != contracts.GoalsPublicationRoot || req.RequestedAuthority != contracts.GovernedPackagePublish || req.RequestedScope != req.Intent.Scope {
+		return fail(errors.New("successor request binding mismatch"))
+	}
+	body, _, err := r.loadWorkPlanBlob(ctx, authorityDecisionNamespace, req.ID, req.Version, at)
+	if err != nil {
+		return fail(err)
+	}
+	var stored authorityDecisionRecord
+	if err = json.Unmarshal(body, &stored); err != nil {
+		return fail(err)
+	}
+	a, _ := json.Marshal(req)
+	b, _ := json.Marshal(stored.Request)
+	if string(a) != string(b) {
+		return fail(errors.New("successor decision request mismatch"))
+	}
+	dec := stored.Decision
+	if err = dec.Validate(req, at); err != nil {
+		return fail(err)
+	}
+	rd, err := req.DigestAt(at)
+	if err != nil {
+		return fail(err)
+	}
+	if dec.RequestID != req.ID || dec.RequestVersion != req.Version || dec.RequestDigest != rd || dec.Outcome != contracts.AuthorityApprove || dec.DecidedBy != root.Principal || dec.AuthorityRef != root.Ref || dec.AuthorityVersion != root.Version || dec.AuthorityGenerationDigest != root.Digest || dec.GrantedScope != req.RequestedScope || dec.AuthorityDigest != contracts.AuthorityModelGoalsRecoveryDigest() || dec.ExpiresAt == nil || !at.Before(*dec.ExpiresAt) || dec.Delegation == nil {
+		return fail(errors.New("successor owner decision is invalid"))
+	}
+	a, _ = json.Marshal(dec.Delegation)
+	b, _ = json.Marshal(d)
+	if string(a) != string(b) {
+		return fail(errors.New("successor decision delegation mismatch"))
+	}
+	gen, err := r.LoadAuthorityGeneration(ctx, "authority-delegation:"+req.ID, "1", at)
+	if err != nil {
+		return fail(err)
+	}
+	want := contracts.AuthorityGeneration{Ref: "authority-delegation:" + req.ID, Version: "1", Principal: d.DelegatedPrincipal, Scope: d.RequestedScope, Authorities: []string{d.RequestedAuthority}, DelegationProfile: d.Profile, SubjectKind: d.SubjectKind, SubjectID: d.SubjectID, SubjectVersion: d.SubjectVersion, SubjectDigest: d.SubjectDigest, SubjectKeyDigest: d.SubjectKeyDigest, EffectiveAt: dec.IssuedAt.UTC(), ExpiresAt: &d.ExpiresAt, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedBy: dec.DecidedBy, DelegationRef: req.ID + "/" + req.Version, DelegationDigest: rd, PolicyRef: d.PolicyRef, PolicyVersion: d.PolicyVersion, PolicyDigest: d.PolicyDigest, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: d.PolicyVersion, AuthorityModelDigest: d.PolicyDigest, State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + dec.DecisionRef + ":" + dec.DecisionVersion, ProvenanceDigest: dec.AuthorityDigest}
+	want.Digest, err = want.ComputeDigest()
+	if err != nil || !reflect.DeepEqual(gen, want) || gen.ExpiresAt == nil || !at.Before(*gen.ExpiresAt) || !dec.ExpiresAt.Equal(d.ExpiresAt) {
+		return fail(fmt.Errorf("successor operational generation mismatch"))
+	}
+	for _, g := range []contracts.AuthorityGeneration{root, gen} {
+		if err = r.CheckGoalsPublicationInvalidation(ctx, g.Ref, g.Version, req.ID, req.Version, current); err != nil {
+			return fail(err)
+		}
+	}
+	return contracts.PackagePublishAuthorization{Generation: gen, Request: req, Decision: dec}, nil
+}

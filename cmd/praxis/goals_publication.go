@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"os/user"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/distribution"
@@ -24,6 +25,8 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	dir := f.String("package-dir", "", "directory containing the exact existing signed Goals assets")
 	request := f.String("request-id", "", "exact system-produced publication request ID")
 	expiry := f.String("expires-at", "", "finite authorization expiry (RFC3339)")
+	ownerConfirmation := f.String("confirmation", "", "exact owner confirmation: ABANDON <payload-digest>")
+	reason := f.String("reason", "", "reason for terminally abandoning the exact execution")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -34,6 +37,82 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 	now := time.Now().UTC()
 	remote := goalspublication.GitHub{}
 	switch mode {
+	case "abandon":
+		if *request == "" || *dir != "" || *expiry != "" || *reason == "" || *ownerConfirmation == "" {
+			return errors.New("usage: praxis publisher goals-publication-abandon --request-id <id> --reason <text> --confirmation 'ABANDON <digest>'")
+		}
+		current, err := user.Current()
+		if err != nil || current.Username == "" {
+			return errors.New("cannot authenticate current OS user")
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		id, err := (goalspublication.Execution{Repository: repo}).Abandon(ctx, *request, current.Username, *reason, *ownerConfirmation)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"abandonment_event": id, "completion_established": false, "authority_revoked": false})
+	case "recovery-prepare":
+		if *dir == "" || *request == "" || *expiry == "" || *ownerConfirmation != "" || *reason != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-prepare --package-dir <dir> --predecessor-request-id <id> --expires-at <RFC3339>")
+		}
+		until, err := time.Parse(time.RFC3339, *expiry)
+		if err != nil || !until.After(now) {
+			return errors.New("future finite successor expiry required")
+		}
+		assets, err := goalspublication.ReadAssets(*dir)
+		if err != nil {
+			return err
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		nonce := make([]byte, 32)
+		if _, err = rand.Read(nonce); err != nil {
+			return err
+		}
+		intent, err := (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}, Assets: assets}).PrepareIntent(ctx, *request, hex.EncodeToString(nonce), until)
+		if err != nil {
+			return err
+		}
+		req, digest, err := repo.SaveGoalsPublicationRecoveryRequest(ctx, intent, now)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"request": req, "request_digest": digest, "authorized": false, "published": false})
+	case "recovery-execute":
+		if *dir == "" || *request == "" || *expiry != "" || *ownerConfirmation != "" || *reason != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-execute --package-dir <dir> --request-id <id>")
+		}
+		assets, err := goalspublication.ReadAssets(*dir)
+		if err != nil {
+			return err
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		id, err := (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}, Assets: assets}).Execute(ctx, *request)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"completion_event": id, "published": true})
+	case "recovery-reconcile":
+		if *request == "" || *dir != "" || *expiry != "" || *ownerConfirmation != "" || *reason != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-reconcile --request-id <id>")
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		return (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}}).Reconcile(ctx, *request)
 	case "prepare":
 		if *dir == "" || *expiry == "" || *request != "" {
 			return errors.New("usage: praxis publisher goals-publication-prepare --package-dir <dir> --expires-at <RFC3339>")

@@ -71,7 +71,11 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		}
 		return nil
 	}
-	if err := validateRecoveryAssetInventory(a, r.Assets, previous); err != nil {
+	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract && (step == "publish" || step == "verify-published") {
+		if err := validateEstablishedAssetAttribution(a, r.Assets, previous); err != nil {
+			return err
+		}
+	} else if err := validateRecoveryAssetInventory(a, r.Assets, previous); err != nil {
 		return err
 	}
 	for _, asset := range r.Assets {
@@ -83,6 +87,38 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		if hash(b) != assetDigests[idx] || int64(len(b)) != asset.Size || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[idx]] {
 			return errors.New("recovery asset bytes differ from signed Goals")
 		}
+	}
+	return nil
+}
+
+func validateEstablishedAssetAttribution(a contracts.ActionIntent, current []Asset, previous []Observation) error {
+	if len(previous) == 0 || previous[0].Release == nil {
+		return errors.New("recovery verify-draft observation missing established inventory")
+	}
+	verified := previous[0]
+	if err := validateRecoveryAssetReadBack(a, *verified.Release, verified.AssetDigests); err != nil {
+		return err
+	}
+	if len(current) != len(verified.Release.Assets) {
+		return errors.New("recovery established asset inventory changed")
+	}
+	byName := make(map[string]Asset, len(verified.Release.Assets))
+	for _, asset := range verified.Release.Assets {
+		if _, exists := byName[asset.Name]; exists {
+			return errors.New("recovery established asset inventory is ambiguous")
+		}
+		byName[asset.Name] = asset
+	}
+	seen := make(map[string]bool, len(current))
+	for _, asset := range current {
+		want, ok := byName[asset.Name]
+		if !ok || seen[asset.Name] || asset.ID != want.ID || asset.Name != want.Name || asset.Size != want.Size || asset.State != want.State || asset.Uploader.ID != want.Uploader.ID {
+			return errors.New("recovery assets are not attributed to established verification")
+		}
+		seen[asset.Name] = true
+	}
+	if len(seen) != len(assetNames) {
+		return errors.New("recovery established asset inventory incomplete")
 	}
 	return nil
 }

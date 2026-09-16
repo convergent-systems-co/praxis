@@ -306,6 +306,46 @@ func TestRecoveryAssetInventoryAcceptsProviderPermutations(t *testing.T) {
 	}
 }
 
+func TestEstablishedAssetAttributionUsesResolvedVerificationInventory(t *testing.T) {
+	f := persistedResolutionFixture(t)
+	var observedBytes []byte
+	must(t, f.repo.Store.DB().QueryRowContext(context.Background(), `SELECT observed_result FROM effects WHERE effect_id=?`, f.effectID).Scan(&observedBytes))
+	var verified Observation
+	must(t, json.Unmarshal(observedBytes, &verified))
+	a := *f.request.Intent
+	for _, order := range [][]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+		current := make([]Asset, 0, 3)
+		for _, i := range order {
+			current = append(current, verified.Release.Assets[i])
+		}
+		if err := validateEstablishedAssetAttribution(a, current, []Observation{verified}); err != nil {
+			t.Fatalf("provider order %v rejected established inventory: %v", order, err)
+		}
+	}
+	for name, mutate := range map[string]func(*[]Asset){
+		"missing":        func(v *[]Asset) { *v = (*v)[:2] },
+		"duplicate":      func(v *[]Asset) { (*v)[1].ID = (*v)[0].ID },
+		"wrong-id":       func(v *[]Asset) { (*v)[0].ID++ },
+		"wrong-name":     func(v *[]Asset) { (*v)[0].Name = "other" },
+		"wrong-size":     func(v *[]Asset) { (*v)[0].Size++ },
+		"wrong-state":    func(v *[]Asset) { (*v)[0].State = "new" },
+		"wrong-uploader": func(v *[]Asset) { (*v)[0].Uploader.ID++ },
+	} {
+		t.Run(name, func(t *testing.T) {
+			current := append([]Asset(nil), verified.Release.Assets...)
+			mutate(&current)
+			if err := validateEstablishedAssetAttribution(a, current, []Observation{verified}); err == nil {
+				t.Fatal("substituted established inventory accepted")
+			}
+		})
+	}
+	missing := verified
+	missing.Release = nil
+	if err := validateEstablishedAssetAttribution(a, verified.Release.Assets, []Observation{missing}); err == nil {
+		t.Fatal("missing resolved verification observation accepted")
+	}
+}
+
 func TestProviderDiagnosticsBoundedMalformedAndCardinality(t *testing.T) {
 	var b strings.Builder
 	b.WriteString(`{"message":"`)

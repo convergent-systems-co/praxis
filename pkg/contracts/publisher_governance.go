@@ -10,10 +10,12 @@ import (
 )
 
 const (
-	AuthorityModelAdoptionKind      = "authority-model-adoption"
-	PublisherEnrollmentProposalKind = "publisher-enrollment-proposal"
-	PublisherAuthorityProposalKind  = "publisher-authority-proposal"
-	PublisherAuthorityReviewKind    = "publisher-authority-review"
+	AuthorityModelAdoptionKind             = "authority-model-adoption"
+	AuthorityModelAdoptionDecisionKind     = "authority-model-adoption-decision"
+	AuthorityModelAdoptionSupersessionKind = "authority-model-adoption-supersession"
+	PublisherEnrollmentProposalKind        = "publisher-enrollment-proposal"
+	PublisherAuthorityProposalKind         = "publisher-authority-proposal"
+	PublisherAuthorityReviewKind           = "publisher-authority-review"
 )
 
 type AuthorityModelState struct{ Version, ActiveModel, ActiveVersion, ActiveDigest, AdoptionDigest, State string }
@@ -41,6 +43,18 @@ func (p PublisherEnrollmentPreview) Digest() (string, error) {
 type AuthorityModelAdoption struct {
 	ID, Version, FromModel, FromVersion, FromDigest, ToModel, ToVersion, ToDigest, RootRef, RootVersion, RootDigest, Reason string
 	CreatedAt                                                                                                               time.Time
+}
+type AuthorityModelAdoptionDecision struct {
+	ID, Version, Kind, BootstrapDigest, OwnerID, OwnerKind                        string
+	RootRef, RootVersion, RootDigest, AdoptionID, AdoptionVersion, AdoptionDigest string
+	Decision, Confirmation, ProvenanceRef, ProvenanceDigest                       string
+	DecidedAt                                                                     time.Time
+}
+type AuthorityModelAdoptionSupersession struct {
+	ID, Version, Kind, BootstrapDigest, OwnerID, OwnerKind                        string
+	RootRef, RootVersion, RootDigest, AdoptionID, AdoptionVersion, AdoptionDigest string
+	Decision, Reason, Confirmation, ProvenanceRef, ProvenanceDigest               string
+	DecidedAt                                                                     time.Time
 }
 type PublisherEnrollmentApproval struct {
 	ID, Version, Kind, PreviewDigest, BootstrapDigest, OwnerID, OwnerKind, AuthorityModel, AuthorityModelVersion, AuthorityModelDigest            string
@@ -71,6 +85,18 @@ func (a AuthorityModelAdoption) Digest() (string, error) {
 		return "", errors.New("authority-model adoption identity is incomplete")
 	}
 	return digestCanonical(a)
+}
+func (d AuthorityModelAdoptionDecision) Digest() (string, error) {
+	if d.ID == "" || d.Version == "" || d.Kind != AuthorityModelAdoptionDecisionKind || d.BootstrapDigest == "" || d.OwnerID == "" || d.OwnerKind == "" || d.RootRef == "" || d.RootVersion == "" || d.RootDigest == "" || d.AdoptionID == "" || d.AdoptionVersion == "" || d.AdoptionDigest == "" || d.Decision != "approve" || d.Confirmation != "ADOPT "+d.AdoptionDigest || d.ProvenanceRef == "" || d.ProvenanceDigest == "" || d.DecidedAt.IsZero() {
+		return "", errors.New("authority-model adoption decision is incomplete")
+	}
+	return digestCanonical(d)
+}
+func (s AuthorityModelAdoptionSupersession) Digest() (string, error) {
+	if s.ID == "" || s.Version == "" || s.Kind != AuthorityModelAdoptionSupersessionKind || s.BootstrapDigest == "" || s.OwnerID == "" || s.OwnerKind == "" || s.RootRef == "" || s.RootVersion == "" || s.RootDigest == "" || s.AdoptionID == "" || s.AdoptionVersion == "" || s.AdoptionDigest == "" || s.Decision != "abandon" || s.Confirmation != "ABANDON "+s.AdoptionDigest || s.Reason == "" || s.ProvenanceRef == "" || s.ProvenanceDigest == "" || s.DecidedAt.IsZero() {
+		return "", errors.New("authority-model adoption supersession is incomplete")
+	}
+	return digestCanonical(s)
 }
 func (p PublisherAuthorityProposal) Digest() (string, error) {
 	if p.ID == "" || p.Version == "" || p.Kind != PublisherAuthorityProposalKind || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel != AuthorityModelID || p.AuthorityModelVersion != AuthorityModelSuccessorVersion || p.AuthorityModelDigest != AuthorityModelSuccessorDigest() || p.PublisherGenerationDigest == "" || p.PublisherPrincipal != FirstPartyPublisherPrincipal || p.PublicKeyDigest == "" || p.Namespace == "" || p.ParentRef == "" || p.ParentVersion == "" || p.ParentDigest == "" || p.Capability != GovernedPackagePublish || p.Scope == "" || p.Reason == "" || p.CreatedAt.IsZero() || p.ExpiresAt.IsZero() || !p.ExpiresAt.After(p.CreatedAt) {

@@ -36,6 +36,8 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityModelPreview(args[1:], os.Getenv, os.Stdout)
 	case "model-adopt":
 		return runAuthorityModelAdopt(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "model-abandon":
+		return runAuthorityModelAbandon(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "model-status":
 		return runAuthorityModelStatus(args[1:], os.Getenv, os.Stdout)
 	case "request-inspect":
@@ -55,7 +57,7 @@ func runAuthorityCommand(args []string) error {
 	case "package-deploy-intent-request":
 		return runPackageDeploymentIntentRequest(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis authority {bootstrap|delegate|request-inspect|model-preview|model-adopt|model-status|package-deploy-preview|package-deploy-proposal|package-deploy-review|package-deploy-request|package-deploy-intent-preview|package-deploy-intent-request|package-deploy-approve}")
+		return errors.New("usage: praxis authority {bootstrap|delegate|request-inspect|model-preview|model-adopt|model-abandon|model-status|package-deploy-preview|package-deploy-proposal|package-deploy-review|package-deploy-request|package-deploy-intent-preview|package-deploy-intent-request|package-deploy-approve}")
 	}
 }
 

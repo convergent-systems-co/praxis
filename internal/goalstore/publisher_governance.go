@@ -20,6 +20,9 @@ const publisherGovernanceNamespace = "publisher_governance"
 const authorityModelStateID = "active-authority-model"
 const authorityModelActiveProjectionID = "authority-model-current"
 const signingPreviewPrefix = "publisher-signing-preview:"
+const authorityModelAdoptionPrefix = "authority-model-adoption:"
+const authorityModelAdoptionDecisionPrefix = "authority-model-adoption-decision:"
+const authorityModelAdoptionSupersessionPrefix = "authority-model-adoption-supersession:"
 
 func (r Repository) SaveSigningPreview(ctx context.Context, preview contracts.SigningPreview, now time.Time) (string, error) {
 	d, err := preview.DigestValue()
@@ -163,12 +166,189 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	} else {
 		return "", err
 	}
+	if priorExists {
+		if _, err := r.LoadAuthorityModelAdoptionDecision(ctx, digest, now); err != nil {
+			return "", errors.New("historical authority-model adoption has no durable owner decision; supersede it before retrying")
+		}
+	}
+	decision := contracts.AuthorityModelAdoptionDecision{ID: authorityModelAdoptionDecisionPrefix + digest, Version: "1", Kind: contracts.AuthorityModelAdoptionDecisionKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, RootRef: root.Ref, RootVersion: root.Version, RootDigest: root.Digest, AdoptionID: adoption.ID, AdoptionVersion: adoption.Version, AdoptionDigest: digest, Decision: "approve", Confirmation: confirmation, ProvenanceRef: "authority-model-adoption:" + digest + ":os-user:" + osUser, ProvenanceDigest: bootstrapDigest, DecidedAt: now.UTC()}
+	if _, err := decision.Digest(); err != nil {
+		return "", err
+	}
 	active := contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: adoption.ToVersion, ActiveDigest: adoption.ToDigest, AdoptionDigest: digest, State: "committed"}
 	activeID := authorityModelStateID + ":" + adoption.ToVersion
-	if err := r.saveAuthorityModelTransitionWithLock(ctx, adoption, !priorExists, activeID, "1", active, now); err != nil {
+	if err := r.saveAuthorityModelTransitionWithLock(ctx, adoption, decision, !priorExists, activeID, "1", active, now); err != nil {
 		return "", fmt.Errorf("persist active authority model: %w", err)
 	}
 	return digest, nil
+}
+
+func (r Repository) LoadAuthorityModelAdoptionDecision(ctx context.Context, adoptionDigest string, now time.Time) (contracts.AuthorityModelAdoptionDecision, error) {
+	if adoptionDigest == "" {
+		return contracts.AuthorityModelAdoptionDecision{}, statepkg.ErrSecureBlobNotFound
+	}
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.AuthorityModelAdoptionDecision{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, authorityModelAdoptionDecisionPrefix) {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.AuthorityModelAdoptionDecision{}, err
+		}
+		var decision contracts.AuthorityModelAdoptionDecision
+		if err := json.Unmarshal(payload, &decision); err != nil {
+			return contracts.AuthorityModelAdoptionDecision{}, err
+		}
+		digest, err := decision.Digest()
+		if err != nil {
+			return contracts.AuthorityModelAdoptionDecision{}, err
+		}
+		if decision.AdoptionDigest == adoptionDigest {
+			_ = digest
+			return decision, nil
+		}
+	}
+	return contracts.AuthorityModelAdoptionDecision{}, statepkg.ErrSecureBlobNotFound
+}
+
+func (r Repository) LoadAuthorityModelAdoptionByDigest(ctx context.Context, wanted string, now time.Time) (contracts.AuthorityModelAdoption, error) {
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return contracts.AuthorityModelAdoption{}, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, authorityModelAdoptionPrefix) {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return contracts.AuthorityModelAdoption{}, err
+		}
+		var adoption contracts.AuthorityModelAdoption
+		if err := json.Unmarshal(payload, &adoption); err != nil {
+			return contracts.AuthorityModelAdoption{}, err
+		}
+		digest, err := adoption.Digest()
+		if err != nil {
+			return contracts.AuthorityModelAdoption{}, err
+		}
+		if digest == wanted {
+			return adoption, nil
+		}
+	}
+	return contracts.AuthorityModelAdoption{}, statepkg.ErrSecureBlobNotFound
+}
+
+func (r Repository) LoadAuthorityModelAdoptionByID(ctx context.Context, id, version string, now time.Time) (contracts.AuthorityModelAdoption, error) {
+	var adoption contracts.AuthorityModelAdoption
+	if err := r.loadPublisherGovernance(ctx, id, version, now, &adoption); err != nil {
+		return contracts.AuthorityModelAdoption{}, err
+	}
+	if adoption.ID != id || adoption.Version != version {
+		return contracts.AuthorityModelAdoption{}, errors.New("authority-model adoption identity mismatch")
+	}
+	return adoption, nil
+}
+
+func (r Repository) IsAuthorityModelAdoptionSuperseded(ctx context.Context, adoptionID, adoptionVersion string, now time.Time) (bool, error) {
+	records, err := r.Store.ListSecureBlobs(ctx, publisherGovernanceNamespace, now)
+	if err != nil {
+		return false, err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectID, authorityModelAdoptionSupersessionPrefix) {
+			continue
+		}
+		payload, err := r.decryptGovernanceRecord(ctx, record)
+		if err != nil {
+			return false, err
+		}
+		var supersession contracts.AuthorityModelAdoptionSupersession
+		if err := json.Unmarshal(payload, &supersession); err != nil {
+			return false, err
+		}
+		if supersession.AdoptionID == adoptionID && supersession.AdoptionVersion == adoptionVersion {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r Repository) SaveAuthorityModelAdoptionSupersession(ctx context.Context, supersession contracts.AuthorityModelAdoptionSupersession, now time.Time) (string, error) {
+	digest, err := supersession.Digest()
+	if err != nil {
+		return "", err
+	}
+	adoption, err := r.LoadAuthorityModelAdoptionByDigest(ctx, supersession.AdoptionDigest, now)
+	if err != nil {
+		return "", err
+	}
+	if _, err := r.LoadAuthorityModelAdoptionDecision(ctx, supersession.AdoptionDigest, now); err == nil {
+		return "", errors.New("committed authority-model adoption cannot be abandoned")
+	}
+	current, err := r.LoadAuthorityModelState(ctx, now)
+	if err != nil {
+		return "", err
+	}
+	if current.ActiveVersion != contracts.AuthorityModelSuccessorVersion || current.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+		return "", errors.New("only an incomplete v2-to-v3 adoption may be abandoned")
+	}
+	if supersession.AdoptionID != adoption.ID || supersession.AdoptionVersion != adoption.Version || supersession.RootRef != adoption.RootRef || supersession.RootVersion != adoption.RootVersion || supersession.RootDigest != adoption.RootDigest {
+		return "", errors.New("supersession does not bind exact adoption")
+	}
+	b, err := json.Marshal(supersession)
+	if err != nil {
+		return "", err
+	}
+	_ = b
+	if err := r.savePublisherGovernanceWithLock(ctx, supersession.ID, supersession.Version, supersession, now, authorityGenerationNamespace, adoption.RootRef, adoption.RootVersion); err != nil {
+		return "", err
+	}
+	return digest, nil
+}
+
+func (r Repository) AbandonAuthorityModelAdoption(ctx context.Context, adoptionDigest, bootstrapDigest, osUser, confirmation string, now time.Time) (string, error) {
+	adoption, err := r.LoadAuthorityModelAdoptionByDigest(ctx, adoptionDigest, now)
+	if err != nil {
+		return "", err
+	}
+	if confirmation != "ABANDON "+adoptionDigest {
+		return "", errors.New("authority-model abandonment confirmation does not bind exact adoption")
+	}
+	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if err != nil {
+		return "", err
+	}
+	gens, err := r.ListAuthorityGenerations(ctx, now)
+	if err != nil {
+		return "", err
+	}
+	var root *contracts.AuthorityGeneration
+	for i := range gens {
+		if gens[i].ParentRef == "" && gens[i].Principal == owner {
+			root = &gens[i]
+			break
+		}
+	}
+	if root == nil || root.Ref != adoption.RootRef || root.Version != adoption.RootVersion || root.Digest != adoption.RootDigest || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+		return "", errors.New("authenticated installation root does not match adoption")
+	}
+	current, err := r.LoadAuthorityModelState(ctx, now)
+	if err != nil {
+		return "", err
+	}
+	if current.ActiveVersion != contracts.AuthorityModelSuccessorVersion || current.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+		return "", errors.New("only an incomplete v2-to-v3 adoption may be abandoned")
+	}
+	if _, err := r.LoadAuthorityModelAdoptionDecision(ctx, adoptionDigest, now); err == nil {
+		return "", errors.New("committed authority-model adoption cannot be abandoned")
+	}
+	supersession := contracts.AuthorityModelAdoptionSupersession{ID: authorityModelAdoptionSupersessionPrefix + adoptionDigest, Version: "1", Kind: contracts.AuthorityModelAdoptionSupersessionKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, RootRef: root.Ref, RootVersion: root.Version, RootDigest: root.Digest, AdoptionID: adoption.ID, AdoptionVersion: adoption.Version, AdoptionDigest: adoptionDigest, Decision: "abandon", Reason: "historical adoption lacks durable owner decision", Confirmation: confirmation, ProvenanceRef: "authority-model-adoption-abandon:" + adoptionDigest + ":os-user:" + osUser, ProvenanceDigest: bootstrapDigest, DecidedAt: now.UTC()}
+	return r.SaveAuthorityModelAdoptionSupersession(ctx, supersession, now)
 }
 
 func (r Repository) loadAuthorityModelActivePointer(ctx context.Context) (string, string, error) {
@@ -183,7 +363,7 @@ func (r Repository) loadAuthorityModelActivePointer(ctx context.Context) (string
 	return id, version, nil
 }
 
-func (r Repository) saveAuthorityModelTransitionWithLock(ctx context.Context, adoption contracts.AuthorityModelAdoption, saveAdoption bool, activeID, activeVersion string, active contracts.AuthorityModelState, now time.Time) error {
+func (r Repository) saveAuthorityModelTransitionWithLock(ctx context.Context, adoption contracts.AuthorityModelAdoption, decision contracts.AuthorityModelAdoptionDecision, saveAdoption bool, activeID, activeVersion string, active contracts.AuthorityModelState, now time.Time) error {
 	if err := r.validateWorkPlanStore(); err != nil {
 		return err
 	}
@@ -202,6 +382,9 @@ func (r Repository) saveAuthorityModelTransitionWithLock(ctx context.Context, ad
 		if err := r.insertGovernanceRecordTx(ctx, tx, adoption.ID, adoption.Version, adoption, now); err != nil {
 			return err
 		}
+	}
+	if err := r.insertGovernanceRecordUnlessExactTx(ctx, tx, decision.ID, decision.Version, decision, now); err != nil {
+		return err
 	}
 	if err := r.insertGovernanceRecordUnlessExactTx(ctx, tx, activeID, activeVersion, active, now); err != nil {
 		return err

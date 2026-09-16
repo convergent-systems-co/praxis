@@ -75,12 +75,33 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v1-to-v2", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelVersion, FromDigest: contracts.AuthorityModelDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelSuccessorVersion, ToDigest: contracts.AuthorityModelSuccessorDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in authority model successor", CreatedAt: now.UTC()}, nil
 			}
 			if model.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
-				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now.UTC()}, nil
+				legacyID := "authority-model-adoption:v2-to-v3"
+				if stale, err := repo.LoadAuthorityModelAdoptionByID(ctx, legacyID, "1", now); err == nil {
+					digest, _ := stale.Digest()
+					if _, err := repo.LoadAuthorityModelAdoptionDecision(ctx, digest, now); err != nil {
+						superseded, err := repo.IsAuthorityModelAdoptionSuperseded(ctx, stale.ID, stale.Version, now)
+						if err != nil {
+							return contracts.AuthorityModelAdoption{}, err
+						}
+						if !superseded {
+							return contracts.AuthorityModelAdoption{}, errors.New("historical incomplete v3 adoption must be abandoned before a new preview")
+						}
+					}
+				}
+				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now.UTC()}, nil
 			}
 			return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 		}
 	}
 	return contracts.AuthorityModelAdoption{}, errors.New("installation root generation unavailable")
+}
+
+func currentOSUser() string {
+	current, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return current.Username
 }
 
 func runAuthorityModelPreview(args []string, getenv func(string) string, out io.Writer) error {
@@ -190,6 +211,40 @@ func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.
 		return err
 	}
 	return printJSONTo(out, map[string]any{"operation": "authority.model-adopt", "adoption_digest": result, "model": envelope.Adoption.ToVersion})
+}
+
+func runAuthorityModelAbandon(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {
+	f := flag.NewFlagSet("authority model-abandon", flag.ContinueOnError)
+	f.SetOutput(out)
+	digest := f.String("adoption", "", "exact stale adoption digest")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	if f.NArg() != 0 || *digest == "" || !isInteractiveTerminal() {
+		return errAuthorityBootstrapConfirmation
+	}
+	repo, db, record, err := openGovernedRepositoryReadOnly(context.Background(), getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	fmt.Fprintf(out, "Abandon exact incomplete authority-model adoption %s. Type %q to continue: ", *digest, "ABANDON "+*digest)
+	answer, err := bufio.NewReader(input).ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(answer) != "ABANDON "+*digest {
+		return errAuthorityBootstrapConfirmation
+	}
+	bootstrapDigest, err := record.Digest()
+	if err != nil {
+		return err
+	}
+	supersession, err := repo.AbandonAuthorityModelAdoption(context.Background(), *digest, bootstrapDigest, currentOSUser(), "ABANDON "+*digest, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	return printJSONTo(out, map[string]any{"operation": "authority.model-abandon", "supersession_digest": supersession, "adoption_digest": *digest})
 }
 
 func runAuthorityModelStatus(args []string, getenv func(string) string, out io.Writer) error {

@@ -184,6 +184,47 @@ func TestAdoptAuthorityModelV2ToV3FailureRollsBackJournalAndPointer(t *testing.T
 	}
 }
 
+func TestHistoricalUndecidedV3AdoptionMustBeAbandonedBeforeNewAttempt(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	v1ToV2, bootstrapDigest := adoptionFixture(t, repo, now)
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v1ToV2, bootstrapDigest, "test", "ADOPT "+mustDigest(t, v1ToV2), now); err != nil {
+		t.Fatal(err)
+	}
+	gens, err := repo.ListAuthorityGenerations(context.Background(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: gens[0].Ref, RootVersion: gens[0].Version, RootDigest: gens[0].Digest, Reason: "historical interrupted attempt", CreatedAt: now}
+	staleDigest := mustDigest(t, stale)
+	if _, err := repo.SaveAuthorityModelAdoption(context.Background(), stale, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.AdoptAuthorityModel(context.Background(), stale, bootstrapDigest, "test", "ADOPT "+staleDigest, now); err == nil {
+		t.Fatal("undecided historical adoption must not activate")
+	}
+	if _, err := repo.AbandonAuthorityModelAdoption(context.Background(), staleDigest, bootstrapDigest, "test", "ABANDON "+staleDigest, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.AbandonAuthorityModelAdoption(context.Background(), staleDigest, bootstrapDigest, "test", "ABANDON "+staleDigest, now); err == nil {
+		t.Fatal("supersession replay must not create a second record")
+	}
+	newAttempt := stale
+	newAttempt.ID = "authority-model-adoption:v2-to-v3:attempt-2"
+	newDigest := mustDigest(t, newAttempt)
+	if _, err := repo.AdoptAuthorityModel(context.Background(), newAttempt, bootstrapDigest, "test", "ADOPT "+newDigest, now); err != nil {
+		t.Fatal(err)
+	}
+	state, err := repo.LoadAuthorityModelState(context.Background(), now)
+	if err != nil || state.ActiveVersion != contracts.AuthorityModelDeploymentVersion || state.AdoptionDigest != newDigest {
+		t.Fatalf("new attempt did not become active: state=%+v err=%v", state, err)
+	}
+	var supersession contracts.AuthorityModelAdoptionSupersession
+	if err := repo.loadPublisherGovernance(context.Background(), "authority-model-adoption-supersession:"+staleDigest, "1", now, &supersession); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func mustDigest(t *testing.T, adoption contracts.AuthorityModelAdoption) string {
 	t.Helper()
 	digest, err := adoption.Digest()

@@ -72,6 +72,7 @@ type GoalsFailedVerificationInput struct {
 	GoalsOrderedRecoveryInput
 	FailedRequestID, FailedRequestDigest, FailedIntentID, FailedIntentDigest                                         string
 	FailedAuthorityDigest, FailedExecutionID                                                                         string
+	FailedHistoricalAuthorityDigest                                                                                  string
 	FailedManifestEffectID, FailedArchiveEffectID, FailedSignatureEffectID, FailedVerifyEffectID                     string
 	FailedManifestState, FailedArchiveState, FailedSignatureState, FailedVerifyState                                 string
 	FailedVerifyAttempts                                                                                             int
@@ -85,10 +86,10 @@ func NewGoalsPublicationFailedVerificationIntent(in GoalsFailedVerificationInput
 	if err != nil {
 		return ActionIntent{}, err
 	}
-	if in.FailedRequestID == "" || in.FailedIntentID == "" || in.FailedAuthorityDigest == "" || in.FailedExecutionID == "" || in.FailedVerifyAttempts != 1 {
+	if in.FailedRequestID == "" || in.FailedIntentID == "" || in.FailedAuthorityDigest == "" || in.FailedHistoricalAuthorityDigest == "" || in.FailedExecutionID == "" || in.FailedVerifyAttempts != 1 {
 		return ActionIntent{}, errors.New("failed verification lineage missing")
 	}
-	for _, d := range []string{in.FailedRequestDigest, in.FailedIntentDigest, in.FailedManifestRequestDigest, in.FailedArchiveRequestDigest, in.FailedSignatureRequestDigest, in.FailedVerifyRequestDigest, in.FailedVerifyResultDigest, in.FailedVerifyReconciliationDigest} {
+	for _, d := range []string{in.FailedRequestDigest, in.FailedIntentDigest, in.FailedAuthorityDigest, in.FailedHistoricalAuthorityDigest, in.FailedManifestRequestDigest, in.FailedArchiveRequestDigest, in.FailedSignatureRequestDigest, in.FailedVerifyRequestDigest, in.FailedVerifyResultDigest, in.FailedVerifyReconciliationDigest} {
 		if !isSHA256Digest(d) {
 			return ActionIntent{}, errors.New("failed verification digest invalid")
 		}
@@ -112,6 +113,7 @@ func NewGoalsPublicationFailedVerificationIntent(in GoalsFailedVerificationInput
 	a.Parameters["failed_predecessor_intent_id"] = in.FailedIntentID
 	a.Parameters["failed_predecessor_intent_digest"] = in.FailedIntentDigest
 	a.Parameters["failed_predecessor_authority_digest"] = in.FailedAuthorityDigest
+	a.Parameters["failed_predecessor_historical_authority_digest"] = in.FailedHistoricalAuthorityDigest
 	a.Parameters["failed_predecessor_execution_id"] = in.FailedExecutionID
 	a.Parameters["failed_manifest_effect_id"] = in.FailedManifestEffectID
 	a.Parameters["failed_archive_effect_id"] = in.FailedArchiveEffectID
@@ -353,7 +355,7 @@ func ValidateGoalsPublicationFailedVerificationIntent(a ActionIntent) error {
 	if p["failed_manifest_state"] != "succeeded" || p["failed_archive_state"] != "succeeded" || p["failed_signature_state"] != "succeeded" || p["failed_verify_state"] != "failed" || parseInt(p["failed_verify_attempts"]) != 1 {
 		return errors.New("failed verification state invalid")
 	}
-	for _, k := range []string{"failed_predecessor_request_digest", "failed_predecessor_intent_digest", "failed_manifest_request_digest", "failed_archive_request_digest", "failed_signature_request_digest", "failed_verify_request_digest", "failed_verify_result_digest", "failed_verify_reconciliation_digest"} {
+	for _, k := range []string{"failed_predecessor_request_digest", "failed_predecessor_intent_digest", "failed_predecessor_authority_digest", "failed_predecessor_historical_authority_digest", "failed_manifest_request_digest", "failed_archive_request_digest", "failed_signature_request_digest", "failed_verify_request_digest", "failed_verify_result_digest", "failed_verify_reconciliation_digest"} {
 		if !isSHA256Digest(p[k]) {
 			return errors.New("failed verification digest invalid")
 		}

@@ -239,6 +239,17 @@ func nullableTime(value *time.Time) any {
 }
 
 func (s *Store) GetSecureBlob(ctx context.Context, namespace, objectID, version string, now time.Time) (SecureBlobRecord, error) {
+	return s.getSecureBlob(ctx, namespace, objectID, version, now, true)
+}
+
+// GetSecureBlobHistorical returns the immutable encrypted record without
+// applying its operational expiry gate. Callers must use a dedicated typed
+// historical-evidence contract; this method never opens or authorizes content.
+func (s *Store) GetSecureBlobHistorical(ctx context.Context, namespace, objectID, version string) (SecureBlobRecord, error) {
+	return s.getSecureBlob(ctx, namespace, objectID, version, time.Time{}, false)
+}
+
+func (s *Store) getSecureBlob(ctx context.Context, namespace, objectID, version string, now time.Time, enforceExpiry bool) (SecureBlobRecord, error) {
 	if s == nil || s.db == nil {
 		return SecureBlobRecord{}, errors.New("state store is required")
 	}
@@ -272,10 +283,10 @@ func (s *Store) GetSecureBlob(ctx context.Context, namespace, objectID, version 
 			return SecureBlobRecord{}, fmt.Errorf("parse secure blob expiry: %w", err)
 		}
 		r.ExpiresAt = &t
-		if now.IsZero() {
+		if enforceExpiry && now.IsZero() {
 			now = time.Now().UTC()
 		}
-		if !now.Before(t) {
+		if enforceExpiry && !now.Before(t) {
 			return SecureBlobRecord{}, ErrSecureBlobExpired
 		}
 	}

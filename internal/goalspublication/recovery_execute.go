@@ -286,20 +286,16 @@ func (e RecoveryExecution) PrepareFailedVerificationIntent(ctx context.Context, 
 	if sp.RequestID != failedRequestID || sp.Intent.Parameters["contract"] != contracts.GoalsOrderedRecoveryContract {
 		return contracts.ActionIntent{}, errors.New("failed predecessor intent mismatch")
 	}
-	auth, err := e.current(ctx, failedRequestID)
-	if err != nil {
+	var requestDigest string
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace='authority_request' AND object_id=? AND object_version='1'`, failedRequestID).Scan(&requestDigest); err != nil {
 		return contracts.ActionIntent{}, err
 	}
-	if auth.Request.Intent == nil || auth.Generation.Digest != sp.Authority.Generation.Digest {
+	historical, err := e.Repository.LoadExpiredHistoricalAuthorityEvidence(ctx, failedRequestID, "1", requestDigest, contracts.GoalsPublicationRoot, key, []string{key + ":manifest", key + ":archive", key + ":signature", key + ":verify-draft"}, e.now())
+	if err != nil {
+		return contracts.ActionIntent{}, fmt.Errorf("load expired predecessor authority evidence: %w", err)
+	}
+	if historical.GenerationDigest != sp.Authority.Generation.Digest || historical.IntentID != sp.Intent.ID {
 		return contracts.ActionIntent{}, errors.New("failed predecessor authority mismatch")
-	}
-	request, err := e.Repository.LoadAuthorityRequest(ctx, failedRequestID, "1", e.now())
-	if err != nil {
-		return contracts.ActionIntent{}, err
-	}
-	requestDigest, err := request.Digest()
-	if err != nil {
-		return contracts.ActionIntent{}, err
 	}
 	var verifyRec []byte
 	if err = e.Repository.Store.DB().QueryRowContext(ctx, `SELECT reconciliation_evidence FROM effects WHERE effect_id=?`, key+":verify-draft").Scan(&verifyRec); err != nil {
@@ -325,7 +321,7 @@ func (e RecoveryExecution) PrepareFailedVerificationIntent(ctx context.Context, 
 	if err != nil {
 		return contracts.ActionIntent{}, err
 	}
-	in := contracts.GoalsFailedVerificationInput{GoalsOrderedRecoveryInput: contracts.GoalsOrderedRecoveryInput{GoalsRecoveryInput: contracts.GoalsRecoveryInput{CreatedAt: e.now(), ExpiresAt: expires, Identity: identity, AccountID: id.AccountID, Sizes: [3]int64{int64(len(e.Assets[0])), int64(len(e.Assets[1])), int64(len(e.Assets[2]))}, PredecessorRequestID: sp.Intent.Parameters["predecessor_request_id"], PredecessorRequestDigest: sp.Intent.Parameters["predecessor_request_digest"], PredecessorIntentID: sp.Intent.Parameters["predecessor_intent_id"], PredecessorIntentDigest: sp.Intent.Parameters["predecessor_intent_digest"], AbandonmentEventID: sp.Intent.Parameters["abandonment_event_id"], AbandonmentDigest: sp.Intent.Parameters["abandonment_digest"]}, Chain: chain}, FailedRequestID: failedRequestID, FailedRequestDigest: requestDigest, FailedIntentID: sp.Intent.ID, FailedIntentDigest: failedIntentDigest, FailedAuthorityDigest: sp.Authority.Generation.Digest, FailedExecutionID: key, FailedManifestEffectID: key + ":manifest", FailedArchiveEffectID: key + ":archive", FailedSignatureEffectID: key + ":signature", FailedVerifyEffectID: key + ":verify-draft", FailedManifestState: manifest.State, FailedArchiveState: archive.State, FailedSignatureState: signature.State, FailedVerifyState: verify.State, FailedVerifyAttempts: 1, FailedManifestRequestDigest: hash(manifest.Payload), FailedArchiveRequestDigest: hash(archive.Payload), FailedSignatureRequestDigest: hash(signature.Payload), FailedVerifyRequestDigest: hash(verify.Payload), FailedVerifyResultDigest: hash(verify.Result), FailedVerifyReconciliationDigest: hash(verifyRec), AssetIDs: [3]string{assetID(manifest), assetID(archive), assetID(signature)}}
+	in := contracts.GoalsFailedVerificationInput{GoalsOrderedRecoveryInput: contracts.GoalsOrderedRecoveryInput{GoalsRecoveryInput: contracts.GoalsRecoveryInput{CreatedAt: e.now(), ExpiresAt: expires, Identity: identity, AccountID: id.AccountID, Sizes: [3]int64{int64(len(e.Assets[0])), int64(len(e.Assets[1])), int64(len(e.Assets[2]))}, PredecessorRequestID: sp.Intent.Parameters["predecessor_request_id"], PredecessorRequestDigest: sp.Intent.Parameters["predecessor_request_digest"], PredecessorIntentID: sp.Intent.Parameters["predecessor_intent_id"], PredecessorIntentDigest: sp.Intent.Parameters["predecessor_intent_digest"], AbandonmentEventID: sp.Intent.Parameters["abandonment_event_id"], AbandonmentDigest: sp.Intent.Parameters["abandonment_digest"]}, Chain: chain}, FailedRequestID: failedRequestID, FailedRequestDigest: requestDigest, FailedIntentID: sp.Intent.ID, FailedIntentDigest: failedIntentDigest, FailedAuthorityDigest: sp.Authority.Generation.Digest, FailedHistoricalAuthorityDigest: historical.Digest, FailedExecutionID: key, FailedManifestEffectID: key + ":manifest", FailedArchiveEffectID: key + ":archive", FailedSignatureEffectID: key + ":signature", FailedVerifyEffectID: key + ":verify-draft", FailedManifestState: manifest.State, FailedArchiveState: archive.State, FailedSignatureState: signature.State, FailedVerifyState: verify.State, FailedVerifyAttempts: 1, FailedManifestRequestDigest: hash(manifest.Payload), FailedArchiveRequestDigest: hash(archive.Payload), FailedSignatureRequestDigest: hash(signature.Payload), FailedVerifyRequestDigest: hash(verify.Payload), FailedVerifyResultDigest: hash(verify.Result), FailedVerifyReconciliationDigest: hash(verifyRec), AssetIDs: [3]string{assetID(manifest), assetID(archive), assetID(signature)}}
 	if in.AssetIDs[0] == "" || in.AssetIDs[1] == "" || in.AssetIDs[2] == "" {
 		return contracts.ActionIntent{}, errors.New("successful asset evidence missing")
 	}

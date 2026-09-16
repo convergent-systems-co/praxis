@@ -223,11 +223,15 @@ func runAuthorityModelAbandon(args []string, getenv func(string) string, input i
 	if f.NArg() != 0 || *digest == "" || !isInteractiveTerminal() {
 		return errAuthorityBootstrapConfirmation
 	}
-	repo, db, record, err := openGovernedRepositoryReadOnly(context.Background(), getenv)
+	repo, db, err := openGovernedRepository(context.Background(), getenv)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+	record, err := praxiscrypto.LoadBootstrapRecord(getenv("PRAXIS_BOOTSTRAP_RECORD"))
+	if err != nil {
+		return err
+	}
 	fmt.Fprintf(out, "Abandon exact incomplete authority-model adoption %s. Type %q to continue: ", *digest, "ABANDON "+*digest)
 	answer, err := bufio.NewReader(input).ReadString('\n')
 	if err != nil {

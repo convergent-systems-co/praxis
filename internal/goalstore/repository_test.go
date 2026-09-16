@@ -188,6 +188,63 @@ func TestHistoricalGenerationLoaderSeparatesDigestDomains(t *testing.T) {
 	}
 }
 
+func TestExpiredHistoricalAuthorityResolvesPersistedParentAndDelegatedChild(t *testing.T) {
+	ctx := context.Background()
+	repo, store := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	created := time.Now().UTC().Add(-2 * time.Hour)
+	now := created.Add(3 * time.Hour)
+	bootstrap := contracts.GoalsPublicationBootstrap
+	root := contracts.AuthorityGeneration{Ref: "installation-governance:" + bootstrap, Version: "1", Principal: contracts.PrincipalRef{ID: "installation-owner:" + bootstrap, Kind: "human"}, Scope: "installation-governance:" + bootstrap, Capabilities: []string{contracts.AuthorityDelegateCapability}, ProvenanceRef: "bootstrap-record:test", ProvenanceDigest: bootstrap, State: contracts.AuthorityGenerationActive, EffectiveAt: created}
+	root.Digest, _ = root.ComputeDigest()
+	childExpiry := created.Add(time.Hour)
+	child := contracts.AuthorityGeneration{Ref: "authority-delegation:test-request", Version: "1", Principal: contracts.PrincipalRef{ID: contracts.FirstPartyPublisherPrincipal, Kind: "publisher"}, Scope: "goals-established-state-publication:test", Authorities: []string{contracts.GovernedPackagePublish}, ProvenanceRef: "authority-decision:test", ProvenanceDigest: "sha256:" + strings.Repeat("d", 64), State: contracts.AuthorityGenerationActive, EffectiveAt: created.Add(10 * time.Minute), ExpiresAt: &childExpiry, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedBy: root.Principal, DelegationRef: "test-request/1", DelegationDigest: "sha256:" + strings.Repeat("e", 64), PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest(), AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelGoalsRecoveryVersion, AuthorityModelDigest: contracts.AuthorityModelGoalsRecoveryDigest()}
+	child.Digest, _ = child.ComputeDigest()
+	persist := func(namespace, id, version string, value any, expires *time.Time) string {
+		payload, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := payloadDigest(payload)
+		envelope, err := repo.Crypto.Seal(ctx, repo.KeyRef, repo.Profile, payload, state.SecureBlobAAD(namespace, id, version, digest))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: id, ObjectVersion: version, ObjectDigest: digest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: created, ExpiresAt: expires}); err != nil {
+			t.Fatal(err)
+		}
+		return digest
+	}
+	persist(authorityGenerationNamespace, root.Ref, root.Version, root, nil)
+	childObjectDigest := persist(authorityGenerationNamespace, child.Ref, child.Version, child, &childExpiry)
+	intent := contracts.ActionIntent{Version: "1", ID: "intent:test", Actor: child.Principal, Operation: contracts.GoalsRecoveryOperation, Target: "github-release:389997269", Scope: child.Scope, Parameters: map[string]string{"created_at": created.Format(time.RFC3339Nano), "expires_at": childExpiry.Format(time.RFC3339Nano)}}
+	intentDigest, _ := intent.Digest()
+	delegation := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: child.Principal, TargetKind: "action-intent", TargetIdentity: intent.ID, TargetVersion: intent.Version, TargetDigest: intentDigest, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: contracts.GoalsRecoveryOperation, RequestedScope: child.Scope, ProposalVersion: intent.Version, ProposalDigest: intentDigest, ReviewVersion: intent.Version, ReviewDigest: intentDigest, ExpiresAt: childExpiry, Reason: "test", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest()}
+	request := contracts.AuthorityRequest{ID: "test-request", Version: "1", RequestedAuthority: contracts.GovernedPackagePublish, RequestedScope: child.Scope, Reason: "test", Status: contracts.AuthorityRequestPending, Delegation: &delegation, Intent: &intent, IntentDigest: intentDigest, InstallationDigest: contracts.GoalsPublicationRoot}
+	requestDigest, _ := request.DigestAt(created)
+	delegation.TargetDigest = intentDigest
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "decision:test", DecisionVersion: "1", DecidedBy: root.Principal, AuthorityRef: root.Ref, AuthorityVersion: root.Version, AuthorityGenerationDigest: root.Digest, GrantedScope: child.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelGoalsRecoveryDigest(), IssuedAt: created.Add(5 * time.Minute), ExpiresAt: &childExpiry, Delegation: &delegation}
+	decisionPayload := authorityDecisionRecord{Request: request, Decision: decision}
+	requestObjectDigest := persist(authorityRequestNamespace, request.ID, request.Version, request, &childExpiry)
+	persist(authorityDecisionNamespace, request.ID, request.Version, decisionPayload, &childExpiry)
+	effectIDs := []string{"execution:test:manifest", "execution:test:archive", "execution:test:signature", "execution:test:verify-draft"}
+	effectPayload, _ := json.Marshal(struct {
+		RequestID string                                `json:"request_id"`
+		Authority contracts.PackagePublishAuthorization `json:"authority"`
+	}{request.ID, contracts.PackagePublishAuthorization{Generation: child, Request: request, Decision: decision}})
+	for _, id := range effectIDs {
+		if _, err := store.DB().ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, "test", "1", child.Principal.ID, child.Principal.Kind, child.Scope, "execution:test", effectPayload, "completed", created.Add(20*time.Minute).Format(time.RFC3339Nano)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.DB().ExecContext(ctx, `INSERT INTO effects(effect_id,command_id,action_intent_digest,target_adapter,state,attempts,request_payload,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, id, id, intentDigest, "test", "succeeded", 1, effectPayload, created.Add(20*time.Minute).Format(time.RFC3339Nano), created.Add(20*time.Minute).Format(time.RFC3339Nano)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	evidence, err := repo.LoadExpiredHistoricalAuthorityEvidence(ctx, request.ID, request.Version, requestObjectDigest, contracts.GoalsPublicationRoot, "execution:test", effectIDs, now)
+	if err != nil || evidence.GenerationDigest != child.Digest || childObjectDigest == child.Digest {
+		t.Fatalf("expected persisted parent/child resolution, got %+v err=%v", evidence, err)
+	}
+}
+
 func TestAuthorityGenerationValidationRejectsPayloadAndGenerationSubstitution(t *testing.T) {
 	now := time.Unix(1700000000, 0).UTC()
 	valid := authorityGenerationFixture(now)

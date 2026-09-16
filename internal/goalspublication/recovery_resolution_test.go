@@ -273,3 +273,35 @@ func TestObservationResolutionPersistedAdversarialEligibility(t *testing.T) {
 		})
 	}
 }
+
+func TestObservationResolutionAlreadySucceededWithoutResolutionFailsClosed(t *testing.T) {
+	f := persistedResolutionFixture(t)
+	_, err := f.repo.Store.DB().Exec(`UPDATE effects SET state='succeeded' WHERE effect_id=?`, f.effectID)
+	must(t, err)
+	run := RecoveryExecution{Repository: f.repo, Adapter: f.adapter, Now: func() time.Time { return f.now }}
+	if _, err := run.ResolveObservation(context.Background(), f.request.ID, f.effectID, "RESOLVE sha256:"+strings.Repeat("0", 64)); err == nil {
+		t.Fatal("succeeded effect without resolution identity accepted")
+	}
+}
+
+func TestObservationResolutionIntentDigestIgnoresMapInsertionOrder(t *testing.T) {
+	a := contracts.ActionIntent{Version: "1", ID: "intent:map", Actor: contracts.PrincipalRef{ID: "publisher", Kind: "publisher"}, Operation: "op", Target: "target", Scope: "scope", Parameters: map[string]string{}, Preconditions: map[string]string{}}
+	b := a
+	a.Parameters["a"] = "1"
+	a.Parameters["b"] = "2"
+	b.Parameters = map[string]string{"b": "2", "a": "1"}
+	a.Preconditions["x"] = "1"
+	a.Preconditions["y"] = "2"
+	b.Preconditions = map[string]string{"y": "2", "x": "1"}
+	d1, err := a.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d2, err := b.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d1 != d2 {
+		t.Fatalf("map insertion order changed intent digest: %s != %s", d1, d2)
+	}
+}

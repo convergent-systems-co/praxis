@@ -688,6 +688,123 @@ func validateRecoveryAssetReadBack(a contracts.ActionIntent, release Release, di
 	return nil
 }
 
+// recoveryGraph is closed over the accepted Goals recovery contracts. The
+// operation is checked as part of the dispatch contract so a malformed intent
+// cannot select a graph by accident.
+func recoveryGraph(intent contracts.ActionIntent) ([]string, error) {
+	if intent.Operation != "publish-goals-from-established-state" {
+		return nil, errors.New("unsupported recovery operation")
+	}
+	switch intent.Parameters["contract"] {
+	case contracts.GoalsRecoveryContract, contracts.GoalsChainedRecoveryContract, contracts.GoalsOrderedRecoveryContract:
+		return recoverySteps, nil
+	case contracts.GoalsFailedVerificationContract:
+		return []string{"verify-draft", "publish", "verify-published"}, nil
+	default:
+		return nil, errors.New("unsupported recovery contract")
+	}
+}
+
+type recoveryFrontierEffect struct {
+	value   storedEffect
+	payload recoveryStepPayload
+}
+
+// loadRecoveryFrontier discovers only effects that actually exist, then
+// validates that they form a contiguous ordered prefix of the selected graph.
+// An unprepared suffix is valid; a gap or out-of-graph effect is not.
+func (e RecoveryExecution) loadRecoveryFrontier(ctx context.Context, requestID string) ([]string, map[string]recoveryFrontierEffect, error) {
+	key := recoveryKey(requestID)
+	rows, err := e.Repository.Store.DB().QueryContext(ctx, `SELECT e.effect_id,v.aggregate_version
+FROM effects e JOIN commands c ON c.command_id=e.command_id
+JOIN events v ON v.event_id=e.effect_id AND v.command_id=c.command_id
+WHERE e.effect_id LIKE ? AND e.command_id=e.effect_id
+AND c.command_type='goals-publication-recovery.step' AND c.command_version='1'
+AND v.event_type='goals-publication-recovery.step-admitted' AND v.event_version='1'
+AND c.payload=e.request_payload AND v.payload=e.request_payload
+AND e.target_adapter='goals-recovery-github'
+AND ((e.state='pending' AND e.attempts=0) OR (e.state!='pending' AND e.attempts=1))
+ORDER BY v.aggregate_version`, key+":%")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	type found struct {
+		id      string
+		version int
+	}
+	var foundRows []found
+	for rows.Next() {
+		var f found
+		if err := rows.Scan(&f.id, &f.version); err != nil {
+			return nil, nil, err
+		}
+		foundRows = append(foundRows, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	if len(foundRows) == 0 {
+		return nil, nil, errors.New("no recovery effects prepared")
+	}
+	var graph []string
+	byStep := make(map[string]recoveryFrontierEffect, len(foundRows))
+	for _, f := range foundRows {
+		parts := strings.Split(f.id, ":")
+		if len(parts) == 0 {
+			return nil, nil, errors.New("malformed recovery effect identity")
+		}
+		step := parts[len(parts)-1]
+		v, err := e.load(ctx, f.id)
+		if err != nil {
+			return nil, nil, err
+		}
+		var p recoveryStepPayload
+		if err := json.Unmarshal(v.Payload, &p); err != nil || p.Version != "1" || p.RequestID != requestID || p.Step != step {
+			return nil, nil, errors.New("recovery effect payload lineage mismatch")
+		}
+		if graph == nil {
+			graph, err = recoveryGraph(p.Intent)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			want, err := p.Intent.Digest()
+			if err != nil {
+				return nil, nil, err
+			}
+			first := byStep[graph[0]]
+			firstDigest, err := first.payload.Intent.Digest()
+			if err != nil || want != firstDigest {
+				return nil, nil, errors.New("recovery effect intent changed")
+			}
+		}
+		idx := -1
+		for i, candidate := range graph {
+			if candidate == step {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 || byStep[step].value.Payload != nil || f.version != idx+1 {
+			return nil, nil, errors.New("recovery effect graph is invalid")
+		}
+		byStep[step] = recoveryFrontierEffect{value: v, payload: p}
+	}
+	max := -1
+	for i, step := range graph {
+		if _, ok := byStep[step]; ok {
+			max = i
+		}
+	}
+	for i := 0; i <= max; i++ {
+		if _, ok := byStep[graph[i]]; !ok {
+			return nil, nil, errors.New("recovery effect graph has a gap")
+		}
+	}
+	return graph, byStep, nil
+}
+
 // Reconcile appends inspection evidence for the one uncertain successor
 // effect; it never changes that effect state or dispatches another mutation.
 func (e RecoveryExecution) Reconcile(ctx context.Context, requestID string) error {
@@ -697,17 +814,19 @@ func (e RecoveryExecution) Reconcile(ctx context.Context, requestID string) erro
 		return errors.New("abandoned Goals recovery execution is permanently fenced")
 	}
 	key := recoveryKey(requestID)
+	graph, effects, err := e.loadRecoveryFrontier(ctx, requestID)
+	if err != nil {
+		return err
+	}
 	previous := []Observation{}
-	for _, step := range recoverySteps {
-		v, err := e.load(ctx, key+":"+step)
-		if err != nil {
-			return err
+	for _, step := range graph {
+		fx, ok := effects[step]
+		if !ok {
+			break
 		}
+		v := fx.value
+		p := fx.payload
 		if v.State == string(state.EffectUnknown) || v.State == string(state.EffectDispatched) {
-			var p recoveryStepPayload
-			if err = json.Unmarshal(v.Payload, &p); err != nil {
-				return err
-			}
 			if _, err = e.predecessor(ctx, p.Intent); err != nil {
 				return err
 			}

@@ -3,6 +3,7 @@ package goalstore
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ import (
 
 const publisherGovernanceNamespace = "publisher_governance"
 const authorityModelStateID = "active-authority-model"
+const authorityModelActiveProjectionID = "authority-model-current"
 const signingPreviewPrefix = "publisher-signing-preview:"
 
 func (r Repository) SaveSigningPreview(ctx context.Context, preview contracts.SigningPreview, now time.Time) (string, error) {
@@ -63,7 +65,10 @@ func (r Repository) LoadSigningPreviewByDigest(ctx context.Context, wanted strin
 
 func (r Repository) LoadAuthorityModelState(ctx context.Context, now time.Time) (contracts.AuthorityModelState, error) {
 	var modelState contracts.AuthorityModelState
-	err := r.loadPublisherGovernance(ctx, authorityModelStateID, "1", now, &modelState)
+	activeID, activeVersion, err := r.loadAuthorityModelActivePointer(ctx)
+	if err == nil {
+		err = r.loadPublisherGovernance(ctx, activeID, activeVersion, now, &modelState)
+	}
 	if err != nil {
 		if errors.Is(err, statepkg.ErrSecureBlobNotFound) || errors.Is(err, statepkg.ErrSecureBlobExpired) {
 			// The adoption record is the durable journal. If a process stopped
@@ -131,6 +136,9 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	if err != nil {
 		return "", err
 	}
+	if current.ActiveVersion == adoption.ToVersion && current.ActiveDigest == adoption.ToDigest && current.AdoptionDigest == digest {
+		return digest, nil
+	}
 	if current.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
 		if adoption.FromVersion == contracts.AuthorityModelSuccessorVersion && adoption.ToVersion == contracts.AuthorityModelDeploymentVersion && adoption.FromDigest == contracts.AuthorityModelSuccessorDigest() && adoption.ToDigest == contracts.AuthorityModelDeploymentDigest() {
 			// v2 remains immutable; this is the explicit v2-to-v3 successor transition.
@@ -144,23 +152,113 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 		return "", errors.New("authority-model adoption source or successor mismatch")
 	}
 	var prior contracts.AuthorityModelAdoption
+	priorExists := false
 	if err := r.loadPublisherGovernance(ctx, adoption.ID, adoption.Version, now, &prior); err == nil {
 		priorDigest, digestErr := prior.Digest()
 		if digestErr != nil || priorDigest != digest {
 			return "", errors.New("conflicting authority-model adoption already exists")
 		}
+		priorExists = true
 	} else if errors.Is(err, statepkg.ErrSecureBlobNotFound) || errors.Is(err, statepkg.ErrSecureBlobExpired) {
-		if err := r.savePublisherGovernanceWithLock(ctx, adoption.ID, adoption.Version, adoption, now, authorityGenerationNamespace, adoption.RootRef, adoption.RootVersion); err != nil {
-			return "", err
-		}
 	} else {
 		return "", err
 	}
 	active := contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: adoption.ToVersion, ActiveDigest: adoption.ToDigest, AdoptionDigest: digest, State: "committed"}
-	if _, err := r.savePublisherGovernance(ctx, authorityModelStateID, "1", active, now, nil); err != nil {
+	activeID := authorityModelStateID + ":" + adoption.ToVersion
+	if err := r.saveAuthorityModelTransitionWithLock(ctx, adoption, !priorExists, activeID, "1", active, now); err != nil {
 		return "", fmt.Errorf("persist active authority model: %w", err)
 	}
 	return digest, nil
+}
+
+func (r Repository) loadAuthorityModelActivePointer(ctx context.Context) (string, string, error) {
+	var namespace, id, version string
+	err := r.Store.DB().QueryRowContext(ctx, `SELECT object_namespace,object_id,object_version FROM authority_model_active WHERE singleton_id=?`, authorityModelActiveProjectionID).Scan(&namespace, &id, &version)
+	if err != nil {
+		return "", "", fmt.Errorf("load active authority model pointer: %w", err)
+	}
+	if namespace != publisherGovernanceNamespace || id == "" || version == "" {
+		return "", "", errors.New("active authority model pointer is invalid")
+	}
+	return id, version, nil
+}
+
+func (r Repository) saveAuthorityModelTransitionWithLock(ctx context.Context, adoption contracts.AuthorityModelAdoption, saveAdoption bool, activeID, activeVersion string, active contracts.AuthorityModelState, now time.Time) error {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return err
+	}
+	if activeID == "" || activeVersion == "" {
+		return errors.New("active authority model identity is required")
+	}
+	tx, err := r.Store.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin authority-model transition: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, authorityGenerationNamespace, adoption.RootRef, adoption.RootVersion); err != nil {
+		return fmt.Errorf("lock authority-model root: %w", err)
+	}
+	if saveAdoption {
+		if err := r.insertGovernanceRecordTx(ctx, tx, adoption.ID, adoption.Version, adoption, now); err != nil {
+			return err
+		}
+	}
+	if err := r.insertGovernanceRecordUnlessExactTx(ctx, tx, activeID, activeVersion, active, now); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE authority_model_active SET object_namespace=?,object_id=?,object_version=?,updated_at=? WHERE singleton_id=?`, publisherGovernanceNamespace, activeID, activeVersion, now.UTC().Format(time.RFC3339Nano), authorityModelActiveProjectionID)
+	if err != nil {
+		return fmt.Errorf("update active authority model pointer: %w", err)
+	}
+	if affected, err := result.RowsAffected(); err != nil || affected != 1 {
+		return errors.New("active authority model pointer is unavailable")
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit authority-model transition: %w", err)
+	}
+	return nil
+}
+
+func (r Repository) insertGovernanceRecordTx(ctx context.Context, tx *sql.Tx, id, version string, value any, created time.Time) error {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	digest := payloadDigest(b)
+	aad := statepkg.SecureBlobAAD(publisherGovernanceNamespace, id, version, digest)
+	envelope, err := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, b, aad)
+	if err != nil {
+		return err
+	}
+	envelopeJSON, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, publisherGovernanceNamespace, id, version, digest, string(r.Sensitivity), string(r.Profile), envelopeJSON, created.UTC().Format(time.RFC3339Nano), nil)
+	if err != nil {
+		return fmt.Errorf("insert authority-model record: %w", err)
+	}
+	return nil
+}
+
+func (r Repository) insertGovernanceRecordUnlessExactTx(ctx context.Context, tx *sql.Tx, id, version string, value any, created time.Time) error {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	digest := payloadDigest(b)
+	var existing string
+	err = tx.QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, publisherGovernanceNamespace, id, version).Scan(&existing)
+	if err == nil {
+		if existing != digest {
+			return errors.New("active authority model record identity conflict")
+		}
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("inspect active authority model record: %w", err)
+	}
+	return r.insertGovernanceRecordTx(ctx, tx, id, version, value, created)
 }
 
 func (r Repository) savePublisherGovernance(ctx context.Context, id, version string, value any, created time.Time, expires *time.Time) (string, error) {

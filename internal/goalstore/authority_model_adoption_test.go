@@ -2,11 +2,13 @@ package goalstore
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
+	statepkg "github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -96,6 +98,89 @@ func TestAdoptAuthorityModelRejectsSubstitutionAndDowngrade(t *testing.T) {
 	downgrade.ToDigest = contracts.AuthorityModelDigest()
 	if _, err := repo.AdoptAuthorityModel(context.Background(), downgrade, bootstrapDigest, "test", "ADOPT "+mustDigest(t, downgrade), now); err == nil {
 		t.Fatal("downgrade attempt must fail closed")
+	}
+}
+
+func TestAdoptAuthorityModelV2ToV3PreservesHistoryAndIsReplaySafe(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	repo, store := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	v1ToV2, bootstrapDigest := adoptionFixture(t, repo, now)
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v1ToV2, bootstrapDigest, "test", "ADOPT "+mustDigest(t, v1ToV2), now); err != nil {
+		t.Fatal(err)
+	}
+	root, err := repo.ListAuthorityGenerations(context.Background(), now)
+	if err != nil || len(root) != 1 {
+		t.Fatalf("root lineage unavailable: generations=%+v err=%v", root, err)
+	}
+	v2ToV3 := contracts.AuthorityModelAdoption{
+		ID: "authority-model-adoption:v2-to-v3", Version: "1",
+		FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(),
+		ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(),
+		RootRef: root[0].Ref, RootVersion: root[0].Version, RootDigest: root[0].Digest,
+		Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now,
+	}
+	digest := mustDigest(t, v2ToV3)
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v2ToV3, bootstrapDigest, "test", "ADOPT "+digest, now); err != nil {
+		t.Fatal(err)
+	}
+	active, err := repo.LoadAuthorityModelState(context.Background(), now)
+	if err != nil || active.ActiveVersion != contracts.AuthorityModelDeploymentVersion || active.ActiveDigest != contracts.AuthorityModelDeploymentDigest() || active.AdoptionDigest != digest {
+		t.Fatalf("v3 is not the active exact successor: state=%+v err=%v", active, err)
+	}
+	var historicalV2 contracts.AuthorityModelState
+	if err := repo.loadPublisherGovernance(context.Background(), authorityModelStateID+":"+contracts.AuthorityModelSuccessorVersion, "1", now, &historicalV2); err != nil {
+		t.Fatal(err)
+	}
+	if historicalV2.ActiveVersion != contracts.AuthorityModelSuccessorVersion {
+		t.Fatalf("v2 historical secure record changed: %+v", historicalV2)
+	}
+	var journal contracts.AuthorityModelAdoption
+	if err := repo.loadPublisherGovernance(context.Background(), v2ToV3.ID, v2ToV3.Version, now, &journal); err != nil {
+		t.Fatal(err)
+	}
+	if got := mustDigest(t, journal); got != digest {
+		t.Fatalf("v3 adoption journal digest=%s want=%s", got, digest)
+	}
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v2ToV3, bootstrapDigest, "test", "ADOPT "+digest, now); err != nil {
+		t.Fatalf("exact v3 replay must be idempotent: %v", err)
+	}
+	if _, err := store.GetSecureBlob(context.Background(), publisherGovernanceNamespace, authorityModelStateID+":"+contracts.AuthorityModelDeploymentVersion, "1", now); err != nil {
+		t.Fatalf("v3 active secure record unavailable: %v", err)
+	}
+}
+
+func TestAdoptAuthorityModelV2ToV3FailureRollsBackJournalAndPointer(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	v1ToV2, bootstrapDigest := adoptionFixture(t, repo, now)
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v1ToV2, bootstrapDigest, "test", "ADOPT "+mustDigest(t, v1ToV2), now); err != nil {
+		t.Fatal(err)
+	}
+	root, err := repo.ListAuthorityGenerations(context.Background(), now)
+	if err != nil || len(root) != 1 {
+		t.Fatalf("root lineage unavailable: generations=%+v err=%v", root, err)
+	}
+	v2ToV3 := contracts.AuthorityModelAdoption{
+		ID: "authority-model-adoption:v2-to-v3", Version: "1",
+		FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(),
+		ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(),
+		RootRef: root[0].Ref, RootVersion: root[0].Version, RootDigest: root[0].Digest,
+		Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now,
+	}
+	bad := contracts.AuthorityModelState{Version: "1", ActiveModel: contracts.AuthorityModelID, ActiveVersion: "v3", ActiveDigest: "sha256:" + strings.Repeat("0", 64), AdoptionDigest: "sha256:" + strings.Repeat("1", 64), State: "committed"}
+	if _, err := repo.savePublisherGovernance(context.Background(), authorityModelStateID+":"+contracts.AuthorityModelDeploymentVersion, "1", bad, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.AdoptAuthorityModel(context.Background(), v2ToV3, bootstrapDigest, "test", "ADOPT "+mustDigest(t, v2ToV3), now); err == nil {
+		t.Fatal("conflicting successor record must fail")
+	}
+	active, err := repo.LoadAuthorityModelState(context.Background(), now)
+	if err != nil || active.ActiveVersion != contracts.AuthorityModelSuccessorVersion {
+		t.Fatalf("failed transition changed active model: state=%+v err=%v", active, err)
+	}
+	var journal contracts.AuthorityModelAdoption
+	if err := repo.loadPublisherGovernance(context.Background(), v2ToV3.ID, v2ToV3.Version, now, &journal); !errors.Is(err, statepkg.ErrSecureBlobNotFound) {
+		t.Fatalf("failed transition left adoption journal: %v", err)
 	}
 }
 

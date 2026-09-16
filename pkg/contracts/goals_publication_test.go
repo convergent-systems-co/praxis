@@ -105,3 +105,34 @@ func TestGoalsChainedRecoveryIntentBindsPriorRecovery(t *testing.T) {
 		t.Fatal("substituted prior recovery lineage accepted")
 	}
 }
+
+func TestOrderedRecoveryChainIsDeterministicAndRejectsOrderOrOmission(t *testing.T) {
+	base := func(n string) RecoveryGenerationBinding {
+		return RecoveryGenerationBinding{RequestID: "goals-publication-recovery-request:" + n, RequestDigest: "sha256:" + strings.Repeat(n, 64)[:64], IntentID: "intent:" + n, IntentDigest: "sha256:" + strings.Repeat("a", 64), AuthorityDigest: "sha256:" + strings.Repeat("b", 64), ExecutionID: "exec:" + n, AbandonmentEventID: "abandon:" + n, AbandonmentDigest: "sha256:" + strings.Repeat("c", 64), ManifestEffectID: "effect:" + n, ManifestState: "unknown", ManifestAttempts: 1, ManifestRequestDigest: "sha256:" + strings.Repeat("d", 64), ManifestResultDigest: "sha256:" + strings.Repeat("e", 64), ManifestReconciliationDigest: "sha256:" + strings.Repeat("f", 64)}
+	}
+	chain := []RecoveryGenerationBinding{base("1"), base("2")}
+	encoded, err := EncodeRecoveryChain(chain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseRecoveryChain(encoded)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("chain parse failed: %v", err)
+	}
+	if _, err = ParseRecoveryChain(encoded + ";"); err == nil {
+		t.Fatal("omitted/empty generation accepted")
+	}
+	reversed := mustChainEncode(t, []RecoveryGenerationBinding{chain[1], chain[0]})
+	if reversed == encoded {
+		t.Fatal("reordered chain kept identical canonical identity")
+	}
+}
+
+func mustChainEncode(t *testing.T, c []RecoveryGenerationBinding) string {
+	t.Helper()
+	s, err := EncodeRecoveryChain(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}

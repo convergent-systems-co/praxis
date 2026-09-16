@@ -1,11 +1,13 @@
 package contracts
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,6 +15,7 @@ const (
 	GoalsRecoveryOperation       = "publish-goals-from-established-state"
 	GoalsRecoveryContract        = "goals-established-state-publication/1"
 	GoalsChainedRecoveryContract = "goals-established-state-publication/2"
+	GoalsOrderedRecoveryContract = "goals-established-state-publication/3"
 	GoalsRecoveryRepositoryID    = "1372388187"
 	GoalsRecoveryOwnerID         = "263966243"
 	GoalsRecoveryCommit          = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
@@ -46,6 +49,96 @@ type GoalsChainedRecoveryInput struct {
 	PriorRecoveryManifestEffectID, PriorRecoveryManifestState                                                        string
 	PriorRecoveryManifestAttempts                                                                                    int
 	PriorRecoveryManifestRequestDigest, PriorRecoveryManifestResultDigest, PriorRecoveryManifestReconciliationDigest string
+}
+
+// RecoveryGenerationBinding is one exact, already-abandoned recovery
+// generation in chronological order. The representation is intentionally
+// fixed-field and canonical; it is not an arbitrary event/history blob.
+type RecoveryGenerationBinding struct {
+	RequestID, RequestDigest, IntentID, IntentDigest                          string
+	AuthorityDigest, ExecutionID, AbandonmentEventID, AbandonmentDigest       string
+	ManifestEffectID, ManifestState                                           string
+	ManifestAttempts                                                          int
+	ManifestRequestDigest, ManifestResultDigest, ManifestReconciliationDigest string
+}
+
+type GoalsOrderedRecoveryInput struct {
+	GoalsRecoveryInput
+	Chain []RecoveryGenerationBinding
+}
+
+func EncodeRecoveryChain(chain []RecoveryGenerationBinding) (string, error) {
+	parts := make([]string, len(chain))
+	for i, x := range chain {
+		if x.RequestID == "" || x.IntentID == "" || x.AuthorityDigest == "" || x.ExecutionID == "" || x.AbandonmentEventID == "" || x.ManifestEffectID == "" || x.ManifestState != "unknown" || x.ManifestAttempts != 1 {
+			return "", errors.New("recovery chain element invalid")
+		}
+		for _, d := range []string{x.RequestDigest, x.IntentDigest, x.AbandonmentDigest, x.ManifestRequestDigest, x.ManifestResultDigest, x.ManifestReconciliationDigest} {
+			if !isSHA256Digest(d) {
+				return "", errors.New("recovery chain digest invalid")
+			}
+		}
+		for _, s := range []string{x.RequestID, x.IntentID, x.AuthorityDigest, x.ExecutionID, x.AbandonmentEventID, x.ManifestEffectID} {
+			if strings.ContainsAny(s, "|;") {
+				return "", errors.New("recovery chain identifier contains delimiter")
+			}
+		}
+		parts[i] = strings.Join([]string{x.RequestID, x.RequestDigest, x.IntentID, x.IntentDigest, x.AuthorityDigest, x.ExecutionID, x.AbandonmentEventID, x.AbandonmentDigest, x.ManifestEffectID, x.ManifestState, strconv.Itoa(x.ManifestAttempts), x.ManifestRequestDigest, x.ManifestResultDigest, x.ManifestReconciliationDigest}, "|")
+	}
+	return strings.Join(parts, ";"), nil
+}
+
+func ParseRecoveryChain(encoded string) ([]RecoveryGenerationBinding, error) {
+	if encoded == "" {
+		return nil, nil
+	}
+	rows := strings.Split(encoded, ";")
+	out := make([]RecoveryGenerationBinding, len(rows))
+	for i, row := range rows {
+		f := strings.Split(row, "|")
+		if len(f) != 14 {
+			return nil, errors.New("recovery chain encoding malformed")
+		}
+		n, err := strconv.Atoi(f[10])
+		if err != nil {
+			return nil, errors.New("recovery chain attempts malformed")
+		}
+		out[i] = RecoveryGenerationBinding{RequestID: f[0], RequestDigest: f[1], IntentID: f[2], IntentDigest: f[3], AuthorityDigest: f[4], ExecutionID: f[5], AbandonmentEventID: f[6], AbandonmentDigest: f[7], ManifestEffectID: f[8], ManifestState: f[9], ManifestAttempts: n, ManifestRequestDigest: f[11], ManifestResultDigest: f[12], ManifestReconciliationDigest: f[13]}
+	}
+	canonical, err := EncodeRecoveryChain(out)
+	if err != nil || canonical != encoded {
+		return nil, errors.New("recovery chain is not canonical")
+	}
+	seen := map[string]bool{}
+	for _, x := range out {
+		if seen[x.RequestID] || seen[x.ExecutionID] {
+			return nil, errors.New("recovery chain contains duplicate generation")
+		}
+		seen[x.RequestID], seen[x.ExecutionID] = true, true
+	}
+	return out, nil
+}
+
+func NewGoalsPublicationOrderedRecoveryIntent(in GoalsOrderedRecoveryInput) (ActionIntent, error) {
+	a, err := NewGoalsPublicationRecoveryIntent(in.GoalsRecoveryInput)
+	if err != nil {
+		return ActionIntent{}, err
+	}
+	chain, err := EncodeRecoveryChain(in.Chain)
+	if err != nil {
+		return ActionIntent{}, err
+	}
+	a.Parameters["contract"] = GoalsOrderedRecoveryContract
+	a.Parameters["recovery_chain_version"] = "1"
+	a.Parameters["recovery_chain_count"] = strconv.Itoa(len(in.Chain))
+	a.Parameters["recovery_chain"] = chain
+	a.Parameters["recovery_chain_digest"] = recoveryChainDigest(chain)
+	return a, nil
+}
+
+func recoveryChainDigest(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return "sha256:" + fmt.Sprintf("%x", h[:])
 }
 
 func NewGoalsPublicationChainedRecoveryIntent(in GoalsChainedRecoveryInput) (ActionIntent, error) {
@@ -120,11 +213,50 @@ func NewGoalsPublicationRecoveryIntent(in GoalsRecoveryInput) (ActionIntent, err
 }
 
 func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
+	if a.Parameters["contract"] == GoalsOrderedRecoveryContract {
+		return ValidateGoalsPublicationOrderedRecoveryIntent(a)
+	}
 	if a.Parameters["contract"] == GoalsChainedRecoveryContract {
 		return ValidateGoalsPublicationChainedRecoveryIntent(a)
 	}
 	return validateGoalsPublicationRecoveryIntentV1(a)
 }
+
+func ValidateGoalsPublicationOrderedRecoveryIntent(a ActionIntent) error {
+	p := a.Parameters
+	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
+	expiry, e2 := time.Parse(time.RFC3339Nano, p["expires_at"])
+	if e1 != nil || e2 != nil {
+		return errors.New("successor intent timestamps malformed")
+	}
+	base, err := NewGoalsPublicationRecoveryIntent(GoalsRecoveryInput{CreatedAt: created, ExpiresAt: expiry, Identity: stringsTrimPrefix(a.ID, "goals-established-state-publication:"), AccountID: parseInt(p["account_id"]), Sizes: [3]int64{parseInt(p["manifest_size"]), parseInt(p["archive_size"]), parseInt(p["signature_size"])}, PredecessorRequestID: p["predecessor_request_id"], PredecessorRequestDigest: p["predecessor_request_digest"], PredecessorIntentID: p["predecessor_intent_id"], PredecessorIntentDigest: p["predecessor_intent_digest"], AbandonmentEventID: p["abandonment_event_id"], AbandonmentDigest: p["abandonment_digest"]})
+	if err != nil {
+		return err
+	}
+	chain, err := ParseRecoveryChain(p["recovery_chain"])
+	if err != nil {
+		return err
+	}
+	if p["recovery_chain_version"] != "1" || p["recovery_chain_count"] != strconv.Itoa(len(chain)) || p["recovery_chain_digest"] != recoveryChainDigest(p["recovery_chain"]) {
+		return errors.New("recovery chain identity mismatch")
+	}
+	base.Parameters["contract"] = GoalsOrderedRecoveryContract
+	base.Parameters["recovery_chain_version"] = "1"
+	base.Parameters["recovery_chain_count"] = strconv.Itoa(len(chain))
+	base.Parameters["recovery_chain"] = p["recovery_chain"]
+	base.Parameters["recovery_chain_digest"] = p["recovery_chain_digest"]
+	if _, err := EncodeRecoveryChain(chain); err != nil {
+		return err
+	}
+	x, _ := json.Marshal(base)
+	y, _ := json.Marshal(a)
+	if !reflect.DeepEqual(x, y) {
+		return errors.New("ordered recovery intent differs from closed contract")
+	}
+	return nil
+}
+
+func parseInt(s string) int64 { n, _ := strconv.ParseInt(s, 10, 64); return n }
 
 func validateGoalsPublicationRecoveryIntentV1(a ActionIntent) error {
 	p := a.Parameters

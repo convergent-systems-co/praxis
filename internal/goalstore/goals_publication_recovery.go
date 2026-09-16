@@ -28,6 +28,11 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		if bindErr == nil {
 			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
 		}
+	} else if a.Parameters["contract"] == contracts.GoalsOrderedRecoveryContract {
+		bindErr = r.ValidateGoalsPublicationOrderedRecoveryBinding(ctx, a)
+		if bindErr == nil {
+			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
+		}
 	} else {
 		bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
 	}
@@ -77,6 +82,59 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		return fail(err)
 	}
 	return req, rd, nil
+}
+
+func (r Repository) ValidateGoalsPublicationOrderedRecoveryBinding(ctx context.Context, a contracts.ActionIntent) error {
+	if err := contracts.ValidateGoalsPublicationOrderedRecoveryIntent(a); err != nil {
+		return err
+	}
+	chain, _ := contracts.ParseRecoveryChain(a.Parameters["recovery_chain"])
+	for i, x := range chain {
+		var body []byte
+		if err := r.Store.DB().QueryRowContext(ctx, `SELECT payload FROM events WHERE event_id=? AND event_type='goals-publication-recovery.abandoned' AND event_version='1'`, x.AbandonmentEventID).Scan(&body); err != nil {
+			return err
+		}
+		if recoveryHash(body) != x.AbandonmentDigest {
+			return errors.New("ordered recovery abandonment digest mismatch")
+		}
+		var p struct {
+			Version, RequestID, RequestDigest, IntentID, IntentDigest, AuthorityDigest, ExecutionID, ExecutionStatus string
+			Effects                                                                                                  []struct {
+				ID, State                       string
+				Attempts                        int
+				Request, Result, Reconciliation string
+			}
+			CompletionEstablished bool
+		}
+		if err := json.Unmarshal(body, &p); err != nil {
+			return err
+		}
+		if p.Version != "1" || p.ExecutionStatus != "abandoned" || p.CompletionEstablished || p.RequestID != x.RequestID || p.RequestDigest != x.RequestDigest || p.IntentID != x.IntentID || p.IntentDigest != x.IntentDigest || p.AuthorityDigest != x.AuthorityDigest || p.ExecutionID != x.ExecutionID || len(p.Effects) == 0 || p.Effects[0].ID != x.ManifestEffectID || p.Effects[0].State != "unknown" || p.Effects[0].Attempts != 1 || p.Effects[0].Request != x.ManifestRequestDigest || p.Effects[0].Result != x.ManifestResultDigest || p.Effects[0].Reconciliation != x.ManifestReconciliationDigest {
+			return errors.New("ordered recovery lineage mismatch")
+		}
+		var payload []byte
+		if err := r.Store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, x.ManifestEffectID).Scan(&payload); err != nil {
+			return err
+		}
+		var sp struct {
+			RequestID, Step string
+			Intent          contracts.ActionIntent
+		}
+		if err := json.Unmarshal(payload, &sp); err != nil || sp.RequestID != x.RequestID || sp.Step != "manifest" {
+			return errors.New("ordered recovery manifest payload mismatch")
+		}
+		d, err := sp.Intent.Digest()
+		if err != nil || d != x.IntentDigest {
+			return errors.New("ordered recovery intent digest mismatch")
+		}
+		if i > 0 && sp.Intent.Parameters["prior_recovery_request_id"] != chain[i-1].RequestID {
+			return errors.New("ordered recovery chain ordering mismatch")
+		}
+		if i == 0 && sp.Intent.Parameters["prior_recovery_request_id"] != "" {
+			return errors.New("ordered recovery chain root mismatch")
+		}
+	}
+	return nil
 }
 
 // ValidateGoalsPublicationChainedRecoveryBinding verifies the fixed two-

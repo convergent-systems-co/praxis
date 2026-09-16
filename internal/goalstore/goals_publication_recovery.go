@@ -120,7 +120,10 @@ func (r Repository) ValidateGoalsPublicationFailedVerificationBinding(ctx contex
 			Intent          contracts.ActionIntent
 			Authority       contracts.PackagePublishAuthorization
 		}
-		wantStep := strings.TrimSuffix(strings.TrimPrefix(k, "failed_"), "_effect_id")
+		wantStep, ok := failedVerificationStep(k)
+		if !ok {
+			return errors.New("failed verification effect mapping is unknown")
+		}
 		if err := json.Unmarshal(payload, &step); err != nil || step.RequestID != p["failed_predecessor_request_id"] || step.Step != wantStep || step.Intent.ID != p["failed_predecessor_intent_id"] || step.Authority.Generation.Digest != p["failed_predecessor_authority_digest"] {
 			return errors.New("failed verification lineage payload mismatch")
 		}
@@ -131,6 +134,16 @@ func (r Repository) ValidateGoalsPublicationFailedVerificationBinding(ctx contex
 		}
 	}
 	return nil
+}
+
+func failedVerificationStep(effectField string) (string, bool) {
+	step, ok := map[string]string{
+		"failed_manifest_effect_id":  "manifest",
+		"failed_archive_effect_id":   "archive",
+		"failed_signature_effect_id": "signature",
+		"failed_verify_effect_id":    "verify-draft",
+	}[effectField]
+	return step, ok
 }
 
 func (r Repository) ValidateGoalsPublicationOrderedRecoveryBinding(ctx context.Context, a contracts.ActionIntent) error {

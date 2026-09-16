@@ -41,20 +41,48 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 	if len(r.Assets) != expect {
 		return errors.New("recovery release asset inventory changed")
 	}
-	for i, asset := range r.Assets {
-		if asset.Name != assetNames[i] || asset.State != "uploaded" || asset.Size <= 0 || fmt.Sprint(asset.Uploader.ID) != a.Parameters["account_id"] {
-			return errors.New("recovery asset inventory identity mismatch")
-		}
-		if i >= len(previous) || previous[i].Asset == nil || previous[i].Asset.ID != asset.ID {
-			return errors.New("recovery assets are not attributed to this successor intent")
-		}
+	if expect != 3 {
+		return nil
+	}
+	if err := validateRecoveryAssetInventory(a, r.Assets, previous); err != nil {
+		return err
+	}
+	for _, asset := range r.Assets {
 		b, err := readAsset(ctx, asset.ID)
 		if err != nil {
 			return err
 		}
-		if hash(b) != assetDigests[i] || int64(len(b)) != asset.Size || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[i]] {
+		idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[asset.Name]
+		if hash(b) != assetDigests[idx] || int64(len(b)) != asset.Size || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[idx]] {
 			return errors.New("recovery asset bytes differ from signed Goals")
 		}
+	}
+	return nil
+}
+
+func validateRecoveryAssetInventory(a contracts.ActionIntent, assets []Asset, previous []Observation) error {
+	if len(assets) != 3 {
+		return errors.New("recovery asset inventory identity mismatch")
+	}
+	seen := map[string]bool{}
+	for _, asset := range assets {
+		idx := -1
+		for i, name := range assetNames {
+			if asset.Name == name {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 || seen[asset.Name] || asset.State != "uploaded" || asset.Size <= 0 || fmt.Sprint(asset.Uploader.ID) != a.Parameters["account_id"] {
+			return errors.New("recovery asset inventory identity mismatch")
+		}
+		seen[asset.Name] = true
+		if idx >= len(previous) || previous[idx].Asset == nil || previous[idx].Asset.ID != asset.ID {
+			return errors.New("recovery assets are not attributed to this successor intent")
+		}
+	}
+	if len(seen) != 3 {
+		return errors.New("recovery asset inventory identity mismatch")
 	}
 	return nil
 }

@@ -284,6 +284,28 @@ func TestProviderDiagnosticsStructuredAndSanitized(t *testing.T) {
 	}
 }
 
+func TestRecoveryAssetInventoryAcceptsProviderPermutations(t *testing.T) {
+	a := contracts.ActionIntent{Parameters: map[string]string{"account_id": "789", "manifest_size": "10", "archive_size": "20", "signature_size": "30"}}
+	want := []Asset{{ID: 1, Name: "praxis-package.json", Size: 10, State: "uploaded", Uploader: githubUser{789}}, {ID: 2, Name: "praxis-package.tar.gz", Size: 20, State: "uploaded", Uploader: githubUser{789}}, {ID: 3, Name: "praxis-package.sig.json", Size: 30, State: "uploaded", Uploader: githubUser{789}}}
+	previous := []Observation{{Asset: &want[0]}, {Asset: &want[1]}, {Asset: &want[2]}}
+	perms := [][]Asset{{want[0], want[1], want[2]}, {want[0], want[2], want[1]}, {want[1], want[0], want[2]}, {want[1], want[2], want[0]}, {want[2], want[0], want[1]}, {want[2], want[1], want[0]}}
+	for _, assets := range perms {
+		if err := validateRecoveryAssetInventory(a, assets, previous); err != nil {
+			t.Fatalf("permutation rejected: %v", err)
+		}
+	}
+	bad := append([]Asset(nil), want...)
+	bad[0].Name = "unexpected.bin"
+	if validateRecoveryAssetInventory(a, bad, previous) == nil {
+		t.Fatal("substituted asset accepted")
+	}
+	dup := append([]Asset(nil), want...)
+	dup[1].Name = want[0].Name
+	if validateRecoveryAssetInventory(a, dup, previous) == nil {
+		t.Fatal("duplicate asset accepted")
+	}
+}
+
 func TestProviderDiagnosticsBoundedMalformedAndCardinality(t *testing.T) {
 	var b strings.Builder
 	b.WriteString(`{"message":"`)

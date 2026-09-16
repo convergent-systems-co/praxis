@@ -224,7 +224,11 @@ type AuthorityRequest struct {
 	Intent                     *ActionIntent `json:"intent,omitempty"`
 }
 
-func (r AuthorityRequest) Validate() error {
+func (r AuthorityRequest) Validate() error { return r.ValidateAt(time.Now().UTC()) }
+
+// ValidateAt separates original authority validity from the wall-clock time of
+// historical evidence inspection. Callers authorizing new effects must pass now.
+func (r AuthorityRequest) ValidateAt(at time.Time) error {
 	if r.ID == "" || r.Version == "" || r.RequestedAuthority == "" || r.RequestedScope == "" || r.Reason == "" {
 		return errors.New("authority request identity and decision scope are required")
 	}
@@ -238,7 +242,7 @@ func (r AuthorityRequest) Validate() error {
 		if r.Delegation == nil {
 			return errors.New("delegation authority request requires a delegation payload")
 		}
-		if err := r.Delegation.Validate(time.Now().UTC()); err != nil {
+		if err := r.Delegation.Validate(at); err != nil {
 			return err
 		}
 	}
@@ -257,8 +261,10 @@ func (r AuthorityRequest) Validate() error {
 	return nil
 }
 
-func (r AuthorityRequest) Digest() (string, error) {
-	if err := r.Validate(); err != nil {
+func (r AuthorityRequest) Digest() (string, error) { return r.DigestAt(time.Now().UTC()) }
+
+func (r AuthorityRequest) DigestAt(at time.Time) (string, error) {
+	if err := r.ValidateAt(at); err != nil {
 		return "", err
 	}
 	payload, err := json.Marshal(r)
@@ -334,7 +340,7 @@ func (r AuthorityRevocation) Validate(decision AuthorityDecision) error {
 }
 
 func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) error {
-	digest, err := request.Digest()
+	digest, err := request.DigestAt(now)
 	if err != nil {
 		return err
 	}

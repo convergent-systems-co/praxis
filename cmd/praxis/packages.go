@@ -265,6 +265,9 @@ func parseGitHubPackageRef(raw string) (distribution.PackageRef, string, error) 
 }
 
 func verifyReleasePackage(release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (packagecatalog.VerifiedPackage, error) {
+	if err := checkGoalsPublicationAcquisition(context.Background(), release, artifact, getenv); err != nil {
+		return packagecatalog.VerifiedPackage{}, err
+	}
 	if len(artifact) == 0 {
 		return packagecatalog.VerifiedPackage{}, errors.New("empty release artifact")
 	}
@@ -288,6 +291,9 @@ func verifyReleasePackage(release distribution.Release, artifact []byte, getenv 
 }
 
 func resolveReleasePackages(ctx context.Context, adapter distribution.GitHubReleases, release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (distribution.Resolution, error) {
+	if err := checkGoalsPublicationAcquisition(ctx, release, artifact, getenv); err != nil {
+		return distribution.Resolution{}, err
+	}
 	if len(artifact) == 0 || len(release.ManifestBytes) == 0 {
 		return distribution.Resolution{}, errors.New("immutable downloaded manifest and artifact bytes are required")
 	}

@@ -1,0 +1,384 @@
+{
+  "generations": [
+    {
+      "ref": "authority-delegation:package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615",
+      "version": "1",
+      "digest": "sha256:73e0f7ea6dea6eeb7187e571abef94524d26f7df822e922c137c06fe666ca145",
+      "principal": {
+        "id": "package-manager:praxis",
+        "kind": "package-manager"
+      },
+      "scope": "package-deployment:installation:sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "provenance_ref": "authority-decision:authority-decision:package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615:1",
+      "provenance_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+      "state": "active",
+      "effective_at": "2026-09-16T01:22:41.367745Z",
+      "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "parent_version": "1",
+      "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "delegated_by": {
+        "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "kind": "human"
+      },
+      "delegation_ref": "package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615/1",
+      "delegation_digest": "sha256:a325e3f71e6738e3bcebbda042338fcd53056a225b4910eef3c8e4fa84ec5d8f",
+      "policy_ref": "praxis.authority-model",
+      "policy_version": "v3",
+      "policy_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+      "expires_at": "2026-09-17T23:59:59Z",
+      "authority_model": "praxis.authority-model",
+      "authority_model_version": "v3",
+      "authority_model_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+      "authorities": [
+        "package.deploy"
+      ],
+      "delegation_profile": "PACKAGE_DEPLOY",
+      "subject_kind": "package-manager",
+      "subject_id": "package-manager:praxis",
+      "subject_version": "1",
+      "subject_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
+    },
+    {
+      "ref": "authority-delegation:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+      "version": "1",
+      "digest": "sha256:28c93032c72477929c94128c064df311a4afdc436311483e2e5d5cb227c87825",
+      "principal": {
+        "id": "publisher:praxis-first-party",
+        "kind": "publisher"
+      },
+      "scope": "package-namespace:praxis.package",
+      "provenance_ref": "authority-decision:authority-decision:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375:1",
+      "provenance_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "state": "active",
+      "effective_at": "2026-09-15T23:04:31.762309Z",
+      "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "parent_version": "1",
+      "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "delegated_by": {
+        "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "kind": "human"
+      },
+      "delegation_ref": "publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375/1",
+      "delegation_digest": "sha256:454747006da89c3202abc5cf96f7348a038d880634808c1789f764b66635b5d0",
+      "policy_ref": "praxis.authority-model",
+      "policy_version": "v2",
+      "policy_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "expires_at": "2026-09-16T23:59:59Z",
+      "authority_model": "praxis.authority-model",
+      "authority_model_version": "v2",
+      "authority_model_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "authorities": [
+        "package.publish"
+      ],
+      "delegation_profile": "PACKAGE_PUBLISH",
+      "subject_kind": "publisher",
+      "subject_id": "publisher:praxis-first-party",
+      "subject_version": "2",
+      "subject_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+      "subject_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+    },
+    {
+      "ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "version": "1",
+      "digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "principal": {
+        "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "kind": "human"
+      },
+      "scope": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "capabilities": [
+        "authority.delegate"
+      ],
+      "provenance_ref": "bootstrap-record:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00:os-user:polliard",
+      "provenance_digest": "sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "state": "active",
+      "effective_at": "2026-09-15T14:55:29.462143Z",
+      "delegated_by": {
+        "id": "",
+        "kind": ""
+      },
+      "authority_model": "praxis.authority-model",
+      "authority_model_version": "v1",
+      "authority_model_digest": "sha256:e32893f3acd1f8fdafcfd839537e16cbae0409aeba353e4c908db86b14bc126d"
+    }
+  ],
+  "publish": {
+    "Generation": {
+      "ref": "authority-delegation:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+      "version": "1",
+      "digest": "sha256:28c93032c72477929c94128c064df311a4afdc436311483e2e5d5cb227c87825",
+      "principal": {
+        "id": "publisher:praxis-first-party",
+        "kind": "publisher"
+      },
+      "scope": "package-namespace:praxis.package",
+      "provenance_ref": "authority-decision:authority-decision:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375:1",
+      "provenance_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "state": "active",
+      "effective_at": "2026-09-15T23:04:31.762309Z",
+      "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "parent_version": "1",
+      "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "delegated_by": {
+        "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "kind": "human"
+      },
+      "delegation_ref": "publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375/1",
+      "delegation_digest": "sha256:454747006da89c3202abc5cf96f7348a038d880634808c1789f764b66635b5d0",
+      "policy_ref": "praxis.authority-model",
+      "policy_version": "v2",
+      "policy_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "expires_at": "2026-09-16T23:59:59Z",
+      "authority_model": "praxis.authority-model",
+      "authority_model_version": "v2",
+      "authority_model_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "authorities": [
+        "package.publish"
+      ],
+      "delegation_profile": "PACKAGE_PUBLISH",
+      "subject_kind": "publisher",
+      "subject_id": "publisher:praxis-first-party",
+      "subject_version": "2",
+      "subject_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+      "subject_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+    },
+    "Request": {
+      "id": "publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+      "version": "1",
+      "baseline_id": "",
+      "baseline_version": "",
+      "baseline_digest": "",
+      "proposal_id": "",
+      "proposal_version": "",
+      "proposal_digest": "",
+      "review_ref": "",
+      "review_version": "",
+      "review_digest": "",
+      "requested_authority": "package.publish",
+      "requested_scope": "package-namespace:praxis.package",
+      "reason": "first-party package publishing",
+      "status": "pending",
+      "delegation": {
+        "profile": "PACKAGE_PUBLISH",
+        "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "parent_version": "1",
+        "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+        "delegated_principal": {
+          "id": "publisher:praxis-first-party",
+          "kind": "publisher"
+        },
+        "target_kind": "publisher-generation",
+        "target_identity": "publisher:praxis-first-party",
+        "target_constraints": [
+          "praxis.package"
+        ],
+        "requested_capabilities": null,
+        "requested_operations": null,
+        "requested_authority": "package.publish",
+        "requested_operation": "sign",
+        "requested_scope": "package-namespace:praxis.package",
+        "target_version": "praxis.package",
+        "target_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+        "proposal_version": "1",
+        "proposal_digest": "sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32",
+        "review_version": "1",
+        "review_digest": "sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+        "expires_at": "2026-09-16T23:59:59Z",
+        "reason": "first-party package publishing",
+        "policy_ref": "praxis.authority-model",
+        "policy_version": "v2",
+        "policy_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+        "subject_kind": "publisher",
+        "subject_id": "publisher:praxis-first-party",
+        "subject_version": "2",
+        "subject_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+        "subject_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+      }
+    },
+    "Decision": {
+      "request_id": "publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+      "request_version": "1",
+      "request_digest": "sha256:454747006da89c3202abc5cf96f7348a038d880634808c1789f764b66635b5d0",
+      "decision_ref": "authority-decision:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+      "decision_version": "1",
+      "decided_by": {
+        "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "kind": "human"
+      },
+      "authority_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "authority_version": "1",
+      "authority_generation_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+      "granted_scope": "package-namespace:praxis.package",
+      "outcome": "approve",
+      "authority_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+      "issued_at": "2026-09-15T23:04:31.762309Z",
+      "expires_at": "2026-09-16T23:59:59Z",
+      "delegation": {
+        "profile": "PACKAGE_PUBLISH",
+        "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+        "parent_version": "1",
+        "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+        "delegated_principal": {
+          "id": "publisher:praxis-first-party",
+          "kind": "publisher"
+        },
+        "target_kind": "publisher-generation",
+        "target_identity": "publisher:praxis-first-party",
+        "target_constraints": [
+          "praxis.package"
+        ],
+        "requested_capabilities": null,
+        "requested_operations": null,
+        "requested_authority": "package.publish",
+        "requested_operation": "sign",
+        "requested_scope": "package-namespace:praxis.package",
+        "target_version": "praxis.package",
+        "target_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+        "proposal_version": "1",
+        "proposal_digest": "sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32",
+        "review_version": "1",
+        "review_digest": "sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+        "expires_at": "2026-09-16T23:59:59Z",
+        "reason": "first-party package publishing",
+        "policy_ref": "praxis.authority-model",
+        "policy_version": "v2",
+        "policy_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+        "subject_kind": "publisher",
+        "subject_id": "publisher:praxis-first-party",
+        "subject_version": "2",
+        "subject_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+        "subject_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5"
+      }
+    }
+  },
+  "deploy": {
+    "ref": "authority-delegation:package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615",
+    "version": "1",
+    "digest": "sha256:73e0f7ea6dea6eeb7187e571abef94524d26f7df822e922c137c06fe666ca145",
+    "principal": {
+      "id": "package-manager:praxis",
+      "kind": "package-manager"
+    },
+    "scope": "package-deployment:installation:sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+    "provenance_ref": "authority-decision:authority-decision:package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615:1",
+    "provenance_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+    "state": "active",
+    "effective_at": "2026-09-16T01:22:41.367745Z",
+    "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+    "parent_version": "1",
+    "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+    "delegated_by": {
+      "id": "installation-owner:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+      "kind": "human"
+    },
+    "delegation_ref": "package-manager-authority-request:sha256:26673000b42017f1836d529b7ad9c038a036facba97fb4e7d93d8153ba3feebd:sha256:f210bc107f3099cfdcd565e31d36830bdc4683ad02625fd7e5c0de86d8da6615/1",
+    "delegation_digest": "sha256:a325e3f71e6738e3bcebbda042338fcd53056a225b4910eef3c8e4fa84ec5d8f",
+    "policy_ref": "praxis.authority-model",
+    "policy_version": "v3",
+    "policy_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+    "expires_at": "2026-09-17T23:59:59Z",
+    "authority_model": "praxis.authority-model",
+    "authority_model_version": "v3",
+    "authority_model_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+    "authorities": [
+      "package.deploy"
+    ],
+    "delegation_profile": "PACKAGE_DEPLOY",
+    "subject_kind": "package-manager",
+    "subject_id": "package-manager:praxis",
+    "subject_version": "1",
+    "subject_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47"
+  },
+  "receipt_preview": {
+    "id": "publisher-signing-preview:sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d:sha256:857e3ca52b8708376f4ed3b5db3578292b69605ea4af243df293c4b57702e156",
+    "version": "1",
+    "package_id": "praxis.package.goals",
+    "package_version": "0.1.0",
+    "package_namespace": "praxis.package",
+    "manifest_digest": "sha256:023a191f4844e05c32e85a464e23bf229bc00c5c29be07ea14ace21356bb5e9d",
+    "artifact_digest": "sha256:857e3ca52b8708376f4ed3b5db3578292b69605ea4af243df293c4b57702e156",
+    "executable_digest": "sha256:455d1a6af72bd206071e52daf2b3bfbb906177a5eea36f1e6840fab0053c5581",
+    "invocation_contract_digest": "sha256:b56e2a370aaf3913486c5e0e26dbd9d39d2eedd1e4d9089a8fc7c8af5c51f492",
+    "executable_binding_digest": "sha256:be1d80922401ffe479ea89ae3e54e9509cb4df7ae2505e1a1186bc9f723f9105",
+    "plugin_definition_digest": "sha256:43d8d91128e648d4036c068c57f47bb6680e489a60f6c54137b009a1abac5625",
+    "runtime_id": "praxis.plugin.grpc",
+    "runtime_version": "1",
+    "runtime_digest": "sha256:a1fdfa8b33d3d6748685dde99ae62a70fb0fa17619417af0a6625cebef0f9033",
+    "source_identity": "4af02ee368491c9f348a13fde8324a3f42a222ed/ea2abcc6dfd44fe1d4d9ca947b2b4cc247cd03a0",
+    "builder_identity": "praxis-package-builder/v1",
+    "publisher_principal": "publisher:praxis-first-party",
+    "publisher_generation_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+    "publisher_generation_version": "v1",
+    "public_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5",
+    "key_id": "key:japetella-qual",
+    "algorithm": "ed25519",
+    "authority_generation_ref": "authority-delegation:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+    "authority_generation_version": "1",
+    "authority_generation_digest": "sha256:28c93032c72477929c94128c064df311a4afdc436311483e2e5d5cb227c87825",
+    "authority_model": "praxis.authority-model",
+    "authority_model_version": "v2",
+    "authority_model_digest": "sha256:207a932b29d1c69130ac0b29f57bfaf51beb51ec6678c8fe09950d257883ba44",
+    "parent_ref": "installation-governance:sha256:3a4152a726102de408cc4e6ee329113ff8455e4924538bf28e0bab23e4995b00",
+    "parent_version": "1",
+    "parent_digest": "sha256:7e247747e70c88ad0feb59f485d31d3b2803e9049c22983587ddf61b500c1e47",
+    "authority_scope": "package-namespace:praxis.package",
+    "authority_request_id": "publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+    "authority_request_version": "1",
+    "authority_request_digest": "sha256:454747006da89c3202abc5cf96f7348a038d880634808c1789f764b66635b5d0",
+    "authority_decision_ref": "authority-decision:publisher-authority-request:sha256:8796a98a58040cc67917632f45ad5454983fbd934ad6488f427faedf496bad32:sha256:87b8b22f987c133d113713d302719544efae73d4ad227d6f38352e347ecaf375",
+    "authority_decision_version": "1",
+    "authority_decision_digest": "sha256:ba2c15f62922cba3091d94f9ace0a86b9e3bfa03c56f70ec2f3c246dc7a94fee",
+    "expires_at": "2026-09-16T23:59:59Z",
+    "created_at": "2026-09-15T23:06:36.754901Z",
+    "digest": "sha256:e6c8906ee38450986710244fae4cbc389e82b455a823d1e93ae85abdcad54d66"
+  },
+  "publisher": {
+    "version": "v1",
+    "principal": {
+      "id": "publisher:praxis-first-party",
+      "kind": "publisher"
+    },
+    "key_id": "key:japetella-qual",
+    "algorithm": "ed25519",
+    "public_key": "lapFsK21wos0CWqNqyc7W5EhkZg/k+8o/iDKLkTDBaw=",
+    "public_key_digest": "sha256:602527c02d1a5dfa84661699560289895f70fdcd99c4364fbf1703647eea8dd5",
+    "package_namespace": "praxis.package",
+    "generation": "2",
+    "predecessor": "sha256:1f92463300178bbc38a96a064f0b24bef7537e015c722807a92d2434d3da47bf",
+    "effective_at": "2026-09-15T21:40:43.388913Z",
+    "enrollment_ref": "publisher-enrollment-preview:2",
+    "enrollment_digest": "sha256:4973257d240fa24c3afd991551419397ea1ab2478501ed64cc1fb085266ccf0b"
+  },
+  "envelope": {
+    "version": "v1",
+    "profile": "classical-compatible",
+    "manifest_digest": "sha256:023a191f4844e05c32e85a464e23bf229bc00c5c29be07ea14ace21356bb5e9d",
+    "artifact_digest": "sha256:857e3ca52b8708376f4ed3b5db3578292b69605ea4af243df293c4b57702e156",
+    "proofs": [
+      {
+        "algorithm": "ed25519",
+        "key_id": "key:japetella-qual",
+        "signature": "fSTepzOITvG1xF/RrUBbHYE9H9U1BWxmteQVEDGBobYqZHIbcdLVClyCZVqIyx6JW735dXjo85iVwl0H7MNQDQ=="
+      }
+    ]
+  },
+  "provenance": {
+    "version": "v2",
+    "publisher_principal": "publisher:praxis-first-party",
+    "publisher_generation_digest": "sha256:c199600cb21987e9010917c60d8ea526c16aa5f4a58f98257f7a71a0108dd17d",
+    "key_id": "key:japetella-qual",
+    "algorithm": "ed25519",
+    "package_id": "praxis.package.goals",
+    "package_version": "0.1.0",
+    "manifest_digest": "sha256:023a191f4844e05c32e85a464e23bf229bc00c5c29be07ea14ace21356bb5e9d",
+    "artifact_digest": "sha256:857e3ca52b8708376f4ed3b5db3578292b69605ea4af243df293c4b57702e156",
+    "source_identity": "4af02ee368491c9f348a13fde8324a3f42a222ed/ea2abcc6dfd44fe1d4d9ca947b2b4cc247cd03a0",
+    "builder_identity": "praxis-package-builder/v1",
+    "signed_at": "2026-09-15T23:19:51.077804Z",
+    "signature_envelope_digest": "sha256:2296ed167c642648abca44d2f0e561b55f991e845575d074d1816d09b371fe59",
+    "signing_preview_digest": "sha256:e6c8906ee38450986710244fae4cbc389e82b455a823d1e93ae85abdcad54d66",
+    "package_publish_authority_digest": "sha256:28c93032c72477929c94128c064df311a4afdc436311483e2e5d5cb227c87825",
+    "package_publish_request_digest": "sha256:454747006da89c3202abc5cf96f7348a038d880634808c1789f764b66635b5d0",
+    "package_publish_decision_digest": "sha256:ba2c15f62922cba3091d94f9ace0a86b9e3bfa03c56f70ec2f3c246dc7a94fee"
+  }
+}

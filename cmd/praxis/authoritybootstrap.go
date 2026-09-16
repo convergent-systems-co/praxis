@@ -168,7 +168,11 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 	if err != nil || current.Username == "" || !strings.HasSuffix(parent.ProvenanceRef, ":os-user:"+current.Username) {
 		return errors.New("authenticated root OS user does not match the enrolled generation")
 	}
-	if err := (builtinDelegationPolicy{}).ContainDelegation(parent, *request.Delegation, now); err != nil {
+	var delegationPolicy contracts.DelegationContainmentPolicy = builtinDelegationPolicy{}
+	if request.Delegation.Profile == contracts.GoalsPublicationProfile {
+		delegationPolicy = goalstore.GoalsPublicationPolicy{Repository: repo, Request: request}
+	}
+	if err := delegationPolicy.ContainDelegation(parent, *request.Delegation, now); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(output, fmt.Sprintf("Authorize exact delegation request %s for parent %s/%s. Type %q to continue: ", requestDigestValue, parent.Ref, parent.Version, "DELEGATE "+requestDigestValue)); err != nil {
@@ -182,11 +186,11 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 		return errAuthorityBootstrapConfirmation
 	}
 	authorityDigest := contracts.AuthorityModelDigest()
-	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy {
+	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy || request.Delegation.Profile == contracts.GoalsPublicationProfile {
 		authorityDigest = request.Delegation.PolicyDigest
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: authorityDigest, IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
-	child, err := repo.SaveAuthorityDecisionAndDelegatedAuthorityGeneration(context.Background(), request.ID, request.Version, decision, builtinDelegationPolicy{}, now)
+	child, err := repo.SaveAuthorityDecisionAndDelegatedAuthorityGeneration(context.Background(), request.ID, request.Version, decision, delegationPolicy, now)
 	if err != nil {
 		return err
 	}

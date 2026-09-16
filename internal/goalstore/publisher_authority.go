@@ -53,7 +53,7 @@ func (r Repository) ResolvePackagePublishAuthority(ctx context.Context, publishe
 			if decisionErr != nil || decision.RequestDigest == "" {
 				continue
 			}
-			requestDigest, digestErr := request.Digest()
+			requestDigest, digestErr := request.DigestAt(now)
 			if digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == "" {
 				continue
 			}

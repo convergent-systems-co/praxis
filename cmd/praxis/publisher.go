@@ -27,6 +27,14 @@ func runPublisherCommand(args []string) error {
 		return writePublisherHelp(os.Stdout)
 	}
 	switch args[0] {
+	case "goals-publication-prepare":
+		return runGoalsPublication("prepare", args[1:], os.Getenv, os.Stdout)
+	case "goals-publication-execute":
+		return runGoalsPublication("execute", args[1:], os.Getenv, os.Stdout)
+	case "goals-publication-reconcile":
+		return runGoalsPublication("reconcile", args[1:], os.Getenv, os.Stdout)
+	case "goals-publication-inspect":
+		return runGoalsPublication("inspect", args[1:], os.Getenv, os.Stdout)
 	case "key-create":
 		return runPublisherKeyCreate(args[1:], os.Stdout)
 	case "key-inspect":
@@ -56,12 +64,12 @@ func runPublisherCommand(args []string) error {
 	case "receipt":
 		return runPublisherReceipt(args[1:], os.Getenv, os.Stdout)
 	default:
-		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt}")
+		return errors.New("usage: praxis publisher {key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect}")
 	}
 }
 
 func writePublisherHelp(w io.Writer) error {
-	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt>\n\nSigning previews persist an immutable intent but do not sign. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
+	_, err := io.WriteString(w, "usage: praxis publisher <key-create|key-inspect|enroll-preview|enroll-approve|enroll-approval-inspect|enroll|authority-preview|authority-proposal|authority-review|authority-request|package-build|sign-preview|sign|receipt|goals-publication-prepare|goals-publication-execute|goals-publication-inspect|goals-publication-reconcile>\n\nSigning previews persist an immutable intent but do not sign. Enrollment approval, authority issuance, and signing require the existing governed installation state and explicit owner authorization. Private key material is never printed or persisted by Praxis.\n")
 	return err
 }
 

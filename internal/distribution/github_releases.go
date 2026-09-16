@@ -223,6 +223,7 @@ func (g GitHubReleases) Resolve(ctx context.Context, ref PackageRef, version str
 	if err != nil {
 		return Release{}, err
 	}
+	result.SignatureBytes = append([]byte(nil), signatureBody...)
 	if err := json.Unmarshal(signatureBody, &result.Signature); err != nil {
 		return Release{}, fmt.Errorf("decode package signature envelope: %w", err)
 	}

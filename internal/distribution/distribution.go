@@ -38,6 +38,7 @@ type Release struct {
 	ManifestDigest string                           `json:"manifest_digest"`
 	Manifest       packagecatalog.Manifest          `json:"manifest"`
 	ManifestBytes  []byte                           `json:"-"`
+	SignatureBytes []byte                           `json:"-"`
 	Signature      packagecatalog.SignatureEnvelope `json:"signature"`
 }
 

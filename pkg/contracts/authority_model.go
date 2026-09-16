@@ -48,6 +48,9 @@ func AuthorityModelDeploymentDigest() string {
 }
 
 func ValidateAuthorityModel(id, version, digest string) error {
+	if id == AuthorityModelID && version == AuthorityModelGoalsPublicationVersion && digest == AuthorityModelGoalsPublicationDigest() {
+		return nil
+	}
 	if id != AuthorityModelID || (version != AuthorityModelVersion && version != AuthorityModelSuccessorVersion && version != AuthorityModelDeploymentVersion) || (version == AuthorityModelVersion && digest != AuthorityModelDigest()) || (version == AuthorityModelSuccessorVersion && digest != AuthorityModelSuccessorDigest()) || (version == AuthorityModelDeploymentVersion && digest != AuthorityModelDeploymentDigest()) {
 		return errors.New("authority model identity or digest is not a supported immutable model")
 	}

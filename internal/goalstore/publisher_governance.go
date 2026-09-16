@@ -162,9 +162,13 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 			return "", errors.New("authority model v2 is already adopted by a different transition")
 		}
 	}
-	if current.ActiveVersion != adoption.FromVersion || current.ActiveDigest != adoption.FromDigest || adoption.FromModel != contracts.AuthorityModelID || adoption.ToModel != contracts.AuthorityModelID || (adoption.FromVersion == contracts.AuthorityModelVersion && (adoption.ToVersion != contracts.AuthorityModelSuccessorVersion || adoption.FromDigest != contracts.AuthorityModelDigest() || adoption.ToDigest != contracts.AuthorityModelSuccessorDigest())) || (adoption.FromVersion == contracts.AuthorityModelSuccessorVersion && (adoption.ToVersion != contracts.AuthorityModelDeploymentVersion || adoption.FromDigest != contracts.AuthorityModelSuccessorDigest() || adoption.ToDigest != contracts.AuthorityModelDeploymentDigest())) {
+	if current.ActiveVersion != adoption.FromVersion || current.ActiveDigest != adoption.FromDigest || !validModelSuccessor(adoption) {
 		return "", errors.New("authority-model adoption source or successor mismatch")
 	}
+	if adoption.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && (bootstrapDigest != contracts.GoalsPublicationBootstrap || root.Digest != contracts.GoalsPublicationRoot) {
+		return "", errors.New("Goals publication model is limited to the accepted installation")
+	}
+
 	var prior contracts.AuthorityModelAdoption
 	priorExists := false
 	if err := r.loadPublisherGovernance(ctx, adoption.ID, adoption.Version, now, &prior); err == nil {
@@ -519,7 +523,7 @@ func (r Repository) SaveAuthorityModelAdoption(ctx context.Context, adoption con
 	if e != nil {
 		return "", e
 	}
-	if adoption.ToVersion != contracts.AuthorityModelSuccessorVersion && adoption.ToVersion != contracts.AuthorityModelDeploymentVersion {
+	if !validModelSuccessor(adoption) {
 		return "", errors.New("adoption does not bind a supported successor")
 	}
 	if adoption.ToVersion == contracts.AuthorityModelSuccessorVersion && adoption.ToDigest != contracts.AuthorityModelSuccessorDigest() {
@@ -800,4 +804,20 @@ func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview cont
 		return contracts.PublisherEnrollmentApproval{}, "", err
 	}
 	return approval, approvalDigest, nil
+}
+
+// Closed successor edges: adding v4 does not reinterpret earlier models.
+func validModelSuccessor(a contracts.AuthorityModelAdoption) bool {
+	if a.FromModel != contracts.AuthorityModelID || a.ToModel != contracts.AuthorityModelID {
+		return false
+	}
+	switch a.FromVersion {
+	case contracts.AuthorityModelVersion:
+		return a.FromDigest == contracts.AuthorityModelDigest() && a.ToVersion == contracts.AuthorityModelSuccessorVersion && a.ToDigest == contracts.AuthorityModelSuccessorDigest()
+	case contracts.AuthorityModelSuccessorVersion:
+		return a.FromDigest == contracts.AuthorityModelSuccessorDigest() && a.ToVersion == contracts.AuthorityModelDeploymentVersion && a.ToDigest == contracts.AuthorityModelDeploymentDigest()
+	case contracts.AuthorityModelDeploymentVersion:
+		return a.FromDigest == contracts.AuthorityModelDeploymentDigest() && a.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && a.ToDigest == contracts.AuthorityModelGoalsPublicationDigest()
+	}
+	return false
 }

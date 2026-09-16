@@ -607,7 +607,7 @@ func (r Repository) LoadAuthorityRequest(ctx context.Context, id, version string
 	if err := json.Unmarshal(payload, &request); err != nil {
 		return contracts.AuthorityRequest{}, fmt.Errorf("decode authority request: %w", err)
 	}
-	_, err = request.Digest()
+	_, err = request.DigestAt(now)
 	if err != nil || request.ID != id || request.Version != version || payloadDigest(payload) != record.ObjectDigest {
 		return contracts.AuthorityRequest{}, errors.New("authority request identity or digest mismatch")
 	}

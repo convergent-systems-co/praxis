@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -65,13 +66,22 @@ type Observation struct {
 // DispatchOutcome is the bounded, credential-free evidence retained for one
 // fixed Goals GitHub mutation. Raw provider diagnostics are never persisted.
 type DispatchOutcome struct {
-	Version    string `json:"version"`
-	Process    string `json:"process"` // launch_failed | started
-	Class      string `json:"class"`   // local_pre_dispatch_failure | provider_response | acknowledged_success | ambiguous
-	Stdout     string `json:"stdout,omitempty"`
-	Stderr     string `json:"stderr,omitempty"`
-	HTTPStatus int    `json:"http_status,omitempty"`
-	RequestID  string `json:"request_id,omitempty"`
+	Version          string          `json:"version"`
+	Process          string          `json:"process"` // launch_failed | started
+	Class            string          `json:"class"`   // local_pre_dispatch_failure | provider_response | acknowledged_success | ambiguous
+	Stdout           string          `json:"stdout,omitempty"`
+	Stderr           string          `json:"stderr,omitempty"`
+	HTTPStatus       int             `json:"http_status,omitempty"`
+	RequestID        string          `json:"request_id,omitempty"`
+	ProviderMessage  string          `json:"provider_message,omitempty"`
+	DocumentationURL string          `json:"documentation_url,omitempty"`
+	ProviderErrors   []ProviderError `json:"provider_errors,omitempty"`
+}
+
+type ProviderError struct {
+	Resource string `json:"resource,omitempty"`
+	Field    string `json:"field,omitempty"`
+	Code     string `json:"code,omitempty"`
 }
 
 type dispatchFailure struct {
@@ -105,14 +115,64 @@ const maxDiagnosticBytes = 1024
 var statusPattern = regexp.MustCompile(`(?i)(?:HTTP(?:/[^ ]+)?[ :]+|status[=: ]+)([1-5][0-9]{2})`)
 var requestIDPattern = regexp.MustCompile(`(?i)(?:x-github-request-id|request[- ]id)[=: ]+([A-F0-9-]{8,80})`)
 var secretPattern = regexp.MustCompile(`(?i)(gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|(token|authorization|password|secret|cookie)[=: ]+[^\s,;]+)`)
+var urlPattern = regexp.MustCompile(`https?://[^\s"']+`)
+var messagePattern = regexp.MustCompile(`(?i)(?:message|error)["']?\s*[:=]\s*["']([^"']{1,512})["']`)
 
 func safeDiagnostic(s string) string {
 	s = strings.ToValidUTF8(s, "�")
 	s = secretPattern.ReplaceAllString(s, "[REDACTED]")
+	s = urlPattern.ReplaceAllStringFunc(s, func(raw string) string {
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return "[URL_REDACTED]"
+		}
+		return u.Scheme + "://" + u.Host + u.EscapedPath()
+	})
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 && r != '\n' && r != '\t' {
+			return -1
+		}
+		return r
+	}, s)
 	if len(s) > maxDiagnosticBytes {
 		s = s[:maxDiagnosticBytes]
 	}
 	return s
+}
+
+func providerDiagnostics(raw string) (string, string, []ProviderError) {
+	original := raw
+	raw = safeDiagnostic(raw)
+	var body struct {
+		Message          string `json:"message"`
+		DocumentationURL string `json:"documentation_url"`
+		Errors           []struct {
+			Resource string `json:"resource"`
+			Field    string `json:"field"`
+			Code     string `json:"code"`
+		} `json:"errors"`
+	}
+	for _, candidate := range []string{original, strings.TrimSpace(strings.TrimPrefix(original, "gh: ")), raw} {
+		if json.Unmarshal([]byte(candidate), &body) == nil {
+			break
+		}
+	}
+	message := body.Message
+	if message == "" {
+		if m := messagePattern.FindStringSubmatch(raw); len(m) > 1 {
+			message = m[1]
+		}
+	}
+	message = safeDiagnostic(message)
+	doc := safeDiagnostic(body.DocumentationURL)
+	errs := make([]ProviderError, 0, 4)
+	for i, e := range body.Errors {
+		if i == 4 {
+			break
+		}
+		errs = append(errs, ProviderError{Resource: safeDiagnostic(e.Resource), Field: safeDiagnostic(e.Field), Code: safeDiagnostic(e.Code)})
+	}
+	return message, doc, errs
 }
 
 const apiRepo = "repos/" + contracts.GoalsPublicationRepository
@@ -141,6 +201,7 @@ func gh(ctx context.Context, args []string, body []byte) ([]byte, error) {
 		if m := requestIDPattern.FindStringSubmatch(stderr.String() + " " + out.String()); len(m) > 1 {
 			o.RequestID = m[1]
 		}
+		o.ProviderMessage, o.DocumentationURL, o.ProviderErrors = providerDiagnostics(stderr.String() + " " + out.String())
 		// stdout and raw stderr may contain response bodies or echoed request data.
 		// Only the parsed allow-listed status and request ID are retained.
 		return nil, dispatchFailure{o, fmt.Errorf("GitHub transport failed (%s): %w", args[0], e)}

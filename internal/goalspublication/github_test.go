@@ -239,6 +239,45 @@ func TestGitHubProcessOutcomeClassificationIsSafeAndBounded(t *testing.T) {
 	})
 }
 
+func TestProviderDiagnosticsStructuredAndSanitized(t *testing.T) {
+	raw := `{"message":"Validation Failed","documentation_url":"https://docs.github.com/rest?token=secret","errors":[{"resource":"ReleaseAsset","field":"name","code":"already_exists","value":"ghp_supersecretvalue"}]}`
+	message, doc, errs := providerDiagnostics(raw)
+	if message != "Validation Failed" {
+		t.Fatalf("message not retained: %q", message)
+	}
+	if doc != "https://docs.github.com/rest" {
+		t.Fatalf("documentation URL not normalized: %q", doc)
+	}
+	if len(errs) != 1 || errs[0].Resource != "ReleaseAsset" || errs[0].Field != "name" || errs[0].Code != "already_exists" {
+		t.Fatalf("structured errors not retained safely: %+v", errs)
+	}
+	if strings.Contains(message+doc, "secret") || strings.Contains(message+doc, "ghp_") {
+		t.Fatal("secret survived provider diagnostic sanitization")
+	}
+}
+
+func TestProviderDiagnosticsBoundedMalformedAndCardinality(t *testing.T) {
+	var b strings.Builder
+	b.WriteString(`{"message":"`)
+	b.WriteString(strings.Repeat("x", 5000))
+	b.WriteString(`","errors":[`)
+	for i := 0; i < 20; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(`{"resource":"r","field":"f","code":"c"}`)
+	}
+	b.WriteString(`]}`)
+	message, doc, errs := providerDiagnostics(b.String())
+	if len(message) > maxDiagnosticBytes || len(errs) > 4 {
+		t.Fatalf("provider diagnostics exceeded bounds: message=%d errors=%d", len(message), len(errs))
+	}
+	message, doc, errs = providerDiagnostics("not-json\x00with token=ghp_1234567890")
+	if message != "" || doc != "" || len(errs) != 0 {
+		t.Fatalf("malformed output produced structured diagnostics: %q %q %+v", message, doc, errs)
+	}
+}
+
 func TestRecoveryGitHubRejectsEstablishedStateSubstitutionReadOnly(t *testing.T) {
 	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	a, err := contracts.NewGoalsPublicationRecoveryIntent(contracts.GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("e", 64), AccountID: 789, Sizes: [3]int64{1, 2, 3}, PredecessorRequestID: "goals-publication-request:old", PredecessorRequestDigest: "sha256:" + strings.Repeat("1", 64), PredecessorIntentID: "goals-initial-publication:old", PredecessorIntentDigest: "sha256:" + strings.Repeat("2", 64), AbandonmentEventID: "goals-publication-abandoned:old", AbandonmentDigest: "sha256:" + strings.Repeat("3", 64)})

@@ -98,6 +98,9 @@ func (r Repository) ValidateGoalsPublicationFailedVerificationBinding(ctx contex
 		return err
 	}
 	p := a.Parameters
+	if p["failed_predecessor_execution_id"] != "goals-publication-recovery:"+recoveryHash([]byte(p["failed_predecessor_request_id"])) {
+		return errors.New("failed predecessor execution identity mismatch")
+	}
 	for _, k := range []string{"failed_manifest_effect_id", "failed_archive_effect_id", "failed_signature_effect_id", "failed_verify_effect_id"} {
 		var state string
 		var attempts int

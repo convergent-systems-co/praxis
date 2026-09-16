@@ -44,6 +44,28 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 	if expect != 3 {
 		return nil
 	}
+	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract && step == "verify-draft" {
+		seen := map[string]bool{}
+		for _, asset := range r.Assets {
+			idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[map[string]string{"praxis-package.json": "manifest", "praxis-package.tar.gz": "archive", "praxis-package.sig.json": "signature"}[asset.Name]]
+			if asset.ID <= 0 || seen[asset.Name] || asset.State != "uploaded" {
+				return errors.New("failed-verification asset inventory mismatch")
+			}
+			seen[asset.Name] = true
+			want := []string{"asset_manifest_id", "asset_archive_id", "asset_signature_id"}[idx]
+			if fmt.Sprint(asset.ID) != a.Parameters[want] {
+				return errors.New("failed-verification asset identity mismatch")
+			}
+			b, err := readAsset(ctx, asset.ID)
+			if err != nil {
+				return err
+			}
+			if hash(b) != assetDigests[idx] || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[idx]] {
+				return errors.New("failed-verification asset bytes differ")
+			}
+		}
+		return nil
+	}
 	if err := validateRecoveryAssetInventory(a, r.Assets, previous); err != nil {
 		return err
 	}

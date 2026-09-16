@@ -244,6 +244,107 @@ func (e RecoveryExecution) PrepareOrderedIntent(ctx context.Context, latestRecov
 	}
 	return a, nil
 }
+
+// PrepareFailedVerificationIntent creates the bounded /4 successor after a
+// terminal local draft-verification failure. It binds existing effects and
+// performs only read-only provider checks; uploads are never scheduled.
+func (e RecoveryExecution) PrepareFailedVerificationIntent(ctx context.Context, failedRequestID, identity string, expires time.Time) (contracts.ActionIntent, error) {
+	if !strings.HasPrefix(failedRequestID, "goals-publication-recovery-request:") {
+		return contracts.ActionIntent{}, errors.New("not a recovery request")
+	}
+	key := recoveryKey(failedRequestID)
+	load := func(step string) (storedEffect, recoveryStepPayload, error) {
+		v, err := e.load(ctx, key+":"+step)
+		if err != nil {
+			return v, recoveryStepPayload{}, err
+		}
+		var p recoveryStepPayload
+		if err = json.Unmarshal(v.Payload, &p); err != nil {
+			return v, p, err
+		}
+		return v, p, nil
+	}
+	manifest, sp, err := load("manifest")
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	archive, _, err := load("archive")
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	signature, _, err := load("signature")
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	verify, _, err := load("verify-draft")
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if manifest.State != string(state.EffectSucceeded) || archive.State != string(state.EffectSucceeded) || signature.State != string(state.EffectSucceeded) || verify.State != string(state.EffectFailed) {
+		return contracts.ActionIntent{}, errors.New("failed verification predecessor state is not exact")
+	}
+	if sp.RequestID != failedRequestID || sp.Intent.Parameters["contract"] != contracts.GoalsOrderedRecoveryContract {
+		return contracts.ActionIntent{}, errors.New("failed predecessor intent mismatch")
+	}
+	auth, err := e.current(ctx, failedRequestID)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if auth.Request.Intent == nil || auth.Generation.Digest != sp.Authority.Generation.Digest {
+		return contracts.ActionIntent{}, errors.New("failed predecessor authority mismatch")
+	}
+	request, err := e.Repository.LoadAuthorityRequest(ctx, failedRequestID, "1", e.now())
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	requestDigest, err := request.Digest()
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var verifyRec []byte
+	if err = e.Repository.Store.DB().QueryRowContext(ctx, `SELECT reconciliation_evidence FROM effects WHERE effect_id=?`, key+":verify-draft").Scan(&verifyRec); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	chain, err := contracts.ParseRecoveryChain(sp.Intent.Parameters["recovery_chain"])
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	id, err := e.Adapter.(RecoveryGitHub).Identity(ctx)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	assetID := func(v storedEffect) string {
+		var o Observation
+		_ = json.Unmarshal(v.Result, &o)
+		if o.Asset != nil {
+			return fmt.Sprint(o.Asset.ID)
+		}
+		return ""
+	}
+	failedIntentDigest, err := sp.Intent.Digest()
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	in := contracts.GoalsFailedVerificationInput{GoalsOrderedRecoveryInput: contracts.GoalsOrderedRecoveryInput{GoalsRecoveryInput: contracts.GoalsRecoveryInput{CreatedAt: e.now(), ExpiresAt: expires, Identity: identity, AccountID: id.AccountID, Sizes: [3]int64{int64(len(e.Assets[0])), int64(len(e.Assets[1])), int64(len(e.Assets[2]))}, PredecessorRequestID: sp.Intent.Parameters["predecessor_request_id"], PredecessorRequestDigest: sp.Intent.Parameters["predecessor_request_digest"], PredecessorIntentID: sp.Intent.Parameters["predecessor_intent_id"], PredecessorIntentDigest: sp.Intent.Parameters["predecessor_intent_digest"], AbandonmentEventID: sp.Intent.Parameters["abandonment_event_id"], AbandonmentDigest: sp.Intent.Parameters["abandonment_digest"]}, Chain: chain}, FailedRequestID: failedRequestID, FailedRequestDigest: requestDigest, FailedIntentID: sp.Intent.ID, FailedIntentDigest: failedIntentDigest, FailedAuthorityDigest: sp.Authority.Generation.Digest, FailedExecutionID: key, FailedManifestEffectID: key + ":manifest", FailedArchiveEffectID: key + ":archive", FailedSignatureEffectID: key + ":signature", FailedVerifyEffectID: key + ":verify-draft", FailedManifestState: manifest.State, FailedArchiveState: archive.State, FailedSignatureState: signature.State, FailedVerifyState: verify.State, FailedVerifyAttempts: 1, FailedManifestRequestDigest: hash(manifest.Payload), FailedArchiveRequestDigest: hash(archive.Payload), FailedSignatureRequestDigest: hash(signature.Payload), FailedVerifyRequestDigest: hash(verify.Payload), FailedVerifyResultDigest: hash(verify.Result), FailedVerifyReconciliationDigest: hash(verifyRec), AssetIDs: [3]string{assetID(manifest), assetID(archive), assetID(signature)}}
+	if in.AssetIDs[0] == "" || in.AssetIDs[1] == "" || in.AssetIDs[2] == "" {
+		return contracts.ActionIntent{}, errors.New("successful asset evidence missing")
+	}
+	a, err := contracts.NewGoalsPublicationFailedVerificationIntent(in)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err = e.Repository.ValidateGoalsPublicationFailedVerificationBinding(ctx, a); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	remote, ok := e.Adapter.(RecoveryGitHub)
+	if !ok {
+		return contracts.ActionIntent{}, errors.New("recovery GitHub adapter unavailable")
+	}
+	if err = remote.Check(ctx, a, "verify-draft", nil); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	return a, nil
+}
 func recoveryKey(id string) string { return "goals-publication-recovery:" + hash([]byte(id)) }
 
 type recoveryStepPayload struct {
@@ -341,8 +442,12 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 		return "", err
 	}
 	key := recoveryKey(requestID)
+	steps := recoverySteps
+	if intent.Parameters["contract"] == contracts.GoalsFailedVerificationContract {
+		steps = []string{"verify-draft", "publish", "verify-published"}
+	}
 	previous := []Observation{}
-	for i, step := range recoverySteps {
+	for i, step := range steps {
 		if stopped, err := e.recoveryAbandoned(ctx, requestID); err != nil {
 			return "", err
 		} else if stopped {
@@ -442,8 +547,8 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	} else if stopped {
 		return "", errors.New("abandoned Goals recovery execution is permanently fenced")
 	}
-	effectHashes := make([]string, 0, len(recoverySteps))
-	for _, step := range recoverySteps {
+	effectHashes := make([]string, 0, len(steps))
+	for _, step := range steps {
 		v, err := e.load(ctx, key+":"+step)
 		if err != nil {
 			return "", err
@@ -465,7 +570,7 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	}{"1", requestID, intent.ID, mustDigestValue(intent), auth.Generation.Digest, contracts.GoalsPublicationSigningReceipt, intent.Parameters["abandonment_digest"], "unknown-unresolved", effectHashes, previous[len(previous)-1]})
 	at := e.now()
 	cmd := state.CommandRecord{ID: completion, Type: "goals-publication-recovery.complete", Version: "1", Actor: intent.Actor, Scope: intent.Scope, CorrelationID: key, Payload: payload, CreatedAt: at}
-	ev := state.EventRecord{ID: completion, AggregateID: key, AggregateType: "goals-publication-recovery", AggregateVersion: int64(len(recoverySteps) + 1), Type: "goals-publication-recovery.completed", Version: "1", Actor: intent.Actor, CommandID: completion, CorrelationID: key, TrustClass: contracts.TrustObserved, Payload: payload, CreatedAt: at}
+	ev := state.EventRecord{ID: completion, AggregateID: key, AggregateType: "goals-publication-recovery", AggregateVersion: int64(len(steps) + 1), Type: "goals-publication-recovery.completed", Version: "1", Actor: intent.Actor, CommandID: completion, CorrelationID: key, TrustClass: contracts.TrustObserved, Payload: payload, CreatedAt: at}
 	var existing []byte
 	if err = e.Repository.Store.DB().QueryRowContext(ctx, `SELECT payload FROM events WHERE event_id=?`, completion).Scan(&existing); err == nil {
 		if string(existing) != string(payload) {
@@ -475,7 +580,7 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
-	if err = e.Repository.Store.CommitTransition(ctx, cmd, int64(len(recoverySteps)), ev, "", "", nil); err != nil {
+	if err = e.Repository.Store.CommitTransition(ctx, cmd, int64(len(steps)), ev, "", "", nil); err != nil {
 		return "", err
 	}
 	_ = pred

@@ -192,6 +192,36 @@ func runGoalsPublication(mode string, args []string, getenv func(string) string,
 			return err
 		}
 		return printJSONTo(out, map[string]any{"request": req, "request_digest": digest, "authorized": false, "published": false})
+	case "recovery-failed-verification-prepare":
+		if *dir == "" || *request == "" || *expiry == "" || *ownerConfirmation != "" || *reason != "" {
+			return errors.New("usage: praxis publisher goals-publication-recovery-failed-verification-prepare --package-dir <dir> --request-id <failed-request-id> --expires-at <RFC3339>")
+		}
+		until, err := time.Parse(time.RFC3339, *expiry)
+		if err != nil || !until.After(now) {
+			return errors.New("future finite successor expiry required")
+		}
+		assets, err := goalspublication.ReadAssets(*dir)
+		if err != nil {
+			return err
+		}
+		repo, db, err := openGovernedRepository(ctx, getenv)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		nonce := make([]byte, 32)
+		if _, err = rand.Read(nonce); err != nil {
+			return err
+		}
+		intent, err := (goalspublication.RecoveryExecution{Repository: repo, Adapter: goalspublication.RecoveryGitHub{}, Assets: assets}).PrepareFailedVerificationIntent(ctx, *request, hex.EncodeToString(nonce), until)
+		if err != nil {
+			return err
+		}
+		req, digest, err := repo.SaveGoalsPublicationRecoveryRequest(ctx, intent, now)
+		if err != nil {
+			return err
+		}
+		return printJSONTo(out, map[string]any{"request": req, "request_digest": digest, "authorized": false, "published": false})
 	case "recovery-reconcile":
 		if *request == "" || *dir != "" || *expiry != "" || *ownerConfirmation != "" || *reason != "" {
 			return errors.New("usage: praxis publisher goals-publication-recovery-reconcile --request-id <id>")

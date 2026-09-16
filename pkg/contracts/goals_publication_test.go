@@ -179,6 +179,31 @@ func TestFailedVerificationAssetPreconditionsAreNormative(t *testing.T) {
 	}
 }
 
+func TestFailedPublicationSuccessorContractClosesScopeAndBindsPredecessor(t *testing.T) {
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	d := "sha256:" + strings.Repeat("1", 64)
+	in := GoalsFailedVerificationInput{GoalsOrderedRecoveryInput: GoalsOrderedRecoveryInput{GoalsRecoveryInput: GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("f", 64), AccountID: 1, Sizes: [3]int64{1, 2, 3}, PredecessorRequestID: "r", PredecessorRequestDigest: d, PredecessorIntentID: "i", PredecessorIntentDigest: d, AbandonmentEventID: "a", AbandonmentDigest: d}}, FailedRequestID: "fr", FailedRequestDigest: d, FailedIntentID: "fi", FailedIntentDigest: d, FailedAuthorityDigest: d, FailedHistoricalAuthorityDigest: d, FailedExecutionID: "fe", FailedManifestEffectID: "fm", FailedArchiveEffectID: "fa", FailedSignatureEffectID: "fs", FailedVerifyEffectID: "fv", FailedManifestState: "succeeded", FailedArchiveState: "succeeded", FailedSignatureState: "succeeded", FailedVerifyState: "failed", FailedVerifyAttempts: 1, FailedManifestRequestDigest: d, FailedArchiveRequestDigest: d, FailedSignatureRequestDigest: d, FailedVerifyRequestDigest: d, FailedVerifyResultDigest: d, FailedVerifyReconciliationDigest: d, AssetIDs: [3]string{"11", "22", "33"}}
+	base, err := NewGoalsPublicationFailedVerificationIntent(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bindings := map[string]string{"failed_publication_predecessor_request_id": "r4", "failed_publication_predecessor_request_digest": d, "failed_publication_predecessor_intent_id": "i4", "failed_publication_predecessor_intent_digest": d, "failed_publication_predecessor_execution_id": "e4", "failed_publication_predecessor_authority_digest": d, "failed_publication_verify_effect_id": "e4:verify-draft", "failed_publication_resolution_event_id": "res", "failed_publication_resolution_digest": d, "failed_publication_effect_id": "e4:publish", "failed_publication_command_id": "e4:publish", "failed_publication_event_id": "e4:publish", "failed_publication_payload_digest": d, "failed_publication_chain_digest": d}
+	a, err := NewGoalsPublicationFailedPublicationIntent(base, strings.Repeat("5", 64), at, at.Add(time.Hour), bindings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateGoalsPublicationRecoveryIntent(a); err != nil {
+		t.Fatal(err)
+	}
+	if a.Operation != GoalsFailedPublicationOperation || a.Parameters["permitted_effects"] != "publish-existing-release,verify-published-release" {
+		t.Fatal("/5 scope or operation is not closed")
+	}
+	a.Parameters["failed_publication_effect_id"] = "other"
+	if ValidateGoalsPublicationRecoveryIntent(a) == nil {
+		t.Fatal("substituted predecessor accepted")
+	}
+}
+
 func mustChainEncode(t *testing.T, c []RecoveryGenerationBinding) string {
 	t.Helper()
 	s, err := EncodeRecoveryChain(c)

@@ -47,6 +47,8 @@ func runPublisherCommand(args []string) error {
 		return runGoalsPublication("recovery-ordered-prepare", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-recovery-failed-verification-prepare":
 		return runGoalsPublication("recovery-failed-verification-prepare", args[1:], os.Getenv, os.Stdout)
+	case "goals-publication-recovery-failed-publication-prepare":
+		return runGoalsPublication("recovery-failed-publication-prepare", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-recovery-execute":
 		return runGoalsPublication("recovery-execute", args[1:], os.Getenv, os.Stdout)
 	case "goals-publication-recovery-reconcile":

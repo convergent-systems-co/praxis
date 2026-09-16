@@ -17,6 +17,8 @@ const (
 	GoalsChainedRecoveryContract    = "goals-established-state-publication/2"
 	GoalsOrderedRecoveryContract    = "goals-established-state-publication/3"
 	GoalsFailedVerificationContract = "goals-established-state-publication/4"
+	GoalsFailedPublicationContract  = "goals-established-state-publication/5"
+	GoalsFailedPublicationOperation = "publish-verified-goals-from-established-state"
 	GoalsRecoveryRepositoryID       = "1372388187"
 	GoalsRecoveryOwnerID            = "263966243"
 	GoalsRecoveryCommit             = "fbdc98828d49cf5ddd515edf91d457b606e89a97"
@@ -305,6 +307,9 @@ func NewGoalsPublicationRecoveryIntent(in GoalsRecoveryInput) (ActionIntent, err
 }
 
 func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
+	if a.Parameters["contract"] == GoalsFailedPublicationContract {
+		return ValidateGoalsPublicationFailedPublicationIntent(a)
+	}
 	if a.Parameters["contract"] == GoalsFailedVerificationContract {
 		return ValidateGoalsPublicationFailedVerificationIntent(a)
 	}
@@ -315,6 +320,80 @@ func ValidateGoalsPublicationRecoveryIntent(a ActionIntent) error {
 		return ValidateGoalsPublicationChainedRecoveryIntent(a)
 	}
 	return validateGoalsPublicationRecoveryIntentV1(a)
+}
+
+// NewGoalsPublicationFailedPublicationIntent derives the closed /5 successor
+// from the exact /4 intent while adding only the failed-publication bindings.
+func NewGoalsPublicationFailedPublicationIntent(base ActionIntent, identity string, createdAt, expiresAt time.Time, bindings map[string]string) (ActionIntent, error) {
+	if err := ValidateGoalsPublicationFailedVerificationIntent(base); err != nil {
+		return ActionIntent{}, err
+	}
+	a := base
+	a.ID = "goals-established-state-publication:" + identity
+	a.Scope = a.ID
+	a.Operation = GoalsFailedPublicationOperation
+	a.Parameters = cloneStringMap(base.Parameters)
+	a.Preconditions = cloneStringMap(base.Preconditions)
+	a.Parameters["contract"] = GoalsFailedPublicationContract
+	a.Parameters["permitted_effects"] = "publish-existing-release,verify-published-release"
+	a.Parameters["created_at"] = createdAt.UTC().Format(time.RFC3339Nano)
+	a.Parameters["expires_at"] = expiresAt.UTC().Format(time.RFC3339Nano)
+	for k, v := range bindings {
+		a.Parameters[k] = v
+	}
+	a.Preconditions["assets"] = "exact-established:3"
+	a.Preconditions["permitted_effects"] = a.Parameters["permitted_effects"]
+	for k, v := range bindings {
+		if strings.HasPrefix(k, "asset_") {
+			a.Preconditions[k] = v
+		}
+	}
+	if err := ValidateGoalsPublicationFailedPublicationIntent(a); err != nil {
+		return ActionIntent{}, err
+	}
+	return a, nil
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func ValidateGoalsPublicationFailedPublicationIntent(a ActionIntent) error {
+	p, q := a.Parameters, a.Preconditions
+	if p["contract"] != GoalsFailedPublicationContract || a.Operation != GoalsFailedPublicationOperation || p["permitted_effects"] != "publish-existing-release,verify-published-release" || q["assets"] != "exact-established:3" {
+		return errors.New("failed-publication contract is not closed")
+	}
+	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
+	expiry, e2 := time.Parse(time.RFC3339Nano, p["expires_at"])
+	if e1 != nil || e2 != nil || !expiry.After(created) {
+		return errors.New("failed-publication timestamps malformed")
+	}
+	for _, k := range []string{"failed_publication_predecessor_request_id", "failed_publication_predecessor_request_digest", "failed_publication_predecessor_intent_id", "failed_publication_predecessor_intent_digest", "failed_publication_predecessor_execution_id", "failed_publication_predecessor_authority_digest", "failed_publication_verify_effect_id", "failed_publication_resolution_event_id", "failed_publication_resolution_digest", "failed_publication_effect_id", "failed_publication_command_id", "failed_publication_event_id", "failed_publication_payload_digest", "failed_publication_chain_digest"} {
+		if p[k] == "" {
+			return errors.New("failed-publication predecessor binding missing")
+		}
+	}
+	for _, k := range []string{"failed_publication_predecessor_request_digest", "failed_publication_predecessor_intent_digest", "failed_publication_predecessor_authority_digest", "failed_publication_resolution_digest", "failed_publication_payload_digest", "failed_publication_chain_digest"} {
+		if !isSHA256Digest(p[k]) {
+			return errors.New("failed-publication digest invalid")
+		}
+	}
+	if p["failed_publication_verify_effect_id"] != p["failed_publication_predecessor_execution_id"]+":verify-draft" || p["failed_publication_effect_id"] != p["failed_publication_predecessor_execution_id"]+":publish" || p["failed_publication_command_id"] != p["failed_publication_effect_id"] || p["failed_publication_event_id"] != p["failed_publication_effect_id"] {
+		return errors.New("failed-publication effect identity mismatch")
+	}
+	for _, k := range []string{"asset_manifest_id", "asset_archive_id", "asset_signature_id", "asset_manifest_name", "asset_archive_name", "asset_signature_name", "asset_manifest_digest", "asset_archive_digest", "asset_signature_digest"} {
+		if p[k] == "" || q[k] != p[k] {
+			return errors.New("failed-publication established asset binding mismatch")
+		}
+	}
+	if p["asset_inventory"] != "established" || p["asset_count"] != "3" || q["asset_count"] != "3" {
+		return errors.New("failed-publication asset state invalid")
+	}
+	return nil
 }
 
 // ValidateGoalsPublicationFailedVerificationIntent closes the narrowly scoped
@@ -501,7 +580,11 @@ func ValidateGoalsPublicationRecoveryDelegation(parent AuthorityGeneration, d De
 	if parent.Digest != GoalsPublicationRoot || parent.ParentRef != "" || parent.Version != "1" || parent.Principal != owner || parent.ProvenanceDigest != GoalsPublicationBootstrap || parent.Scope != InstallationGovernanceScopePrefix+GoalsPublicationBootstrap || parent.AuthorityModel != AuthorityModelID || parent.AuthorityModelVersion != AuthorityModelVersion || parent.AuthorityModelDigest != AuthorityModelDigest() || !containsString(parent.Capabilities, AuthorityDelegateCapability) {
 		return errors.New("successor parent is not the exact installation governance root")
 	}
-	if d.Profile != GoalsPublicationRecoveryProfile || d.ParentRef != parent.Ref || d.ParentVersion != parent.Version || d.ParentDigest != parent.Digest || d.DelegatedPrincipal != a.Actor || d.RequestedAuthority != GovernedPackagePublish || d.RequestedOperation != GoalsRecoveryOperation || d.RequestedScope != a.Scope || len(d.RequestedCapabilities) != 0 || len(d.RequestedOperations) != 0 || d.TargetKind != "action-intent" || d.TargetIdentity != a.ID || d.TargetVersion != a.Version || d.TargetDigest != digest || !reflect.DeepEqual(d.TargetConstraints, []string{a.Target, a.Parameters["repository_id"]}) || d.ProposalVersion != a.Version || d.ProposalDigest != digest || d.ReviewVersion != a.Version || d.ReviewDigest != digest || !d.ExpiresAt.Equal(expiry) || d.PolicyRef != AuthorityModelID || d.PolicyVersion != AuthorityModelGoalsRecoveryVersion || d.PolicyDigest != AuthorityModelGoalsRecoveryDigest() || d.SubjectKind != "publisher" || d.SubjectID != FirstPartyPublisherPrincipal || d.SubjectVersion != "2" || d.SubjectDigest != GoalsPublicationPublisher || d.SubjectKeyDigest != GoalsRecoveryPublisherKey || d.Reason != "publish the exact signed Goals assets to the established draft release" || !now.Before(expiry) {
+	wantOperation := GoalsRecoveryOperation
+	if a.Parameters["contract"] == GoalsFailedPublicationContract {
+		wantOperation = GoalsFailedPublicationOperation
+	}
+	if d.Profile != GoalsPublicationRecoveryProfile || d.ParentRef != parent.Ref || d.ParentVersion != parent.Version || d.ParentDigest != parent.Digest || d.DelegatedPrincipal != a.Actor || d.RequestedAuthority != GovernedPackagePublish || d.RequestedOperation != wantOperation || d.RequestedScope != a.Scope || len(d.RequestedCapabilities) != 0 || len(d.RequestedOperations) != 0 || d.TargetKind != "action-intent" || d.TargetIdentity != a.ID || d.TargetVersion != a.Version || d.TargetDigest != digest || !reflect.DeepEqual(d.TargetConstraints, []string{a.Target, a.Parameters["repository_id"]}) || d.ProposalVersion != a.Version || d.ProposalDigest != digest || d.ReviewVersion != a.Version || d.ReviewDigest != digest || !d.ExpiresAt.Equal(expiry) || d.PolicyRef != AuthorityModelID || d.PolicyVersion != AuthorityModelGoalsRecoveryVersion || d.PolicyDigest != AuthorityModelGoalsRecoveryDigest() || d.SubjectKind != "publisher" || d.SubjectID != FirstPartyPublisherPrincipal || d.SubjectVersion != "2" || d.SubjectDigest != GoalsPublicationPublisher || d.SubjectKeyDigest != GoalsRecoveryPublisherKey || d.Reason != "publish the exact signed Goals assets to the established draft release" || !now.Before(expiry) {
 		return errors.New("delegation is outside the exact v5 Goals successor profile")
 	}
 	return nil

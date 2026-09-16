@@ -18,7 +18,7 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 	if err := contracts.ValidateGoalsPublicationRecoveryIntent(a); err != nil {
 		return err
 	}
-	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract {
+	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract || a.Parameters["contract"] == contracts.GoalsFailedPublicationContract {
 		if err := contracts.ValidateFailedVerificationAssetPreconditions(a); err != nil {
 			return err
 		}
@@ -75,6 +75,10 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		if err := validateEstablishedAssetAttribution(a, r.Assets, previous); err != nil {
 			return err
 		}
+	} else if a.Parameters["contract"] == contracts.GoalsFailedPublicationContract && (step == "publish" || step == "verify-published") {
+		if err := validateEstablishedAssetInventory(a, r.Assets); err != nil {
+			return err
+		}
 	} else if err := validateRecoveryAssetInventory(a, r.Assets, previous); err != nil {
 		return err
 	}
@@ -87,6 +91,26 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		if hash(b) != assetDigests[idx] || int64(len(b)) != asset.Size || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[idx]] {
 			return errors.New("recovery asset bytes differ from signed Goals")
 		}
+	}
+	return nil
+}
+
+func validateEstablishedAssetInventory(a contracts.ActionIntent, assets []Asset) error {
+	if len(assets) != 3 {
+		return errors.New("recovery established asset inventory changed")
+	}
+	seen := map[string]bool{}
+	ids := map[string]string{"praxis-package.json": "asset_manifest_id", "praxis-package.tar.gz": "asset_archive_id", "praxis-package.sig.json": "asset_signature_id"}
+	sizes := map[string]string{"praxis-package.json": "manifest_size", "praxis-package.tar.gz": "archive_size", "praxis-package.sig.json": "signature_size"}
+	for _, asset := range assets {
+		k, ok := ids[asset.Name]
+		if !ok || seen[asset.Name] || asset.ID <= 0 || asset.State != "uploaded" || fmt.Sprint(asset.Uploader.ID) != a.Parameters["account_id"] || fmt.Sprint(asset.ID) != a.Parameters[k] || fmt.Sprint(asset.Size) != a.Parameters[sizes[asset.Name]] {
+			return errors.New("recovery established asset inventory mismatch")
+		}
+		seen[asset.Name] = true
+	}
+	if len(seen) != 3 {
+		return errors.New("recovery established asset inventory incomplete")
 	}
 	return nil
 }

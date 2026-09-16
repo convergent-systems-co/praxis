@@ -39,6 +39,8 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		if bindErr == nil {
 			bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
 		}
+	} else if a.Parameters["contract"] == contracts.GoalsFailedPublicationContract {
+		bindErr = r.ValidateGoalsPublicationFailedPublicationBinding(ctx, a)
 	} else {
 		bindErr = r.ValidateGoalsPublicationAbandonmentBinding(ctx, a)
 	}
@@ -78,7 +80,11 @@ func (r Repository) SaveGoalsPublicationRecoveryRequest(ctx context.Context, a c
 		return fail(err)
 	}
 	expiry, _ := time.Parse(time.RFC3339Nano, a.Parameters["expires_at"])
-	d := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: a.Actor, TargetKind: "action-intent", TargetIdentity: a.ID, TargetVersion: a.Version, TargetDigest: id, TargetConstraints: []string{a.Target, a.Parameters["repository_id"]}, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: contracts.GoalsRecoveryOperation, RequestedScope: a.Scope, ProposalVersion: a.Version, ProposalDigest: id, ReviewVersion: a.Version, ReviewDigest: id, ExpiresAt: expiry, Reason: "publish the exact signed Goals assets to the established draft release", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest(), SubjectKind: "publisher", SubjectID: a.Actor.ID, SubjectVersion: "2", SubjectDigest: pd, SubjectKeyDigest: pub.Generation.PublicKeyDigest}
+	operation := contracts.GoalsRecoveryOperation
+	if a.Parameters["contract"] == contracts.GoalsFailedPublicationContract {
+		operation = contracts.GoalsFailedPublicationOperation
+	}
+	d := contracts.DelegationRequest{Profile: contracts.GoalsPublicationRecoveryProfile, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, DelegatedPrincipal: a.Actor, TargetKind: "action-intent", TargetIdentity: a.ID, TargetVersion: a.Version, TargetDigest: id, TargetConstraints: []string{a.Target, a.Parameters["repository_id"]}, RequestedAuthority: contracts.GovernedPackagePublish, RequestedOperation: operation, RequestedScope: a.Scope, ProposalVersion: a.Version, ProposalDigest: id, ReviewVersion: a.Version, ReviewDigest: id, ExpiresAt: expiry, Reason: "publish the exact signed Goals assets to the established draft release", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelGoalsRecoveryVersion, PolicyDigest: contracts.AuthorityModelGoalsRecoveryDigest(), SubjectKind: "publisher", SubjectID: a.Actor.ID, SubjectVersion: "2", SubjectDigest: pd, SubjectKeyDigest: pub.Generation.PublicKeyDigest}
 	if err = contracts.ValidateGoalsPublicationRecoveryDelegation(root, d, a, now); err != nil {
 		return fail(err)
 	}
@@ -132,6 +138,47 @@ func (r Repository) ValidateGoalsPublicationFailedVerificationBinding(ctx contex
 		if p[k] == "" {
 			return errors.New("failed predecessor identity missing")
 		}
+	}
+	return nil
+}
+
+func (r Repository) ValidateGoalsPublicationFailedPublicationBinding(ctx context.Context, a contracts.ActionIntent) error {
+	if err := contracts.ValidateGoalsPublicationFailedPublicationIntent(a); err != nil {
+		return err
+	}
+	p := a.Parameters
+	var st, adapter, actionDigest string
+	var attempts int
+	var observed, reconciliation, payload []byte
+	if err := r.Store.DB().QueryRowContext(ctx, `SELECT state,attempts,target_adapter,action_intent_digest,COALESCE(observed_result,''),COALESCE(reconciliation_evidence,''),request_payload FROM effects WHERE effect_id=?`, p["failed_publication_effect_id"]).Scan(&st, &attempts, &adapter, &actionDigest, &observed, &reconciliation, &payload); err != nil {
+		return err
+	}
+	if st != "failed" || attempts != 1 || len(observed) != 0 || len(reconciliation) != 0 {
+		return errors.New("failed-publication effect is not pre-dispatch terminal")
+	}
+	if adapter != "goals-recovery-github" || actionDigest == "" {
+		return errors.New("failed-publication effect authority binding mismatch")
+	}
+	if recoveryHash(payload) != p["failed_publication_payload_digest"] {
+		return errors.New("failed-publication payload digest mismatch")
+	}
+	var stepPayload struct {
+		Version, RequestID, Step string
+		Intent                   contracts.ActionIntent
+	}
+	if err := json.Unmarshal(payload, &stepPayload); err != nil || stepPayload.Version != "1" || stepPayload.RequestID != p["failed_publication_predecessor_request_id"] || stepPayload.Step != "publish" {
+		return errors.New("failed-publication payload lineage mismatch")
+	}
+	id, err := stepPayload.Intent.Digest()
+	if err != nil || stepPayload.Intent.ID != p["failed_publication_predecessor_intent_id"] || id != p["failed_publication_predecessor_intent_digest"] || actionDigest != id {
+		return errors.New("failed-publication payload intent mismatch")
+	}
+	var ct, cv, et, ev string
+	if err := r.Store.DB().QueryRowContext(ctx, `SELECT c.command_type,c.command_version,v.event_type,v.event_version FROM commands c JOIN events v ON v.event_id=c.command_id WHERE c.command_id=? AND c.payload=?`, p["failed_publication_command_id"], payload).Scan(&ct, &cv, &et, &ev); err != nil {
+		return err
+	}
+	if ct != "goals-publication-recovery.step" || cv != "1" || et != "goals-publication-recovery.step-admitted" || ev != "1" {
+		return errors.New("failed-publication command/event mismatch")
 	}
 	return nil
 }

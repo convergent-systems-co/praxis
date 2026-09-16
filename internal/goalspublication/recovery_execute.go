@@ -341,6 +341,78 @@ func (e RecoveryExecution) PrepareFailedVerificationIntent(ctx context.Context, 
 	}
 	return a, nil
 }
+
+// PrepareFailedPublicationIntent creates the closed /5 successor after a
+// terminal local pre-dispatch publish failure. It binds the resolved /4
+// verification and never retries or reuses the failed publish effect.
+func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, predecessorRequestID, identity string, expires time.Time) (contracts.ActionIntent, error) {
+	if !strings.HasPrefix(predecessorRequestID, "goals-publication-recovery-request:") {
+		return contracts.ActionIntent{}, errors.New("not a recovery request")
+	}
+	now := e.now()
+	auth, err := e.current(ctx, predecessorRequestID)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if auth.Request.Intent == nil || auth.Request.Intent.Parameters["contract"] != contracts.GoalsFailedVerificationContract {
+		return contracts.ActionIntent{}, errors.New("/4 predecessor intent required")
+	}
+	base := *auth.Request.Intent
+	key := recoveryKey(predecessorRequestID)
+	var predecessorRequestDigest string
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace='authority_request' AND object_id=? AND object_version='1'`, predecessorRequestID).Scan(&predecessorRequestDigest); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var verifyObserved []byte
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT observed_result FROM effects WHERE effect_id=? AND state='succeeded' AND attempts=1`, key+":verify-draft").Scan(&verifyObserved); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var verify Observation
+	if err := json.Unmarshal(verifyObserved, &verify); err != nil || verify.Release == nil {
+		return contracts.ActionIntent{}, errors.New("resolved /4 verification evidence missing")
+	}
+	var resolutionID, resolutionPayload []byte
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT event_id,payload FROM events WHERE event_type='goals-publication-recovery.observation-resolved' AND payload LIKE ?`, "%"+key+":verify-draft%").Scan(&resolutionID, &resolutionPayload); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	var publishState string
+	var attempts int
+	var observed, rec, publishPayload []byte
+	publishID := key + ":publish"
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT state,attempts,COALESCE(observed_result,''),COALESCE(reconciliation_evidence,''),request_payload FROM effects WHERE effect_id=?`, publishID).Scan(&publishState, &attempts, &observed, &rec, &publishPayload); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if publishState != string(state.EffectFailed) || attempts != 1 || len(observed) != 0 || len(rec) != 0 {
+		return contracts.ActionIntent{}, errors.New("/4 publish is not exact local pre-dispatch failure")
+	}
+	bindings := map[string]string{
+		"failed_publication_predecessor_request_id":       predecessorRequestID,
+		"failed_publication_predecessor_request_digest":   predecessorRequestDigest,
+		"failed_publication_predecessor_intent_id":        base.ID,
+		"failed_publication_predecessor_intent_digest":    mustDigestValue(base),
+		"failed_publication_predecessor_execution_id":     key,
+		"failed_publication_predecessor_authority_digest": auth.Generation.Digest,
+		"failed_publication_verify_effect_id":             key + ":verify-draft",
+		"failed_publication_resolution_event_id":          string(resolutionID),
+		"failed_publication_resolution_digest":            hash(resolutionPayload),
+		"failed_publication_effect_id":                    publishID,
+		"failed_publication_command_id":                   publishID,
+		"failed_publication_event_id":                     publishID,
+		"failed_publication_payload_digest":               hash(publishPayload),
+		"failed_publication_chain_digest":                 base.Parameters["recovery_chain_digest"],
+	}
+	a, err := contracts.NewGoalsPublicationFailedPublicationIntent(base, identity, now, expires, bindings)
+	if err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err := e.Repository.ValidateGoalsPublicationFailedPublicationBinding(ctx, a); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	if err := (RecoveryGitHub{GitHub: GitHub{}}).Check(ctx, a, "publish", []Observation{verify}); err != nil {
+		return contracts.ActionIntent{}, err
+	}
+	return a, nil
+}
 func recoveryKey(id string) string { return "goals-publication-recovery:" + hash([]byte(id)) }
 
 type recoveryStepPayload struct {
@@ -441,6 +513,8 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 	steps := recoverySteps
 	if intent.Parameters["contract"] == contracts.GoalsFailedVerificationContract {
 		steps = []string{"verify-draft", "publish", "verify-published"}
+	} else if intent.Parameters["contract"] == contracts.GoalsFailedPublicationContract {
+		steps = []string{"publish", "verify-published"}
 	}
 	previous := []Observation{}
 	for i, step := range steps {
@@ -692,7 +766,7 @@ func validateRecoveryAssetReadBack(a contracts.ActionIntent, release Release, di
 // operation is checked as part of the dispatch contract so a malformed intent
 // cannot select a graph by accident.
 func recoveryGraph(intent contracts.ActionIntent) ([]string, error) {
-	if intent.Operation != "publish-goals-from-established-state" {
+	if intent.Operation != contracts.GoalsRecoveryOperation && intent.Operation != contracts.GoalsFailedPublicationOperation {
 		return nil, errors.New("unsupported recovery operation")
 	}
 	switch intent.Parameters["contract"] {
@@ -700,6 +774,11 @@ func recoveryGraph(intent contracts.ActionIntent) ([]string, error) {
 		return recoverySteps, nil
 	case contracts.GoalsFailedVerificationContract:
 		return []string{"verify-draft", "publish", "verify-published"}, nil
+	case contracts.GoalsFailedPublicationContract:
+		if intent.Operation != contracts.GoalsFailedPublicationOperation {
+			return nil, errors.New("contradictory recovery operation")
+		}
+		return []string{"publish", "verify-published"}, nil
 	default:
 		return nil, errors.New("unsupported recovery contract")
 	}

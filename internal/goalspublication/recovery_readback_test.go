@@ -150,6 +150,10 @@ func TestRecoveryGraphSelectionIsClosed(t *testing.T) {
 	if err != nil || fmt.Sprint(graph) != "[verify-draft publish verify-published]" {
 		t.Fatalf("failed-verification graph mismatch: %v %v", graph, err)
 	}
+	graph, err = recoveryGraph(contracts.ActionIntent{Operation: contracts.GoalsFailedPublicationOperation, Parameters: map[string]string{"contract": contracts.GoalsFailedPublicationContract}})
+	if err != nil || fmt.Sprint(graph) != "[publish verify-published]" {
+		t.Fatalf("failed-publication graph mismatch: %v %v", graph, err)
+	}
 	for _, a := range []contracts.ActionIntent{
 		{Operation: "other", Parameters: map[string]string{"contract": contracts.GoalsFailedVerificationContract}},
 		{Operation: "publish-goals-from-established-state", Parameters: map[string]string{"contract": "unknown"}},

@@ -18,6 +18,11 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 	if err := contracts.ValidateGoalsPublicationRecoveryIntent(a); err != nil {
 		return err
 	}
+	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract {
+		if err := contracts.ValidateFailedVerificationAssetPreconditions(a); err != nil {
+			return err
+		}
+	}
 	o, err := g.checkIdentity(ctx, a)
 	if err != nil {
 		return err

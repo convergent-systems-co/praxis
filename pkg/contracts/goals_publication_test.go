@@ -151,6 +151,34 @@ func TestFailedVerificationRecoveryClosesScopeAndPreservesFailedProof(t *testing
 	}
 }
 
+func TestFailedVerificationAssetPreconditionsAreNormative(t *testing.T) {
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	d := "sha256:" + strings.Repeat("1", 64)
+	in := GoalsFailedVerificationInput{GoalsOrderedRecoveryInput: GoalsOrderedRecoveryInput{GoalsRecoveryInput: GoalsRecoveryInput{CreatedAt: at, ExpiresAt: at.Add(time.Hour), Identity: strings.Repeat("e", 64), AccountID: 1, Sizes: [3]int64{1, 2, 3}, PredecessorRequestID: "r", PredecessorRequestDigest: d, PredecessorIntentID: "i", PredecessorIntentDigest: d, AbandonmentEventID: "a", AbandonmentDigest: d}}, FailedRequestID: "fr", FailedRequestDigest: d, FailedIntentID: "fi", FailedIntentDigest: d, FailedAuthorityDigest: d, FailedExecutionID: "fe", FailedManifestEffectID: "fm", FailedArchiveEffectID: "fa", FailedSignatureEffectID: "fs", FailedVerifyEffectID: "fv", FailedManifestState: "succeeded", FailedArchiveState: "succeeded", FailedSignatureState: "succeeded", FailedVerifyState: "failed", FailedVerifyAttempts: 1, FailedManifestRequestDigest: d, FailedArchiveRequestDigest: d, FailedSignatureRequestDigest: d, FailedVerifyRequestDigest: d, FailedVerifyResultDigest: d, FailedVerifyReconciliationDigest: d, AssetIDs: [3]string{"11", "22", "33"}}
+	a, err := NewGoalsPublicationFailedVerificationIntent(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateFailedVerificationAssetPreconditions(a); err != nil {
+		t.Fatal(err)
+	}
+	bad := a
+	bad.Preconditions["assets"] = "empty"
+	if ValidateGoalsPublicationRecoveryIntent(bad) == nil {
+		t.Fatal("empty current asset precondition accepted")
+	}
+	bad = a
+	bad.Parameters["asset_inventory"] = "empty"
+	if ValidateGoalsPublicationRecoveryIntent(bad) == nil {
+		t.Fatal("historical empty-inventory intent accepted")
+	}
+	bad = a
+	bad.Preconditions["asset_manifest_id"] = "99"
+	if ValidateGoalsPublicationRecoveryIntent(bad) == nil {
+		t.Fatal("substituted asset precondition accepted")
+	}
+}
+
 func mustChainEncode(t *testing.T, c []RecoveryGenerationBinding) string {
 	t.Helper()
 	s, err := EncodeRecoveryChain(c)

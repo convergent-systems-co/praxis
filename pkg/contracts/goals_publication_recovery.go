@@ -131,6 +131,28 @@ func NewGoalsPublicationFailedVerificationIntent(in GoalsFailedVerificationInput
 	a.Parameters["asset_manifest_id"] = in.AssetIDs[0]
 	a.Parameters["asset_archive_id"] = in.AssetIDs[1]
 	a.Parameters["asset_signature_id"] = in.AssetIDs[2]
+	a.Parameters["asset_inventory"] = "established"
+	a.Parameters["asset_count"] = "3"
+	for _, k := range []string{"assets", "asset_count", "asset_manifest_id", "asset_archive_id", "asset_signature_id", "asset_manifest_name", "asset_archive_name", "asset_signature_name", "asset_manifest_digest", "asset_archive_digest", "asset_signature_digest"} {
+		delete(a.Preconditions, k)
+	}
+	a.Parameters["asset_manifest_name"] = "praxis-package.json"
+	a.Parameters["asset_archive_name"] = "praxis-package.tar.gz"
+	a.Parameters["asset_signature_name"] = "praxis-package.sig.json"
+	a.Parameters["asset_manifest_digest"] = GoalsPublicationManifest
+	a.Parameters["asset_archive_digest"] = GoalsPublicationArchive
+	a.Parameters["asset_signature_digest"] = GoalsPublicationSignature
+	a.Preconditions["assets"] = "exact-established:3"
+	a.Preconditions["asset_count"] = "3"
+	a.Preconditions["asset_manifest_id"] = in.AssetIDs[0]
+	a.Preconditions["asset_archive_id"] = in.AssetIDs[1]
+	a.Preconditions["asset_signature_id"] = in.AssetIDs[2]
+	a.Preconditions["asset_manifest_name"] = a.Parameters["asset_manifest_name"]
+	a.Preconditions["asset_archive_name"] = a.Parameters["asset_archive_name"]
+	a.Preconditions["asset_signature_name"] = a.Parameters["asset_signature_name"]
+	a.Preconditions["asset_manifest_digest"] = a.Parameters["asset_manifest_digest"]
+	a.Preconditions["asset_archive_digest"] = a.Parameters["asset_archive_digest"]
+	a.Preconditions["asset_signature_digest"] = a.Parameters["asset_signature_digest"]
 	a.Parameters["permitted_effects"] = "verify-draft-assets,publish-existing-release,verify-published-release"
 	return a, nil
 }
@@ -301,6 +323,9 @@ func ValidateGoalsPublicationFailedVerificationIntent(a ActionIntent) error {
 	if p["contract"] != GoalsFailedVerificationContract || p["permitted_effects"] != "verify-draft-assets,publish-existing-release,verify-published-release" {
 		return errors.New("failed-verification contract is not closed")
 	}
+	if err := ValidateFailedVerificationAssetPreconditions(a); err != nil {
+		return err
+	}
 	created, e1 := time.Parse(time.RFC3339Nano, p["created_at"])
 	expiry, e2 := time.Parse(time.RFC3339Nano, p["expires_at"])
 	if e1 != nil || e2 != nil {
@@ -317,6 +342,9 @@ func ValidateGoalsPublicationFailedVerificationIntent(a ActionIntent) error {
 	}
 	base.Parameters["contract"] = GoalsFailedVerificationContract
 	base.Parameters["permitted_effects"] = p["permitted_effects"]
+	for k, v := range a.Preconditions {
+		base.Preconditions[k] = v
+	}
 	x, _ := json.Marshal(base)
 	y, _ := json.Marshal(a)
 	if !reflect.DeepEqual(x, y) {
@@ -333,6 +361,31 @@ func ValidateGoalsPublicationFailedVerificationIntent(a ActionIntent) error {
 	for _, k := range []string{"failed_predecessor_request_id", "failed_predecessor_intent_id", "failed_predecessor_authority_digest", "failed_predecessor_execution_id", "failed_manifest_effect_id", "failed_archive_effect_id", "failed_signature_effect_id", "failed_verify_effect_id", "asset_manifest_id", "asset_archive_id", "asset_signature_id"} {
 		if p[k] == "" {
 			return errors.New("failed verification binding missing")
+		}
+	}
+	return nil
+}
+
+// ValidateFailedVerificationAssetPreconditions enforces the single canonical
+// current-asset representation in both intent parameters and durable
+// preconditions.
+func ValidateFailedVerificationAssetPreconditions(a ActionIntent) error {
+	p, q := a.Parameters, a.Preconditions
+	if p["asset_inventory"] != "established" || p["asset_count"] != "3" || q["assets"] != "exact-established:3" || q["asset_count"] != "3" {
+		return errors.New("failed-verification asset inventory precondition invalid")
+	}
+	keys := []string{"manifest_id", "archive_id", "signature_id"}
+	names := []string{"praxis-package.json", "praxis-package.tar.gz", "praxis-package.sig.json"}
+	digests := []string{GoalsPublicationManifest, GoalsPublicationArchive, GoalsPublicationSignature}
+	for i, k := range keys {
+		pk, qk := "asset_"+k, "asset_"+k
+		if p[pk] == "" || p[pk] != q[qk] {
+			return errors.New("failed-verification asset ID precondition mismatch")
+		}
+		nk := "asset_" + strings.TrimSuffix(k, "_id") + "_name"
+		dk := "asset_" + strings.TrimSuffix(k, "_id") + "_digest"
+		if p[nk] != names[i] || q[nk] != names[i] || p[dk] != digests[i] || q[dk] != digests[i] {
+			return errors.New("failed-verification asset precondition mismatch")
 		}
 	}
 	return nil

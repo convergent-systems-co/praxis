@@ -15,3 +15,8 @@ The successor permitted effects are exactly:
 Preparation is non-authoritative and read-only externally; it creates only a
 fresh ActionIntent and pending request. Historical UNKNOWN and FAILED outcomes
 remain unchanged, and a later successful verification is a new effect.
+
+For `/4`, current asset state is normative: `asset_inventory=established`,
+`asset_count=3`, and the manifest/archive/signature IDs, names, sizes, and
+signed digests are represented identically in parameters and preconditions.
+The execution boundary validates this representation before any effect.

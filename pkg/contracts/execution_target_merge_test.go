@@ -6,7 +6,7 @@ import (
 )
 
 func contribution(authority TargetAuthority, target ExecutionTarget) ExecutionTargetContribution {
-	return ExecutionTargetContribution{Authority: authority, SourceRef: "docs/SPEC/022-execution-targets-affinity-and-budget-routing.md", SourceDigest: "sha256:target-source", Target: target}
+	return ExecutionTargetContribution{Authority: authority, SourceRef: "docs/SPEC/039-execution-targets-affinity-and-budget-routing.md", SourceDigest: "sha256:target-source", Target: target}
 }
 
 func TestMergeTargetsPreservesStrongerProhibitionAndDeterministicOrder(t *testing.T) {

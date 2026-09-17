@@ -1,4 +1,4 @@
-# ADR-059: Governed Executor Affinity and Routing Targets
+# ADR-076: Governed Executor Affinity and Routing Targets
 
 - Status: DRAFT — POST-RELEASE
 - Issue: #102
@@ -31,7 +31,7 @@ An Execution Target may express semantic constraints and preferences including:
 - executor-specific concurrency/quota class;
 - security/evidence requirements.
 
-The executable contract is defined by SPEC-022.
+The executable contract is defined by SPEC-039.
 
 ### Capability remains the base eligibility rule
 
@@ -196,7 +196,7 @@ Rejected. A subscription/local target must never silently become metered API exe
 
 ## Required Follow-up
 
-1. Implement SPEC-022 execution-target contract and routing precedence.
+1. Implement SPEC-039 execution-target contract and routing precedence.
 2. Reconcile ADR-037 executor adapter semantics with surface identity/transport metadata.
 3. Reconcile SPEC-009 inference routing/budgets with target/fallback semantics.
 4. Reconcile SPEC-003 scheduler/resource governance with executor-specific quotas/concurrency.

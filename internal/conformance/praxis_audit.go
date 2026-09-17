@@ -110,8 +110,8 @@ type InventoryArtifact struct {
 
 const (
 	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v52.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v11.json"
-	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v3.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v12.json"
+	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v4.json"
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v4.json"
 	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v4.json"
 	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v2.json"

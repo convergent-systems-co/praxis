@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -171,5 +172,120 @@ func TestMergeExecutionTargetsRejectsConflictingPoliciesAndUnknownAuthority(t *t
 	unknown := contribution(TargetAuthority("unknown"), validExecutionTarget())
 	if _, err := MergeExecutionTargets([]ExecutionTargetContribution{unknown}); !errors.Is(err, ErrTargetMergeConflict) {
 		t.Fatalf("unknown authority error = %v, want ErrTargetMergeConflict", err)
+	}
+}
+
+func TestFreezeEffectiveExecutionTargetRecomputesExactOrderedProductAcrossReplay(t *testing.T) {
+	platform := validExecutionTarget()
+	platform.SourceAuthority = "platform:security"
+	platform.PreferredProfiles = []string{"z-quality", "a-balanced"}
+	platform.AllowedFallbackProfiles = []string{"z-local", "a-economy"}
+	node := validExecutionTarget()
+	node.SourceAuthority = "node:deliver"
+	node.PreferredProfiles = []string{"b-interactive"}
+	node.AllowedFallbackProfiles = []string{"a-economy", "z-local"}
+
+	effective, err := MergeExecutionTargets([]ExecutionTargetContribution{
+		contribution(AuthorityNode, node),
+		contribution(AuthorityPlatformSecurity, platform),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(effective)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var replayed EffectiveExecutionTarget
+	if err := json.Unmarshal(payload, &replayed); err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := FreezeEffectiveExecutionTarget(replayed)
+	if err != nil {
+		t.Fatalf("FreezeEffectiveExecutionTarget() error = %v", err)
+	}
+	if !reflect.DeepEqual(frozen, effective) {
+		t.Fatalf("recomputed target changed across replay:\ngot:  %#v\nwant: %#v", frozen, effective)
+	}
+	if got, want := frozen.Target.PreferredProfiles, []string{"z-quality", "a-balanced", "b-interactive"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("preferred profiles = %v, want semantic order %v", got, want)
+	}
+	if got, want := frozen.Target.AllowedFallbackProfiles, []string{"z-local", "a-economy"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("fallback profiles = %v, want semantic order %v", got, want)
+	}
+}
+
+func TestVerifyEffectiveExecutionTargetRejectsAssemblyMutationAndReordering(t *testing.T) {
+	newEffective := func(t *testing.T) EffectiveExecutionTarget {
+		t.Helper()
+		strong := validExecutionTarget()
+		strong.PreferredProfiles = []string{"z-quality", "a-balanced"}
+		weak := validExecutionTarget()
+		weak.PreferredProfiles = []string{"b-interactive"}
+		effective, err := MergeExecutionTargets([]ExecutionTargetContribution{
+			contribution(AuthorityNode, weak),
+			contribution(AuthorityPlatformSecurity, strong),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return effective
+	}
+
+	manual := newEffective(t)
+	manual.Contributions = nil
+	if err := VerifyEffectiveExecutionTarget(manual); !errors.Is(err, ErrTargetMergeConflict) {
+		t.Fatalf("manual target error = %v, want ErrTargetMergeConflict", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*EffectiveExecutionTarget)
+	}{
+		{name: "merged profile order", mutate: func(e *EffectiveExecutionTarget) {
+			e.Target.PreferredProfiles[0], e.Target.PreferredProfiles[1] = e.Target.PreferredProfiles[1], e.Target.PreferredProfiles[0]
+		}},
+		{name: "authority order", mutate: func(e *EffectiveExecutionTarget) {
+			e.Authorities[0], e.Authorities[1] = e.Authorities[1], e.Authorities[0]
+		}},
+		{name: "contribution order", mutate: func(e *EffectiveExecutionTarget) {
+			e.Contributions[0], e.Contributions[1] = e.Contributions[1], e.Contributions[0]
+		}},
+		{name: "contribution provenance", mutate: func(e *EffectiveExecutionTarget) {
+			e.Contributions[0].SourceDigest = "sha256:forged"
+		}},
+		{name: "merged constraint", mutate: func(e *EffectiveExecutionTarget) {
+			e.Target.RequiredCapabilities = append(e.Target.RequiredCapabilities, "forged")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			effective := newEffective(t)
+			test.mutate(&effective)
+			if err := VerifyEffectiveExecutionTarget(effective); !errors.Is(err, ErrTargetMergeConflict) {
+				t.Fatalf("VerifyEffectiveExecutionTarget() error = %v, want ErrTargetMergeConflict", err)
+			}
+		})
+	}
+}
+
+func TestFreezeEffectiveExecutionTargetReturnsDetachedCanonicalCopy(t *testing.T) {
+	target := validExecutionTarget()
+	target.PreferredProfiles = []string{"quality"}
+	effective, err := MergeExecutionTargets([]ExecutionTargetContribution{contribution(AuthorityNode, target)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := FreezeEffectiveExecutionTarget(effective)
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective.Target.PreferredProfiles[0] = "mutated"
+	effective.Contributions[0].Target.PreferredProfiles[0] = "mutated"
+	if got := frozen.Target.PreferredProfiles[0]; got != "quality" {
+		t.Fatalf("frozen merged target aliased caller memory: %q", got)
+	}
+	if got := frozen.Contributions[0].Target.PreferredProfiles[0]; got != "quality" {
+		t.Fatalf("frozen contribution aliased caller memory: %q", got)
 	}
 }

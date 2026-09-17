@@ -1,6 +1,10 @@
 package contracts
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 )
@@ -26,12 +30,45 @@ type ExecutionTargetContribution struct {
 }
 
 type EffectiveExecutionTarget struct {
+	ID            string                        `json:"id"`
 	Target        ExecutionTarget               `json:"target"`
 	Authorities   []TargetAuthority             `json:"authorities"`
 	Contributions []ExecutionTargetContribution `json:"contributions,omitempty"`
 }
 
 var ErrTargetMergeConflict = fmt.Errorf("execution target contributions have no safe deterministic merge")
+
+// FreezeEffectiveExecutionTarget verifies that effective is exactly the
+// deterministic product of its ordered, provenance-bound contributions and
+// returns a detached canonical copy.
+func FreezeEffectiveExecutionTarget(effective EffectiveExecutionTarget) (EffectiveExecutionTarget, error) {
+	if len(effective.Contributions) == 0 {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: effective target lacks contributions", ErrTargetMergeConflict)
+	}
+	recomputed, err := MergeExecutionTargets(effective.Contributions)
+	if err != nil {
+		return EffectiveExecutionTarget{}, err
+	}
+	want, err := json.Marshal(recomputed)
+	if err != nil {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: encode recomputed target: %v", ErrTargetMergeConflict, err)
+	}
+	got, err := json.Marshal(effective)
+	if err != nil {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: encode supplied target: %v", ErrTargetMergeConflict, err)
+	}
+	if !bytes.Equal(got, want) {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: effective target does not match its contributions", ErrTargetMergeConflict)
+	}
+	return recomputed, nil
+}
+
+// VerifyEffectiveExecutionTarget rejects manually assembled, reordered, or
+// mutated effective targets.
+func VerifyEffectiveExecutionTarget(effective EffectiveExecutionTarget) error {
+	_, err := FreezeEffectiveExecutionTarget(effective)
+	return err
+}
 
 // MergeExecutionTargets merges contributions in descending authority order.
 // Hard constraints only narrow as weaker contributions are applied.
@@ -150,11 +187,27 @@ func MergeExecutionTargets(contributions []ExecutionTargetContribution) (Effecti
 		return EffectiveExecutionTarget{}, fmt.Errorf("%w: effective target: %v", ErrTargetMergeConflict, err)
 	}
 
-	return EffectiveExecutionTarget{
+	effective := EffectiveExecutionTarget{
 		Target:        merged,
 		Authorities:   authorities,
 		Contributions: ordered,
-	}, nil
+	}
+	identity, err := effectiveExecutionTargetIdentity(effective)
+	if err != nil {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: encode identity: %v", ErrTargetMergeConflict, err)
+	}
+	effective.ID = identity
+	return effective, nil
+}
+
+func effectiveExecutionTargetIdentity(effective EffectiveExecutionTarget) (string, error) {
+	effective.ID = ""
+	payload, err := json.Marshal(effective)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 func targetAuthorityRank(authority TargetAuthority) int {

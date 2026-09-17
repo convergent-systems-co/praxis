@@ -133,6 +133,67 @@ platform security/policy
 
 The exact order MAY differ only if reconciled with existing authority contracts and explicitly tested.
 
+### Effective target freeze and verification
+
+`EffectiveExecutionTarget` is an immutable, content-addressed result of deterministic merge. It is not an independently constructible authority assertion.
+
+The contracts layer SHALL own freeze and verification operations with these requirements:
+
+1. the input contains the exact non-empty contribution sequence in authority-ranked order;
+2. every contribution binds its authority class, source reference, source digest, scope, and complete target value;
+3. verification recomputes the effective target from those contributions using the canonical merge;
+4. the supplied effective target, authority sequence, contribution sequence, and recomputed result match exactly;
+5. every consumer, persistence boundary, and replay boundary performs the same verification;
+6. mutation, omission, substitution, duplication, or reordering of a contribution fails closed;
+7. mutation of any merged field after freeze fails closed.
+
+Canonicalization SHALL distinguish mathematical sets from ranked sequences. It MAY deterministically deduplicate or sort set-valued hard constraints where their order has no meaning. It SHALL preserve the authority-ranked contribution sequence and the semantic order of preferred and fallback profiles. A consumer SHALL NOT lexically sort a ranked preference or fallback list.
+
+An API that accepts an `EffectiveExecutionTarget` without recomputing and exactly verifying it from its contributions is non-conforming.
+
+## Governed Eligibility Authority Composition
+
+Concrete-surface eligibility SHALL extend the existing governed `EligibilityAuthority` lineage. Core owns the composition boundary that binds the exact request and surface to authoritative capability, security, policy, availability, budget/quota, and telemetry state.
+
+The composed evaluator SHALL bind:
+
+- evaluator principal and authority generation;
+- authority scope and validity interval;
+- exact request and canonical surface digest;
+- resolved capability, security, policy, availability, budget/quota, and telemetry evidence identities and digests;
+- the evaluation time and expiry relevant to selection.
+
+A caller MUST NOT independently choose or implement the authoritative evaluator, select the evaluator principal, obtain authority by labeling a principal kind `authority`, or satisfy provenance with opaque self-attested references. Adapter and catalog metadata are descriptive inputs only. Authority-bearing references MUST be resolved and verified against authoritative state at evaluation and replay.
+
+## Unified Route Record and Event v2
+
+One request SHALL have exactly one authority-bearing, content-addressed route record and event. Route record/event v2 owns:
+
+```text
+route_record_id / version
+request, run, persistent-agent generation, graph/subgraph/node, and work lineage
+exact frozen EffectiveExecutionTarget and ordered contribution provenance
+canonical considered surfaces
+authoritative eligibility evidence for each considered surface
+selected concrete surface OR stable semantic routing failure
+evaluator principal, generation, scope, and resolved authority evidence
+applicable policy, budget, quota, and telemetry state
+selection, fallback, or failure reasons
+later execution-outcome identity/linkage when execution occurs
+```
+
+The selection or stable failure is part of the same authoritative event. A no-selection decision is not represented as a missing record. Concurrent writers use the canonical aggregate/version precondition so conflicting outcomes cannot both commit.
+
+The implementation SHALL NOT persist a legacy evidence-route decision and a concrete-surface decision as paired co-authoritative records for the same request. Any legacy-compatible projection is derived from v2 and carries no independent routing authority. Selected and failed routing attempts use the same record family, query path, replay validation, and concurrency rule.
+
+Execution outcomes SHALL bind the v2 route-record identity and, for selected work, the exact selected surface. A crash between selection and execution may leave a valid selected route with no execution outcome, but it MUST NOT lose the selection evidence, create a second decision, or permit a different selection on recovery.
+
+### Version boundary and historical evidence
+
+The unsafe pre-release surface decision/event v1 contract remains `unsupported_pre_release`. It SHALL NOT be read as v2, accepted through field similarity, or implicitly upcast.
+
+Compatible historical governed route evidence remains readable under its original version, identity, authority, and semantics. It becomes v2 only through an explicit deterministic migration with a registered version policy and a content-addressed migration record binding input, output, policy, and transform. Historical evidence and a migrated successor cannot both act as independent authority for one request.
+
 ## Persistent Agent Semantics
 
 Executor/model identity MUST NOT be part of persistent agent identity.
@@ -179,6 +240,8 @@ eligible set = empty
 ```
 
 No hidden fallback is permitted.
+
+The stable routing failure and the authoritative evidence that caused it SHALL be persisted in the unified route record v2 before any graph-policy handoff, deferral, or terminal-failure transition consumes it.
 
 ## Fallback Semantics
 
@@ -352,6 +415,8 @@ execution outcome
 
 This evidence MUST be queryable by future supervision/TUI projections (#100).
 
+The supervision/TUI consumes the unified record as read-only evidence. Existing supervision authority, interruption, resumption, and decision boundaries remain unchanged; a projection or display of routing state does not grant routing or dispatch authority.
+
 ## Failure Codes / Semantic Outcomes
 
 The implementation SHOULD expose stable semantic outcomes equivalent to:
@@ -395,6 +460,25 @@ The feature is not complete until evidence proves all of the following:
 18. Restart/recovery does not duplicate a routed work unit or lose the selected-surface evidence.
 19. Fallback from subscription/local to metered API occurs only with explicit policy permission.
 20. Develop Bundle integration consumes this contract and does not duplicate routing logic.
+21. A manually constructed or post-merge-mutated effective target fails every consumer and replay boundary.
+22. Authority-ranked preference and fallback order survives freeze, persistence, and replay unchanged.
+23. A caller-selected evaluator, principal, or opaque evidence reference cannot establish eligibility authority.
+24. Selected and failed attempts persist through one atomic v2 record family without paired legacy/surface authority.
+25. Conflicting concurrent routing writes cannot both commit, and crash recovery cannot change an already selected surface.
+26. Unsupported surface v1 fails closed while compatible historical governed route evidence retains its original meaning unless explicitly migrated.
+
+## Required Implementation Sequence
+
+Implementation and qualification SHALL proceed in this order:
+
+1. Add contracts-owned freeze/verify for `EffectiveExecutionTarget`, exact merge recomputation, authority-ranked contribution validation, mutation rejection, and semantic-order preservation.
+2. Introduce the core-owned eligibility-authority composition boundary by extending the governed `EligibilityAuthority` lineage and resolving exact authoritative evidence; remove caller-mintable evaluator/principal authority.
+3. Define route record/event v2 and its version policy, including stable failure outcomes, exact target/evaluator/evidence bindings, execution-outcome linkage, unsupported surface v1, and explicit treatment of compatible historical route evidence.
+4. Replace paired legacy/surface authoritative writes with one atomic ledger append, unified query/replay validation, deterministic compatibility projections, optimistic-concurrency conflict handling, and restart recovery.
+5. Add adversarial contract, authority, versioning, persistence, concurrency, crash/restart, provenance, fallback, tier/budget, and semantic-order qualification.
+6. Only after steps 1-5 pass the required review and qualification may dispatch wiring or Develop Bundle consumption begin.
+
+Until this sequence is complete, the surface-routing substrate is non-dispatching architecture work. Existing passing tests do not authorize inference dispatch through it.
 
 ## Non-Goals
 

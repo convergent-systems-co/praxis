@@ -83,6 +83,33 @@ Execution-target information may exist at platform/org/user policy, package, age
 
 The final precedence order must be explicit, deterministic, and specified. Lower-authority preferences may rank or narrow eligible choices but may not override stronger security, metering, capability, organizational, or operator prohibitions.
 
+The resulting `EffectiveExecutionTarget` is an immutable, recomputed product, not a caller-assembled assertion. Its identity includes the exact authority-ranked ordered contributions and their provenance. Contracts-owned freeze and verification operations must recompute the effective target from those contributions and require exact equality at every consumer and replay boundary. A consumer must reject a target with absent, reordered, substituted, or mutated contributions, even when the asserted merged fields are otherwise individually valid.
+
+Contribution order is semantic. Canonicalization may normalize set-valued hard constraints, but it must preserve authority order and the declared order of preferences and fallbacks. A consumer must not alphabetize or otherwise reorder those lists in a way that allows a weaker preference to outrank a stronger one.
+
+### Eligibility authority extends the governed routing lineage
+
+Concrete-surface eligibility extends the existing governed `EligibilityAuthority` lineage through a core-owned composition boundary. That boundary derives the evaluator principal and resolves capability, security, policy, availability, budget, and telemetry evidence from authoritative state for the exact request and surface.
+
+An independently caller-selectable evaluator implementation, caller-selected principal, self-applied `authority` kind, or opaque self-attested evidence reference is not authority. Descriptive adapter/catalog metadata remains input to evaluation; it cannot authorize itself. The evaluator generation, scope, and resolved evidence must be bound into the routing record and revalidated on replay.
+
+### One authoritative route record
+
+Each routing attempt has one content-addressed authoritative route record and event. The current implementation target is route record/event v2, which owns:
+
+- request, persistent-agent generation, run, graph/subgraph/node, and work lineage;
+- the exact recomputed effective target and ordered contribution provenance;
+- authoritative eligibility for every considered concrete surface;
+- either the selected concrete surface or one stable semantic routing failure;
+- evaluator authority and the applicable policy, budget, quota, and telemetry state;
+- selection/fallback reasons and later execution-outcome linkage.
+
+Legacy evidence routing and concrete-surface routing must not persist paired co-authoritative decisions for one request. A compatibility view may be derived from the unified record, but it is not a second authority-bearing write. The unified event is appended atomically so a crash or concurrent writer cannot leave disagreeing or partially paired decisions.
+
+Unsafe pre-release surface decision/event v1 remains unsupported and has no implicit upcast. Compatible historical governed route evidence remains readable under its original contract and identity unless an explicit, deterministic migration is separately specified; reading historical evidence must not reinterpret it as v2 authority.
+
+Dispatch is prohibited until contracts-owned effective-target verification, governed evaluator composition, unified v2 persistence/replay, concurrency and recovery behavior, and adversarial qualification are implemented. Passing unit tests for the current substrate do not grant dispatch authority.
+
 ### Token and resource management are routing inputs, not safety overrides
 
 Where reliable telemetry exists, Praxis may use token, context-window, rate-limit, latency, and monetary/resource budgets to choose among otherwise eligible executors.
@@ -144,6 +171,8 @@ Each routed inference execution must preserve enough durable evidence to explain
 - applicable policy/budget state;
 - execution outcome.
 
+These facts are fields or derivable bindings of the single authoritative route record. References that participate in authority must resolve to exact content-addressed evidence; non-empty opaque strings alone are not sufficient provenance.
+
 ## Consequences
 
 ### Positive
@@ -194,6 +223,11 @@ Rejected. A subscription/local target must never silently become metered API exe
 10. Parallel branches may use different eligible executors while respecting scheduler/resource governance.
 11. Selection and fallback decisions are durably explainable.
 12. Praxis core remains provider-neutral; concrete provider/transport identities belong to adapters/catalog metadata and versioned profiles.
+13. Effective targets are accepted only after exact recomputation from authority-ranked ordered contributions.
+14. Concrete-surface eligibility authority is composed by core from governed state and cannot be caller-minted.
+15. One request has one atomic authoritative route record; compatibility views cannot become parallel routing authority.
+16. Unsafe pre-release surface v1 data is rejected, while compatible historical governed route evidence retains its original meaning unless explicitly migrated.
+17. Dispatch remains unavailable until these boundaries are implemented and qualified.
 
 ## Required Follow-up
 

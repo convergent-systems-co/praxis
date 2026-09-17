@@ -413,8 +413,17 @@ func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, p
 	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT state,attempts,COALESCE(observed_result,''),COALESCE(reconciliation_evidence,''),request_payload FROM effects WHERE effect_id=?`, publishID).Scan(&publishState, &attempts, &observed, &rec, &publishPayload); err != nil {
 		return contracts.ActionIntent{}, err
 	}
-	if publishState != string(state.EffectFailed) || attempts != 1 || len(observed) != 0 || len(rec) != 0 {
+	// See contracts.ValidateExactLocalPreDispatchFailureEvidence: a
+	// non-empty observed_result is the expected shape of an exact local
+	// pre-dispatch failure (the recording path always writes the
+	// DispatchOutcome evidence itself there), so its presence alone is not
+	// disqualifying — the evidence's content is what must positively
+	// establish zero external effect.
+	if publishState != string(state.EffectFailed) || attempts != 1 {
 		return contracts.ActionIntent{}, errors.New("/4 publish is not exact local pre-dispatch failure")
+	}
+	if err := contracts.ValidateExactLocalPreDispatchFailureEvidence(observed, rec); err != nil {
+		return contracts.ActionIntent{}, fmt.Errorf("/4 publish is not exact local pre-dispatch failure: %w", err)
 	}
 	bindings := map[string]string{
 		"failed_publication_predecessor_request_id":                  predecessorRequestID,

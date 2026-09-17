@@ -154,8 +154,17 @@ func (r Repository) ValidateGoalsPublicationFailedPublicationBinding(ctx context
 	if err := r.Store.DB().QueryRowContext(ctx, `SELECT state,attempts,target_adapter,action_intent_digest,COALESCE(observed_result,''),COALESCE(reconciliation_evidence,''),request_payload FROM effects WHERE effect_id=?`, p["failed_publication_effect_id"]).Scan(&st, &attempts, &adapter, &actionDigest, &observed, &reconciliation, &payload); err != nil {
 		return err
 	}
-	if st != "failed" || attempts != 1 || len(observed) != 0 || len(reconciliation) != 0 {
+	// See contracts.ValidateExactLocalPreDispatchFailureEvidence (shared
+	// with goalspublication.RecoveryExecution.PrepareFailedPublicationIntent,
+	// which performs the identical check before this binding validation
+	// runs): a non-empty observed_result is the expected shape of an exact
+	// pre-dispatch-terminal effect, not disqualifying — the evidence's
+	// content is what must positively establish zero external effect.
+	if st != "failed" || attempts != 1 {
 		return errors.New("failed-publication effect is not pre-dispatch terminal")
+	}
+	if err := contracts.ValidateExactLocalPreDispatchFailureEvidence(observed, reconciliation); err != nil {
+		return fmt.Errorf("failed-publication effect is not pre-dispatch terminal: %w", err)
 	}
 	if adapter != "goals-recovery-github" || actionDigest == "" {
 		return errors.New("failed-publication effect authority binding mismatch")

@@ -109,9 +109,9 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v48.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v7.json"
-	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v2.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v49.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v8.json"
+	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v3.json"
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v2.json"
 	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v2.json"
 	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v2.json"
@@ -122,7 +122,7 @@ const (
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
 	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v2.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v38.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v38.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v39.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
 	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v2.json"
 )
@@ -183,7 +183,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "crypto-profiles", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestKeyLifecycleRotationRevocationAndHistoricalVerification"},
 		{ID: "crypto-profiles-security", Kind: "security_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestEnvelopePQRequiredFailsBeforeClassicalFallback"},
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},
-		{ID: "goals-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}, AttestationRef: goalsSessionAttestation, Observation: "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines"},
+		{ID: "goals-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "packages/goals", ClaimIDs: []string{"OI-034"}, AttestationRef: goalsSessionAttestation, Observation: "TestGoalSessionFirstRunOrdersSpecifyPlanCandidateThenReview"},
 		{ID: "dynamic-package-cli", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-035"}, AttestationRef: dynamicCLIAttestation, Observation: "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface"},
 		{ID: "dynamic-package-lifecycle-contract", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestGovernedPackageRollbackRestoresExactClosureAcrossRestart"},
 		{ID: "dynamic-package-lifecycle-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestVerifiedGraphArtifactSurvivesActivationAndRestart"},

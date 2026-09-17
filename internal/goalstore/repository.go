@@ -799,7 +799,8 @@ func (r Repository) SaveAuthorityModelMigration(ctx context.Context, requestID, 
 	if err != nil {
 		return err
 	}
-	if err := contracts.ValidateAuthorityModelMigrationApproval(migration, source, target, request, decision, now); err != nil {
+	boundMigration, err := contracts.BindAuthorityModelMigrationApproval(migration, source, target, request, decision, now)
+	if err != nil {
 		return err
 	}
 	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, source.Ref, source.Version, now); err == nil {
@@ -809,7 +810,7 @@ func (r Repository) SaveAuthorityModelMigration(ctx context.Context, requestID, 
 	}
 	if existing, loadErr := r.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now); loadErr == nil {
 		left, _ := json.Marshal(existing)
-		right, _ := json.Marshal(migration)
+		right, _ := json.Marshal(boundMigration)
 		if bytes.Equal(left, right) {
 			return nil
 		}
@@ -817,7 +818,7 @@ func (r Repository) SaveAuthorityModelMigration(ctx context.Context, requestID, 
 	} else if !errors.Is(loadErr, state.ErrSecureBlobNotFound) {
 		return loadErr
 	}
-	migrationPayload, _ := json.Marshal(migration)
+	migrationPayload, _ := json.Marshal(boundMigration)
 	targetPayload, _ := json.Marshal(target)
 	records := make([]state.SecureBlobRecord, 0, 2)
 	for _, item := range []struct {
@@ -830,7 +831,7 @@ func (r Repository) SaveAuthorityModelMigration(ctx context.Context, requestID, 
 		if sealErr != nil {
 			return sealErr
 		}
-		records = append(records, state.SecureBlobRecord{Namespace: item.ns, ObjectID: item.id, ObjectVersion: item.version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: migration.EffectiveAt})
+		records = append(records, state.SecureBlobRecord{Namespace: item.ns, ObjectID: item.id, ObjectVersion: item.version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: boundMigration.EffectiveAt})
 	}
 	return r.Store.PutSecureBlobsUnlessRevoked(ctx, records, authorityRevocationNamespace, requestID, requestVersion, authorityGenerationInvalidationNamespace, source.Ref, source.Version, authorityGenerationNamespace, source.Ref, source.Version)
 }
@@ -847,7 +848,10 @@ func (r Repository) LoadAuthorityModelMigration(ctx context.Context, sourceRef, 
 	if payloadDigest(payload) != record.ObjectDigest || migration.SourceRef != sourceRef || migration.SourceVersion != sourceVersion {
 		return migration, errors.New("authority-model migration identity mismatch")
 	}
-	source, err := r.LoadAuthorityGeneration(ctx, sourceRef, sourceVersion, now)
+	if r.BootstrapDigest == "" || migration.BootstrapDigest != r.BootstrapDigest {
+		return migration, errors.New("authority-model migration does not match protected bootstrap identity")
+	}
+	source, err := r.ValidateAuthorityGenerationLineage(ctx, sourceRef, sourceVersion, migration.SourceDigest, r.BootstrapDigest, now)
 	if err != nil {
 		return migration, err
 	}
@@ -855,7 +859,15 @@ func (r Repository) LoadAuthorityModelMigration(ctx context.Context, sourceRef, 
 	if err != nil {
 		return migration, err
 	}
-	if err := contracts.VerifyAuthorityModelMigration(migration, source, target); err != nil {
+	request, err := r.LoadAuthorityRequest(ctx, migration.ApprovalRequestID, migration.ApprovalRequestVersion, now)
+	if err != nil {
+		return migration, fmt.Errorf("load migration approval request: %w", err)
+	}
+	decision, err := r.LoadAuthorityDecision(ctx, migration.ApprovalRequestID, migration.ApprovalRequestVersion, now)
+	if err != nil {
+		return migration, fmt.Errorf("load migration approval decision: %w", err)
+	}
+	if err := contracts.ValidateAuthorityModelMigrationApproval(migration, source, target, request, decision, now); err != nil {
 		return migration, err
 	}
 	return migration, nil

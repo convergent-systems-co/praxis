@@ -3,6 +3,7 @@ package goalstore
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -100,7 +101,7 @@ func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) 
 		t.Fatalf("idempotent retry: %v", err)
 	}
 	loaded, err := repo.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now.Add(time.Second))
-	if err != nil || loaded.ID != migration.ID {
+	if err != nil || loaded.ID == "" || loaded.ProposalDigest != migration.ProposalDigest {
 		t.Fatalf("load migration: %#v %v", loaded, err)
 	}
 	root, err := repo.ValidateAuthorityGenerationLineage(ctx, target.Ref, target.Version, target.Digest, source.ProvenanceDigest, now.Add(time.Second))
@@ -179,9 +180,12 @@ func TestAuthorityModelMigrationRejectsMissingForgedRevokedAndBootstrapMismatche
 }
 
 func saveMigrationApproval(t *testing.T, repo Repository, source contracts.AuthorityGeneration, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration, now time.Time) (string, string) {
+	return saveMigrationApprovalUntil(t, repo, source, migration, target, now, now.Add(time.Hour))
+}
+
+func saveMigrationApprovalUntil(t *testing.T, repo Repository, source contracts.AuthorityGeneration, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration, now, expires time.Time) (string, string) {
 	t.Helper()
-	expires := now.Add(time.Hour)
-	d := contracts.DelegationRequest{ParentRef: source.Ref, ParentVersion: source.Version, ParentDigest: source.Digest, DelegatedPrincipal: source.Principal, TargetKind: "authority.model.root", TargetIdentity: target.Ref, TargetVersion: target.Version, TargetDigest: target.Digest, ProposalVersion: "1", ProposalDigest: migration.ID, ReviewVersion: "1", ReviewDigest: contracts.AuthorityModelV2Digest(), RequestedAuthority: contracts.AuthorityModelMigrate, RequestedOperation: "migrate", RequestedScope: source.Scope, ExpiresAt: expires, Reason: "explicit model migration", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelV2Version, PolicyDigest: contracts.AuthorityModelV2Digest()}
+	d := contracts.DelegationRequest{ParentRef: source.Ref, ParentVersion: source.Version, ParentDigest: source.Digest, DelegatedPrincipal: source.Principal, TargetKind: "authority.model.root", TargetIdentity: target.Ref, TargetVersion: target.Version, TargetDigest: target.Digest, ProposalVersion: migration.Version, ProposalDigest: migration.ProposalDigest, ReviewVersion: contracts.AuthorityModelV2Version, ReviewDigest: contracts.AuthorityModelV2Digest(), RequestedAuthority: contracts.AuthorityModelMigrate, RequestedOperation: "migrate", RequestedScope: source.Scope, ExpiresAt: expires, Reason: "explicit model migration", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelV2Version, PolicyDigest: contracts.AuthorityModelV2Digest()}
 	request := contracts.AuthorityRequest{ID: "migrate-v2", Version: "1", RequestedAuthority: contracts.AuthorityDelegateCapability, RequestedScope: source.Scope, Reason: "explicit owner migration", Status: contracts.AuthorityRequestPending, Delegation: &d}
 	digest, err := repo.SaveAuthorityRequest(context.Background(), request, now, &expires)
 	if err != nil {
@@ -192,6 +196,179 @@ func saveMigrationApproval(t *testing.T, repo Repository, source contracts.Autho
 		t.Fatal(err)
 	}
 	return request.ID, request.Version
+}
+
+func TestAuthorityModelMigrationApprovalLineageSurvivesAndFailsClosedAcrossRestart(t *testing.T) {
+	type persistedMigration struct {
+		path                  string
+		db                    *sql.DB
+		keyWrapper            *wrapper
+		repo                  Repository
+		source, target        contracts.AuthorityGeneration
+		requestID, requestVer string
+		now, expires          time.Time
+	}
+	setup := func(t *testing.T) persistedMigration {
+		t.Helper()
+		ctx := context.Background()
+		path := filepath.Join(t.TempDir(), "authority-migration.db")
+		keyWrapper := &wrapper{caps: praxiscrypto.Capabilities{PQ: true}}
+		db, err := state.OpenSQLite(ctx, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		now := time.Now().UTC()
+		expires := now.Add(time.Minute)
+		source := authorityGenerationFixture(now.Add(-time.Minute))
+		repo := Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential, BootstrapDigest: source.ProvenanceDigest}
+		if err := repo.SaveAuthorityGeneration(ctx, source, source.EffectiveAt, nil); err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+		migration, target, err := contracts.FreezeAuthorityModelMigration(source, source.ProvenanceDigest, now)
+		if err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+		requestID, requestVersion := saveMigrationApprovalUntil(t, repo, source, migration, target, now, expires)
+		if err := repo.SaveAuthorityModelMigration(ctx, requestID, requestVersion, migration, target); err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+		bound, err := repo.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now)
+		if err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+		if bound.ID == "" || bound.ApprovalRequestID != requestID || bound.ApprovalRequestDigest == "" || bound.ApprovalDecisionRef == "" || bound.ApprovalDecisionDigest == "" {
+			db.Close()
+			t.Fatalf("persisted migration omitted approval identity: %+v", bound)
+		}
+		return persistedMigration{path: path, db: db, keyWrapper: keyWrapper, repo: repo, source: source, target: target, requestID: requestID, requestVer: requestVersion, now: now, expires: expires}
+	}
+	reopen := func(t *testing.T, p persistedMigration) (Repository, *sql.DB) {
+		t.Helper()
+		if err := p.db.Close(); err != nil {
+			t.Fatal(err)
+		}
+		db, err := state.OpenSQLite(context.Background(), p.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		return Repository{Store: state.New(db), Crypto: praxiscrypto.EnvelopeService{Wrapper: p.keyWrapper}, KeyRef: "key:goals", Profile: contracts.CryptoPQRequired, Sensitivity: state.SensitivityConfidential, BootstrapDigest: p.source.ProvenanceDigest}, db
+	}
+
+	t.Run("valid replay", func(t *testing.T) {
+		p := setup(t)
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, p.now.Add(time.Second)); err != nil {
+			t.Fatalf("valid migration approval did not replay: %v", err)
+		}
+	})
+
+	t.Run("post-persistence revocation", func(t *testing.T) {
+		p := setup(t)
+		decision, err := p.repo.LoadAuthorityDecisionEvidence(context.Background(), p.requestID, p.requestVer, p.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decisionDigest, err := decision.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		revocation := contracts.AuthorityRevocation{RequestID: p.requestID, RequestVersion: p.requestVer, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, RevocationRef: "revocation:migration-restart", RevocationVersion: "1", RevokedBy: p.source.Principal, AuthorityDigest: contracts.AuthorityModelV2Digest(), EffectiveAt: time.Now().UTC(), Reason: "withdraw persisted migration"}
+		if err := p.repo.SaveAuthorityRevocation(context.Background(), p.requestID, p.requestVer, revocation, revocation.EffectiveAt, nil); err != nil {
+			t.Fatal(err)
+		}
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, time.Now().UTC()); err == nil {
+			t.Fatal("restart retained v2 root after migration approval revocation")
+		}
+	})
+
+	t.Run("expired approval", func(t *testing.T) {
+		p := setup(t)
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, p.expires.Add(time.Second)); err == nil {
+			t.Fatal("restart retained v2 root after migration approval expiry")
+		}
+	})
+
+	t.Run("missing approval", func(t *testing.T) {
+		p := setup(t)
+		if _, err := p.db.ExecContext(context.Background(), `DELETE FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, authorityRequestNamespace, p.requestID, p.requestVer); err != nil {
+			t.Fatal(err)
+		}
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, p.now.Add(time.Second)); err == nil {
+			t.Fatal("restart retained v2 root without migration approval request")
+		}
+	})
+
+	t.Run("substituted approval", func(t *testing.T) {
+		p := setup(t)
+		request, err := p.repo.LoadAuthorityRequest(context.Background(), p.requestID, p.requestVer, p.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Reason = "substituted approval record"
+		payload, err := json.Marshal(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := payloadDigest(payload)
+		aad := state.SecureBlobAAD(authorityRequestNamespace, p.requestID, p.requestVer, digest)
+		envelope, err := p.repo.Crypto.Seal(context.Background(), p.repo.KeyRef, p.repo.Profile, payload, aad)
+		if err != nil {
+			t.Fatal(err)
+		}
+		envelopeJSON, err := json.Marshal(envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.db.ExecContext(context.Background(), `UPDATE secure_blobs SET object_digest=?, envelope_json=? WHERE namespace=? AND object_id=? AND object_version=?`, digest, envelopeJSON, authorityRequestNamespace, p.requestID, p.requestVer); err != nil {
+			t.Fatal(err)
+		}
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, p.now.Add(time.Second)); err == nil {
+			t.Fatal("restart retained v2 root after approval-record substitution")
+		}
+	})
+
+	t.Run("substituted decision", func(t *testing.T) {
+		p := setup(t)
+		request, err := p.repo.LoadAuthorityRequest(context.Background(), p.requestID, p.requestVer, p.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decision, err := p.repo.LoadAuthorityDecisionEvidence(context.Background(), p.requestID, p.requestVer, p.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decision.AuthorityDigest = "sha256:substituted-decision"
+		payload, err := json.Marshal(authorityDecisionRecord{Request: request, Decision: decision})
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := payloadDigest(payload)
+		aad := state.SecureBlobAAD(authorityDecisionNamespace, p.requestID, p.requestVer, digest)
+		envelope, err := p.repo.Crypto.Seal(context.Background(), p.repo.KeyRef, p.repo.Profile, payload, aad)
+		if err != nil {
+			t.Fatal(err)
+		}
+		envelopeJSON, err := json.Marshal(envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.db.ExecContext(context.Background(), `UPDATE secure_blobs SET object_digest=?, envelope_json=? WHERE namespace=? AND object_id=? AND object_version=?`, digest, envelopeJSON, authorityDecisionNamespace, p.requestID, p.requestVer); err != nil {
+			t.Fatal(err)
+		}
+		restarted, _ := reopen(t, p)
+		if _, err := restarted.ValidateAuthorityGenerationLineage(context.Background(), p.target.Ref, p.target.Version, p.target.Digest, p.source.ProvenanceDigest, p.now.Add(time.Second)); err == nil {
+			t.Fatal("restart retained v2 root after approval-decision substitution")
+		}
+	})
 }
 
 func TestRoutingIssuanceRequiresExactV2DelegatedAuthority(t *testing.T) {

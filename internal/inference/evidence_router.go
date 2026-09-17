@@ -45,6 +45,8 @@ type RouteCandidate struct {
 	ExecutorID     string   `json:"executor_id"`
 	ProviderID     string   `json:"provider_id"`
 	MeasurementIDs []string `json:"measurement_ids"`
+	SurfaceID      string   `json:"surface_id,omitempty"`
+	SurfaceDigest  string   `json:"surface_digest,omitempty"`
 }
 
 type RouteRequest struct {
@@ -68,19 +70,41 @@ func FreezeRouteRequest(request RouteRequest) (RouteRequest, error) {
 }
 
 type EligibilityEvidence struct {
-	ID                    string    `json:"id"`
-	RequestID             string    `json:"request_id"`
-	ExecutorID            string    `json:"executor_id"`
-	ProviderID            string    `json:"provider_id"`
-	Tier                  Tier      `json:"tier"`
-	AuthorityID           string    `json:"authority_id"`
-	CapabilityEvidenceRef string    `json:"capability_evidence_ref"`
-	PolicyEvidenceRef     string    `json:"policy_evidence_ref"`
-	Authorized            bool      `json:"authorized"`
-	CapabilityGranted     bool      `json:"capability_granted"`
-	PolicyAllowed         bool      `json:"policy_allowed"`
-	Available             bool      `json:"available"`
-	EvaluatedAt           time.Time `json:"evaluated_at"`
+	ID                         string                              `json:"id"`
+	RequestID                  string                              `json:"request_id"`
+	ExecutorID                 string                              `json:"executor_id"`
+	ProviderID                 string                              `json:"provider_id"`
+	Tier                       Tier                                `json:"tier"`
+	AuthorityID                string                              `json:"authority_id"`
+	CapabilityEvidenceRef      string                              `json:"capability_evidence_ref"`
+	CapabilityEvidenceDigest   string                              `json:"capability_evidence_digest,omitempty"`
+	PolicyEvidenceRef          string                              `json:"policy_evidence_ref"`
+	PolicyEvidenceDigest       string                              `json:"policy_evidence_digest,omitempty"`
+	Authorized                 bool                                `json:"authorized"`
+	CapabilityGranted          bool                                `json:"capability_granted"`
+	PolicyAllowed              bool                                `json:"policy_allowed"`
+	Available                  bool                                `json:"available"`
+	EvaluatedAt                time.Time                           `json:"evaluated_at"`
+	SurfaceRequestID           string                              `json:"surface_request_id,omitempty"`
+	SurfaceID                  string                              `json:"surface_id,omitempty"`
+	SurfaceDigest              string                              `json:"surface_digest,omitempty"`
+	AuthorityGenerationRef     string                              `json:"authority_generation_ref,omitempty"`
+	AuthorityGenerationVersion string                              `json:"authority_generation_version,omitempty"`
+	AuthorityGenerationDigest  string                              `json:"authority_generation_digest,omitempty"`
+	AuthorityScope             string                              `json:"authority_scope,omitempty"`
+	SecurityAllowed            bool                                `json:"security_allowed,omitempty"`
+	SecurityEvidenceRef        string                              `json:"security_evidence_ref,omitempty"`
+	SecurityEvidenceDigest     string                              `json:"security_evidence_digest,omitempty"`
+	AvailabilityEvidenceRef    string                              `json:"availability_evidence_ref,omitempty"`
+	AvailabilityEvidenceDigest string                              `json:"availability_evidence_digest,omitempty"`
+	BudgetAllowed              bool                                `json:"budget_allowed,omitempty"`
+	BudgetEvidenceRef          string                              `json:"budget_evidence_ref,omitempty"`
+	BudgetEvidenceDigest       string                              `json:"budget_evidence_digest,omitempty"`
+	QuotaAllowed               bool                                `json:"quota_allowed,omitempty"`
+	QuotaEvidenceRef           string                              `json:"quota_evidence_ref,omitempty"`
+	QuotaEvidenceDigest        string                              `json:"quota_evidence_digest,omitempty"`
+	Telemetry                  map[string]SurfaceTelemetryEvidence `json:"telemetry,omitempty"`
+	ValidUntil                 time.Time                           `json:"valid_until,omitempty"`
 }
 
 type EligibilityAuthority interface {
@@ -226,6 +250,9 @@ func verifyEligibility(e EligibilityEvidence, request RouteRequest, candidate Ro
 	if e.ID == "" || e.RequestID != request.ID || e.ExecutorID != candidate.ExecutorID || e.ProviderID != candidate.ProviderID || e.Tier != request.Tier || e.AuthorityID == "" || e.CapabilityEvidenceRef == "" || e.PolicyEvidenceRef == "" || e.EvaluatedAt.IsZero() {
 		return errors.New("eligibility evidence is incomplete or mismatched")
 	}
+	if candidate.SurfaceID != "" && (e.SurfaceID != candidate.SurfaceID || e.SurfaceDigest != candidate.SurfaceDigest) {
+		return errors.New("eligibility evidence does not bind the exact executor surface")
+	}
 	id := e.ID
 	e.ID = ""
 	if id != inferenceDigest(e) {
@@ -239,8 +266,35 @@ func FreezeEligibility(e EligibilityEvidence) (EligibilityEvidence, error) {
 	if e.RequestID == "" || e.ExecutorID == "" || e.ProviderID == "" || e.AuthorityID == "" || e.CapabilityEvidenceRef == "" || e.PolicyEvidenceRef == "" || e.EvaluatedAt.IsZero() {
 		return EligibilityEvidence{}, errors.New("eligibility evidence is incomplete")
 	}
+	if err := validateSurfaceEligibilityLineage(e); err != nil {
+		return EligibilityEvidence{}, err
+	}
 	e.ID = inferenceDigest(e)
 	return e, nil
+}
+
+func validateSurfaceEligibilityLineage(e EligibilityEvidence) error {
+	surfaceBound := e.SurfaceRequestID != "" || e.SurfaceID != "" || e.SurfaceDigest != "" || e.AuthorityGenerationRef != "" || e.AuthorityGenerationVersion != "" || e.AuthorityGenerationDigest != "" || e.AuthorityScope != "" || e.CapabilityEvidenceDigest != "" || e.PolicyEvidenceDigest != "" || e.SecurityEvidenceRef != "" || e.SecurityEvidenceDigest != "" || e.AvailabilityEvidenceRef != "" || e.AvailabilityEvidenceDigest != "" || e.BudgetEvidenceRef != "" || e.BudgetEvidenceDigest != "" || e.QuotaEvidenceRef != "" || e.QuotaEvidenceDigest != "" || len(e.Telemetry) != 0 || !e.ValidUntil.IsZero()
+	if !surfaceBound {
+		return nil
+	}
+	if e.SurfaceRequestID == "" || e.SurfaceID == "" || !validSHA256Digest(e.SurfaceDigest) || e.AuthorityGenerationRef == "" || e.AuthorityGenerationVersion == "" || !validSHA256Digest(e.AuthorityGenerationDigest) || e.AuthorityScope != e.SurfaceRequestID || !validSHA256Digest(e.CapabilityEvidenceDigest) || !validSHA256Digest(e.PolicyEvidenceDigest) || e.SecurityEvidenceRef == "" || !validSHA256Digest(e.SecurityEvidenceDigest) || e.AvailabilityEvidenceRef == "" || !validSHA256Digest(e.AvailabilityEvidenceDigest) || e.BudgetEvidenceRef == "" || !validSHA256Digest(e.BudgetEvidenceDigest) || e.QuotaEvidenceRef == "" || !validSHA256Digest(e.QuotaEvidenceDigest) || !e.ValidUntil.After(e.EvaluatedAt) {
+		return errors.New("surface-bound eligibility requires exact surface, authority generation, scope, evidence, and validity")
+	}
+	for name, telemetry := range e.Telemetry {
+		if name == "" || telemetry.ProvenanceRef == "" || !validSHA256Digest(telemetry.ProvenanceDigest) || telemetry.ObservedAt.IsZero() || !telemetry.ValidUntil.After(telemetry.ObservedAt) || telemetry.ObservedAt.After(e.EvaluatedAt) || telemetry.Known == (telemetry.Value == "") {
+			return errors.New("surface-bound eligibility telemetry is incomplete")
+		}
+	}
+	return nil
+}
+
+func validSHA256Digest(value string) bool {
+	if len(value) != len("sha256:")+sha256.Size*2 || value[:len("sha256:")] != "sha256:" {
+		return false
+	}
+	_, err := hex.DecodeString(value[len("sha256:"):])
+	return err == nil
 }
 
 func inferenceDigest(value any) string {

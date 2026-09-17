@@ -34,6 +34,8 @@ const (
 	ReasonSecurityDenied    = "security.ineligible"
 	ReasonAuthorityDenied   = "authority.ineligible"
 	ReasonPolicyDenied      = "policy.ineligible"
+	ReasonBudgetExhausted   = "budget.exhausted"
+	ReasonQuotaUnavailable  = "quota.unavailable"
 	ReasonCapabilityMissing = "capability.required_missing"
 	ReasonTransportDenied   = "transport.not_allowed"
 	ReasonAPIForbidden      = "api.metered_forbidden"
@@ -68,41 +70,49 @@ type SurfaceRouteRequest struct {
 }
 
 type SurfaceTelemetryEvidence struct {
-	Known         bool      `json:"known"`
-	Value         string    `json:"value,omitempty"`
-	ProvenanceRef string    `json:"provenance_ref"`
-	ObservedAt    time.Time `json:"observed_at"`
-	ValidUntil    time.Time `json:"valid_until"`
+	Known            bool      `json:"known"`
+	Value            string    `json:"value,omitempty"`
+	ProvenanceRef    string    `json:"provenance_ref"`
+	ProvenanceDigest string    `json:"provenance_digest"`
+	ObservedAt       time.Time `json:"observed_at"`
+	ValidUntil       time.Time `json:"valid_until"`
 }
 
-// SurfaceEligibilityEvidence is issued for one exact request and canonical
-// surface description. Its digest makes caller mutation detectable.
+// SurfaceEligibilityEvidence is composed by core from the existing governed
+// route-eligibility lineage. It is not independently issued by a surface
+// evaluator selected by the caller.
 type SurfaceEligibilityEvidence struct {
-	ID                    string                              `json:"id"`
-	Version               string                              `json:"version"`
-	RequestID             string                              `json:"request_id"`
-	SurfaceID             string                              `json:"surface_id"`
-	SurfaceDigest         string                              `json:"surface_digest"`
-	Evaluator             contracts.PrincipalRef              `json:"evaluator"`
-	Available             bool                                `json:"available"`
-	CapabilityGranted     bool                                `json:"capability_granted"`
-	SecurityAllowed       bool                                `json:"security_allowed"`
-	Authorized            bool                                `json:"authorized"`
-	PolicyAllowed         bool                                `json:"policy_allowed"`
-	ReasonCodes           []string                            `json:"reason_codes,omitempty"`
-	CapabilityEvidenceRef string                              `json:"capability_evidence_ref"`
-	SecurityEvidenceRef   string                              `json:"security_evidence_ref"`
-	AuthorityEvidenceRef  string                              `json:"authority_evidence_ref"`
-	PolicyEvidenceRef     string                              `json:"policy_evidence_ref"`
-	AvailabilityRef       string                              `json:"availability_evidence_ref"`
-	Telemetry             map[string]SurfaceTelemetryEvidence `json:"telemetry,omitempty"`
-	EvaluatedAt           time.Time                           `json:"evaluated_at"`
-	ValidUntil            time.Time                           `json:"valid_until"`
+	ID                string                              `json:"id"`
+	Version           string                              `json:"version"`
+	RequestID         string                              `json:"request_id"`
+	SurfaceID         string                              `json:"surface_id"`
+	SurfaceDigest     string                              `json:"surface_digest"`
+	Evaluator         contracts.PrincipalRef              `json:"evaluator"`
+	RouteEligibility  EligibilityEvidence                 `json:"route_eligibility"`
+	Available         bool                                `json:"available"`
+	CapabilityGranted bool                                `json:"capability_granted"`
+	SecurityAllowed   bool                                `json:"security_allowed"`
+	Authorized        bool                                `json:"authorized"`
+	PolicyAllowed     bool                                `json:"policy_allowed"`
+	BudgetAllowed     bool                                `json:"budget_allowed"`
+	QuotaAllowed      bool                                `json:"quota_allowed"`
+	ReasonCodes       []string                            `json:"reason_codes,omitempty"`
+	Telemetry         map[string]SurfaceTelemetryEvidence `json:"telemetry,omitempty"`
+	EvaluatedAt       time.Time                           `json:"evaluated_at"`
+	ValidUntil        time.Time                           `json:"valid_until"`
 }
 
-type SurfaceEligibilityAuthority interface {
-	Evaluator() contracts.PrincipalRef
-	EvaluateSurfaceEligibility(context.Context, SurfaceRouteRequest, ExecutorSurface) (SurfaceEligibilityEvidence, error)
+// SurfaceEligibilityComposer is the core-owned bridge from the governed
+// EligibilityAuthority lineage to exact concrete-surface eligibility.
+type SurfaceEligibilityComposer struct {
+	authority EligibilityAuthority
+}
+
+func NewSurfaceEligibilityComposer(authority EligibilityAuthority) (*SurfaceEligibilityComposer, error) {
+	if authority == nil {
+		return nil, errors.New("surface eligibility composition requires governed route eligibility authority")
+	}
+	return &SurfaceEligibilityComposer{authority: authority}, nil
 }
 
 type SurfaceEvaluation struct {
@@ -113,17 +123,21 @@ type SurfaceEvaluation struct {
 }
 
 type SurfaceRoutingDecision struct {
-	ID                string                 `json:"id"`
-	Version           string                 `json:"version"`
-	Request           SurfaceRouteRequest    `json:"request"`
-	Evaluator         contracts.PrincipalRef `json:"evaluator"`
-	Evaluations       []SurfaceEvaluation    `json:"evaluations"`
-	Outcome           SurfaceDecisionOutcome `json:"outcome"`
-	SelectedSurfaceID string                 `json:"selected_surface_id,omitempty"`
-	SelectedProfile   string                 `json:"selected_profile,omitempty"`
-	Fallback          bool                   `json:"fallback"`
-	ReasonCodes       []string               `json:"reason_codes"`
-	DecidedAt         time.Time              `json:"decided_at"`
+	ID                         string                 `json:"id"`
+	Version                    string                 `json:"version"`
+	Request                    SurfaceRouteRequest    `json:"request"`
+	Evaluator                  contracts.PrincipalRef `json:"evaluator"`
+	EvaluatorGenerationRef     string                 `json:"evaluator_generation_ref"`
+	EvaluatorGenerationVersion string                 `json:"evaluator_generation_version"`
+	EvaluatorGenerationDigest  string                 `json:"evaluator_generation_digest"`
+	EvaluatorScope             string                 `json:"evaluator_scope"`
+	Evaluations                []SurfaceEvaluation    `json:"evaluations"`
+	Outcome                    SurfaceDecisionOutcome `json:"outcome"`
+	SelectedSurfaceID          string                 `json:"selected_surface_id,omitempty"`
+	SelectedProfile            string                 `json:"selected_profile,omitempty"`
+	Fallback                   bool                   `json:"fallback"`
+	ReasonCodes                []string               `json:"reason_codes"`
+	DecidedAt                  time.Time              `json:"decided_at"`
 }
 
 func FreezeSurfaceRouteRequest(request SurfaceRouteRequest) (SurfaceRouteRequest, error) {
@@ -144,34 +158,13 @@ func FreezeSurfaceRouteRequest(request SurfaceRouteRequest) (SurfaceRouteRequest
 	return request, nil
 }
 
-func FreezeSurfaceEligibilityEvidence(evidence SurfaceEligibilityEvidence) (SurfaceEligibilityEvidence, error) {
-	evidence.ID, evidence.Version = "", "v2"
-	evidence.ReasonCodes = uniqueSorted(evidence.ReasonCodes)
-	if evidence.RequestID == "" || evidence.SurfaceID == "" || evidence.SurfaceDigest == "" || !validSurfaceEvaluator(evidence.Evaluator) || evidence.CapabilityEvidenceRef == "" || evidence.SecurityEvidenceRef == "" || evidence.AuthorityEvidenceRef == "" || evidence.PolicyEvidenceRef == "" || evidence.AvailabilityRef == "" || evidence.EvaluatedAt.IsZero() || !evidence.ValidUntil.After(evidence.EvaluatedAt) {
-		return SurfaceEligibilityEvidence{}, errors.New("surface eligibility evidence is incomplete")
-	}
-	if (!evidence.Available || !evidence.CapabilityGranted || !evidence.SecurityAllowed || !evidence.Authorized || !evidence.PolicyAllowed) && len(evidence.ReasonCodes) == 0 {
-		return SurfaceEligibilityEvidence{}, errors.New("denied surface eligibility requires reasons")
-	}
-	for name, telemetry := range evidence.Telemetry {
-		if name == "" || telemetry.ProvenanceRef == "" || telemetry.ObservedAt.IsZero() || !telemetry.ValidUntil.After(telemetry.ObservedAt) || telemetry.ObservedAt.After(evidence.EvaluatedAt) {
-			return SurfaceEligibilityEvidence{}, errors.New("surface telemetry evidence is incomplete")
-		}
-		if telemetry.Known == (telemetry.Value == "") {
-			return SurfaceEligibilityEvidence{}, errors.New("surface telemetry known state and value disagree")
-		}
-	}
-	evidence.ID = inferenceDigest(evidence)
-	return evidence, nil
-}
-
-func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, authority SurfaceEligibilityAuthority, decidedAt time.Time) (SurfaceRoutingDecision, error) {
+func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, composer *SurfaceEligibilityComposer, decidedAt time.Time) (SurfaceRoutingDecision, error) {
 	frozen, err := FreezeSurfaceRouteRequest(request)
 	if err != nil || frozen.ID != request.ID || inferenceDigest(frozen) != inferenceDigest(request) {
 		return SurfaceRoutingDecision{}, errors.New("surface route request is not frozen")
 	}
-	if authority == nil || !validSurfaceEvaluator(authority.Evaluator()) || decidedAt.IsZero() {
-		return SurfaceRoutingDecision{}, errors.New("surface routing requires evaluator authority and decision time")
+	if composer == nil || composer.authority == nil || decidedAt.IsZero() {
+		return SurfaceRoutingDecision{}, errors.New("surface routing requires governed eligibility composition and decision time")
 	}
 	ordered := append([]ExecutorSurface(nil), surfaces...)
 	for index := range ordered {
@@ -183,29 +176,45 @@ func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, sur
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
 	seen := map[string]bool{}
 	evaluations := make([]SurfaceEvaluation, 0, len(ordered))
+	var lineage surfaceEvaluatorLineage
 	for _, surface := range ordered {
 		if seen[surface.ID] {
 			return SurfaceRoutingDecision{}, errors.New("executor surfaces require unique identity")
 		}
 		seen[surface.ID] = true
-		evidence, err := authority.EvaluateSurfaceEligibility(ctx, request, surface)
+		evidence, currentLineage, err := composer.compose(ctx, request, surface)
 		if err != nil {
 			return SurfaceRoutingDecision{}, err
 		}
-		evaluation, err := verifyAndEvaluateSurface(request, surface, evidence, authority.Evaluator(), decidedAt)
+		if len(evaluations) == 0 {
+			lineage = currentLineage
+		} else if currentLineage != lineage {
+			return SurfaceRoutingDecision{}, errors.New("surface eligibility evaluations require one governed authority lineage")
+		}
+		evaluation, err := verifyAndEvaluateSurface(request, surface, evidence, lineage, decidedAt)
 		if err != nil {
 			return SurfaceRoutingDecision{}, err
 		}
 		evaluations = append(evaluations, evaluation)
 	}
-	return buildSurfaceDecision(request, authority.Evaluator(), evaluations, decidedAt)
+	if len(evaluations) == 0 {
+		return SurfaceRoutingDecision{}, errors.New("surface routing requires at least one executor surface")
+	}
+	return buildSurfaceDecision(request, lineage, evaluations, decidedAt)
 }
 
 func VerifySurfaceRoutingDecision(decision SurfaceRoutingDecision) error {
 	if _, _, err := surfaceDecisionVersions.Canonicalize(decision.Version, nil); err != nil {
 		return err
 	}
-	if decision.ID == "" || decision.Version != surfaceDecisionVersions.CurrentVersion() || decision.DecidedAt.IsZero() || !validSurfaceEvaluator(decision.Evaluator) {
+	lineage := surfaceEvaluatorLineage{
+		Evaluator:         decision.Evaluator,
+		GenerationRef:     decision.EvaluatorGenerationRef,
+		GenerationVersion: decision.EvaluatorGenerationVersion,
+		GenerationDigest:  decision.EvaluatorGenerationDigest,
+		Scope:             decision.EvaluatorScope,
+	}
+	if decision.ID == "" || decision.Version != surfaceDecisionVersions.CurrentVersion() || decision.DecidedAt.IsZero() || lineage.validate(decision.Request.ID) != nil {
 		return errors.New("surface routing decision v2 identity, evaluator, and time are required")
 	}
 	frozen, err := FreezeSurfaceRouteRequest(decision.Request)
@@ -214,32 +223,148 @@ func VerifySurfaceRoutingDecision(decision SurfaceRoutingDecision) error {
 	}
 	evaluations := make([]SurfaceEvaluation, 0, len(decision.Evaluations))
 	for _, persisted := range decision.Evaluations {
-		evaluation, err := verifyAndEvaluateSurface(decision.Request, persisted.Surface, persisted.Evidence, decision.Evaluator, decision.DecidedAt)
+		evaluation, err := verifyAndEvaluateSurface(decision.Request, persisted.Surface, persisted.Evidence, lineage, decision.DecidedAt)
 		if err != nil {
 			return err
 		}
 		evaluations = append(evaluations, evaluation)
 	}
-	recomputed, err := buildSurfaceDecision(decision.Request, decision.Evaluator, evaluations, decision.DecidedAt)
+	recomputed, err := buildSurfaceDecision(decision.Request, lineage, evaluations, decision.DecidedAt)
 	if err != nil || recomputed.ID != decision.ID || inferenceDigest(recomputed) != inferenceDigest(decision) {
 		return errors.New("surface routing decision digest or semantics mismatch")
 	}
 	return nil
 }
 
-func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurface, evidence SurfaceEligibilityEvidence, evaluator contracts.PrincipalRef, decidedAt time.Time) (SurfaceEvaluation, error) {
+type surfaceEvaluatorLineage struct {
+	Evaluator         contracts.PrincipalRef
+	GenerationRef     string
+	GenerationVersion string
+	GenerationDigest  string
+	Scope             string
+}
+
+func (lineage surfaceEvaluatorLineage) validate(requestID string) error {
+	if !validSurfaceEvaluator(lineage.Evaluator) || lineage.GenerationRef == "" || lineage.GenerationVersion == "" || lineage.GenerationDigest == "" || lineage.Scope != requestID {
+		return errors.New("surface evaluator lineage is incomplete or out of scope")
+	}
+	return nil
+}
+
+func (composer *SurfaceEligibilityComposer) compose(ctx context.Context, request SurfaceRouteRequest, surface ExecutorSurface) (SurfaceEligibilityEvidence, surfaceEvaluatorLineage, error) {
+	canonical, digest, err := freezeExecutorSurface(surface)
+	if err != nil {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, err
+	}
+	candidate := RouteCandidate{ExecutorID: canonical.ExecutorID, ProviderID: canonical.ProviderID, SurfaceID: canonical.ID, SurfaceDigest: digest}
+	eligibility, err := composer.authority.EvaluateRouteEligibility(ctx, request.RouteRequest, candidate)
+	if err != nil {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, err
+	}
+	if err := verifyEligibility(eligibility, request.RouteRequest, candidate); err != nil {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, err
+	}
+	return composeSurfaceEligibilityEvidence(request, canonical, digest, eligibility)
+}
+
+func composeSurfaceEligibilityEvidence(request SurfaceRouteRequest, canonical ExecutorSurface, digest string, eligibility EligibilityEvidence) (SurfaceEligibilityEvidence, surfaceEvaluatorLineage, error) {
+	if err := validateSurfaceEligibilityLineage(eligibility); err != nil {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, err
+	}
+	if eligibility.SurfaceRequestID != request.ID {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, errors.New("governed eligibility does not bind the surface request")
+	}
+	lineage := surfaceEvaluatorLineage{
+		Evaluator:         contracts.PrincipalRef{ID: eligibility.AuthorityID, Kind: "authority"},
+		GenerationRef:     eligibility.AuthorityGenerationRef,
+		GenerationVersion: eligibility.AuthorityGenerationVersion,
+		GenerationDigest:  eligibility.AuthorityGenerationDigest,
+		Scope:             eligibility.AuthorityScope,
+	}
+	if err := lineage.validate(request.ID); err != nil {
+		return SurfaceEligibilityEvidence{}, surfaceEvaluatorLineage{}, err
+	}
+	evidence := SurfaceEligibilityEvidence{
+		Version:           surfaceDecisionVersions.CurrentVersion(),
+		RequestID:         request.ID,
+		SurfaceID:         canonical.ID,
+		SurfaceDigest:     digest,
+		Evaluator:         lineage.Evaluator,
+		RouteEligibility:  eligibility,
+		Available:         eligibility.Available,
+		CapabilityGranted: eligibility.CapabilityGranted,
+		SecurityAllowed:   eligibility.SecurityAllowed,
+		Authorized:        eligibility.Authorized,
+		PolicyAllowed:     eligibility.PolicyAllowed,
+		BudgetAllowed:     eligibility.BudgetAllowed,
+		QuotaAllowed:      eligibility.QuotaAllowed,
+		Telemetry:         cloneSurfaceTelemetry(eligibility.Telemetry),
+		EvaluatedAt:       eligibility.EvaluatedAt,
+		ValidUntil:        eligibility.ValidUntil,
+	}
+	if !evidence.Available {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonUnavailable)
+	}
+	if !evidence.SecurityAllowed {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonSecurityDenied)
+	}
+	if !evidence.Authorized {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonAuthorityDenied)
+	}
+	if !evidence.PolicyAllowed {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonPolicyDenied)
+	}
+	if !evidence.CapabilityGranted {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonCapabilityMissing)
+	}
+	if !evidence.BudgetAllowed {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonBudgetExhausted)
+	}
+	if !evidence.QuotaAllowed {
+		evidence.ReasonCodes = append(evidence.ReasonCodes, ReasonQuotaUnavailable)
+	}
+	evidence.ReasonCodes = uniqueSorted(evidence.ReasonCodes)
+	evidence.ID = inferenceDigest(evidence)
+	return evidence, lineage, nil
+}
+
+func cloneSurfaceTelemetry(values map[string]SurfaceTelemetryEvidence) map[string]SurfaceTelemetryEvidence {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]SurfaceTelemetryEvidence, len(values))
+	for name, value := range values {
+		out[name] = value
+	}
+	return out
+}
+
+func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurface, evidence SurfaceEligibilityEvidence, lineage surfaceEvaluatorLineage, decidedAt time.Time) (SurfaceEvaluation, error) {
 	canonical, digest, err := freezeExecutorSurface(surface)
 	if err != nil {
 		return SurfaceEvaluation{}, err
 	}
-	frozenEvidence, err := FreezeSurfaceEligibilityEvidence(evidence)
-	if err != nil || frozenEvidence.ID != evidence.ID || inferenceDigest(frozenEvidence) != inferenceDigest(evidence) {
+	if err := lineage.validate(request.ID); err != nil {
+		return SurfaceEvaluation{}, err
+	}
+	candidate := RouteCandidate{ExecutorID: canonical.ExecutorID, ProviderID: canonical.ProviderID, SurfaceID: canonical.ID, SurfaceDigest: digest}
+	if err := verifyEligibility(evidence.RouteEligibility, request.RouteRequest, candidate); err != nil {
+		return SurfaceEvaluation{}, err
+	}
+	expected, expectedLineage, err := composeSurfaceEligibilityEvidence(request, canonical, digest, evidence.RouteEligibility)
+	if err != nil {
 		return SurfaceEvaluation{}, errors.New("surface eligibility evidence is not frozen")
 	}
-	if evidence.RequestID != request.ID || evidence.SurfaceID != canonical.ID || evidence.SurfaceDigest != digest || evidence.Evaluator != evaluator {
+	if expectedLineage != lineage {
+		return SurfaceEvaluation{}, errors.New("surface eligibility evidence does not bind the decision authority lineage")
+	}
+	if expected.ID != evidence.ID || inferenceDigest(expected) != inferenceDigest(evidence) {
+		return SurfaceEvaluation{}, errors.New("surface eligibility evidence is not frozen")
+	}
+	if evidence.RequestID != request.ID || evidence.SurfaceID != canonical.ID || evidence.SurfaceDigest != digest || evidence.Evaluator != lineage.Evaluator {
 		return SurfaceEvaluation{}, errors.New("surface eligibility evidence does not bind request, metadata, and evaluator")
 	}
-	if evidence.EvaluatedAt.After(decidedAt) || evidence.ValidUntil.Before(decidedAt) {
+	if evidence.EvaluatedAt.After(decidedAt) || !decidedAt.Before(evidence.ValidUntil) {
 		return SurfaceEvaluation{}, errors.New("surface eligibility evidence is stale or from the future")
 	}
 	reasons := append([]string(nil), evidence.ReasonCodes...)
@@ -259,6 +384,12 @@ func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurfa
 	if !evidence.CapabilityGranted || !containsAll(canonical.Capabilities, request.Target.Target.RequiredCapabilities) {
 		add(ReasonCapabilityMissing)
 	}
+	if !evidence.BudgetAllowed {
+		add(ReasonBudgetExhausted)
+	}
+	if !evidence.QuotaAllowed {
+		add(ReasonQuotaUnavailable)
+	}
 	if len(request.Target.Target.TransportPolicy) > 0 && !containsTransport(request.Target.Target.TransportPolicy, canonical.Transport) {
 		add(ReasonTransportDenied)
 	}
@@ -276,7 +407,7 @@ func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurfa
 		if !ok {
 			return SurfaceEvaluation{}, errors.New("eligibility authority omitted required telemetry evidence")
 		}
-		if telemetry.ValidUntil.Before(decidedAt) {
+		if !decidedAt.Before(telemetry.ValidUntil) {
 			return SurfaceEvaluation{}, errors.New("surface telemetry evidence is stale")
 		}
 		if !telemetry.Known {
@@ -287,7 +418,7 @@ func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurfa
 	return SurfaceEvaluation{Surface: canonical, Evidence: evidence, Eligible: len(reasons) == 0, ReasonCodes: reasons}, nil
 }
 
-func buildSurfaceDecision(request SurfaceRouteRequest, evaluator contracts.PrincipalRef, evaluations []SurfaceEvaluation, decidedAt time.Time) (SurfaceRoutingDecision, error) {
+func buildSurfaceDecision(request SurfaceRouteRequest, lineage surfaceEvaluatorLineage, evaluations []SurfaceEvaluation, decidedAt time.Time) (SurfaceRoutingDecision, error) {
 	ordered := append([]SurfaceEvaluation(nil), evaluations...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Surface.ID < ordered[j].Surface.ID })
 	seen := map[string]bool{}
@@ -301,7 +432,7 @@ func buildSurfaceDecision(request SurfaceRouteRequest, evaluator contracts.Princ
 			eligible = append(eligible, evaluation.Surface)
 		}
 	}
-	decision := SurfaceRoutingDecision{Version: surfaceDecisionVersions.CurrentVersion(), Request: request, Evaluator: evaluator, Evaluations: ordered, DecidedAt: decidedAt}
+	decision := SurfaceRoutingDecision{Version: surfaceDecisionVersions.CurrentVersion(), Request: request, Evaluator: lineage.Evaluator, EvaluatorGenerationRef: lineage.GenerationRef, EvaluatorGenerationVersion: lineage.GenerationVersion, EvaluatorGenerationDigest: lineage.GenerationDigest, EvaluatorScope: lineage.Scope, Evaluations: ordered, DecidedAt: decidedAt}
 	selectSurfaceAffinity(&decision, request.Target.Target, eligible, ordered)
 	decision.ID = inferenceDigest(decision)
 	return decision, nil

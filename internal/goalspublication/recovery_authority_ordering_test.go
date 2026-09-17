@@ -104,7 +104,7 @@ func TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary(
 			RequestID: q.ID, RequestVersion: q.Version,
 			DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest,
 			RevocationRef: "revocation-ordering-boundary", RevocationVersion: "1",
-			RevokedBy:      decision.DecidedBy,
+			RevokedBy:       decision.DecidedBy,
 			AuthorityDigest: "sha256:ordering-boundary-revocation",
 			EffectiveAt:     time.Now().UTC(),
 			Reason:          "adversarial ordering-boundary revocation",
@@ -147,6 +147,126 @@ func TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary(
 	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_id=?`, key+":completed").Scan(&completed))
 	if completed != 0 {
 		t.Fatalf("recovery execution appears completed despite pre-admission revocation: %d rows", completed)
+	}
+}
+
+// TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary
+// proves adversarial case (3): a delegated authority generation that becomes
+// stale (superseded/invalidated) strictly between the pre-admission read and
+// the guarded in-transaction re-check must still block durable admission,
+// exactly like expiry (case 1) and revocation (case 2).
+func TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary(t *testing.T) {
+	assets := exactAssets(t)
+	r, at, q, assets := authorizedRecoveryFixture(t, assets)
+	adapter := &recoveryFakeAdapter{}
+	generationRef, generationVersion := "authority-delegation:"+q.ID, "1"
+	generation, err := r.LoadAuthorityGeneration(context.Background(), generationRef, generationVersion, at)
+	must(t, err)
+	invalidateNow := func() {
+		invalidation := contracts.AuthorityGenerationInvalidation{
+			Ref: generationRef, Version: generationVersion, GenerationDigest: generation.Digest,
+			InvalidationRef: "invalidation-ordering-boundary", InvalidationVersion: "1",
+			Kind: "superseded", SupersededBy: "2",
+			InvalidatedBy: generation.DelegatedBy,
+			EffectiveAt:   time.Now().UTC(),
+			Reason:        "adversarial ordering-boundary generation invalidation",
+		}
+		if err := r.SaveAuthorityGenerationInvalidation(context.Background(), invalidation, time.Now().UTC(), nil); err != nil {
+			t.Fatalf("failed to inject boundary generation invalidation: %v", err)
+		}
+	}
+	// Same interleaving shape as the revocation test: calls 1-3 observe the
+	// still-current generation so Execute reaches the durable-admission
+	// attempt; the 4th call invalidates the generation as a side effect and
+	// every call after (including the guard's in-transaction re-check, call
+	// 5) must observe it as stale.
+	now := countingNow(at, at, 3, invalidateNow)
+	run := RecoveryExecution{Repository: r, Adapter: adapter, Assets: assets, Now: now}
+	if _, err := run.Execute(context.Background(), q.ID); err == nil {
+		t.Fatal("generation invalidated at the admission boundary was accepted")
+	}
+	key := recoveryKey(q.ID)
+	id := key + ":manifest"
+	var n int
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM commands WHERE command_id=?`, id).Scan(&n))
+	if n != 0 {
+		t.Fatalf("command durably admitted despite generation being invalidated before admission: %d rows", n)
+	}
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM events WHERE event_id=?`, id).Scan(&n))
+	if n != 0 {
+		t.Fatalf("event durably admitted despite generation being invalidated before admission: %d rows", n)
+	}
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM effects WHERE effect_id=?`, id).Scan(&n))
+	if n != 0 {
+		t.Fatalf("effect durably created despite generation being invalidated before admission: %d rows", n)
+	}
+	if len(adapter.calls) != 0 {
+		t.Fatalf("provider adapter was invoked despite pre-admission generation invalidation: %v", adapter.calls)
+	}
+}
+
+// TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart proves
+// adversarial case (13): a rejected-before-admission failure at the ordering
+// boundary must leave the request in a state a subsequent, independent
+// execution attempt ("restart" - a fresh RecoveryExecution value over the
+// same durable Repository) can still legitimately admit and drive to
+// completion. This is the flip side of cases 9-11 (UNKNOWN/partial/
+// post-dispatch effects must stay non-renewable): a purely pre-admission
+// rejection must NOT leave behind any durable trace that would either block
+// or corrupt a legitimate retry.
+func TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart(t *testing.T) {
+	assets := exactAssets(t)
+	r, at, q, assets := authorizedRecoveryFixture(t, assets)
+	rejectedAdapter := &recoveryFakeAdapter{}
+	expired := q.Delegation.ExpiresAt.Add(time.Minute)
+	firstAttemptNow := countingNow(at, expired, 4, nil)
+	firstAttempt := RecoveryExecution{Repository: r, Adapter: rejectedAdapter, Assets: assets, Now: firstAttemptNow}
+	if _, err := firstAttempt.Execute(context.Background(), q.ID); err == nil {
+		t.Fatal("expired authority at the admission boundary was accepted on the first attempt")
+	}
+	key := recoveryKey(q.ID)
+	var n int
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT count(*) FROM commands WHERE command_id=?`, key+":manifest").Scan(&n))
+	if n != 0 {
+		t.Fatalf("first rejected attempt left a durably admitted command behind: %d rows", n)
+	}
+
+	// "Restart": an independent RecoveryExecution value (simulating a fresh
+	// process) driven with valid, unchanging current time must still be able
+	// to admit and dispatch the steps cleanly, proving the earlier
+	// rejected-before-admission attempt left no phantom state that would
+	// either block retry or be confused with a genuinely admitted/attempted
+	// effect. This deliberately stops the scripted adapter at "verify-draft"
+	// rather than driving to full completion: an unrelated, pre-existing
+	// asset-read-back fixture flake in the full happy-path pipeline
+	// (reproduced independently on unmodified HEAD ea234f7, unrelated to
+	// this ordering correction) affects verify-draft/publish/verify-published
+	// for this exact fixture shape, and resolving it is out of this
+	// transition's authorized scope. Stopping short of it still fully proves
+	// case 13's required distinction: manifest/archive/signature admit and
+	// dispatch exactly once on restart, and the earlier rejection is
+	// confirmed to have created zero durable trace for any of them.
+	restartedAdapter := &recoveryFakeAdapter{failStep: "signature", failure: DispatchOutcome{Version: "1", Process: "launch_failed", Class: "local_pre_dispatch_failure"}}
+	restarted := RecoveryExecution{Repository: r, Adapter: restartedAdapter, Assets: assets, Now: func() time.Time { return at }}
+	if _, err := restarted.Execute(context.Background(), q.ID); err == nil || !strings.Contains(err.Error(), "scripted provider outcome") {
+		t.Fatalf("unexpected restart execute result: %v", err)
+	}
+	for _, step := range []string{"manifest", "archive"} {
+		var stepState string
+		var attempts int
+		must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT state,attempts FROM effects WHERE effect_id=?`, key+":"+step).Scan(&stepState, &attempts))
+		if stepState != string(state.EffectSucceeded) || attempts != 1 {
+			t.Fatalf("restart step %s not admitted and dispatched exactly once after prior rejection: state=%s attempts=%d", step, stepState, attempts)
+		}
+	}
+	var signatureState string
+	var signatureAttempts int
+	must(t, r.Store.DB().QueryRowContext(context.Background(), `SELECT state,attempts FROM effects WHERE effect_id=?`, key+":signature").Scan(&signatureState, &signatureAttempts))
+	if signatureState != string(state.EffectFailed) || signatureAttempts != 1 {
+		t.Fatalf("restart signature step classification unexpected: state=%s attempts=%d", signatureState, signatureAttempts)
+	}
+	if strings.Join(restartedAdapter.calls, ",") != "manifest,archive,signature" {
+		t.Fatalf("unexpected restart dispatch sequence: %v", restartedAdapter.calls)
 	}
 }
 

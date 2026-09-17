@@ -4,7 +4,7 @@
 - Date: 2026-09-17
 - Governing ADR: ADR-076
 - Issue: #102
-- Related: SPEC-003, SPEC-009, SPEC-010, SPEC-012, SPEC-013 (persistent agent identity), SPEC-016 (software-development proving package)
+- Related: SPEC-003, SPEC-009, SPEC-010, SPEC-012, SPEC-013 (persistent agent identity), SPEC-016 (software-development proving package), SPEC-040
 
 ## Purpose
 
@@ -168,6 +168,8 @@ A caller MUST NOT independently choose or implement the authoritative evaluator,
 ### Typed routing issuance
 
 Routing authority SHALL extend the existing durable `AuthorityRequest`, `AuthorityDecision`, and `AuthorityGeneration` lineage. It SHALL NOT create an independent routing trust root.
+
+SPEC-040 owns the v2 model identity, explicit v1-root migration, closed routing delegation table, recursive lineage validation, and typed issuance authority checks.
 
 Core SHALL atomically persist two typed issuance forms:
 

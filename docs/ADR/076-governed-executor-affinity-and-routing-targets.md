@@ -3,7 +3,7 @@
 - Status: Accepted for post-release implementation
 - Date: 2026-09-17
 - Issue: #102
-- Related: ADR-003, ADR-015, ADR-016, ADR-022, ADR-034, ADR-037, ADR-038
+- Related: ADR-003, ADR-015, ADR-016, ADR-022, ADR-034, ADR-037, ADR-038, ADR-077
 
 ## Context
 
@@ -94,6 +94,8 @@ Concrete-surface eligibility extends the existing governed `EligibilityAuthority
 An independently caller-selectable evaluator implementation, caller-selected principal, self-applied `authority` kind, or opaque self-attested evidence reference is not authority. Descriptive adapter/catalog metadata remains input to evaluation; it cannot authorize itself. The evaluator generation, scope, and resolved evidence must be bound into the routing record and revalidated on replay.
 
 This is an extension of the existing durable `AuthorityRequest` / `AuthorityDecision` / `AuthorityGeneration` system, not a second authority system. Routing adds typed issuance records for (a) one exact canonical execution-target contribution and (b) one exact request/surface eligibility evaluation. Each issuance is stored atomically under an approved authority decision, binds the issuing generation and required routing authority, and is accepted only after core reloads it from the protected store and proves that its generation lineage terminates at the sole installation-governance root derived from the protected bootstrap record.
+
+ADR-077 defines the authority-model v2 transition and the two least-privilege routing issuance authorities. V1 roots and descendants are never reinterpreted as routing authority.
 
 The authoritative merge and selection APIs consume immutable issued-decision identities. They do not accept caller-provided evaluator, validator, principal, authority enum, or evidence object as authority. Live adapters may propose descriptive inputs, but only a typed persisted issuance loaded and revalidated by core can authorize a target contribution or eligibility result. Expiry and revocation are checked using core-owned current time at write, selection, persistence, and replay boundaries.
 

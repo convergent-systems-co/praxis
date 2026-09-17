@@ -37,7 +37,7 @@ func bridgeRouteRecord(t *testing.T, request RouteRequest, surface ExecutorSurfa
 	return record
 }
 
-func TestSurfaceV2AndEvidenceRouteMustShareSelectionLineage(t *testing.T) {
+func TestUnifiedRouteV2ProhibitsPairedAuthoritativeRecords(t *testing.T) {
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
@@ -45,36 +45,45 @@ func TestSurfaceV2AndEvidenceRouteMustShareSelectionLineage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	unified, err := FreezeUnifiedRouteRecord(UnifiedRouteRecord{Decision: surfaceDecision})
+	if err != nil {
+		t.Fatal(err)
+	}
 	matching := bridgeRouteRecord(t, request.RouteRequest, surface, surfaceDecisionTime)
-	other := surface
-	other.ExecutorID, other.ProviderID = "executor:other", "provider:other"
-	disagreeing := bridgeRouteRecord(t, request.RouteRequest, other, surfaceDecisionTime)
 
 	ledgers := []*RouteLedger{}
-	for range 3 {
+	for range 2 {
 		ledger, _ := NewRouteLedger(eventstore.NewMemoryStore())
 		ledgers = append(ledgers, ledger)
 	}
-	if err := ledgers[0].RecordSurfaceDecision(ctx, surfaceDecision); err != nil {
+	if err := ledgers[0].RecordUnifiedRoute(ctx, unified); err != nil {
 		t.Fatal(err)
 	}
-	if err := ledgers[0].Record(ctx, disagreeing); err == nil {
-		t.Fatal("legacy route disagreed with an already persisted surface selection")
+	if err := ledgers[0].Record(ctx, matching); err == nil {
+		t.Fatal("legacy route paired with an already persisted unified record")
 	}
-	if err := ledgers[1].Record(ctx, disagreeing); err != nil {
+	if err := ledgers[1].Record(ctx, matching); err != nil {
 		t.Fatal(err)
 	}
-	if err := ledgers[1].RecordSurfaceDecision(ctx, surfaceDecision); err == nil {
-		t.Fatal("surface selection disagreed with an already persisted legacy route")
+	if err := ledgers[1].RecordUnifiedRoute(ctx, unified); err == nil {
+		t.Fatal("unified record paired with an already persisted legacy route")
 	}
-	if err := ledgers[2].Record(ctx, matching); err != nil {
+	if err := ledgers[0].RecordSurfaceDecision(ctx, surfaceDecision); !errors.Is(err, contracts.ErrUnsupportedPreReleaseContractVersion) {
+		t.Fatalf("legacy surface persistence did not fail unsupported: %v", err)
+	}
+	store := eventstore.NewMemoryStore()
+	legacyPayload, _ := json.Marshal(matching)
+	unifiedPayload, _ := json.Marshal(unified)
+	_, err = store.Append(ctx, routeAggregate(request.RouteRequest.SubjectAgentID), 0, []eventstore.Event{
+		{ID: "event:" + matching.ID, AggregateType: "inference_routes", Type: routeDecisionEvent, Version: "v1", Actor: contracts.PrincipalRef{ID: matching.Eligibility.AuthorityID, Kind: "authority"}, CommandID: "route:" + matching.ID, CorrelationID: request.RouteRequest.RunID, Trust: contracts.TrustPolicy, Payload: legacyPayload, CreatedAt: matching.DecidedAt},
+		{ID: "event:" + unified.ID, AggregateType: "inference_routes", Type: unifiedRouteRecordEvent, Version: "v2", Actor: unified.Decision.Evaluator, CommandID: "unified-route:" + unified.ID, CorrelationID: request.RouteRequest.RunID, CausationID: request.ID, Trust: contracts.TrustPolicy, Payload: unifiedPayload, CreatedAt: unified.Decision.DecidedAt},
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ledgers[2].RecordSurfaceDecision(ctx, surfaceDecision); err != nil {
-		t.Fatalf("matching route lineage was rejected: %v", err)
-	}
-	if replayed, err := ledgers[2].SurfaceDecisions(ctx, request.RouteRequest.SubjectAgentID); err != nil || len(replayed) != 1 {
-		t.Fatalf("bound route lineage did not replay: %#v %v", replayed, err)
+	replayLedger, _ := NewRouteLedger(store)
+	if _, err := replayLedger.UnifiedRoutes(ctx, request.RouteRequest.SubjectAgentID); err == nil {
+		t.Fatal("replay accepted paired legacy and unified route authority")
 	}
 }
 

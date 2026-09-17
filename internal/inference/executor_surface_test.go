@@ -477,13 +477,17 @@ func TestSurfaceDecisionV2PersistsAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	record, err := FreezeUnifiedRouteRecord(UnifiedRouteRecord{Decision: decision})
+	if err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(t.TempDir(), "praxis.db")
 	db, err := state.OpenSQLite(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ledger, _ := NewRouteLedger(state.NewSQLiteEventStore(db))
-	if err := ledger.RecordSurfaceDecision(ctx, decision); err != nil {
+	if err := ledger.RecordUnifiedRoute(ctx, record); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -495,8 +499,12 @@ func TestSurfaceDecisionV2PersistsAcrossRestart(t *testing.T) {
 	}
 	defer db.Close()
 	restarted, _ := NewRouteLedger(state.NewSQLiteEventStore(db))
-	replayed, err := restarted.SurfaceDecision(ctx, "agent:durable", request.ID)
-	if err != nil || replayed == nil || replayed.ID != decision.ID || replayed.Evaluator != surfaceEvaluator || replayed.EvaluatorGenerationDigest != decision.EvaluatorGenerationDigest || replayed.EvaluatorScope != request.ID || replayed.Evaluations[0].Evidence.RouteEligibility.ID == "" || !reflect.DeepEqual(replayed.ReasonCodes, decision.ReasonCodes) {
+	replayedRecord, err := restarted.UnifiedRoute(ctx, "agent:durable", request.ID)
+	var replayed *SurfaceRoutingDecision
+	if replayedRecord != nil {
+		replayed = &replayedRecord.Decision
+	}
+	if err != nil || replayedRecord == nil || replayedRecord.ID != record.ID || replayed.ID != decision.ID || replayed.Evaluator != surfaceEvaluator || replayed.EvaluatorGenerationDigest != decision.EvaluatorGenerationDigest || replayed.EvaluatorScope != request.ID || replayed.Evaluations[0].Evidence.RouteEligibility.ID == "" || !reflect.DeepEqual(replayed.ReasonCodes, decision.ReasonCodes) {
 		t.Fatalf("v2 authoritative decision did not survive restart: %#v %v", replayed, err)
 	}
 }
@@ -509,13 +517,17 @@ func TestConcurrentSurfaceDecisionWritesConvergeOrConflictExplicitly(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	record, err := FreezeUnifiedRouteRecord(UnifiedRouteRecord{Decision: decision})
+	if err != nil {
+		t.Fatal(err)
+	}
 	ledger, _ := NewRouteLedger(eventstore.NewMemoryStore())
 	start := make(chan struct{})
 	errs := make(chan error, 2)
 	var ready sync.WaitGroup
 	ready.Add(2)
 	for range 2 {
-		go func() { ready.Done(); <-start; errs <- ledger.RecordSurfaceDecision(ctx, decision) }()
+		go func() { ready.Done(); <-start; errs <- ledger.RecordUnifiedRoute(ctx, record) }()
 	}
 	ready.Wait()
 	close(start)
@@ -525,11 +537,11 @@ func TestConcurrentSurfaceDecisionWritesConvergeOrConflictExplicitly(t *testing.
 			t.Fatalf("concurrent write returned ambiguous error: %v", err)
 		}
 	}
-	replayed, err := ledger.SurfaceDecisions(ctx, request.RouteRequest.SubjectAgentID)
-	if err != nil || len(replayed) != 1 || replayed[0].ID != decision.ID {
+	replayed, err := ledger.UnifiedRoutes(ctx, request.RouteRequest.SubjectAgentID)
+	if err != nil || len(replayed) != 1 || replayed[0].ID != record.ID {
 		t.Fatalf("concurrent writes did not converge on one decision: %#v %v", replayed, err)
 	}
-	if err := ledger.RecordSurfaceDecision(ctx, decision); err != nil {
+	if err := ledger.RecordUnifiedRoute(ctx, record); err != nil {
 		t.Fatalf("idempotent retry failed: %v", err)
 	}
 }

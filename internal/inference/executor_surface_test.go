@@ -108,7 +108,7 @@ func TestExecutorSurfaceV2UsesAuthoritativeEvidenceAndNeutralMetadata(t *testing
 		executorSurface("surface-a", "Codex subscription CLI", contracts.TransportSubscriptionCLI, "interactive"),
 	}
 	authority := authorizeSurfaces(t, request, surfaces)
-	decision, err := SelectExecutorSurface(ctx, request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestExecutorSurfaceV2UsesAuthoritativeEvidenceAndNeutralMetadata(t *testing
 	for left, right := 0, len(reversed)-1; left < right; left, right = left+1, right-1 {
 		reversed[left], reversed[right] = reversed[right], reversed[left]
 	}
-	again, err := SelectExecutorSurface(ctx, request, reversed, surfaceComposer(t, authority), surfaceDecisionTime)
+	again, err := selectExecutorSurfaceAt(ctx, request, reversed, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil || again.ID != decision.ID {
 		t.Fatalf("input order changed v2 decision: %#v %v", again, err)
 	}
@@ -190,7 +190,7 @@ func TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback(t *testing.T) {
 			executorSurface("surface-a", "economy", contracts.TransportSubscriptionCLI, "a-economy"),
 			executorSurface("surface-z", "quality", contracts.TransportSubscriptionCLI, "z-quality"),
 		}
-		decision, err := SelectExecutorSurface(context.Background(), request, surfaces, surfaceComposer(t, authorizeSurfaces(t, request, surfaces)), surfaceDecisionTime)
+		decision, err := selectExecutorSurfaceAt(context.Background(), request, surfaces, surfaceComposer(t, authorizeSurfaces(t, request, surfaces)), surfaceDecisionTime)
 		if err != nil || decision.SelectedProfile != "z-quality" || decision.SelectedSurfaceID != "surface-z" {
 			t.Fatalf("semantic preferred order was not preserved: %#v %v", decision, err)
 		}
@@ -205,7 +205,7 @@ func TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback(t *testing.T) {
 			executorSurface("surface-a", "local-a", contracts.TransportSubscriptionCLI, "a-local"),
 			executorSurface("surface-z", "local-z", contracts.TransportSubscriptionCLI, "z-local"),
 		}
-		decision, err := SelectExecutorSurface(context.Background(), request, surfaces, surfaceComposer(t, authorizeSurfaces(t, request, surfaces)), surfaceDecisionTime)
+		decision, err := selectExecutorSurfaceAt(context.Background(), request, surfaces, surfaceComposer(t, authorizeSurfaces(t, request, surfaces)), surfaceDecisionTime)
 		if err != nil || !decision.Fallback || decision.SelectedProfile != "z-local" || decision.SelectedSurfaceID != "surface-z" {
 			t.Fatalf("semantic fallback order was not preserved: %#v %v", decision, err)
 		}
@@ -250,12 +250,12 @@ func TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence(t *testing.T) {
 				}
 			}
 			authority.evidence[surface.ID] = evidence
-			if _, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
+			if _, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 				t.Fatal("forged or mismatched eligibility evidence was accepted")
 			}
 		})
 	}
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay(t
 		t.Run(test.name+" replay", func(t *testing.T) {
 			authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
 			authority.evidence[surface.ID] = validEvidence(t)
-			decision, err := SelectExecutorSurface(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
+			decision, err := selectExecutorSurfaceAt(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -348,7 +348,7 @@ func TestSurfaceCompositionDerivesOneGovernedEvaluatorLineage(t *testing.T) {
 		t.Fatal(err)
 	}
 	authority.evidence["surface-b"] = second
-	if _, err := SelectExecutorSurface(context.Background(), request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
+	if _, err := selectExecutorSurfaceAt(context.Background(), request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 		t.Fatal("surface composition accepted mixed evaluator authority lineages")
 	}
 	if _, err := NewSurfaceEligibilityComposer(nil); err == nil {
@@ -377,11 +377,20 @@ func TestSurfaceCompositionEnforcesGovernedBudgetAndQuota(t *testing.T) {
 				t.Fatal(err)
 			}
 			authority.evidence[surface.ID] = evidence
-			decision, err := SelectExecutorSurface(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
+			decision, err := selectExecutorSurfaceAt(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
 			if err != nil || decision.Outcome != SurfaceNoEligible || !contains(decision.Evaluations[0].ReasonCodes, test.reason) {
 				t.Fatalf("governed %s denial was not enforced: %#v %v", test.name, decision, err)
 			}
 		})
+	}
+}
+
+func TestPublicSurfaceSelectionUsesCoreTime(t *testing.T) {
+	request := surfaceRequest(t, surfaceTarget(nil))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
+	if _, err := SelectExecutorSurface(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority)); err == nil {
+		t.Fatal("public selection accepted evidence valid only under a caller-controlled historical clock")
 	}
 }
 
@@ -397,7 +406,7 @@ func TestSurfaceV2RejectsStaleEvidenceAndSelectsOnlyAuthorizedFallback(t *testin
 	denied.SecurityAllowed = false
 	denied, _ = FreezeEligibility(denied)
 	authority.evidence[preferred.ID] = denied
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{preferred, fallback}, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{preferred, fallback}, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil || decision.SelectedSurfaceID != fallback.ID || !decision.Fallback || decision.ReasonCodes[0] != ReasonAllowedFallback {
 		t.Fatalf("denied preferred surface won or fallback was not explicit: %#v %v", decision, err)
 	}
@@ -406,7 +415,7 @@ func TestSurfaceV2RejectsStaleEvidenceAndSelectsOnlyAuthorizedFallback(t *testin
 	stale.EvaluatedAt, stale.ValidUntil = surfaceDecisionTime.Add(-2*time.Hour), surfaceDecisionTime.Add(-time.Hour)
 	stale, _ = FreezeEligibility(stale)
 	authority.evidence[fallback.ID] = stale
-	if _, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{preferred, fallback}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
+	if _, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{preferred, fallback}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 		t.Fatal("stale eligibility evidence was accepted")
 	}
 }
@@ -424,7 +433,7 @@ func TestSurfaceV2PreservesRequiredAndAPIFailClosedSemantics(t *testing.T) {
 	denied.Authorized = false
 	denied, _ = FreezeEligibility(denied)
 	authority.evidence[required.ID] = denied
-	decision, err := SelectExecutorSurface(ctx, requiredRequest, []ExecutorSurface{required, fallback}, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, requiredRequest, []ExecutorSurface{required, fallback}, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil || decision.Outcome != SurfaceRequiredUnavailable || decision.SelectedSurfaceID != "" {
 		t.Fatalf("required target did not fail closed: %#v %v", decision, err)
 	}
@@ -438,7 +447,7 @@ func TestSurfaceV2PreservesRequiredAndAPIFailClosedSemantics(t *testing.T) {
 	api := executorSurface("surface-api", "metered", contracts.TransportMeteredAPI, "balanced")
 	cli := executorSurface("surface-cli", "subscription", contracts.TransportSubscriptionCLI, "economy")
 	authority = authorizeSurfaces(t, apiRequest, []ExecutorSurface{api, cli})
-	decision, err = SelectExecutorSurface(ctx, apiRequest, []ExecutorSurface{api, cli}, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err = selectExecutorSurfaceAt(ctx, apiRequest, []ExecutorSurface{api, cli}, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil || decision.Outcome != SurfaceAPIUseProhibited || decision.SelectedSurfaceID != "" || !contains(decision.Evaluations[0].ReasonCodes, ReasonAPIForbidden) {
 		t.Fatalf("API prohibition did not fail closed: %#v %v", decision, err)
 	}
@@ -449,14 +458,14 @@ func TestSurfaceV2TelemetryRequiresProvenanceFreshnessAndExplicitUnknown(t *test
 	request := surfaceRequest(t, surfaceTarget(func(target *contracts.ExecutionTarget) { target.TelemetryRequirements = []string{"quota_state"} }))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
 	authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
-	if _, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
+	if _, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 		t.Fatal("authority omission of required telemetry was accepted")
 	}
 	evidence := authority.evidence[surface.ID]
 	evidence.Telemetry = map[string]SurfaceTelemetryEvidence{"quota_state": {Known: false, ProvenanceRef: "quota:probe", ProvenanceDigest: inferenceDigest("quota:probe"), ObservedAt: surfaceDecisionTime.Add(-time.Minute), ValidUntil: surfaceDecisionTime.Add(time.Minute)}}
 	evidence, _ = FreezeEligibility(evidence)
 	authority.evidence[surface.ID] = evidence
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil || decision.Outcome != SurfaceTelemetryUnsatisfied || !contains(decision.Evaluations[0].ReasonCodes, ReasonTelemetryUnknown+":quota_state") {
 		t.Fatalf("explicit unknown telemetry was not preserved: %#v %v", decision, err)
 	}
@@ -464,7 +473,7 @@ func TestSurfaceV2TelemetryRequiresProvenanceFreshnessAndExplicitUnknown(t *test
 	evidence.Telemetry["quota_state"] = SurfaceTelemetryEvidence{Known: true, Value: "available", ProvenanceRef: "quota:probe", ProvenanceDigest: inferenceDigest("quota:probe"), ObservedAt: surfaceDecisionTime.Add(-time.Hour), ValidUntil: surfaceDecisionTime.Add(-time.Minute)}
 	evidence, _ = FreezeEligibility(evidence)
 	authority.evidence[surface.ID] = evidence
-	if _, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
+	if _, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 		t.Fatal("stale telemetry evidence was accepted")
 	}
 }
@@ -473,7 +482,7 @@ func TestSurfaceDecisionV2PersistsAcrossRestart(t *testing.T) {
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(func(target *contracts.ExecutionTarget) { target.PreferredProfiles = []string{"interactive"} }))
 	surface := executorSurface("surface-a", "Codex subscription CLI", contracts.TransportSubscriptionCLI, "interactive")
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +522,7 @@ func TestConcurrentSurfaceDecisionWritesConvergeOrConflictExplicitly(t *testing.
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}

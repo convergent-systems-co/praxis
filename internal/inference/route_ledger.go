@@ -177,6 +177,16 @@ func validateRouteOutcome(outcome RouteOutcome, requireID bool) error {
 	if outcome.Observation.ID == "" || outcome.Observation.ObservedAt != outcome.ObservedAt || outcome.Observation.PathID != outcome.RouteRecordID || outcome.Observation.ProviderID != outcome.ProviderID {
 		return errors.New("route outcome does not bind its adaptive observation")
 	}
+	if outcome.Observation.CausationRoot != outcome.RouteRecordID {
+		return errors.New("route outcome observation causation root does not bind the route record")
+	}
+	wantObservedOutcome := outcome.ResultOutcome
+	if outcome.Failure != "" {
+		wantObservedOutcome = "executor_error"
+	}
+	if outcome.Observation.Outcome != wantObservedOutcome {
+		return errors.New("route outcome observation result does not match the persisted result")
+	}
 	return nil
 }
 
@@ -508,7 +518,14 @@ func (l *RouteLedger) RecordOutcome(ctx context.Context, subject string, outcome
 	}
 	for _, event := range events {
 		if event.ID == "event:"+outcome.ID {
-			return nil
+			existing, decodeErr := decodeRouteOutcomeEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if inferenceDigest(existing) != inferenceDigest(outcome) {
+				return errors.New("route outcome event identity is already bound to different payload")
+			}
+			return verifyRouteOutcomeEventMetadata(event, existing, subject, binding)
 		}
 		if event.Type == routeOutcomeEvent {
 			var existing RouteOutcome
@@ -530,6 +547,28 @@ func (l *RouteLedger) RecordOutcome(ctx context.Context, subject string, outcome
 	}
 	_, err = l.store.Append(ctx, routeAggregate(subject), int64(len(events)), []eventstore.Event{{ID: "event:" + outcome.ID, AggregateType: "inference_routes", Type: routeOutcomeEvent, Version: routeOutcomeEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: subject, Kind: "agent"}, CommandID: "route-outcome:" + outcome.ID, CorrelationID: binding.Request.RunID, CausationID: outcome.RouteRecordID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: outcome.ObservedAt}})
 	return err
+}
+
+func decodeRouteOutcomeEvent(event eventstore.Event) (RouteOutcome, error) {
+	payload, _, err := routeOutcomeEventVersions.Canonicalize(event.Version, event.Payload)
+	if err != nil {
+		return RouteOutcome{}, err
+	}
+	var outcome RouteOutcome
+	if err := json.Unmarshal(payload, &outcome); err != nil {
+		return RouteOutcome{}, err
+	}
+	if err := VerifyRouteOutcome(outcome); err != nil {
+		return RouteOutcome{}, err
+	}
+	return outcome, nil
+}
+
+func verifyRouteOutcomeEventMetadata(event eventstore.Event, outcome RouteOutcome, subject string, binding executionBinding) error {
+	if binding.RequestID != outcome.RequestID || binding.ExecutorID != outcome.ExecutorID || binding.ProviderID != outcome.ProviderID || !observationMatchesRequest(outcome.Observation, binding.Request) || event.ID != "event:"+outcome.ID || event.AggregateID != routeAggregate(subject) || event.AggregateType != "inference_routes" || event.Type != routeOutcomeEvent || event.Version != routeOutcomeEventVersions.CurrentVersion() || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CommandID != "route-outcome:"+outcome.ID || event.CorrelationID != binding.Request.RunID || event.CausationID != outcome.RouteRecordID || event.Trust != contracts.TrustObserved || !event.CreatedAt.Equal(outcome.ObservedAt) {
+		return errors.New("route outcome event metadata or lineage is invalid")
+	}
+	return nil
 }
 
 func (l *RouteLedger) Outcomes(ctx context.Context, subject string) ([]RouteOutcome, error) {

@@ -14,7 +14,7 @@ import (
 
 func unifiedRecordFor(t *testing.T, request SurfaceRouteRequest, surfaces []ExecutorSurface, authority EligibilityAuthority) UnifiedRouteRecord {
 	t.Helper()
-	decision, err := SelectExecutorSurface(context.Background(), request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(context.Background(), request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,6 +227,32 @@ func TestUnifiedRouteOutcomeBindsRecordIdentityAndReplayMetadata(t *testing.T) {
 	}
 }
 
+func TestRouteOutcomeRejectsObservationMismatchAndUnrelatedDuplicateEventID(t *testing.T) {
+	ctx := context.Background()
+	request := surfaceRequest(t, surfaceTarget(nil))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	record := unifiedRecordFor(t, request, []ExecutorSurface{surface}, authorizeSurfaces(t, request, []ExecutorSurface{surface}))
+	observedAt := surfaceDecisionTime.Add(time.Minute)
+	wrong, _ := adaptation.FreezeObservation(adaptation.Observation{SubjectAgentID: request.RouteRequest.SubjectAgentID, RunID: request.RouteRequest.RunID, GoalClass: request.RouteRequest.GoalClass, Domain: request.RouteRequest.Domain, BehaviorKey: request.RouteRequest.BehaviorKey, Context: request.RouteRequest.Context, CausationRoot: record.ID, Trust: contracts.TrustObserved, ReasoningTier: string(request.RouteRequest.Tier), ProviderID: surface.ProviderID, Outcome: "different", PathID: record.ID, ObservedAt: observedAt})
+	if _, err := FreezeRouteOutcome(RouteOutcome{RouteRecordID: record.ID, RequestID: request.ID, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID, ResultOutcome: "complete", Observation: wrong, ObservedAt: observedAt}); err == nil {
+		t.Fatal("outcome freeze accepted mismatched observation outcome")
+	}
+	observation, _ := adaptation.FreezeObservation(adaptation.Observation{SubjectAgentID: request.RouteRequest.SubjectAgentID, RunID: request.RouteRequest.RunID, GoalClass: request.RouteRequest.GoalClass, Domain: request.RouteRequest.Domain, BehaviorKey: request.RouteRequest.BehaviorKey, Context: request.RouteRequest.Context, CausationRoot: record.ID, Trust: contracts.TrustObserved, ReasoningTier: string(request.RouteRequest.Tier), ProviderID: surface.ProviderID, Outcome: "complete", PathID: record.ID, ObservedAt: observedAt})
+	outcome, _ := FreezeRouteOutcome(RouteOutcome{RouteRecordID: record.ID, RequestID: request.ID, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID, ResultOutcome: "complete", Observation: observation, ObservedAt: observedAt})
+	store := eventstore.NewMemoryStore()
+	ledger, _ := NewRouteLedger(store)
+	if err := ledger.RecordUnifiedRoute(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.Append(ctx, routeAggregate(request.RouteRequest.SubjectAgentID), 1, []eventstore.Event{{ID: "event:" + outcome.ID, AggregateType: "inference_routes", Type: unifiedRouteRecordEvent, Version: "v2", Actor: record.Decision.Evaluator, CommandID: "unrelated", CorrelationID: request.RouteRequest.RunID, CausationID: request.ID, Trust: contracts.TrustPolicy, Payload: []byte(`{}`), CreatedAt: observedAt}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordOutcome(ctx, request.RouteRequest.SubjectAgentID, outcome); err == nil {
+		t.Fatal("unrelated duplicate event identity was treated as idempotent success")
+	}
+}
+
 func TestUnifiedTerminalFailureCannotAcceptExecutionOutcome(t *testing.T) {
 	request := surfaceRequest(t, surfaceTarget(func(target *contracts.ExecutionTarget) {
 		target.PreferredProfiles = []string{"missing"}
@@ -250,7 +276,7 @@ func TestLegacySurfaceWriteIsUnsupportedButValidMigrationReadRemains(t *testing.
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}

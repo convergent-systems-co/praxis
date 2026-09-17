@@ -42,10 +42,26 @@ The evaluator is advisory and has no side effects. It SHALL NOT register,
 activate, promote, approve, or execute a capability. It SHALL preserve the
 input evidence references and a deterministic reason list in its result.
 
-The Goals consumer SHALL require an exact, verified Goal Baseline digest in the
-goal evidence. The learning consumer SHALL retain the blind candidate
-derivation digest beside the review and SHALL NOT pass the review result back
-into blind candidate derivation.
+The Goals consumer SHALL complete Specify and Plan before review, construct the
+complete candidate Goal Baseline, canonically serialize it, and compute its
+digest. Goal evidence SHALL bind the exact candidate baseline ID, version, and
+verified digest. Review SHALL occur after that digest exists and before the
+candidate is authoritatively persisted or the Goals session is completed. The
+same sequence applies to first-run and successor baselines. A predecessor or
+other existing baseline MAY be contextual evidence but SHALL NOT satisfy the
+candidate-baseline binding. Implementations SHALL NOT infer a preliminary or
+two-stage review contract.
+
+The reviewed candidate SHALL remain canonically unchanged through persistence.
+Goals SHALL re-verify the exact digest at the persistence boundary and fail
+closed on missing or mismatched identity, version, digest, or semantic content.
+An unresolved `review_required` result SHALL block persistence and completion.
+Review and its resolution remain advisory gating evidence: neither operation
+persists the baseline, approves it as policy, or grants execution authority.
+
+The learning consumer SHALL retain the blind candidate derivation digest beside
+the review and SHALL NOT pass the review result back into blind candidate
+derivation.
 
 The governed learning registry SHALL persist the advisory review by candidate
 identity, reload it across restart, reject conflicting replacements, and keep
@@ -57,7 +73,9 @@ Malformed input, missing required evidence, duplicate evidence identity, or an
 unknown classification fails closed with an error. A valid but inconclusive
 request returns `review_required`; callers must not reinterpret that result as
 approval. A counterexample can prevent over-generalization but cannot by itself
-prove universal ownership.
+prove universal ownership. Goals candidate-baseline persistence also fails
+closed when review evidence is absent, unresolved, bound to a predecessor or
+other baseline, or stale relative to the candidate's canonical digest.
 
 ## Acceptance evidence
 

@@ -205,6 +205,31 @@ func selectExecutorSurfaceAt(ctx context.Context, request SurfaceRouteRequest, s
 	return buildSurfaceDecision(request, lineage, evaluations, decidedAt)
 }
 
+// RecomputeIssuedSurfaceDecision is the deterministic, non-authoritative
+// algorithm seam used by the core routingauthority package after it has loaded
+// and verified protected issuance records. It performs no authority lookup.
+func RecomputeIssuedSurfaceDecision(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, values []EligibilityEvidence, decidedAt time.Time) (SurfaceRoutingDecision, error) {
+	evidence := map[string]EligibilityEvidence{}
+	for _, value := range values {
+		if value.SurfaceID == "" || evidence[value.SurfaceID].ID != "" {
+			return SurfaceRoutingDecision{}, errors.New("issued eligibility requires unique surface identity")
+		}
+		evidence[value.SurfaceID] = value
+	}
+	composer, _ := newSurfaceEligibilityComposer(eligibilityEvidenceMap(evidence))
+	return selectExecutorSurfaceAt(ctx, request, surfaces, composer, decidedAt)
+}
+
+type eligibilityEvidenceMap map[string]EligibilityEvidence
+
+func (m eligibilityEvidenceMap) EvaluateRouteEligibility(_ context.Context, _ RouteRequest, candidate RouteCandidate) (EligibilityEvidence, error) {
+	value, ok := m[candidate.SurfaceID]
+	if !ok {
+		return EligibilityEvidence{}, errors.New("surface lacks issued eligibility")
+	}
+	return value, nil
+}
+
 func VerifySurfaceRoutingDecision(decision SurfaceRoutingDecision) error {
 	if _, _, err := surfaceDecisionVersions.Canonicalize(decision.Version, nil); err != nil {
 		return err

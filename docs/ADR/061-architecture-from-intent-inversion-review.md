@@ -39,6 +39,23 @@ owners remain responsible for their own authoritative decisions. A worker,
 fixture, caller assertion, or review result cannot mint approval, readiness,
 promotion, or execution authority.
 
+For Goals/design, the review applies to the candidate Goal Baseline produced by
+the current session. Goals first completes Specify and Plan, canonically
+serializes the complete candidate, and computes its digest. The review then
+binds that exact candidate baseline identity, version, and digest before any
+authoritative persistence or completion transition. This ordering applies to
+first-run baselines as well as successor baselines; it does not require a
+predecessor. A predecessor or other existing baseline may be contextual
+evidence, but cannot satisfy the candidate-baseline binding and does not create
+a preliminary or two-stage review contract.
+
+The candidate must remain byte-for-byte canonically equivalent between review
+and persistence. A missing or mismatched digest, a post-review semantic change,
+an unresolved `review_required` result, or a failed review blocks persistence
+and completion. Resolving review permits the Goals owner to continue through
+its existing authority boundary; neither the advisory result nor its
+resolution persists the baseline or grants execution authority by itself.
+
 Learning consumers SHALL be able to record the review evidence beside a blind
 candidate without feeding the candidate's conclusion back into the blind
 derivation step. Historical evidence remains immutable and new evidence is

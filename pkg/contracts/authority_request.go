@@ -222,6 +222,203 @@ type AuthorityRequest struct {
 	ClosureDigest              string        `json:"closure_digest,omitempty"`
 	VerificationEvidenceDigest string        `json:"verification_evidence_digest,omitempty"`
 	Intent                     *ActionIntent `json:"intent,omitempty"`
+	// ReRequestOf records the immutable predecessor authority chain when this
+	// request is a fresh solicitation for the same ActionIntent. It is
+	// lineage, not authority, and is never interpreted as a renewed grant.
+	ReRequestOf *AuthorityReRequestLineage `json:"re_request_of,omitempty"`
+}
+
+// AuthorityReRequestLineage binds a fresh request to one exact historical
+// request, decision, generation, and immutable intent. Every field is part of
+// the request digest; the predecessor records remain immutable and are never
+// rewritten.
+type AuthorityReRequestLineage struct {
+	RequestID         string `json:"request_id"`
+	RequestVersion    string `json:"request_version"`
+	RequestDigest     string `json:"request_digest"`
+	IntentID          string `json:"intent_id"`
+	IntentVersion     string `json:"intent_version"`
+	IntentDigest      string `json:"intent_digest"`
+	DecisionRef       string `json:"decision_ref"`
+	DecisionVersion   string `json:"decision_version"`
+	DecisionDigest    string `json:"decision_digest"`
+	GenerationRef     string `json:"generation_ref"`
+	GenerationVersion string `json:"generation_version"`
+	GenerationDigest  string `json:"generation_digest"`
+}
+
+func (l AuthorityReRequestLineage) Validate() error {
+	if l.RequestID == "" || l.RequestVersion == "" || l.IntentID == "" || l.IntentVersion == "" || l.DecisionRef == "" || l.DecisionVersion == "" || l.GenerationRef == "" || l.GenerationVersion == "" {
+		return errors.New("re-request lineage identity is incomplete")
+	}
+	for _, digest := range []string{l.RequestDigest, l.IntentDigest, l.DecisionDigest, l.GenerationDigest} {
+		if err := ValidateSHA256Digest(digest); err != nil {
+			return fmt.Errorf("re-request lineage digest: %w", err)
+		}
+	}
+	return nil
+}
+
+// AuthorityReRequestEffectState is deliberately generic. Domain packages
+// must translate their durable effect state into this closed vocabulary
+// before invoking the re-request primitive.
+type AuthorityReRequestEffectState string
+
+const (
+	AuthorityReRequestNoEffect   AuthorityReRequestEffectState = "no-effect"
+	AuthorityReRequestPlanned    AuthorityReRequestEffectState = "planned"
+	AuthorityReRequestPending    AuthorityReRequestEffectState = "pending"
+	AuthorityReRequestDispatched AuthorityReRequestEffectState = "dispatched"
+	AuthorityReRequestUnknown    AuthorityReRequestEffectState = "unknown"
+	AuthorityReRequestPartial    AuthorityReRequestEffectState = "partial"
+	AuthorityReRequestFailed     AuthorityReRequestEffectState = "failed"
+	AuthorityReRequestSucceeded  AuthorityReRequestEffectState = "succeeded"
+)
+
+// AuthorityReRequestEligibility is the caller-supplied, durable lifecycle
+// projection used by the generic primitive. Callers must not infer these
+// values from an error string or a provider narrative.
+type AuthorityReRequestEligibility struct {
+	Now              time.Time
+	FreshExpiresAt   time.Time
+	EffectState      AuthorityReRequestEffectState
+	EffectAttempts   int
+	ObservedEffect   bool
+	IntentCurrent    bool
+	Completed        bool
+	Abandoned        bool
+	Superseded       bool
+	AuthorityRevoked bool
+	ConflictingChain bool
+}
+
+// BuildAuthorityReRequest deterministically prepares a fresh pending request
+// for the exact same immutable ActionIntent. It performs no persistence,
+// decision, delegation, or execution. The resulting ID is stable for the
+// predecessor request and intent, so duplicate/concurrent callers converge;
+// a changed fresh expiry produces a content conflict rather than a second
+// current chain.
+func BuildAuthorityReRequest(prior AuthorityRequest, priorDecision AuthorityDecision, priorGeneration AuthorityGeneration, eligibility AuthorityReRequestEligibility) (AuthorityRequest, error) {
+	if eligibility.Now.IsZero() {
+		return AuthorityRequest{}, errors.New("re-request eligibility time is required")
+	}
+	if prior.Intent == nil || prior.IntentDigest == "" {
+		return AuthorityRequest{}, errors.New("re-request predecessor must bind an ActionIntent")
+	}
+	intentDigest, err := prior.Intent.Digest()
+	if err != nil || intentDigest != prior.IntentDigest {
+		return AuthorityRequest{}, errors.New("re-request predecessor ActionIntent digest mismatch")
+	}
+	if err := prior.ValidateAt(priorGeneration.EffectiveAt); err != nil {
+		return AuthorityRequest{}, fmt.Errorf("invalid re-request predecessor: %w", err)
+	}
+	priorDigest, err := prior.DigestAt(priorGeneration.EffectiveAt)
+	if err != nil {
+		return AuthorityRequest{}, err
+	}
+	decisionDigest, err := priorDecision.Digest()
+	if err != nil {
+		return AuthorityRequest{}, fmt.Errorf("invalid re-request predecessor decision: %w", err)
+	}
+	if err := priorDecision.Validate(prior, priorGeneration.EffectiveAt); err != nil {
+		return AuthorityRequest{}, fmt.Errorf("invalid re-request predecessor decision: %w", err)
+	}
+	if priorDecision.RequestID != prior.ID || priorDecision.RequestVersion != prior.Version || priorDecision.RequestDigest != priorDigest || priorDecision.Outcome != AuthorityApprove {
+		return AuthorityRequest{}, errors.New("re-request predecessor decision does not bind the exact request")
+	}
+	if err := priorGeneration.Validate(); err != nil {
+		return AuthorityRequest{}, fmt.Errorf("invalid re-request predecessor generation: %w", err)
+	}
+	if err := priorGeneration.VerifyDigest(); err != nil {
+		return AuthorityRequest{}, err
+	}
+	if priorDecision.AuthorityRef == "" || priorDecision.AuthorityVersion == "" || priorDecision.AuthorityGenerationDigest == "" || priorGeneration.DelegationRef != prior.ID+"/"+prior.Version || priorGeneration.DelegationDigest != priorDigest || priorGeneration.ProvenanceDigest != priorDecision.AuthorityDigest || priorGeneration.Principal != prior.Delegation.DelegatedPrincipal || priorGeneration.Scope != prior.Delegation.RequestedScope {
+		return AuthorityRequest{}, errors.New("re-request predecessor generation does not bind the exact request and decision")
+	}
+	if priorGeneration.ExpiresAt == nil || eligibility.Now.Before(priorGeneration.ExpiresAt.UTC()) {
+		return AuthorityRequest{}, errors.New("re-request requires an expired predecessor generation")
+	}
+	if eligibility.AuthorityRevoked {
+		return AuthorityRequest{}, errors.New("revoked authority is not eligible for ordinary re-request")
+	}
+	if eligibility.ConflictingChain {
+		return AuthorityRequest{}, errors.New("a conflicting current authority chain blocks re-request")
+	}
+	if !eligibility.IntentCurrent || eligibility.Completed || eligibility.Abandoned || eligibility.Superseded {
+		return AuthorityRequest{}, errors.New("ActionIntent lifecycle is not eligible for re-request")
+	}
+	if eligibility.EffectAttempts != 0 || eligibility.ObservedEffect {
+		return AuthorityRequest{}, errors.New("re-request requires no execution or effect attempt")
+	}
+	switch eligibility.EffectState {
+	case AuthorityReRequestNoEffect, AuthorityReRequestPlanned, AuthorityReRequestPending:
+	default:
+		return AuthorityRequest{}, fmt.Errorf("effect state %q is not eligible for re-request", eligibility.EffectState)
+	}
+	if prior.ReRequestOf != nil {
+		return AuthorityRequest{}, errors.New("a re-request cannot itself be renewed through the same predecessor transition")
+	}
+	if prior.Delegation == nil || priorDecision.Delegation == nil {
+		return AuthorityRequest{}, errors.New("re-request predecessor must bind delegation")
+	}
+	if !reflect.DeepEqual(*prior.Delegation, *priorDecision.Delegation) {
+		return AuthorityRequest{}, errors.New("re-request predecessor delegation decision mismatch")
+	}
+	if eligibility.FreshExpiresAt.IsZero() || !eligibility.FreshExpiresAt.After(eligibility.Now) {
+		return AuthorityRequest{}, errors.New("fresh re-request expiry must be bounded after eligibility time")
+	}
+	delegation := *prior.Delegation
+	delegation.ExpiresAt = eligibility.FreshExpiresAt.UTC()
+	lineage := &AuthorityReRequestLineage{
+		RequestID: prior.ID, RequestVersion: prior.Version, RequestDigest: priorDigest,
+		IntentID: prior.Intent.ID, IntentVersion: prior.Intent.Version, IntentDigest: intentDigest,
+		DecisionRef: priorDecision.DecisionRef, DecisionVersion: priorDecision.DecisionVersion, DecisionDigest: decisionDigest,
+		GenerationRef: priorGeneration.Ref, GenerationVersion: priorGeneration.Version, GenerationDigest: priorGeneration.Digest,
+	}
+	fresh := prior
+	fresh.ID = "authority-rerequest:" + intentDigest + ":" + priorDigest
+	fresh.Status = AuthorityRequestPending
+	fresh.Delegation = &delegation
+	fresh.ReRequestOf = lineage
+	fresh.Intent = cloneActionIntent(*prior.Intent)
+	if err := fresh.ValidateAt(eligibility.Now); err != nil {
+		return AuthorityRequest{}, fmt.Errorf("fresh re-request is invalid: %w", err)
+	}
+	if err := validateReRequestUnchangedBoundary(prior, fresh); err != nil {
+		return AuthorityRequest{}, err
+	}
+	return fresh, nil
+}
+
+func cloneActionIntent(in ActionIntent) *ActionIntent {
+	out := in
+	if in.Parameters != nil {
+		out.Parameters = mapsClone(in.Parameters)
+	}
+	if in.Preconditions != nil {
+		out.Preconditions = mapsClone(in.Preconditions)
+	}
+	return &out
+}
+
+func mapsClone(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func validateReRequestUnchangedBoundary(prior, fresh AuthorityRequest) error {
+	if fresh.Intent == nil || prior.Intent == nil {
+		return errors.New("re-request ActionIntent is missing")
+	}
+	pd, _ := prior.Intent.Digest()
+	fd, _ := fresh.Intent.Digest()
+	if pd != fd || fresh.Intent.Actor != prior.Intent.Actor || fresh.RequestedAuthority != prior.RequestedAuthority || fresh.RequestedScope != prior.RequestedScope || fresh.Delegation.DelegatedPrincipal != prior.Delegation.DelegatedPrincipal || fresh.Delegation.RequestedAuthority != prior.Delegation.RequestedAuthority || fresh.Delegation.RequestedOperation != prior.Delegation.RequestedOperation || fresh.Delegation.RequestedScope != prior.Delegation.RequestedScope || fresh.Delegation.TargetKind != prior.Delegation.TargetKind || fresh.Delegation.TargetIdentity != prior.Delegation.TargetIdentity || fresh.Delegation.TargetVersion != prior.Delegation.TargetVersion || fresh.Delegation.TargetDigest != prior.Delegation.TargetDigest {
+		return errors.New("re-request broadens or changes the immutable authority boundary")
+	}
+	return nil
 }
 
 func (r AuthorityRequest) Validate() error { return r.ValidateAt(time.Now().UTC()) }
@@ -237,6 +434,21 @@ func (r AuthorityRequest) ValidateAt(at time.Time) error {
 	}
 	if r.Status != AuthorityRequestPending && r.Status != AuthorityRequestResolved && r.Status != AuthorityRequestInvalidated {
 		return fmt.Errorf("unknown authority request status %q", r.Status)
+	}
+	if r.ReRequestOf != nil {
+		if r.Intent == nil || r.IntentDigest == "" {
+			return errors.New("re-request must bind an exact ActionIntent")
+		}
+		if err := r.ReRequestOf.Validate(); err != nil {
+			return err
+		}
+		intentDigest, err := r.Intent.Digest()
+		if err != nil || intentDigest != r.IntentDigest {
+			return errors.New("re-request ActionIntent digest mismatch")
+		}
+		if r.ID != "authority-rerequest:"+r.IntentDigest+":"+r.ReRequestOf.RequestDigest || r.ReRequestOf.IntentID != r.Intent.ID || r.ReRequestOf.IntentVersion != r.Intent.Version || r.ReRequestOf.IntentDigest != r.IntentDigest {
+			return errors.New("re-request identity or ActionIntent lineage mismatch")
+		}
 	}
 	if r.RequestedAuthority == AuthorityDelegateCapability || r.RequestedAuthority == GovernedPackagePublish || (r.RequestedAuthority == GovernedPackageDeploy && r.Delegation != nil) {
 		if r.Delegation == nil {

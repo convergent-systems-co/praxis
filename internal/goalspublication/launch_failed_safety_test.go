@@ -27,7 +27,7 @@ import (
 // behavior, not merely asserted by comment.
 func TestRunGHLaunchFailureNeverStartsAnOSProcess(t *testing.T) {
 	t.Setenv("PATH", t.TempDir()) // a directory containing no "gh" executable
-	_, err := runGH(context.Background(), []string{"api", "/rate_limit"}, nil, "")
+	_, err := runGH(context.Background(), []string{"api", "/rate_limit"}, nil, "", maxAPIResponseBytes)
 	if err == nil {
 		t.Fatal("expected runGH to fail when gh cannot be found on PATH")
 	}

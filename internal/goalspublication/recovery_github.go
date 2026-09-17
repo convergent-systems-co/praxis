@@ -61,7 +61,7 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 			if fmt.Sprint(asset.ID) != a.Parameters[want] {
 				return errors.New("failed-verification asset identity mismatch")
 			}
-			b, err := readAsset(ctx, asset.ID)
+			b, err := readAsset(ctx, asset.ID, asset.Size)
 			if err != nil {
 				return err
 			}
@@ -83,7 +83,7 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		return err
 	}
 	for _, asset := range r.Assets {
-		b, err := readAsset(ctx, asset.ID)
+		b, err := readAsset(ctx, asset.ID, asset.Size)
 		if err != nil {
 			return err
 		}
@@ -220,7 +220,7 @@ func (g RecoveryGitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, 
 		}
 		o.Release = &r
 		for _, asset := range r.Assets {
-			b, err := readAsset(ctx, asset.ID)
+			b, err := readAsset(ctx, asset.ID, asset.Size)
 			if err != nil {
 				return o, err
 			}
@@ -262,7 +262,7 @@ func (g RecoveryGitHub) Reconcile(ctx context.Context, a contracts.ActionIntent,
 	}
 	o.Release = &r
 	for _, asset := range r.Assets {
-		b, e := readAsset(ctx, asset.ID)
+		b, e := readAsset(ctx, asset.ID, asset.Size)
 		if e != nil {
 			return o, e
 		}

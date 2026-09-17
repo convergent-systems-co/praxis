@@ -107,11 +107,50 @@ func (b *boundedCapture) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// failClosedCapture bounds FUNCTIONAL stdout — output a caller returns and
+// uses as real data (asset bytes, JSON to unmarshal), as opposed to
+// boundedCapture's diagnostic-only, silent-truncation use for stderr. It
+// must never silently drop bytes: exceeding limit fails the write itself,
+// which os/exec surfaces as an I/O error from Wait/Run, so oversized or
+// unexpected functional output is reported as a transport failure rather
+// than accepted as valid (truncated) content.
+//
+// buf is a named field, NOT an embedded bytes.Buffer: embedding would
+// promote bytes.Buffer's own ReadFrom method, and io.Copy (which os/exec
+// uses internally to stream a subprocess's stdout to this writer) prefers
+// calling ReaderFrom.ReadFrom over repeated Write calls when the
+// destination implements it — silently bypassing this type's Write bound
+// entirely and defeating the whole limit. Keeping buf unexported and
+// forwarding only Write/Bytes/String ourselves is the actual, verified fix
+// (confirmed by test: an embedded-bytes.Buffer version let 101 bytes
+// through a 100-byte limit with no error).
+type failClosedCapture struct {
+	buf   bytes.Buffer
+	limit int64
+}
+
+func (b *failClosedCapture) Write(p []byte) (int, error) {
+	if int64(b.buf.Len())+int64(len(p)) > b.limit {
+		return 0, fmt.Errorf("output exceeded %d byte limit", b.limit)
+	}
+	return b.buf.Write(p)
+}
+func (b *failClosedCapture) Bytes() []byte  { return b.buf.Bytes() }
+func (b *failClosedCapture) String() string { return b.buf.String() }
+
 func (e dispatchFailure) Error() string    { return e.err.Error() }
 func (e dispatchFailure) Unwrap() error    { return e.err }
 func (e dispatchFailure) Evidence() []byte { b, _ := json.Marshal(e.outcome); return b }
 
 const maxDiagnosticBytes = 1024
+
+// maxAPIResponseBytes bounds JSON API responses (release/repo/user metadata,
+// asset-upload confirmations) that this codebase always unmarshals as small
+// structured data — comfortably larger than any realistic response from
+// these specific GitHub REST endpoints, but still a firm ceiling rather
+// than unbounded, so a misbehaving or compromised provider cannot force
+// unbounded memory growth through this path.
+const maxAPIResponseBytes = 1 << 20
 
 var statusPattern = regexp.MustCompile(`(?i)(?:HTTP(?:/[^ ]+)?[ :]+|status[=: ]+)([1-5][0-9]{2})`)
 var requestIDPattern = regexp.MustCompile(`(?i)(?:x-github-request-id|request[- ]id)[=: ]+([A-F0-9-]{8,80})`)
@@ -179,12 +218,14 @@ func providerDiagnostics(raw string) (string, string, []ProviderError) {
 const apiRepo = "repos/" + contracts.GoalsPublicationRepository
 
 func gh(ctx context.Context, args []string, body []byte) ([]byte, error) {
-	return runGH(ctx, args, bytes.NewReader(body), "")
+	return runGH(ctx, args, bytes.NewReader(body), "", maxAPIResponseBytes)
 }
 
 // ghFile is used only for binary release-asset uploads. A real file lets gh
 // determine the exact body length while preserving the bytes and credentials
-// handling of the existing subprocess transport.
+// handling of the existing subprocess transport. The response itself is a
+// small JSON asset-metadata confirmation, so it uses the same bounded API
+// response cap as gh, not the large asset-download cap.
 func ghFile(ctx context.Context, args []string, body []byte) ([]byte, error) {
 	f, err := os.CreateTemp("", "praxis-gh-upload-")
 	if err != nil {
@@ -203,16 +244,34 @@ func ghFile(ctx context.Context, args []string, body []byte) ([]byte, error) {
 	if err = f.Close(); err != nil {
 		return nil, err
 	}
-	return runGH(ctx, args, nil, path)
+	return runGH(ctx, args, nil, path, maxAPIResponseBytes)
 }
 
-func runGH(ctx context.Context, args []string, input io.Reader, inputFile string) ([]byte, error) {
+// runGH's caller supplies the exact functional-stdout bound: for the two
+// small-JSON transports (gh, ghFile) that is the fixed maxAPIResponseBytes
+// ceiling; for a large binary asset download (readAsset) it is the exact
+// expected size from trusted, already-verified GitHub release metadata, so
+// a download that doesn't match that size fails closed instead of either
+// truncating (the original defect) or growing unbounded (this review's
+// finding).
+func runGH(ctx context.Context, args []string, input io.Reader, inputFile string, maxStdoutBytes int64) ([]byte, error) {
 	if inputFile != "" {
 		args = append(append([]string(nil), args...), "--input", inputFile)
 	}
 	c := exec.CommandContext(ctx, "gh", args...)
 	c.Stdin = input
-	out := &boundedCapture{limit: 8192}
+	// stdout is the actual functional payload on success (readAsset returns
+	// it directly as downloaded binary asset bytes, which can be many
+	// megabytes) and must never be silently truncated; boundedCapture's
+	// silent-truncation behavior is reserved for stderr, which is
+	// diagnostic-only and never returned as functional data (the separate
+	// maxDiagnosticBytes truncation already applied when persisted evidence
+	// is built from it — see providerDiagnostics — is what actually bounds
+	// what gets retained from it). Functional stdout instead uses
+	// failClosedCapture: bounded to an explicit, caller-supplied maximum
+	// derived from a trusted size contract, and any attempt to exceed it
+	// fails the read rather than accepting truncated or unbounded content.
+	out := &failClosedCapture{limit: maxStdoutBytes}
 	stderr := &boundedCapture{limit: 8192}
 	c.Stdout = out
 	c.Stderr = stderr
@@ -392,8 +451,19 @@ func readRelease(ctx context.Context, id int64) (Release, error) {
 	}
 	return r, e
 }
-func readAsset(ctx context.Context, id int64) ([]byte, error) {
-	return gh(ctx, []string{"api", "--hostname", "github.com", "--method", "GET", fmt.Sprintf("%s/releases/assets/%d", apiRepo, id), "-H", "Accept: application/octet-stream"}, nil)
+
+// readAsset downloads one release asset's raw bytes. expectedSize must come
+// from already-fetched, trusted GitHub release metadata (Asset.Size) — not
+// a caller guess — and bounds the download exactly: a response longer than
+// expectedSize fails closed instead of being silently truncated (the
+// original defect) or accepted unbounded (a resource-exhaustion surface).
+// A response shorter than expectedSize succeeds here but is still caught by
+// existing downstream exact-length/digest checks.
+func readAsset(ctx context.Context, id int64, expectedSize int64) ([]byte, error) {
+	if expectedSize <= 0 {
+		return nil, fmt.Errorf("asset %d has no trusted expected size to bound the download", id)
+	}
+	return runGH(ctx, []string{"api", "--hostname", "github.com", "--method", "GET", fmt.Sprintf("%s/releases/assets/%d", apiRepo, id), "-H", "Accept: application/octet-stream"}, bytes.NewReader(nil), "", expectedSize)
 }
 
 // Check executes immediately before each step, after current authority checks.
@@ -454,7 +524,7 @@ func (g GitHub) Check(ctx context.Context, a contracts.ActionIntent, step string
 		if index+2 >= len(previous) || previous[index+2].Asset == nil || previous[index+2].Asset.ID != asset.ID {
 			return errors.New("asset lacks exact dispatch evidence")
 		}
-		b, e := readAsset(ctx, asset.ID)
+		b, e := readAsset(ctx, asset.ID, asset.Size)
 		if e != nil {
 			return e
 		}
@@ -566,7 +636,7 @@ func (g GitHub) Dispatch(ctx context.Context, a contracts.ActionIntent, step str
 		for _, name := range assetNames {
 			for _, asset := range r.Assets {
 				if asset.Name == name {
-					b, err := readAsset(ctx, asset.ID)
+					b, err := readAsset(ctx, asset.ID, asset.Size)
 					if err != nil {
 						return o, err
 					}

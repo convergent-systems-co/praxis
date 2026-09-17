@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/architecturereview"
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/packages/goals"
@@ -238,6 +239,31 @@ func TestRepositorySessionCheckpointSurvivesRestartAndResumes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	for _, outcome := range []string{"ready", "ready", "ready", "ready"} {
+		if err := session.Advance(outcome); err != nil {
+			t.Fatal(err)
+		}
+	}
+	candidate := session.Baseline
+	candidate.RefinedOutcome = "Produce a reliable research plan"
+	candidate.Rigor = goals.RigorRigorous
+	candidate.RecommendationMode = goals.RecommendationReviewAll
+	if err := session.SetBaseline(candidate); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Advance("digested"); err != nil {
+		t.Fatal(err)
+	}
+	req := architecturereview.Request{
+		Capability: "research-plan", ProposedOwner: "goals", ReusableAcrossScopes: true,
+		GoalEvidence:      []architecturereview.EvidenceRef{{ID: "baseline:" + candidate.ID + "@" + candidate.Version, Kind: "goal_baseline", Digest: session.Baseline.Digest}},
+		InvariantEvidence: []architecturereview.EvidenceRef{{ID: "invariant", Kind: "invariant", Digest: "sha256:invariant"}},
+		MechanismEvidence: []architecturereview.EvidenceRef{{ID: "mechanism", Kind: "mechanism", Digest: "sha256:mechanism"}},
+		PolicyEvidence:    []architecturereview.EvidenceRef{{ID: "policy", Kind: "policy", Digest: "sha256:policy"}},
+	}
+	if err := session.ReviewArchitecture(req); err != nil {
+		t.Fatal(err)
+	}
 	if err := repo.SaveSession(context.Background(), session, "5", time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +284,7 @@ func TestRepositorySessionCheckpointSurvivesRestartAndResumes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resumed.Stage != goals.StageDecide || resumed.StageOutcomes[goals.StageCalibrate] != "review_all" {
+	if resumed.Stage != goals.StageArchitectureReview || resumed.StageOutcomes[goals.StagePlan] != "ready" || resumed.ReviewReceipt.ID == "" {
 		t.Fatalf("checkpoint did not preserve resumable responsibility state: %+v", resumed)
 	}
 	if err := resumed.Advance("ready"); err != nil {

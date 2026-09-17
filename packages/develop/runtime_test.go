@@ -49,6 +49,8 @@ func (s *scriptedExecutor) ExecuteNode(_ context.Context, graph kernel.GraphDef,
 			return kernel.NodeResult{Outcome: "ready"}, nil
 		case "model", "architecture_review":
 			return kernel.NodeResult{Outcome: "ready"}, nil
+		case "candidate_baseline":
+			return kernel.NodeResult{Outcome: "digested"}, nil
 		case "specify":
 			return kernel.NodeResult{Outcome: "ready"}, nil
 		case "plan":

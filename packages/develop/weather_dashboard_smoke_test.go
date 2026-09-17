@@ -47,6 +47,8 @@ func (e *weatherDashboardSmokeExecutor) ExecuteNode(_ context.Context, graph ker
 			result = kernel.NodeResult{Outcome: "ready", Evidence: []string{"spec:responsive-html-no-external-api"}}
 		case "plan":
 			result = kernel.NodeResult{Outcome: "ready", Evidence: []string{"plan:generate-validate-integrate"}}
+		case "candidate_baseline":
+			result = kernel.NodeResult{Outcome: "digested", Evidence: []string{"candidate-baseline:sha256:weather-dashboard-smoke"}}
 		case "baseline":
 			result = kernel.NodeResult{Outcome: "stored", Evidence: []string{"goal-baseline:sha256:weather-dashboard-smoke"}}
 		default:

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/architecturereview"
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
@@ -76,10 +77,26 @@ func TestParentGoal(t *testing.T) {
 	if err := resumed.SetBaseline(baseline); err != nil {
 		t.Fatal(err)
 	}
+	if err := resumed.Advance("digested"); err != nil {
+		t.Fatal(err)
+	}
+	review := architecturereview.Request{
+		Capability: "issue-dogfood", ProposedOwner: "goals", ReusableAcrossScopes: true,
+		GoalEvidence:      []architecturereview.EvidenceRef{{ID: "baseline:" + baseline.ID + "@" + baseline.Version, Kind: "goal_baseline", Digest: resumed.Baseline.Digest}},
+		InvariantEvidence: []architecturereview.EvidenceRef{{ID: "invariant:authority", Kind: "invariant", Digest: "sha256:authority-boundary"}},
+		MechanismEvidence: []architecturereview.EvidenceRef{{ID: "mechanism:session", Kind: "mechanism", Digest: "sha256:goals-session"}},
+		PolicyEvidence:    []architecturereview.EvidenceRef{{ID: "policy:dogfood", Kind: "policy", Digest: "sha256:dogfood-policy"}},
+	}
+	if err := resumed.ReviewArchitecture(review); err != nil {
+		t.Fatal(err)
+	}
+	if err := resumed.Advance("ready"); err != nil {
+		t.Fatal(err)
+	}
 	if err := resumed.Advance("stored"); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := repo.Finalize(ctx, goalstore.FinalizeRequest{Baseline: resumed.Baseline, Persist: true, CreatedAt: time.Now().UTC()})
+	saved, err := repo.Finalize(ctx, goalstore.FinalizeRequest{Baseline: resumed.Baseline, Review: resumed.ReviewReceipt, Persist: true, CreatedAt: time.Now().UTC()})
 	if err != nil {
 		t.Fatal(err)
 	}

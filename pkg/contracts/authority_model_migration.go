@@ -59,3 +59,23 @@ func VerifyAuthorityModelMigration(m AuthorityModelMigration, source, target Aut
 	}
 	return nil
 }
+
+func ValidateAuthorityModelMigrationApproval(m AuthorityModelMigration, source, target AuthorityGeneration, request AuthorityRequest, decision AuthorityDecision, now time.Time) error {
+	if err := VerifyAuthorityModelMigration(m, source, target); err != nil {
+		return err
+	}
+	if request.RequestedAuthority != AuthorityDelegateCapability || request.RequestedScope != source.Scope || request.Delegation == nil || decision.Outcome != AuthorityApprove {
+		return errors.New("authority-model migration requires approved owner transition request")
+	}
+	if err := decision.Validate(request, now); err != nil {
+		return err
+	}
+	d := request.Delegation
+	if d.ParentRef != source.Ref || d.ParentVersion != source.Version || d.ParentDigest != source.Digest || d.DelegatedPrincipal != source.Principal || d.TargetKind != "authority.model.root" || d.TargetIdentity != target.Ref || d.TargetVersion != target.Version || d.TargetDigest != target.Digest || d.ProposalDigest != m.ID || d.ReviewDigest != AuthorityModelV2Digest() || d.RequestedAuthority != AuthorityModelMigrate || d.RequestedOperation != "migrate" || d.RequestedScope != source.Scope || len(d.RequestedCapabilities) != 0 || len(d.RequestedOperations) != 0 || d.PolicyRef != AuthorityModelID || d.PolicyVersion != AuthorityModelV2Version || d.PolicyDigest != AuthorityModelV2Digest() {
+		return errors.New("authority-model migration approval does not bind exact transition")
+	}
+	if decision.AuthorityRef != source.Ref || decision.AuthorityVersion != source.Version || decision.AuthorityGenerationDigest != source.Digest || decision.DecidedBy != source.Principal || decision.GrantedScope != source.Scope {
+		return errors.New("authority-model migration decision is not issued by exact installation owner root")
+	}
+	return nil
+}

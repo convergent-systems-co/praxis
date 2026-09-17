@@ -17,6 +17,7 @@ const (
 	GovernedWorkPlanAccept                  = "workplan.accept"
 	AuthorityRoutingTargetContributionIssue = "routing.target-contribution.issue"
 	AuthorityRoutingSurfaceEligibilityIssue = "routing.surface-eligibility.issue"
+	AuthorityModelMigrate                   = "authority.model.migrate"
 )
 
 func AuthorityModelDigest() string {
@@ -93,17 +94,36 @@ func validateV2Delegation(request DelegationRequest, now time.Time) error {
 	if err := ValidateAuthorityModel(request.PolicyRef, request.PolicyVersion, request.PolicyDigest); err != nil || request.PolicyVersion != AuthorityModelV2Version {
 		return errors.New("routing delegation requires authority model v2 policy")
 	}
-	wantKind, wantOperation := "", "issue"
+	wantKind, wantOperation, wantScope := "", "issue", ""
 	switch request.RequestedAuthority {
 	case AuthorityRoutingTargetContributionIssue:
 		wantKind = "routing.target-contribution"
+		wantScope, _ = RoutingTargetContributionScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest)
 	case AuthorityRoutingSurfaceEligibilityIssue:
 		wantKind = "routing.surface-eligibility"
+		if len(request.TargetConstraints) != 1 {
+			return errors.New("surface eligibility delegation requires one canonical surface digest")
+		}
+		wantScope, _ = RoutingSurfaceEligibilityScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest, request.TargetConstraints[0])
 	default:
 		return errors.New("v2 delegation authority is not in the closed routing table")
 	}
-	if request.TargetKind != wantKind || request.RequestedOperation != wantOperation || len(request.RequestedCapabilities) != 0 || len(request.RequestedOperations) != 0 || !isSHA256Digest(request.TargetDigest) || !isSHA256Digest(request.ProposalDigest) || !isSHA256Digest(request.ReviewDigest) || request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
+	if request.TargetKind != wantKind || request.TargetIdentity == "" || request.TargetVersion == "" || request.RequestedScope != wantScope || request.RequestedOperation != wantOperation || len(request.RequestedCapabilities) != 0 || len(request.RequestedOperations) != 0 || !isSHA256Digest(request.TargetDigest) || !isSHA256Digest(request.ProposalDigest) || !isSHA256Digest(request.ReviewDigest) || request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
 		return errors.New("v2 routing delegation requires exact target, issue operation, no capabilities, and future expiry")
 	}
 	return nil
+}
+
+func RoutingTargetContributionScope(identity, version, digest string) (string, error) {
+	if identity == "" || version == "" || !isSHA256Digest(digest) {
+		return "", errors.New("target contribution scope requires exact identity, version, and digest")
+	}
+	return fmt.Sprintf("routing-target/%s/%s/%s", identity, version, digest), nil
+}
+
+func RoutingSurfaceEligibilityScope(requestID, requestVersion, requestDigest, surfaceDigest string) (string, error) {
+	if requestID == "" || requestVersion == "" || !isSHA256Digest(requestDigest) || !isSHA256Digest(surfaceDigest) {
+		return "", errors.New("surface eligibility scope requires exact request and surface digests")
+	}
+	return fmt.Sprintf("routing-eligibility/%s/%s/%s/%s", requestID, requestVersion, requestDigest, surfaceDigest), nil
 }

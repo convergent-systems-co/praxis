@@ -779,16 +779,27 @@ func (r Repository) SaveAuthorityGeneration(ctx context.Context, generation cont
 	return r.putWorkPlanBlob(ctx, authorityGenerationNamespace, generation.Ref, generation.Version, payload, createdAt, expiresAt)
 }
 
-func (r Repository) SaveAuthorityModelMigration(ctx context.Context, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration) error {
+func (r Repository) SaveAuthorityModelMigration(ctx context.Context, requestID, requestVersion string, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration) error {
 	if err := r.validateWorkPlanStore(); err != nil {
 		return err
+	}
+	if r.BootstrapDigest == "" || migration.BootstrapDigest != r.BootstrapDigest {
+		return errors.New("authority-model migration does not match protected bootstrap identity")
 	}
 	now := time.Now().UTC()
 	source, err := r.LoadAuthorityGeneration(ctx, migration.SourceRef, migration.SourceVersion, now)
 	if err != nil {
 		return fmt.Errorf("load migration source: %w", err)
 	}
-	if err := contracts.VerifyAuthorityModelMigration(migration, source, target); err != nil {
+	request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, now)
+	if err != nil {
+		return err
+	}
+	decision, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, now)
+	if err != nil {
+		return err
+	}
+	if err := contracts.ValidateAuthorityModelMigrationApproval(migration, source, target, request, decision, now); err != nil {
 		return err
 	}
 	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, source.Ref, source.Version, now); err == nil {
@@ -821,7 +832,7 @@ func (r Repository) SaveAuthorityModelMigration(ctx context.Context, migration c
 		}
 		records = append(records, state.SecureBlobRecord{Namespace: item.ns, ObjectID: item.id, ObjectVersion: item.version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: migration.EffectiveAt})
 	}
-	return r.Store.PutSecureBlobsWithLock(ctx, records, authorityGenerationNamespace, source.Ref, source.Version)
+	return r.Store.PutSecureBlobsUnlessRevoked(ctx, records, authorityRevocationNamespace, requestID, requestVersion, authorityGenerationInvalidationNamespace, source.Ref, source.Version, authorityGenerationNamespace, source.Ref, source.Version)
 }
 
 func (r Repository) LoadAuthorityModelMigration(ctx context.Context, sourceRef, sourceVersion string, now time.Time) (contracts.AuthorityModelMigration, error) {

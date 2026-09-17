@@ -84,6 +84,7 @@ func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) 
 	ctx := context.Background()
 	now := time.Now().UTC()
 	source := authorityGenerationFixture(now.Add(-time.Minute))
+	repo.BootstrapDigest = source.ProvenanceDigest
 	if err := repo.SaveAuthorityGeneration(ctx, source, source.EffectiveAt, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -91,10 +92,11 @@ func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.SaveAuthorityModelMigration(ctx, migration, target); err != nil {
+	requestID, requestVersion := saveMigrationApproval(t, repo, source, migration, target, now)
+	if err := repo.SaveAuthorityModelMigration(ctx, requestID, requestVersion, migration, target); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.SaveAuthorityModelMigration(ctx, migration, target); err != nil {
+	if err := repo.SaveAuthorityModelMigration(ctx, requestID, requestVersion, migration, target); err != nil {
 		t.Fatalf("idempotent retry: %v", err)
 	}
 	loaded, err := repo.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now.Add(time.Second))
@@ -105,6 +107,91 @@ func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) 
 	if err != nil || root.AuthorityModelVersion != contracts.AuthorityModelV2Version || len(root.Authorities) != 0 {
 		t.Fatalf("validate migrated root: %#v %v", root, err)
 	}
+	conflict := target
+	conflict.Principal.ID = "installation-owner:conflict"
+	if err := repo.SaveAuthorityModelMigration(ctx, requestID, requestVersion, migration, conflict); err == nil {
+		t.Fatal("conflicting migration replay was accepted")
+	}
+}
+
+func TestAuthorityModelMigrationRejectsMissingForgedRevokedAndBootstrapMismatchedApproval(t *testing.T) {
+	setup := func(t *testing.T) (Repository, contracts.AuthorityGeneration, contracts.AuthorityModelMigration, contracts.AuthorityGeneration, time.Time) {
+		t.Helper()
+		repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+		now := time.Now().UTC()
+		source := authorityGenerationFixture(now.Add(-time.Minute))
+		repo.BootstrapDigest = source.ProvenanceDigest
+		if err := repo.SaveAuthorityGeneration(context.Background(), source, source.EffectiveAt, nil); err != nil {
+			t.Fatal(err)
+		}
+		migration, target, err := contracts.FreezeAuthorityModelMigration(source, source.ProvenanceDigest, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, source, migration, target, now
+	}
+
+	t.Run("missing approval", func(t *testing.T) {
+		repo, _, migration, target, _ := setup(t)
+		if err := repo.SaveAuthorityModelMigration(context.Background(), "missing", "1", migration, target); err == nil {
+			t.Fatal("migration without owner approval was accepted")
+		}
+	})
+
+	t.Run("forged approval binding", func(t *testing.T) {
+		repo, source, migration, target, now := setup(t)
+		requestID, requestVersion := saveMigrationApproval(t, repo, source, migration, target, now)
+		forged := migration
+		forged.TransformID = "forged-transform"
+		if err := repo.SaveAuthorityModelMigration(context.Background(), requestID, requestVersion, forged, target); err == nil {
+			t.Fatal("migration not bound by the approved transition was accepted")
+		}
+	})
+
+	t.Run("revoked approval", func(t *testing.T) {
+		repo, source, migration, target, now := setup(t)
+		requestID, requestVersion := saveMigrationApproval(t, repo, source, migration, target, now)
+		decision, err := repo.LoadAuthorityDecisionEvidence(context.Background(), requestID, requestVersion, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decisionDigest, err := decision.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		revocation := contracts.AuthorityRevocation{RequestID: requestID, RequestVersion: requestVersion, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, RevocationRef: "revocation:migrate-v2", RevocationVersion: "1", RevokedBy: source.Principal, AuthorityDigest: contracts.AuthorityModelV2Digest(), EffectiveAt: time.Now().UTC(), Reason: "withdraw migration approval"}
+		if err := repo.SaveAuthorityRevocation(context.Background(), requestID, requestVersion, revocation, revocation.EffectiveAt, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.SaveAuthorityModelMigration(context.Background(), requestID, requestVersion, migration, target); err == nil {
+			t.Fatal("migration with revoked approval was accepted")
+		}
+	})
+
+	t.Run("bootstrap mismatch", func(t *testing.T) {
+		repo, source, migration, target, now := setup(t)
+		requestID, requestVersion := saveMigrationApproval(t, repo, source, migration, target, now)
+		repo.BootstrapDigest = "sha256:" + strings.Repeat("f", 64)
+		if err := repo.SaveAuthorityModelMigration(context.Background(), requestID, requestVersion, migration, target); err == nil {
+			t.Fatal("migration for a different bootstrap identity was accepted")
+		}
+	})
+}
+
+func saveMigrationApproval(t *testing.T, repo Repository, source contracts.AuthorityGeneration, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration, now time.Time) (string, string) {
+	t.Helper()
+	expires := now.Add(time.Hour)
+	d := contracts.DelegationRequest{ParentRef: source.Ref, ParentVersion: source.Version, ParentDigest: source.Digest, DelegatedPrincipal: source.Principal, TargetKind: "authority.model.root", TargetIdentity: target.Ref, TargetVersion: target.Version, TargetDigest: target.Digest, ProposalVersion: "1", ProposalDigest: migration.ID, ReviewVersion: "1", ReviewDigest: contracts.AuthorityModelV2Digest(), RequestedAuthority: contracts.AuthorityModelMigrate, RequestedOperation: "migrate", RequestedScope: source.Scope, ExpiresAt: expires, Reason: "explicit model migration", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelV2Version, PolicyDigest: contracts.AuthorityModelV2Digest()}
+	request := contracts.AuthorityRequest{ID: "migrate-v2", Version: "1", RequestedAuthority: contracts.AuthorityDelegateCapability, RequestedScope: source.Scope, Reason: "explicit owner migration", Status: contracts.AuthorityRequestPending, Delegation: &d}
+	digest, err := repo.SaveAuthorityRequest(context.Background(), request, now, &expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: digest, DecisionRef: "decision:migrate-v2", DecisionVersion: "1", DecidedBy: source.Principal, AuthorityRef: source.Ref, AuthorityVersion: source.Version, AuthorityGenerationDigest: source.Digest, GrantedScope: source.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelV2Digest(), IssuedAt: now, ExpiresAt: &expires, Delegation: &d}
+	if err := repo.SaveAuthorityDecision(context.Background(), request.ID, request.Version, decision, now, &expires); err != nil {
+		t.Fatal(err)
+	}
+	return request.ID, request.Version
 }
 
 func TestRoutingIssuanceRequiresExactV2DelegatedAuthority(t *testing.T) {
@@ -118,14 +205,15 @@ func TestRoutingIssuanceRequiresExactV2DelegatedAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	migration, v2, _ := contracts.FreezeAuthorityModelMigration(v1, bootstrap, now)
-	if err := repo.SaveAuthorityModelMigration(ctx, migration, v2); err != nil {
+	migrationRequestID, migrationRequestVersion := saveMigrationApproval(t, repo, v1, migration, v2, now)
+	if err := repo.SaveAuthorityModelMigration(ctx, migrationRequestID, migrationRequestVersion, migration, v2); err != nil {
 		t.Fatal(err)
 	}
 	expires := now.Add(time.Hour)
 	payload := []byte(`{"authority":"node","target":"exact"}`)
 	sum := sha256.Sum256(payload)
 	payloadDigest := "sha256:" + hex.EncodeToString(sum[:])
-	scope := "route-scope:exact"
+	scope, _ := contracts.RoutingTargetContributionScope("routing-authority", "1", payloadDigest)
 	delegation := contracts.DelegationRequest{ParentRef: v2.Ref, ParentVersion: v2.Version, ParentDigest: v2.Digest, DelegatedPrincipal: contracts.PrincipalRef{ID: "controller:routing", Kind: "controller"}, TargetKind: "routing.target-contribution", TargetIdentity: "routing-authority", TargetVersion: "1", TargetDigest: payloadDigest, ProposalVersion: "1", ProposalDigest: payloadDigest, ReviewVersion: "1", ReviewDigest: payloadDigest, RequestedAuthority: contracts.AuthorityRoutingTargetContributionIssue, RequestedOperation: "issue", RequestedScope: scope, ExpiresAt: expires, Reason: "issue exact routing targets", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelV2Version, PolicyDigest: contracts.AuthorityModelV2Digest()}
 	delegateRequest := contracts.AuthorityRequest{ID: "delegate-routing", Version: "1", RequestedAuthority: contracts.AuthorityDelegateCapability, RequestedScope: scope, Reason: "least privilege routing issuer", Status: contracts.AuthorityRequestPending, Delegation: &delegation}
 	delegateDigest, err := repo.SaveAuthorityRequest(ctx, delegateRequest, now, &expires)

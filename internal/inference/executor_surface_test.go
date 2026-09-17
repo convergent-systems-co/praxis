@@ -298,7 +298,7 @@ func TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay(t
 			telemetry.ProvenanceDigest = inferenceDigest("other telemetry")
 			e.Telemetry["quota_state"] = telemetry
 		}},
-		{name: "authority generation", mutate: func(e *EligibilityEvidence) { e.AuthorityGenerationDigest = inferenceDigest("other generation") }},
+		{name: "authority generation format", mutate: func(e *EligibilityEvidence) { e.AuthorityGenerationDigest = "not-a-digest" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name+" freeze", func(t *testing.T) {

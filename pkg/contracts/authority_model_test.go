@@ -59,11 +59,46 @@ func TestAuthorityModelV2IsDistinctAndDelegatesOnlyRoutingIssuance(t *testing.T)
 	request.ParentVersion = parent.Version
 	request.PolicyVersion, request.PolicyDigest = AuthorityModelV2Version, AuthorityModelV2Digest()
 	request.RequestedAuthority, request.RequestedOperation, request.TargetKind = AuthorityRoutingTargetContributionIssue, "issue", "routing.target-contribution"
+	request.RequestedScope, _ = RoutingTargetContributionScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest)
 	if err := ValidateBuiltinDelegation(parent, request, now); err != nil {
 		t.Fatal(err)
 	}
 	request.RequestedAuthority = AuthorityDelegateCapability
 	if err := ValidateBuiltinDelegation(parent, request, now); err == nil {
 		t.Fatal("v2 routing child received authority.delegate")
+	}
+}
+
+func TestAuthorityModelV2RequiresCanonicalRoutingScope(t *testing.T) {
+	parent, request, now := validBuiltinDelegation(t)
+	parent.Version, parent.AuthorityModelVersion, parent.AuthorityModelDigest = "2", AuthorityModelV2Version, AuthorityModelV2Digest()
+	request.ParentVersion = parent.Version
+	request.PolicyVersion, request.PolicyDigest = AuthorityModelV2Version, AuthorityModelV2Digest()
+	request.RequestedAuthority, request.RequestedOperation, request.TargetKind = AuthorityRoutingTargetContributionIssue, "issue", "routing.target-contribution"
+	request.RequestedScope, _ = RoutingTargetContributionScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest)
+
+	for name, mutate := range map[string]func(*DelegationRequest){
+		"forged scope":   func(r *DelegationRequest) { r.RequestedScope = "routing-target/forged" },
+		"empty identity": func(r *DelegationRequest) { r.TargetIdentity = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := request
+			mutate(&candidate)
+			if err := ValidateBuiltinDelegation(parent, candidate, now); err == nil {
+				t.Fatal("non-canonical routing delegation was accepted")
+			}
+		})
+	}
+
+	request.RequestedAuthority = AuthorityRoutingSurfaceEligibilityIssue
+	request.TargetKind = "routing.surface-eligibility"
+	request.TargetConstraints = []string{"sha256:" + strings.Repeat("f", 64)}
+	request.RequestedScope, _ = RoutingSurfaceEligibilityScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest, request.TargetConstraints[0])
+	if err := ValidateBuiltinDelegation(parent, request, now); err != nil {
+		t.Fatal(err)
+	}
+	request.TargetConstraints = nil
+	if err := ValidateBuiltinDelegation(parent, request, now); err == nil {
+		t.Fatal("surface eligibility delegation without exact surface digest was accepted")
 	}
 }

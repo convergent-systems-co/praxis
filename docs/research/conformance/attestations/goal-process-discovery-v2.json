@@ -1,0 +1,23 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./internal/processresolver"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T01:12:59.094638Z",
+  "finished_at": "2026-09-17T01:12:59.631442Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/goal-process-discovery-v2.log",
+  "output_digest": "sha256:a00357eb5db6efa66794693ae63ac1bd9cc4d117ff6e2af1ffc9be2f6d562a70",
+  "source_digests": {
+    "internal/processresolver": "sha256:a0cc14626fb77b07ef5bea45e815450b7e38f09c1afbb71ff39c370a1e852b6f"
+  },
+  "observations": [
+    "TestGoalProcessDiscoveryResolvesAndExecutesAllModes"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:a8f49b296c5c554ba19e84babc3b45fc3d3ada01f91cfae46b675e75d989bdf5"
+}

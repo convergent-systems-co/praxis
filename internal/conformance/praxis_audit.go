@@ -109,22 +109,22 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v47.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v8.json"
-	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v2.json"
-	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v3.json"
-	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v3.json"
-	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v3.json"
-	trustBoundaryAttestation      = "docs/research/conformance/attestations/untrusted-content-boundary-v1.json"
-	clientSurfaceAttestation      = "docs/research/conformance/attestations/client-surface-v1.json"
-	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v1.json"
-	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v1.json"
-	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
-	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v3.json"
-	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v39.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v39.json"
-	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
-	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v3.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v48.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v9.json"
+	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v3.json"
+	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v4.json"
+	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v4.json"
+	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v4.json"
+	trustBoundaryAttestation      = "docs/research/conformance/attestations/untrusted-content-boundary-v2.json"
+	clientSurfaceAttestation      = "docs/research/conformance/attestations/client-surface-v2.json"
+	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v2.json"
+	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v2.json"
+	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v2.json"
+	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v4.json"
+	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v40.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v40.json"
+	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v2.json"
+	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v4.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are
@@ -136,7 +136,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "agent-operational-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-002"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement"},
 		{ID: "agent-memory-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-007"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware"},
 		{ID: "agent-lineage-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/agent", ClaimIDs: []string{"OI-008"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart"},
-		{ID: "goal-process-discovery-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/processresolver", ClaimIDs: []string{"OI-003"}, AttestationRef: "docs/research/conformance/attestations/goal-process-discovery.json", Observation: "TestGoalProcessDiscoveryResolvesAndExecutesAllModes"},
+		{ID: "goal-process-discovery-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/processresolver", ClaimIDs: []string{"OI-003"}, AttestationRef: "docs/research/conformance/attestations/goal-process-discovery-v2.json", Observation: "TestGoalProcessDiscoveryResolvesAndExecutesAllModes"},
 		{ID: "agent-memory", Kind: "security_test", Stage: StageBehavior, Ref: "internal/agent/memory_test.go", ClaimIDs: []string{"OI-007", "OI-029"}},
 		{ID: "untrusted-content-boundary", Kind: "security_test", Stage: StageIntegration, Ref: "internal/trustboundary", ClaimIDs: []string{"OI-029"}, AttestationRef: trustBoundaryAttestation, Observation: "TestUntrustedContentRemainsDataThroughMemoryAndAuthorityBoundary"},
 		{ID: "learning-extraction-runtime", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/learning", ClaimIDs: []string{"OI-004"}, AttestationRef: clusterARuntimeAttestation, Observation: "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle"},
@@ -164,13 +164,13 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "schema-conformance", Kind: "schema_test", Stage: StageContract, Ref: "tests/test_valid_contracts.py", ClaimIDs: []string{"OI-022"}},
 		{ID: "plugin-lifecycle-integration", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/plugin/grpc_process_integration_test.go", ClaimIDs: []string{"OI-021"}, AttestationRef: pluginLifecycleAttestation, Observation: "TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart"},
 		{ID: "plugin-lifecycle-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/plugin/supervisor_test.go", ClaimIDs: []string{"OI-021"}, AttestationRef: pluginLifecycleAttestation, Observation: "TestSupervisorPersistsUnexpectedExitFromLocalProcess"},
-		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestQualificationRunControlSurvivesSQLiteRestart"},
-		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery.json", Observation: "TestRunProjectionRebuildsFromAuthoritativeEvents"},
+		{ID: "event-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/run_control_integration_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery-v2.json", Observation: "TestQualificationRunControlSurvivesSQLiteRestart"},
+		{ID: "projection-replay", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/projection/run_projection_test.go", ClaimIDs: []string{"OI-023"}, AttestationRef: "docs/research/conformance/attestations/runtime-state-recovery-v2.json", Observation: "TestRunProjectionRebuildsFromAuthoritativeEvents"},
 		{ID: "scheduler-admission-and-fairness", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/scheduler", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestOrderRunnableBoundsStarvationUnderSustainedHigherPriorityLoad"},
 		{ID: "scheduler-lease-recovery", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state", ClaimIDs: []string{"OI-024"}, AttestationRef: schedulerLifecycleAttestation, Observation: "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"},
 		{ID: "effect-coordinator", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-025"}},
 		{ID: "mutation-effect-boundary", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/state", ClaimIDs: []string{"OI-025"}, AttestationRef: mutationBoundaryAttestation, Observation: "TestCommitTransitionIsAtomic"},
-		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v2.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
+		{ID: "effect-approval-commit", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/effect/coordinator_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v3.json", Observation: "TestCommitRevalidatesImmediatelyBeforeDispatch"},
 		{ID: "client-enforcement", Kind: "security_test", Stage: StageBehavior, Ref: "internal/client/enforcement_test.go", ClaimIDs: []string{"OI-026", "OI-027"}},
 		{ID: "client-surface-equivalence", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/clientadapt", ClaimIDs: []string{"OI-026"}, AttestationRef: clientSurfaceAttestation, Observation: "TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances"},
 		{ID: "mediation-gate", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/mediation", ClaimIDs: []string{"OI-027"}, AttestationRef: mediationAttestation, Observation: "TestAuthorizeRequiresDeterministicClientMediation"},
@@ -179,7 +179,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "workspace-intelligence-lifecycle", Kind: "integration_test", Stage: StageIntegration, Ref: "plugins/workspace", ClaimIDs: []string{"OI-028"}, AttestationRef: workspaceAttestation, Observation: "TestIndexDetectsContentChange"},
 		{ID: "plugin-isolation", Kind: "security_test", Stage: StageBehavior, Ref: "internal/plugin/isolation_test.go", ClaimIDs: []string{"OI-030"}},
 		{ID: "plugin-isolation-enforcement", Kind: "security_test", Stage: StageIntegration, Ref: "internal/plugin/process_test.go", ClaimIDs: []string{"OI-030"}, AttestationRef: isolationAttestation, Observation: "TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation"},
-		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v2.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
+		{ID: "approval-commit", Kind: "security_test", Stage: StageIntegration, Ref: "internal/state/authorized_transition_test.go", ClaimIDs: []string{"OI-031"}, AttestationRef: "docs/research/conformance/attestations/authority-effect-commit-v3.json", Observation: "TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically"},
 		{ID: "crypto-profiles", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestKeyLifecycleRotationRevocationAndHistoricalVerification"},
 		{ID: "crypto-profiles-security", Kind: "security_test", Stage: StageIntegration, Ref: "internal/crypto", ClaimIDs: []string{"OI-032"}, AttestationRef: cryptoLifecycleAttestation, Observation: "TestEnvelopePQRequiredFailsBeforeClassicalFallback"},
 		{ID: "planning-runtime", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop", ClaimIDs: []string{"OI-033"}, AttestationRef: planningLifecycleAttestation, Observation: "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"},
@@ -188,7 +188,7 @@ func PraxisEvidenceInventory() []InventoryArtifact {
 		{ID: "dynamic-package-lifecycle-contract", Kind: "integration_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestGovernedPackageRollbackRestoresExactClosureAcrossRestart"},
 		{ID: "dynamic-package-lifecycle-restart", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/package_registry_test.go", ClaimIDs: []string{"OI-037"}, AttestationRef: packageLifecycleQualification, Observation: "TestVerifiedGraphArtifactSurvivesActivationAndRestart"},
 		{ID: "state-provider", Kind: "integration_test", Stage: StageIntegration, Ref: "internal/stateprovider", ClaimIDs: []string{"OI-036"}, AttestationRef: portableStateAttestation, Observation: "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed"},
-		{ID: "resource-continuation-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/continuation_integration_test.go", ClaimIDs: []string{"OI-038"}, AttestationRef: "docs/research/conformance/attestations/resource-continuation-v2.json", Observation: "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart"},
+		{ID: "resource-continuation-runtime", Kind: "restart_test", Stage: StageLifecycle, Ref: "internal/state/continuation_integration_test.go", ClaimIDs: []string{"OI-038"}, AttestationRef: "docs/research/conformance/attestations/resource-continuation-v3.json", Observation: "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart"},
 	}
 }
 

@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T01:13:29.27516Z",
+  "finished_at": "2026-09-17T01:13:36.176853Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/resource-continuation-v3.log",
+  "output_digest": "sha256:783babdce7532d9eefd67502fbe6c775412f9f3c5511409c7149910b3d838dc1",
+  "source_digests": {
+    "internal/kernel": "sha256:c65e6b6a68689db1ea38e203a40864da95112b2b7b811d8aa9aa3a350e0b576a",
+    "internal/state/continuation_integration_test.go": "sha256:132a33ffd81f207ba351831adde351203ed383951edf22a5c6969efbd883ffd8"
+  },
+  "observations": [
+    "TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart",
+    "TestResourceHandoffDenialDoesNotMutateRun"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:9d68395e4198bc1fd7616d14206f58764f4683fc69f44ac7d897b5e12521c300"
+}

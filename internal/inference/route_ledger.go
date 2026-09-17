@@ -40,13 +40,17 @@ var unifiedRouteRecordVersions = contracts.MustVersionRegistry(contracts.Contrac
 // decision owns the effective target, governed eligibility lineage, and either
 // one selected execution surface or one stable terminal routing failure.
 type UnifiedRouteRecord struct {
-	ID       string                 `json:"id"`
-	Version  string                 `json:"version"`
-	Decision SurfaceRoutingDecision `json:"decision"`
+	ID                   string                         `json:"id"`
+	Version              string                         `json:"version"`
+	Decision             SurfaceRoutingDecision         `json:"decision"`
+	TargetIssuances      []contracts.RoutingIssuanceRef `json:"target_issuances,omitempty"`
+	EligibilityIssuances []contracts.RoutingIssuanceRef `json:"eligibility_issuances,omitempty"`
 }
 
 func FreezeUnifiedRouteRecord(record UnifiedRouteRecord) (UnifiedRouteRecord, error) {
 	record.ID, record.Version = "", unifiedRouteRecordVersions.CurrentVersion()
+	record.TargetIssuances = append([]contracts.RoutingIssuanceRef(nil), record.TargetIssuances...)
+	record.EligibilityIssuances = append([]contracts.RoutingIssuanceRef(nil), record.EligibilityIssuances...)
 	if err := validateUnifiedRouteRecord(record, false); err != nil {
 		return UnifiedRouteRecord{}, err
 	}

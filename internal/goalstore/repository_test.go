@@ -2,6 +2,8 @@ package goalstore
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -103,6 +105,84 @@ func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) 
 	if err != nil || root.AuthorityModelVersion != contracts.AuthorityModelV2Version || len(root.Authorities) != 0 {
 		t.Fatalf("validate migrated root: %#v %v", root, err)
 	}
+}
+
+func TestRoutingIssuanceRequiresExactV2DelegatedAuthority(t *testing.T) {
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	bootstrap := "sha256:" + strings.Repeat("a", 64)
+	repo.BootstrapDigest = bootstrap
+	v1 := authorityGenerationFixture(now.Add(-time.Minute))
+	if err := repo.SaveAuthorityGeneration(ctx, v1, v1.EffectiveAt, nil); err != nil {
+		t.Fatal(err)
+	}
+	migration, v2, _ := contracts.FreezeAuthorityModelMigration(v1, bootstrap, now)
+	if err := repo.SaveAuthorityModelMigration(ctx, migration, v2); err != nil {
+		t.Fatal(err)
+	}
+	expires := now.Add(time.Hour)
+	payload := []byte(`{"authority":"node","target":"exact"}`)
+	sum := sha256.Sum256(payload)
+	payloadDigest := "sha256:" + hex.EncodeToString(sum[:])
+	scope := "route-scope:exact"
+	delegation := contracts.DelegationRequest{ParentRef: v2.Ref, ParentVersion: v2.Version, ParentDigest: v2.Digest, DelegatedPrincipal: contracts.PrincipalRef{ID: "controller:routing", Kind: "controller"}, TargetKind: "routing.target-contribution", TargetIdentity: "routing-authority", TargetVersion: "1", TargetDigest: payloadDigest, ProposalVersion: "1", ProposalDigest: payloadDigest, ReviewVersion: "1", ReviewDigest: payloadDigest, RequestedAuthority: contracts.AuthorityRoutingTargetContributionIssue, RequestedOperation: "issue", RequestedScope: scope, ExpiresAt: expires, Reason: "issue exact routing targets", PolicyRef: contracts.AuthorityModelID, PolicyVersion: contracts.AuthorityModelV2Version, PolicyDigest: contracts.AuthorityModelV2Digest()}
+	delegateRequest := contracts.AuthorityRequest{ID: "delegate-routing", Version: "1", RequestedAuthority: contracts.AuthorityDelegateCapability, RequestedScope: scope, Reason: "least privilege routing issuer", Status: contracts.AuthorityRequestPending, Delegation: &delegation}
+	delegateDigest, err := repo.SaveAuthorityRequest(ctx, delegateRequest, now, &expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateDecision := contracts.AuthorityDecision{RequestID: delegateRequest.ID, RequestVersion: "1", RequestDigest: delegateDigest, DecisionRef: "decision:delegate-routing", DecisionVersion: "1", DecidedBy: v2.Principal, AuthorityRef: v2.Ref, AuthorityVersion: v2.Version, AuthorityGenerationDigest: v2.Digest, GrantedScope: v2.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelV2Digest(), IssuedAt: now, ExpiresAt: &expires, Delegation: &delegation}
+	if err := repo.SaveAuthorityDecision(ctx, delegateRequest.ID, "1", delegateDecision, now, &expires); err != nil {
+		t.Fatal(err)
+	}
+	child, err := repo.SaveDelegatedAuthorityGeneration(ctx, delegateRequest.ID, "1", delegateDecision, builtinTestPolicy{}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := contracts.AuthorityRequest{ID: "issue-target", Version: "1", BaselineID: "route", BaselineVersion: "1", BaselineDigest: payloadDigest, ProposalID: "target", ProposalVersion: "1", ProposalDigest: payloadDigest, ReviewRef: "review", ReviewVersion: "1", ReviewDigest: payloadDigest, RequestedAuthority: contracts.AuthorityRoutingTargetContributionIssue, RequestedScope: scope, Reason: "issue exact target", Status: contracts.AuthorityRequestPending}
+	requestDigest, err := repo.SaveAuthorityRequest(ctx, request, now, &expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: "1", RequestDigest: requestDigest, DecisionRef: "decision:issue-target", DecisionVersion: "1", DecidedBy: child.Principal, AuthorityRef: child.Ref, AuthorityVersion: child.Version, AuthorityGenerationDigest: child.Digest, GrantedScope: scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: contracts.AuthorityModelV2Digest(), IssuedAt: now, ExpiresAt: &expires}
+	if err := repo.SaveAuthorityDecision(ctx, request.ID, "1", decision, now, &expires); err != nil {
+		t.Fatal(err)
+	}
+	draft := contracts.RoutingIssuance{Version: "1", Kind: contracts.RoutingTargetContribution, Authority: contracts.AuthorityRoutingTargetContributionIssue, Scope: scope, RequestID: request.ID, RequestVersion: "1", DecisionRef: decision.DecisionRef, DecisionVersion: "1", GenerationRef: child.Ref, GenerationVersion: child.Version, GenerationDigest: child.Digest, IssuedBy: child.Principal, Payload: payload, PayloadDigest: payloadDigest, ExpiresAt: &expires}
+	forgedAuthority := draft
+	forgedAuthority.Authority = contracts.AuthorityRoutingSurfaceEligibilityIssue
+	if _, err := repo.SaveRoutingIssuance(ctx, forgedAuthority); err == nil {
+		t.Fatal("forged routing authority issued")
+	}
+	issued, err := repo.SaveRoutingIssuance(ctx, draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadRoutingIssuance(ctx, contracts.RoutingIssuanceRef{ID: issued.ID, Version: issued.Version}, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadRoutingIssuance(ctx, contracts.RoutingIssuanceRef{ID: issued.ID, Version: issued.Version}, expires); err == nil {
+		t.Fatal("expired issuance loaded")
+	}
+	forged := issued
+	forged.ID = "sha256:" + strings.Repeat("f", 64)
+	if _, err := repo.LoadRoutingIssuance(ctx, contracts.RoutingIssuanceRef{ID: forged.ID, Version: forged.Version}, time.Now().UTC()); err == nil {
+		t.Fatal("unissued payload loaded")
+	}
+	invalidation := contracts.AuthorityGenerationInvalidation{Ref: child.Ref, Version: child.Version, GenerationDigest: child.Digest, InvalidationRef: "revoke-routing", InvalidationVersion: "1", Kind: "revoked", InvalidatedBy: v2.Principal, EffectiveAt: time.Now().UTC(), Reason: "test revocation"}
+	if err := repo.SaveAuthorityGenerationInvalidation(ctx, invalidation, invalidation.EffectiveAt, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadRoutingIssuance(ctx, contracts.RoutingIssuanceRef{ID: issued.ID, Version: issued.Version}, time.Now().UTC()); err == nil {
+		t.Fatal("revoked issuance loaded")
+	}
+}
+
+type builtinTestPolicy struct{}
+
+func (builtinTestPolicy) ContainDelegation(parent contracts.AuthorityGeneration, request contracts.DelegationRequest, now time.Time) error {
+	return contracts.ValidateBuiltinDelegation(parent, request, now)
 }
 
 func persistAuthorityGenerationPayload(t *testing.T, repo Repository, store *state.Store, generation contracts.AuthorityGeneration, objectDigest string) {

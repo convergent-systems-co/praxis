@@ -29,6 +29,7 @@ const authorityRevocationNamespace = "authority_revocation"
 const authorityGenerationNamespace = "authority_generation"
 const authorityGenerationInvalidationNamespace = "authority_generation_invalidation"
 const authorityModelMigrationNamespace = "authority_model_migration"
+const routingIssuanceNamespace = "routing_issuance"
 const providerWorkspaceNamespace = "provider_workspace"
 
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
@@ -40,6 +41,7 @@ type Repository struct {
 	Profile             contracts.CryptoProfile
 	Sensitivity         state.Sensitivity
 	AuthorityGeneration AuthorityGenerationValidator
+	BootstrapDigest     string
 }
 
 // AuthorityGenerationValidator is the cross-registry authority boundary.
@@ -846,6 +848,77 @@ func (r Repository) LoadAuthorityModelMigration(ctx context.Context, sourceRef, 
 		return migration, err
 	}
 	return migration, nil
+}
+
+func (r Repository) SaveRoutingIssuance(ctx context.Context, issuance contracts.RoutingIssuance) (contracts.RoutingIssuance, error) {
+	if r.BootstrapDigest == "" {
+		return contracts.RoutingIssuance{}, errors.New("routing issuance requires protected bootstrap identity")
+	}
+	now := time.Now().UTC()
+	issuance.EffectiveAt = now
+	issuance.ID = ""
+	frozen, err := contracts.FreezeRoutingIssuance(issuance)
+	if err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	request, err := r.LoadAuthorityRequest(ctx, frozen.RequestID, frozen.RequestVersion, now)
+	if err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	decision, err := r.LoadAuthorityDecision(ctx, frozen.RequestID, frozen.RequestVersion, now)
+	if err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	if decision.Outcome != contracts.AuthorityApprove || request.RequestedAuthority != frozen.Authority || request.RequestedScope != frozen.Scope || request.ProposalDigest != frozen.PayloadDigest || decision.DecisionRef != frozen.DecisionRef || decision.DecisionVersion != frozen.DecisionVersion || decision.AuthorityRef != frozen.GenerationRef || decision.AuthorityVersion != frozen.GenerationVersion || decision.AuthorityGenerationDigest != frozen.GenerationDigest || decision.DecidedBy != frozen.IssuedBy {
+		return contracts.RoutingIssuance{}, errors.New("routing issuance does not bind its exact approved authority decision")
+	}
+	generation, err := r.ValidateAuthorityGenerationLineage(ctx, frozen.GenerationRef, frozen.GenerationVersion, frozen.GenerationDigest, r.BootstrapDigest, now)
+	if err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	if generation.AuthorityModelVersion != contracts.AuthorityModelV2Version || !containsString(generation.Authorities, frozen.Authority) {
+		return contracts.RoutingIssuance{}, errors.New("routing issuance generation lacks v2 requested authority")
+	}
+	if frozen.ExpiresAt == nil || (decision.ExpiresAt != nil && frozen.ExpiresAt.After(*decision.ExpiresAt)) || (generation.ExpiresAt != nil && frozen.ExpiresAt.After(*generation.ExpiresAt)) {
+		return contracts.RoutingIssuance{}, errors.New("routing issuance expiry exceeds authority")
+	}
+	payload, _ := json.Marshal(frozen)
+	if err := r.putWorkPlanBlobUnlessRevoked(ctx, routingIssuanceNamespace, frozen.ID, frozen.Version, payload, now, frozen.ExpiresAt, frozen.RequestID, frozen.RequestVersion, frozen.GenerationRef, frozen.GenerationVersion, authorityGenerationNamespace, frozen.GenerationRef, frozen.GenerationVersion); err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	return frozen, nil
+}
+
+func (r Repository) LoadRoutingIssuance(ctx context.Context, ref contracts.RoutingIssuanceRef, now time.Time) (contracts.RoutingIssuance, error) {
+	if r.BootstrapDigest == "" {
+		return contracts.RoutingIssuance{}, errors.New("routing issuance requires protected bootstrap identity")
+	}
+	payload, record, err := r.loadWorkPlanBlob(ctx, routingIssuanceNamespace, ref.ID, ref.Version, now)
+	if err != nil {
+		return contracts.RoutingIssuance{}, err
+	}
+	var issuance contracts.RoutingIssuance
+	if err := json.Unmarshal(payload, &issuance); err != nil {
+		return issuance, err
+	}
+	if payloadDigest(payload) != record.ObjectDigest || issuance.ID != ref.ID || issuance.Version != ref.Version || contracts.VerifyRoutingIssuance(issuance) != nil {
+		return issuance, errors.New("routing issuance identity or payload mismatch")
+	}
+	request, err := r.LoadAuthorityRequest(ctx, issuance.RequestID, issuance.RequestVersion, now)
+	if err != nil {
+		return issuance, err
+	}
+	decision, err := r.LoadAuthorityDecision(ctx, issuance.RequestID, issuance.RequestVersion, now)
+	if err != nil {
+		return issuance, err
+	}
+	if decision.Outcome != contracts.AuthorityApprove || request.RequestedAuthority != issuance.Authority || request.RequestedScope != issuance.Scope || request.ProposalDigest != issuance.PayloadDigest || decision.DecisionRef != issuance.DecisionRef || decision.DecisionVersion != issuance.DecisionVersion {
+		return issuance, errors.New("routing issuance decision binding is invalid")
+	}
+	if _, err := r.ValidateAuthorityGenerationLineage(ctx, issuance.GenerationRef, issuance.GenerationVersion, issuance.GenerationDigest, r.BootstrapDigest, now); err != nil {
+		return issuance, err
+	}
+	return issuance, nil
 }
 
 // SaveDelegatedAuthorityGeneration is the generic authority-owned child

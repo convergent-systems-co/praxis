@@ -146,6 +146,100 @@ func (s *Store) CommitTransition(
 	return nil
 }
 
+// CommitTransitionGuarded is CommitTransition with one additional generic
+// hook: guard runs inside the same SQLite transaction, on the same tx handle
+// (never a second pooled connection — this store's pool is capped at one
+// connection, so any nested query against Store.DB() while this transaction
+// is open would deadlock), after the command insert and aggregate advance
+// (both writes, so this transaction already holds SQLite's single-writer
+// lock, acquired immediately per _txlock=immediate) and strictly before the
+// event/effect insert. Because SQLite allows only one writer at a time, no
+// concurrent write (for example, an authority revocation or an
+// expiry-relevant update) can be committed by another transaction between
+// guard's check and this transaction's own commit; guard therefore observes
+// authority state that is guaranteed to still be current at the moment
+// durable execution admission (the event/effect insert) actually happens.
+// If guard returns an error, the whole transaction — including the command
+// insert — is rolled back and no command, event, or effect is admitted.
+//
+// This mirrors the existing precedent in CommitTransitionAuthorizedLease,
+// which validates+consumes a capability lease inside the same transaction as
+// the aggregate advance and command/event insert via the tx handle. Use this
+// generic hook when the authorization re-check is not itself expressible as
+// a single conditional UPDATE (as a capability lease consumption is), but
+// still needs the same atomicity guarantee against durable admission; guard
+// must perform its own checks using the supplied *sql.Tx exclusively.
+func (s *Store) CommitTransitionGuarded(
+	ctx context.Context,
+	cmd CommandRecord,
+	expectedAggregateVersion int64,
+	event EventRecord,
+	approvalID string,
+	leaseID string,
+	effect *EffectRecord,
+	guard func(ctx context.Context, tx *sql.Tx) error,
+) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if cmd.ID == "" || event.ID == "" || event.AggregateID == "" {
+		return errors.New("command, event, and aggregate identity are required")
+	}
+	if event.CommandID != cmd.ID {
+		return errors.New("event command id does not match command")
+	}
+	if event.AggregateVersion != expectedAggregateVersion+1 {
+		return fmt.Errorf("event aggregate version must be expected+1: expected %d got %d", expectedAggregateVersion+1, event.AggregateVersion)
+	}
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin guarded transition: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := insertCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	if err := compareAndAdvanceAggregate(ctx, tx, event.AggregateID, event.AggregateType, expectedAggregateVersion, event.AggregateVersion); err != nil {
+		return err
+	}
+	if guard != nil {
+		if err := guard(ctx, tx); err != nil {
+			return fmt.Errorf("guarded transition authorization check failed: %w", err)
+		}
+	}
+	if approvalID != "" {
+		if err := consumeApproval(ctx, tx, approvalID, cmd.CreatedAt); err != nil {
+			return err
+		}
+	}
+	if leaseID != "" {
+		if err := consumeLease(ctx, tx, leaseID, cmd.CreatedAt); err != nil {
+			return err
+		}
+	}
+	if err := insertEvent(ctx, tx, event); err != nil {
+		return err
+	}
+	if effect != nil {
+		if effect.CommandID != cmd.ID {
+			return errors.New("effect command id does not match command")
+		}
+		if err := insertEffect(ctx, tx, *effect); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE commands SET status='committed', completed_at=? WHERE command_id=?`, event.CreatedAt.UTC().Format(time.RFC3339Nano), cmd.ID); err != nil {
+		return fmt.Errorf("complete command: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit guarded transition: %w", err)
+	}
+	return nil
+}
+
 // CommitGoalsPublicationAbandonment serializes the fixed-case owner fence with
 // publication dispatch claims. It records only command/event history and does
 // not rewrite effects or authority generations.

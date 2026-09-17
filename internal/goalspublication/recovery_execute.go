@@ -559,7 +559,23 @@ func (e RecoveryExecution) Execute(ctx context.Context, requestID string) (strin
 			cmd := state.CommandRecord{ID: id, Type: "goals-publication-recovery.step", Version: "1", Actor: intent.Actor, Scope: intent.Scope, CorrelationID: key, Payload: payload, CreatedAt: at}
 			ev := state.EventRecord{ID: id, AggregateID: key, AggregateType: "goals-publication-recovery", AggregateVersion: int64(i + 1), Type: "goals-publication-recovery.step-admitted", Version: "1", Actor: intent.Actor, CommandID: id, CorrelationID: key, TrustClass: contracts.TrustPolicy, Payload: payload, CreatedAt: at}
 			ef := state.EffectRecord{ID: id, CommandID: id, ActionIntentDigest: dig, TargetAdapter: "goals-recovery-github", TargetPrincipal: intent.Actor.ID, PreconditionsJSON: mustJSON(intent.Preconditions), CryptoProfile: intent.CryptoProfile, State: string(state.EffectPending), RequestPayload: payload, CreatedAt: at, UpdatedAt: at}
-			if err = e.Repository.Store.CommitTransition(ctx, cmd, int64(i), ev, "", "", &ef); err != nil {
+			admittedAuth := auth
+			guardNow := e.now()
+			guard := func(gctx context.Context, tx *sql.Tx) error {
+				// Re-check, on the SAME tx (never a second pooled
+				// connection: Store's pool is capped at one connection, so
+				// a nested query against e.Repository.Store.DB() here would
+				// deadlock against the very transaction that is open), that
+				// the authority already fully resolved into admittedAuth has
+				// not since expired or been revoked/invalidated. This runs
+				// after the command insert and aggregate advance above, so
+				// this transaction already holds SQLite's single-writer
+				// lock; no concurrent write (revocation, invalidation,
+				// expiry-relevant change) can land between this check and
+				// the event/effect insert that follows it.
+				return e.Repository.RevalidateGoalsPublicationRecoveryAuthorizationTx(gctx, tx, admittedAuth, guardNow)
+			}
+			if err = e.Repository.Store.CommitTransitionGuarded(ctx, cmd, int64(i), ev, "", "", &ef, guard); err != nil {
 				return "", err
 			}
 			v, loadErr = e.load(ctx, id)

@@ -1,0 +1,34 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-succ-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/state",
+    "./internal/client"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T02:06:29.529255Z",
+  "finished_at": "2026-09-17T02:06:41.10761Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/dynamic-cli-lifecycle-v5.log",
+  "output_digest": "sha256:2118ff707e3df14ce3efe3b2f43ab608c6f95a1d8c0a9de3f8a27211c5c1ae3c",
+  "source_digests": {
+    "internal/client": "sha256:356ed1607b4dc98e6c6bab3bf3b38f2109c0b80e431e063514ad920cb8d0f185",
+    "internal/state": "sha256:b05ade8f1b9d6a8e7cba108ec75617494578de0ffcb23005e4cc867bb7ec17b4",
+    "internal/state/package_registry_test.go": "sha256:628259b441c72aa15c0c9ac1ef4b5837dd91f40581bde9357315f28dc12bedb2"
+  },
+  "observations": [
+    "TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract",
+    "TestPackageActivationPublishesAndRemovesAliasesAndContents",
+    "TestPackageAliasCollisionFailsWithoutChangingExistingOwner",
+    "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface",
+    "TestPackageVerificationAuthorityAndRegistrationsSurviveRestart",
+    "TestRegistryAppliesDefaults",
+    "TestRegistryRejectsUnknownOption"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:8319a555d504cf85f33f570a03169c6c404e6164f54798153f8388710af3db68"
+}

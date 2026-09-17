@@ -3,6 +3,7 @@ package goalstore
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -462,4 +463,66 @@ func (r Repository) LoadGoalsPublicationRecoveryAuthorization(ctx context.Contex
 		}
 	}
 	return contracts.PackagePublishAuthorization{Generation: gen, Request: req, Decision: dec}, nil
+}
+
+// RevalidateGoalsPublicationRecoveryAuthorizationTx re-confirms, using the
+// caller's own open *sql.Tx (never a second pooled connection: this store's
+// pool is capped at one connection, so any nested query against
+// r.Store.DB() while the caller's transaction is open would deadlock), that
+// a recovery authorization already fully resolved and validated by an
+// earlier LoadGoalsPublicationRecoveryAuthorization call has not since
+// expired or been invalidated (revoked, or its authority generation
+// superseded/invalidated). It intentionally does not re-derive or
+// re-decrypt the full authorization from scratch — that already happened —
+// it only re-checks the exact expiry and invalidation gates that
+// LoadGoalsPublicationRecoveryAuthorization itself enforces, using the same
+// namespaces CheckGoalsPublicationInvalidation reads. Existence of a
+// revocation record for the request is treated as disqualifying without
+// decoding its effective time: for gating NEW durable execution admission
+// (as opposed to reading historical evidence), any revocation record
+// targeting this exact request is fail-closed regardless of its recorded
+// effective instant.
+//
+// Callers must invoke this from inside the same transaction that will admit
+// the durable command/event/effect, strictly before that insert, so that no
+// concurrent write (revocation, invalidation, or anything else) can land
+// between this check and the durable admission it guards.
+func (r Repository) RevalidateGoalsPublicationRecoveryAuthorizationTx(ctx context.Context, tx *sql.Tx, auth contracts.PackagePublishAuthorization, now time.Time) error {
+	if tx == nil {
+		return errors.New("recovery authority re-check requires an open transaction")
+	}
+	if auth.Request.ID == "" || auth.Request.Version == "" || auth.Generation.Ref == "" || auth.Generation.Version == "" {
+		return errors.New("recovery authority re-check requires a resolved authorization")
+	}
+	if auth.Decision.ExpiresAt == nil || !now.Before(*auth.Decision.ExpiresAt) {
+		return errors.New("recovery authority decision has expired before durable admission")
+	}
+	if auth.Generation.ExpiresAt == nil || !now.Before(*auth.Generation.ExpiresAt) {
+		return errors.New("recovery authority delegated generation has expired before durable admission")
+	}
+	exists := func(namespace, objectID, objectVersion string) (bool, error) {
+		var n int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, objectID, objectVersion).Scan(&n); err != nil {
+			return false, fmt.Errorf("re-check %s record: %w", namespace, err)
+		}
+		return n != 0, nil
+	}
+	if revoked, err := exists(authorityRevocationNamespace, auth.Request.ID, auth.Request.Version); err != nil {
+		return err
+	} else if revoked {
+		return errors.New("recovery authority decision was revoked before durable admission")
+	}
+	if auth.Generation.ParentRef != "" {
+		if invalidated, err := exists(authorityGenerationInvalidationNamespace, auth.Generation.ParentRef, auth.Generation.ParentVersion); err != nil {
+			return err
+		} else if invalidated {
+			return errors.New("recovery root authority generation was invalidated before durable admission")
+		}
+	}
+	if invalidated, err := exists(authorityGenerationInvalidationNamespace, auth.Generation.Ref, auth.Generation.Version); err != nil {
+		return err
+	} else if invalidated {
+		return errors.New("recovery delegated authority generation was invalidated before durable admission")
+	}
+	return nil
 }

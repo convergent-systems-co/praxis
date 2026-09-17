@@ -109,22 +109,22 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v48.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v9.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v49.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v10.json"
 	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v3.json"
-	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v4.json"
-	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v4.json"
+	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v5.json"
+	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v5.json"
 	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v4.json"
 	trustBoundaryAttestation      = "docs/research/conformance/attestations/untrusted-content-boundary-v2.json"
 	clientSurfaceAttestation      = "docs/research/conformance/attestations/client-surface-v2.json"
 	mediationAttestation          = "docs/research/conformance/attestations/mediation-gate-v2.json"
 	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v2.json"
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v2.json"
-	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v4.json"
-	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v40.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v40.json"
+	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v5.json"
+	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v41.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v41.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v2.json"
-	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v4.json"
+	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v5.json"
 )
 
 // PraxisEvidenceInventory starts from observable artifacts. Claim mappings are

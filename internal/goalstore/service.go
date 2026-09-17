@@ -10,6 +10,7 @@ import (
 
 type FinalizeRequest struct {
 	Baseline  goals.GoalBaseline
+	Review    goals.BaselineReviewReceipt
 	Persist   bool
 	CreatedAt time.Time
 	ExpiresAt *time.Time
@@ -20,21 +21,22 @@ type FinalizeResult struct {
 	Persisted bool
 }
 
-// Finalize produces an exact digest-addressed Goal Baseline. Ephemeral mode
-// never invokes durable storage; it is not implemented as persist-then-delete.
+// Finalize re-verifies an already reviewed candidate at the persistence or
+// ephemeral completion boundary. Ephemeral mode never invokes durable storage.
 func (r Repository) Finalize(ctx context.Context, req FinalizeRequest) (FinalizeResult, error) {
 	if err := req.Baseline.Validate(); err != nil {
 		return FinalizeResult{}, err
 	}
-	digest, err := req.Baseline.ComputeDigest()
-	if err != nil {
+	if req.Baseline.Digest == "" {
+		return FinalizeResult{}, goals.ErrBaselineReviewEvidence
+	}
+	if err := req.Baseline.VerifyDigest(); err != nil {
 		return FinalizeResult{}, err
 	}
-	if req.Baseline.Digest != "" && req.Baseline.Digest != digest {
-		return FinalizeResult{}, goals.ErrBaselineDigestMismatch
+	if err := goals.VerifyBaselineReviewReceipt(req.Baseline, req.Review, true); err != nil {
+		return FinalizeResult{}, err
 	}
 	baseline := req.Baseline
-	baseline.Digest = digest
 	if !req.Persist {
 		return FinalizeResult{Baseline: baseline, Persisted: false}, nil
 	}

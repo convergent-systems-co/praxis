@@ -23,17 +23,23 @@ func TestGoalsGraphValidates(t *testing.T) {
 
 func TestGoalGraphIncludesBoundedArchitectureReviewStage(t *testing.T) {
 	g := Graph()
-	if g.Version != "0.2.0" {
+	if g.Version != "0.3.0" {
 		t.Fatalf("architecture-review graph generation was not versioned: %s", g.Version)
 	}
-	hasReview, hasDecision := false, false
+	hasCandidate, hasReview, hasDecision := false, false, false
 	for _, node := range g.Nodes {
+		if node.ID == "candidate_baseline" {
+			hasCandidate = true
+		}
 		if node.ID == "architecture_review" {
 			hasReview = true
 		}
 		if node.ID == "architecture_review_decision" {
 			hasDecision = true
 		}
+	}
+	if !hasCandidate {
+		t.Fatal("Goals graph must expose deterministic candidate digest stage")
 	}
 	if !hasReview {
 		t.Fatal("Goals graph must expose deterministic architecture review stage")
@@ -42,10 +48,13 @@ func TestGoalGraphIncludesBoundedArchitectureReviewStage(t *testing.T) {
 		t.Fatal("Goals graph must expose human resolution stage")
 	}
 	wants := []kernel.TransitionDef{
-		{From: "model", Outcome: "ready", To: "architecture_review"},
-		{From: "architecture_review", Outcome: "ready", To: "specify"},
+		{From: "model", Outcome: "ready", To: "specify"},
+		{From: "specify", Outcome: "ready", To: "plan"},
+		{From: "plan", Outcome: "ready", To: "candidate_baseline"},
+		{From: "candidate_baseline", Outcome: "digested", To: "architecture_review"},
+		{From: "architecture_review", Outcome: "ready", To: "baseline"},
 		{From: "architecture_review", Outcome: "review_required", To: "architecture_review_decision"},
-		{From: "architecture_review_decision", Outcome: "resolved", To: "specify"},
+		{From: "architecture_review_decision", Outcome: "resolved", To: "baseline"},
 	}
 	for _, want := range wants {
 		found := false
@@ -57,6 +66,18 @@ func TestGoalGraphIncludesBoundedArchitectureReviewStage(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("missing architecture review transition: %+v", want)
+		}
+	}
+	forbidden := []kernel.TransitionDef{
+		{From: "model", Outcome: "ready", To: "architecture_review"},
+		{From: "architecture_review", Outcome: "ready", To: "specify"},
+		{From: "frame", Outcome: "direct", To: "baseline"},
+	}
+	for _, reject := range forbidden {
+		for _, got := range g.Transitions {
+			if got == reject {
+				t.Fatalf("forbidden pre-Specify/two-stage review transition remains: %+v", reject)
+			}
 		}
 	}
 }

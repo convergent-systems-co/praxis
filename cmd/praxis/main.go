@@ -74,7 +74,7 @@ func runNativeGoalDriveInvocation(ctx context.Context, args []string, getenv fun
 	if err != nil {
 		return err
 	}
-	return dispatchGoalDrive(ctx, normalizedOutput{EntryPointID: "goal-drive", PackageID: "praxis.package.goals", PackageVersion: "0.1.0", GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0", Options: parsed.Options}, getenv)
+	return dispatchGoalDrive(ctx, normalizedOutput{EntryPointID: "goal-drive", PackageID: "praxis.package.goals", PackageVersion: "0.1.0", GraphID: "praxis.package.goals.default", GraphVersion: "0.3.0", Options: parsed.Options}, getenv)
 }
 
 func runDynamicInvocation(ctx context.Context, args []string, getenv func(string) string) error {

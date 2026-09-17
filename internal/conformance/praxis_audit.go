@@ -109,9 +109,9 @@ type InventoryArtifact struct {
 }
 
 const (
-	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v52.json"
-	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v12.json"
-	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v4.json"
+	clusterARuntimeAttestation    = "docs/research/conformance/attestations/cluster-a-runtime-v53.json"
+	goalsSessionAttestation       = "docs/research/conformance/attestations/goals-session-v13.json"
+	planningLifecycleAttestation  = "docs/research/conformance/attestations/planning-lifecycle-v5.json"
 	dynamicCLIAttestation         = "docs/research/conformance/attestations/dynamic-cli-lifecycle-v4.json"
 	packageLifecycleQualification = "docs/research/conformance/attestations/universal-package-lifecycle-v4.json"
 	cryptoLifecycleAttestation    = "docs/research/conformance/attestations/crypto-lifecycle-v2.json"
@@ -122,7 +122,7 @@ const (
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
 	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v4.json"
 	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v44.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v45.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v46.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
 	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v4.json"
 )

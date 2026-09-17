@@ -18,5 +18,9 @@ func (g WeatherRouteReadinessGate) Qualify(ctx context.Context, request routinga
 	if g.Routes == nil {
 		return inference.UnifiedRouteRecord{}, errors.New("weather route readiness requires an issued-route ledger")
 	}
+	graph := Graph()
+	if request.Request.GraphID != graph.ID || request.Request.GraphVersion != graph.Version || request.Request.NodeID != "implement" || request.Request.GoalRef == "" {
+		return inference.UnifiedRouteRecord{}, errors.New("weather route readiness requires exact Develop implement-node and Goal lineage")
+	}
 	return g.Routes.RecordReadiness(ctx, request)
 }

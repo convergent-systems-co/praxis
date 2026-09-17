@@ -66,6 +66,10 @@ type SurfaceRouteRequest struct {
 	ID              string                             `json:"id"`
 	RouteRequest    RouteRequest                       `json:"route_request"`
 	AgentGeneration string                             `json:"agent_generation"`
+	GraphID         string                             `json:"graph_id,omitempty"`
+	GraphVersion    string                             `json:"graph_version,omitempty"`
+	NodeID          string                             `json:"node_id,omitempty"`
+	GoalRef         string                             `json:"goal_ref,omitempty"`
 	Target          contracts.EffectiveExecutionTarget `json:"effective_execution_target"`
 }
 

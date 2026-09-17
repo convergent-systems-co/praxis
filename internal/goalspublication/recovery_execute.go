@@ -356,19 +356,22 @@ func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, p
 	if err != nil {
 		var predecessorPayload []byte
 		if qerr := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT request_payload FROM effects WHERE effect_id=?`, key+":publish").Scan(&predecessorPayload); qerr != nil {
-			return contracts.ActionIntent{}, err
+			return contracts.ActionIntent{}, fmt.Errorf("current authority unavailable (%v); historical publish effect lookup: %w", err, qerr)
 		}
 		var historicalStep recoveryStepPayload
-		if qerr := json.Unmarshal(predecessorPayload, &historicalStep); qerr != nil || historicalStep.RequestID != predecessorRequestID || historicalStep.Step != "publish" {
-			return contracts.ActionIntent{}, err
+		if qerr := json.Unmarshal(predecessorPayload, &historicalStep); qerr != nil {
+			return contracts.ActionIntent{}, fmt.Errorf("current authority unavailable (%v); historical publish payload decode: %w", err, qerr)
+		}
+		if historicalStep.RequestID != predecessorRequestID || historicalStep.Step != "publish" {
+			return contracts.ActionIntent{}, fmt.Errorf("current authority unavailable (%v); historical publish payload lineage mismatch", err)
 		}
 		var requestDigest string
 		if qerr := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT object_digest FROM secure_blobs WHERE namespace='authority_request' AND object_id=? AND object_version='1'`, predecessorRequestID).Scan(&requestDigest); qerr != nil {
-			return contracts.ActionIntent{}, err
+			return contracts.ActionIntent{}, fmt.Errorf("current authority unavailable (%v); predecessor request digest lookup: %w", err, qerr)
 		}
 		historical, qerr := e.Repository.LoadExpiredHistoricalAuthorityEvidence(ctx, predecessorRequestID, "1", requestDigest, contracts.GoalsPublicationRoot, key, []string{key + ":manifest", key + ":archive", key + ":signature", key + ":verify-draft"}, now)
 		if qerr != nil {
-			return contracts.ActionIntent{}, err
+			return contracts.ActionIntent{}, fmt.Errorf("current authority unavailable (%v); historical authority evidence load: %w", err, qerr)
 		}
 		historicalProjectionDigest = historical.Digest
 		auth = historicalStep.Authority
@@ -389,9 +392,19 @@ func (e RecoveryExecution) PrepareFailedPublicationIntent(ctx context.Context, p
 	if err := json.Unmarshal(verifyObserved, &verify); err != nil || verify.Release == nil {
 		return contracts.ActionIntent{}, errors.New("resolved /4 verification evidence missing")
 	}
+	// The resolution event's own event_id is the durable, deterministic
+	// identifier for this lookup (constructed as effectID+":resolution:"+
+	// digest by ResolveObservation, and already matched the same way by
+	// ResolveObservation's own idempotency check via
+	// `event_id LIKE effectID+":resolution:%"`). event_id is a TEXT column,
+	// so this is both exact-prefix bound to the intended effect (unlike a
+	// free-text substring search over the JSON payload, which offered no
+	// guarantee against a coincidental match elsewhere in the payload) and
+	// immune to the BLOB/TEXT LIKE coercion difference payload would have
+	// required a CAST to work around.
 	var resolutionID, resolutionPayload []byte
-	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT event_id,payload FROM events WHERE event_type='goals-publication-recovery.observation-resolved' AND payload LIKE ?`, "%"+key+":verify-draft%").Scan(&resolutionID, &resolutionPayload); err != nil {
-		return contracts.ActionIntent{}, err
+	if err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT event_id,payload FROM events WHERE event_type='goals-publication-recovery.observation-resolved' AND event_id LIKE ?`, key+":verify-draft:resolution:%").Scan(&resolutionID, &resolutionPayload); err != nil {
+		return contracts.ActionIntent{}, fmt.Errorf("resolved verify-draft observation-resolved event lookup: %w", err)
 	}
 	var publishState string
 	var attempts int

@@ -49,3 +49,21 @@ func TestBuiltinDelegationAcceptsOnlyClosedV1Edge(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthorityModelV2IsDistinctAndDelegatesOnlyRoutingIssuance(t *testing.T) {
+	parent, request, now := validBuiltinDelegation(t)
+	if AuthorityModelV2Digest() == AuthorityModelDigest() {
+		t.Fatal("v2 reused v1 digest")
+	}
+	parent.Version, parent.AuthorityModelVersion, parent.AuthorityModelDigest = "2", AuthorityModelV2Version, AuthorityModelV2Digest()
+	request.ParentVersion = parent.Version
+	request.PolicyVersion, request.PolicyDigest = AuthorityModelV2Version, AuthorityModelV2Digest()
+	request.RequestedAuthority, request.RequestedOperation, request.TargetKind = AuthorityRoutingTargetContributionIssue, "issue", "routing.target-contribution"
+	if err := ValidateBuiltinDelegation(parent, request, now); err != nil {
+		t.Fatal(err)
+	}
+	request.RequestedAuthority = AuthorityDelegateCapability
+	if err := ValidateBuiltinDelegation(parent, request, now); err == nil {
+		t.Fatal("v2 routing child received authority.delegate")
+	}
+}

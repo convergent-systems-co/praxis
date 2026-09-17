@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -27,6 +28,7 @@ const authorityDecisionNamespace = "authority_decision"
 const authorityRevocationNamespace = "authority_revocation"
 const authorityGenerationNamespace = "authority_generation"
 const authorityGenerationInvalidationNamespace = "authority_generation_invalidation"
+const authorityModelMigrationNamespace = "authority_model_migration"
 const providerWorkspaceNamespace = "provider_workspace"
 
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
@@ -775,6 +777,77 @@ func (r Repository) SaveAuthorityGeneration(ctx context.Context, generation cont
 	return r.putWorkPlanBlob(ctx, authorityGenerationNamespace, generation.Ref, generation.Version, payload, createdAt, expiresAt)
 }
 
+func (r Repository) SaveAuthorityModelMigration(ctx context.Context, migration contracts.AuthorityModelMigration, target contracts.AuthorityGeneration) error {
+	if err := r.validateWorkPlanStore(); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	source, err := r.LoadAuthorityGeneration(ctx, migration.SourceRef, migration.SourceVersion, now)
+	if err != nil {
+		return fmt.Errorf("load migration source: %w", err)
+	}
+	if err := contracts.VerifyAuthorityModelMigration(migration, source, target); err != nil {
+		return err
+	}
+	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, source.Ref, source.Version, now); err == nil {
+		return errors.New("migration source is revoked or superseded")
+	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+		return err
+	}
+	if existing, loadErr := r.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now); loadErr == nil {
+		left, _ := json.Marshal(existing)
+		right, _ := json.Marshal(migration)
+		if bytes.Equal(left, right) {
+			return nil
+		}
+		return errors.New("authority-model source already has a conflicting successor")
+	} else if !errors.Is(loadErr, state.ErrSecureBlobNotFound) {
+		return loadErr
+	}
+	migrationPayload, _ := json.Marshal(migration)
+	targetPayload, _ := json.Marshal(target)
+	records := make([]state.SecureBlobRecord, 0, 2)
+	for _, item := range []struct {
+		ns, id, version string
+		payload         []byte
+	}{{authorityModelMigrationNamespace, source.Ref, source.Version, migrationPayload}, {authorityGenerationNamespace, target.Ref, target.Version, targetPayload}} {
+		digest := payloadDigest(item.payload)
+		aad := state.SecureBlobAAD(item.ns, item.id, item.version, digest)
+		envelope, sealErr := r.Crypto.Seal(ctx, r.KeyRef, r.Profile, item.payload, aad)
+		if sealErr != nil {
+			return sealErr
+		}
+		records = append(records, state.SecureBlobRecord{Namespace: item.ns, ObjectID: item.id, ObjectVersion: item.version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: migration.EffectiveAt})
+	}
+	return r.Store.PutSecureBlobsWithLock(ctx, records, authorityGenerationNamespace, source.Ref, source.Version)
+}
+
+func (r Repository) LoadAuthorityModelMigration(ctx context.Context, sourceRef, sourceVersion string, now time.Time) (contracts.AuthorityModelMigration, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityModelMigrationNamespace, sourceRef, sourceVersion, now)
+	if err != nil {
+		return contracts.AuthorityModelMigration{}, err
+	}
+	var migration contracts.AuthorityModelMigration
+	if err := json.Unmarshal(payload, &migration); err != nil {
+		return migration, err
+	}
+	if payloadDigest(payload) != record.ObjectDigest || migration.SourceRef != sourceRef || migration.SourceVersion != sourceVersion {
+		return migration, errors.New("authority-model migration identity mismatch")
+	}
+	source, err := r.LoadAuthorityGeneration(ctx, sourceRef, sourceVersion, now)
+	if err != nil {
+		return migration, err
+	}
+	target, err := r.LoadAuthorityGeneration(ctx, migration.TargetRef, migration.TargetVersion, now)
+	if err != nil {
+		return migration, err
+	}
+	if err := contracts.VerifyAuthorityModelMigration(migration, source, target); err != nil {
+		return migration, err
+	}
+	return migration, nil
+}
+
 // SaveDelegatedAuthorityGeneration is the generic authority-owned child
 // transition. The policy registry is mandatory: no lexical or implicit
 // containment is permitted.
@@ -813,7 +886,7 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	child := contracts.AuthorityGeneration{Ref: "authority-delegation:" + request.ID, Version: "1", Principal: delegation.DelegatedPrincipal, Scope: delegation.RequestedScope, Authorities: []string{delegation.RequestedAuthority}, EffectiveAt: createdAt.UTC(), ExpiresAt: &delegation.ExpiresAt, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedBy: decision.DecidedBy, DelegationRef: request.ID + "/" + request.Version, DelegationDigest: delegationDigest, PolicyRef: delegation.PolicyRef, PolicyVersion: delegation.PolicyVersion, PolicyDigest: delegation.PolicyDigest, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelVersion, AuthorityModelDigest: contracts.AuthorityModelDigest(), State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + decision.DecisionRef + ":" + decision.DecisionVersion, ProvenanceDigest: decision.AuthorityDigest}
+	child := contracts.AuthorityGeneration{Ref: "authority-delegation:" + request.ID, Version: "1", Principal: delegation.DelegatedPrincipal, Scope: delegation.RequestedScope, Authorities: []string{delegation.RequestedAuthority}, EffectiveAt: createdAt.UTC(), ExpiresAt: &delegation.ExpiresAt, ParentRef: parent.Ref, ParentVersion: parent.Version, ParentDigest: parent.Digest, DelegatedBy: decision.DecidedBy, DelegationRef: request.ID + "/" + request.Version, DelegationDigest: delegationDigest, PolicyRef: delegation.PolicyRef, PolicyVersion: delegation.PolicyVersion, PolicyDigest: delegation.PolicyDigest, AuthorityModel: parent.AuthorityModel, AuthorityModelVersion: parent.AuthorityModelVersion, AuthorityModelDigest: parent.AuthorityModelDigest, State: contracts.AuthorityGenerationActive, ProvenanceRef: "authority-decision:" + decision.DecisionRef + ":" + decision.DecisionVersion, ProvenanceDigest: decision.AuthorityDigest}
 	child.Digest, err = child.ComputeDigest()
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("derive delegated generation digest: %w", err)
@@ -995,12 +1068,95 @@ func (r Repository) ValidateAuthorityGeneration(ctx context.Context, decision co
 	if generation.Digest != decision.AuthorityGenerationDigest || generation.Principal != decision.DecidedBy || generation.Scope != decision.GrantedScope {
 		return errors.New("authority decision does not match current authority generation")
 	}
+	request, err := r.LoadAuthorityRequest(ctx, decision.RequestID, decision.RequestVersion, now)
+	if err != nil {
+		return fmt.Errorf("load authority request for generation validation: %w", err)
+	}
+	if request.RequestedAuthority == contracts.AuthorityDelegateCapability {
+		if !containsString(generation.Capabilities, contracts.AuthorityDelegateCapability) {
+			return errors.New("authority generation lacks authority.delegate")
+		}
+	} else if !containsString(generation.Authorities, request.RequestedAuthority) {
+		return errors.New("authority generation lacks requested authority")
+	}
 	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
 		return errors.New("authority generation is revoked or superseded")
 	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
 		return err
 	}
 	return nil
+}
+
+func (r Repository) ValidateAuthorityGenerationLineage(ctx context.Context, ref, version, digest, bootstrapDigest string, now time.Time) (contracts.AuthorityGeneration, error) {
+	seen := map[string]bool{}
+	var walk func(string, string, string) (contracts.AuthorityGeneration, error)
+	walk = func(currentRef, currentVersion, currentDigest string) (contracts.AuthorityGeneration, error) {
+		key := currentRef + "@" + currentVersion
+		if seen[key] {
+			return contracts.AuthorityGeneration{}, errors.New("authority generation lineage contains a cycle")
+		}
+		seen[key] = true
+		generation, err := r.LoadAuthorityGeneration(ctx, currentRef, currentVersion, now)
+		if err != nil {
+			return generation, err
+		}
+		if generation.Digest != currentDigest || generation.EffectiveAt.After(now) || (generation.ExpiresAt != nil && !now.Before(*generation.ExpiresAt)) {
+			return generation, errors.New("authority generation is mismatched or inactive")
+		}
+		if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
+			return generation, errors.New("authority generation is revoked or superseded")
+		} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+			return generation, err
+		}
+		if generation.ParentRef == "" {
+			scope, scopeErr := contracts.InstallationGovernanceScope(bootstrapDigest)
+			owner, ownerErr := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+			if scopeErr != nil || ownerErr != nil || generation.Ref != scope || generation.Scope != scope || generation.Principal != owner || generation.Capabilities == nil || !containsString(generation.Capabilities, contracts.AuthorityDelegateCapability) {
+				return generation, errors.New("authority lineage does not terminate at the installation root")
+			}
+			if generation.AuthorityModelVersion == contracts.AuthorityModelV2Version {
+				migration, err := r.LoadAuthorityModelMigration(ctx, generation.Ref, "1", now)
+				if err != nil || migration.TargetDigest != generation.Digest {
+					return generation, errors.New("v2 root lacks exact governed migration")
+				}
+			}
+			return generation, nil
+		}
+		parent, err := walk(generation.ParentRef, generation.ParentVersion, generation.ParentDigest)
+		if err != nil {
+			return generation, err
+		}
+		requestID, requestVersion, ok := strings.Cut(generation.DelegationRef, "/")
+		if !ok {
+			return generation, errors.New("delegated generation request lineage is malformed")
+		}
+		request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, now)
+		if err != nil || request.Delegation == nil {
+			return generation, errors.New("delegated generation request is unavailable")
+		}
+		decision, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, now)
+		if err != nil {
+			return generation, err
+		}
+		if decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal || generation.DelegatedBy != parent.Principal || generation.AuthorityModelVersion != parent.AuthorityModelVersion || generation.AuthorityModelDigest != parent.AuthorityModelDigest {
+			return generation, errors.New("delegated generation does not bind its parent decision")
+		}
+		if err := contracts.ValidateBuiltinDelegation(parent, *request.Delegation, now); err != nil {
+			return generation, err
+		}
+		if request.Delegation.DelegatedPrincipal != generation.Principal || request.Delegation.RequestedAuthority != firstAuthority(generation.Authorities) || request.Delegation.RequestedScope != generation.Scope {
+			return generation, errors.New("delegated generation exceeds its exact request")
+		}
+		return generation, nil
+	}
+	return walk(ref, version, digest)
+}
+
+func firstAuthority(values []string) string {
+	if len(values) == 1 {
+		return values[0]
+	}
+	return ""
 }
 
 func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time) error {

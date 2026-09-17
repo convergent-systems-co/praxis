@@ -77,6 +77,34 @@ func authorityGenerationFixture(now time.Time) contracts.AuthorityGeneration {
 	return generation
 }
 
+func TestAuthorityModelMigrationPersistsAtomicIdempotentSuccessor(t *testing.T) {
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	source := authorityGenerationFixture(now.Add(-time.Minute))
+	if err := repo.SaveAuthorityGeneration(ctx, source, source.EffectiveAt, nil); err != nil {
+		t.Fatal(err)
+	}
+	migration, target, err := contracts.FreezeAuthorityModelMigration(source, source.ProvenanceDigest, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveAuthorityModelMigration(ctx, migration, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveAuthorityModelMigration(ctx, migration, target); err != nil {
+		t.Fatalf("idempotent retry: %v", err)
+	}
+	loaded, err := repo.LoadAuthorityModelMigration(ctx, source.Ref, source.Version, now.Add(time.Second))
+	if err != nil || loaded.ID != migration.ID {
+		t.Fatalf("load migration: %#v %v", loaded, err)
+	}
+	root, err := repo.ValidateAuthorityGenerationLineage(ctx, target.Ref, target.Version, target.Digest, source.ProvenanceDigest, now.Add(time.Second))
+	if err != nil || root.AuthorityModelVersion != contracts.AuthorityModelV2Version || len(root.Authorities) != 0 {
+		t.Fatalf("validate migrated root: %#v %v", root, err)
+	}
+}
+
 func persistAuthorityGenerationPayload(t *testing.T, repo Repository, store *state.Store, generation contracts.AuthorityGeneration, objectDigest string) {
 	t.Helper()
 	payload, err := json.Marshal(generation)
@@ -514,7 +542,7 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
-	generation := contracts.AuthorityGeneration{Ref: "policy:goal-acceptance", Version: "7", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: request.RequestedScope, ProvenanceRef: "policy:goal-acceptance", ProvenanceDigest: "sha256:policy-source", State: contracts.AuthorityGenerationActive, EffectiveAt: time.Now().UTC()}
+	generation := contracts.AuthorityGeneration{Ref: "policy:goal-acceptance", Version: "7", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: request.RequestedScope, Authorities: []string{contracts.GovernedWorkPlanAccept}, ProvenanceRef: "policy:goal-acceptance", ProvenanceDigest: "sha256:policy-source", State: contracts.AuthorityGenerationActive, EffectiveAt: time.Now().UTC()}
 	generation.Digest, err = generation.ComputeDigest()
 	if err != nil {
 		t.Fatal(err)

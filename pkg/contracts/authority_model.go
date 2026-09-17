@@ -11,9 +11,12 @@ import (
 )
 
 const (
-	AuthorityModelID       = "praxis.authority-model"
-	AuthorityModelVersion  = "v1"
-	GovernedWorkPlanAccept = "workplan.accept"
+	AuthorityModelID                        = "praxis.authority-model"
+	AuthorityModelVersion                   = "v1"
+	AuthorityModelV2Version                 = "v2"
+	GovernedWorkPlanAccept                  = "workplan.accept"
+	AuthorityRoutingTargetContributionIssue = "routing.target-contribution.issue"
+	AuthorityRoutingSurfaceEligibilityIssue = "routing.surface-eligibility.issue"
 )
 
 func AuthorityModelDigest() string {
@@ -22,11 +25,27 @@ func AuthorityModelDigest() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+func AuthorityModelV2Digest() string {
+	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelV2Version, AuthorityDelegateCapability, GovernedWorkPlanAccept, AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue})
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
 func ValidateAuthorityModel(id, version, digest string) error {
-	if id != AuthorityModelID || version != AuthorityModelVersion || digest != AuthorityModelDigest() {
-		return errors.New("authority model identity or digest is not the supported v1 model")
+	if id != AuthorityModelID {
+		return errors.New("authority model identity is unsupported")
 	}
-	return nil
+	switch version {
+	case AuthorityModelVersion:
+		if digest == AuthorityModelDigest() {
+			return nil
+		}
+	case AuthorityModelV2Version:
+		if digest == AuthorityModelV2Digest() {
+			return nil
+		}
+	}
+	return errors.New("authority model version or digest is unsupported")
 }
 
 func WorkPlanAuthorityScope(goalID, baselineVersion, baselineDigest, proposalVersion, proposalDigest, reviewVersion, reviewDigest string) (string, error) {
@@ -51,6 +70,9 @@ func ValidateBuiltinDelegation(parent AuthorityGeneration, request DelegationReq
 	if request.DelegatedPrincipal.Kind != "controller" || !strings.HasPrefix(request.DelegatedPrincipal.ID, "controller:") || request.DelegatedPrincipal == parent.Principal {
 		return errors.New("v1 delegation requires a distinct controller principal")
 	}
+	if parent.AuthorityModelVersion == AuthorityModelV2Version {
+		return validateV2Delegation(request, now)
+	}
 	if request.RequestedAuthority != GovernedWorkPlanAccept || request.RequestedOperation != "accept" || len(request.RequestedCapabilities) != 0 {
 		return errors.New("v1 delegation permits only workplan.accept and no runtime capabilities")
 	}
@@ -63,6 +85,25 @@ func ValidateBuiltinDelegation(parent AuthorityGeneration, request DelegationReq
 	}
 	if request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
 		return errors.New("v1 delegation expiry is missing or expired")
+	}
+	return nil
+}
+
+func validateV2Delegation(request DelegationRequest, now time.Time) error {
+	if err := ValidateAuthorityModel(request.PolicyRef, request.PolicyVersion, request.PolicyDigest); err != nil || request.PolicyVersion != AuthorityModelV2Version {
+		return errors.New("routing delegation requires authority model v2 policy")
+	}
+	wantKind, wantOperation := "", "issue"
+	switch request.RequestedAuthority {
+	case AuthorityRoutingTargetContributionIssue:
+		wantKind = "routing.target-contribution"
+	case AuthorityRoutingSurfaceEligibilityIssue:
+		wantKind = "routing.surface-eligibility"
+	default:
+		return errors.New("v2 delegation authority is not in the closed routing table")
+	}
+	if request.TargetKind != wantKind || request.RequestedOperation != wantOperation || len(request.RequestedCapabilities) != 0 || len(request.RequestedOperations) != 0 || !isSHA256Digest(request.TargetDigest) || !isSHA256Digest(request.ProposalDigest) || !isSHA256Digest(request.ReviewDigest) || request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
+		return errors.New("v2 routing delegation requires exact target, issue operation, no capabilities, and future expiry")
 	}
 	return nil
 }

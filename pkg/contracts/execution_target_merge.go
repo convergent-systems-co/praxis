@@ -26,88 +26,135 @@ type ExecutionTargetContribution struct {
 }
 
 type EffectiveExecutionTarget struct {
-	Target      ExecutionTarget   `json:"target"`
-	Authorities []TargetAuthority `json:"authorities"`
+	Target        ExecutionTarget               `json:"target"`
+	Authorities   []TargetAuthority             `json:"authorities"`
+	Contributions []ExecutionTargetContribution `json:"contributions,omitempty"`
 }
 
 var ErrTargetMergeConflict = fmt.Errorf("execution target contributions have no safe deterministic merge")
 
-// MergeExecutionTargets applies a fixed authority-independent safety merge:
-// restrictions intersect/union conservatively, while preferences never relax
-// a prohibition. Input order is not semantic authority.
+// MergeExecutionTargets merges contributions in descending authority order.
+// Hard constraints only narrow as weaker contributions are applied.
 func MergeExecutionTargets(contributions []ExecutionTargetContribution) (EffectiveExecutionTarget, error) {
 	if len(contributions) == 0 {
 		return EffectiveExecutionTarget{}, fmt.Errorf("%w: no contributions", ErrTargetMergeConflict)
 	}
-	ordered := append([]ExecutionTargetContribution(nil), contributions...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		return targetAuthorityRank(ordered[i].Authority) < targetAuthorityRank(ordered[j].Authority)
+
+	ordered := make([]ExecutionTargetContribution, len(contributions))
+	for index := range contributions {
+		ordered[index] = cloneContribution(contributions[index])
+	}
+	sort.SliceStable(ordered, func(left, right int) bool {
+		return targetAuthorityRank(ordered[left].Authority) < targetAuthorityRank(ordered[right].Authority)
 	})
-	merged := ExecutionTarget{Version: "1", APIPolicy: APIPolicyAllow, SourceAuthority: "merged", Scope: ordered[0].Target.Scope}
-	seenAuthorities := map[TargetAuthority]bool{}
-	var transportSet []TransportClass
-	transportConstrained := false
-	apiForbid, apiRequired, apiPreferNot := false, false, false
+
+	scope := ordered[0].Target.Scope
+	seenAuthorities := make(map[TargetAuthority]struct{}, len(ordered))
 	for _, contribution := range ordered {
-		if targetAuthorityRank(contribution.Authority) < 0 || contribution.SourceRef == "" || contribution.SourceDigest == "" || contribution.Target.Scope != merged.Scope {
-			return EffectiveExecutionTarget{}, fmt.Errorf("%w: contribution provenance, authority, or scope is invalid", ErrTargetMergeConflict)
+		if targetAuthorityRank(contribution.Authority) < 0 {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: unknown authority %q", ErrTargetMergeConflict, contribution.Authority)
+		}
+		if _, exists := seenAuthorities[contribution.Authority]; exists {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: duplicate authority %q", ErrTargetMergeConflict, contribution.Authority)
+		}
+		seenAuthorities[contribution.Authority] = struct{}{}
+		if contribution.SourceRef == "" || contribution.SourceDigest == "" {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: authority %q lacks source provenance", ErrTargetMergeConflict, contribution.Authority)
 		}
 		if err := contribution.Target.Validate(); err != nil {
-			return EffectiveExecutionTarget{}, err
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: authority %q: %v", ErrTargetMergeConflict, contribution.Authority, err)
 		}
-		if seenAuthorities[contribution.Authority] {
-			return EffectiveExecutionTarget{}, fmt.Errorf("%w: duplicate authority", ErrTargetMergeConflict)
+		if contribution.Target.Scope != scope {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: scope mismatch %q and %q", ErrTargetMergeConflict, scope, contribution.Target.Scope)
 		}
-		seenAuthorities[contribution.Authority] = true
-		merged.RequiredCapabilities = unionStrings(merged.RequiredCapabilities, contribution.Target.RequiredCapabilities)
-		merged.RequiredProfiles = unionStrings(merged.RequiredProfiles, contribution.Target.RequiredProfiles)
-		merged.PreferredProfiles = unionStrings(merged.PreferredProfiles, contribution.Target.PreferredProfiles)
-		merged.AllowedFallbackProfiles = unionStrings(merged.AllowedFallbackProfiles, contribution.Target.AllowedFallbackProfiles)
-		merged.ProhibitedProfiles = unionStrings(merged.ProhibitedProfiles, contribution.Target.ProhibitedProfiles)
-		merged.TelemetryRequirements = unionStrings(merged.TelemetryRequirements, contribution.Target.TelemetryRequirements)
-		if contribution.Target.BudgetProfile != "" {
-			merged.BudgetProfile = contribution.Target.BudgetProfile
+	}
+
+	merged := ExecutionTarget{
+		Version:         "1",
+		APIPolicy:       APIPolicyAllow,
+		SourceAuthority: "merged",
+		Scope:           scope,
+	}
+	authorities := make([]TargetAuthority, 0, len(ordered))
+	transportConstrained := false
+	apiForbidden := false
+	apiRequired := false
+	apiPreferNot := false
+
+	for index, contribution := range ordered {
+		target := contribution.Target
+		authorities = append(authorities, contribution.Authority)
+		merged.RequiredCapabilities = appendUniqueStrings(merged.RequiredCapabilities, target.RequiredCapabilities)
+		merged.RequiredProfiles = appendUniqueStrings(merged.RequiredProfiles, target.RequiredProfiles)
+		merged.PreferredProfiles = appendUniqueStrings(merged.PreferredProfiles, target.PreferredProfiles)
+		merged.ProhibitedProfiles = appendUniqueStrings(merged.ProhibitedProfiles, target.ProhibitedProfiles)
+		merged.TelemetryRequirements = appendUniqueStrings(merged.TelemetryRequirements, target.TelemetryRequirements)
+
+		if index == 0 {
+			merged.AllowedFallbackProfiles = appendUniqueStrings(nil, target.AllowedFallbackProfiles)
+		} else {
+			merged.AllowedFallbackProfiles = intersectStrings(merged.AllowedFallbackProfiles, target.AllowedFallbackProfiles)
 		}
-		if contribution.Target.ReasoningTier != "" {
-			merged.ReasoningTier = contribution.Target.ReasoningTier
+
+		if len(target.TransportPolicy) > 0 {
+			if !transportConstrained {
+				merged.TransportPolicy = appendUniqueTransports(nil, target.TransportPolicy)
+				transportConstrained = true
+			} else {
+				merged.TransportPolicy = intersectTransports(merged.TransportPolicy, target.TransportPolicy)
+				if len(merged.TransportPolicy) == 0 {
+					return EffectiveExecutionTarget{}, fmt.Errorf("%w: transport policies have no common transport", ErrTargetMergeConflict)
+				}
+			}
 		}
-		switch contribution.Target.APIPolicy {
+
+		switch target.APIPolicy {
 		case APIPolicyForbid:
-			apiForbid = true
+			apiForbidden = true
 		case APIPolicyRequired:
 			apiRequired = true
 		case APIPolicyPreferNot:
 			apiPreferNot = true
 		}
-		if len(contribution.Target.TransportPolicy) > 0 {
-			if !transportConstrained {
-				transportSet = append([]TransportClass(nil), contribution.Target.TransportPolicy...)
-				transportConstrained = true
-			} else {
-				transportSet = intersectTransports(transportSet, contribution.Target.TransportPolicy)
-			}
+
+		if !mergeNonemptySingleton(&merged.ReasoningTier, target.ReasoningTier) {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: incompatible reasoning tiers %q and %q", ErrTargetMergeConflict, merged.ReasoningTier, target.ReasoningTier)
+		}
+		if !mergeNonemptySingleton(&merged.BudgetProfile, target.BudgetProfile) {
+			return EffectiveExecutionTarget{}, fmt.Errorf("%w: incompatible budget profiles %q and %q", ErrTargetMergeConflict, merged.BudgetProfile, target.BudgetProfile)
 		}
 	}
-	if apiForbid && apiRequired || len(transportSet) == 0 && transportConstrained {
-		return EffectiveExecutionTarget{}, ErrTargetMergeConflict
+
+	if apiForbidden && apiRequired {
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: API use is both forbidden and required", ErrTargetMergeConflict)
 	}
-	if apiForbid {
+	switch {
+	case apiForbidden:
 		merged.APIPolicy = APIPolicyForbid
-	} else if apiRequired {
+		if transportConstrained {
+			merged.TransportPolicy = removeTransport(merged.TransportPolicy, TransportMeteredAPI)
+			if len(merged.TransportPolicy) == 0 {
+				return EffectiveExecutionTarget{}, fmt.Errorf("%w: API prohibition leaves no permitted transport", ErrTargetMergeConflict)
+			}
+		}
+	case apiRequired:
 		merged.APIPolicy = APIPolicyRequired
-	} else if apiPreferNot {
+	case apiPreferNot:
 		merged.APIPolicy = APIPolicyPreferNot
+	default:
+		merged.APIPolicy = APIPolicyAllow
 	}
-	merged.TransportPolicy = transportSet
+
 	merged.AllowedFallbackProfiles = subtractStrings(merged.AllowedFallbackProfiles, merged.ProhibitedProfiles)
 	if err := merged.Validate(); err != nil {
-		return EffectiveExecutionTarget{}, err
+		return EffectiveExecutionTarget{}, fmt.Errorf("%w: effective target: %v", ErrTargetMergeConflict, err)
 	}
-	authorities := make([]TargetAuthority, 0, len(ordered))
-	for _, contribution := range ordered {
-		authorities = append(authorities, contribution.Authority)
-	}
-	return EffectiveExecutionTarget{Target: merged, Authorities: authorities}, nil
+
+	return EffectiveExecutionTarget{
+		Target:        merged,
+		Authorities:   authorities,
+		Contributions: ordered,
+	}, nil
 }
 
 func targetAuthorityRank(authority TargetAuthority) int {
@@ -133,56 +180,116 @@ func targetAuthorityRank(authority TargetAuthority) int {
 	}
 }
 
-func unionStrings(left, right []string) []string {
-	values := append([]string(nil), left...)
-	seen := map[string]bool{}
-	for _, value := range values {
-		seen[value] = true
+func cloneContribution(contribution ExecutionTargetContribution) ExecutionTargetContribution {
+	contribution.Target = cloneExecutionTarget(contribution.Target)
+	return contribution
+}
+
+func cloneExecutionTarget(target ExecutionTarget) ExecutionTarget {
+	target.RequiredCapabilities = append([]string(nil), target.RequiredCapabilities...)
+	target.RequiredProfiles = append([]string(nil), target.RequiredProfiles...)
+	target.PreferredProfiles = append([]string(nil), target.PreferredProfiles...)
+	target.AllowedFallbackProfiles = append([]string(nil), target.AllowedFallbackProfiles...)
+	target.ProhibitedProfiles = append([]string(nil), target.ProhibitedProfiles...)
+	target.TransportPolicy = append([]TransportClass(nil), target.TransportPolicy...)
+	target.TelemetryRequirements = append([]string(nil), target.TelemetryRequirements...)
+	return target
+}
+
+func mergeNonemptySingleton(current *string, next string) bool {
+	if next == "" {
+		return true
+	}
+	if *current == "" {
+		*current = next
+		return true
+	}
+	return *current == next
+}
+
+func appendUniqueStrings(left, right []string) []string {
+	out := append([]string(nil), left...)
+	seen := make(map[string]struct{}, len(out)+len(right))
+	for _, value := range out {
+		seen[value] = struct{}{}
 	}
 	for _, value := range right {
-		if value != "" && !seen[value] {
-			values = append(values, value)
-			seen[value] = true
+		if value == "" {
+			continue
 		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
 	}
-	sort.Strings(values)
-	return values
+	return out
 }
-func subtractStrings(values, prohibited []string) []string {
-	out := []string{}
-	for _, value := range values {
-		blocked := false
-		for _, deny := range prohibited {
-			if value == deny {
-				blocked = true
-			}
-		}
-		if !blocked {
+
+func intersectStrings(left, right []string) []string {
+	allowed := make(map[string]struct{}, len(right))
+	for _, value := range right {
+		allowed[value] = struct{}{}
+	}
+	out := make([]string, 0, len(left))
+	for _, value := range left {
+		if _, exists := allowed[value]; exists {
 			out = append(out, value)
 		}
 	}
 	return out
 }
-func intersectTransports(left, right []TransportClass) []TransportClass {
-	out := []TransportClass{}
-	for _, a := range left {
-		for _, b := range right {
-			if a == b {
-				out = append(out, a)
-			}
-		}
+
+func subtractStrings(values, prohibited []string) []string {
+	blocked := make(map[string]struct{}, len(prohibited))
+	for _, value := range prohibited {
+		blocked[value] = struct{}{}
 	}
-	return unionTransport(out)
-}
-func unionTransport(values []TransportClass) []TransportClass {
-	seen := map[TransportClass]bool{}
-	out := []TransportClass{}
+	out := make([]string, 0, len(values))
 	for _, value := range values {
-		if !seen[value] {
-			seen[value] = true
+		if _, exists := blocked[value]; !exists {
 			out = append(out, value)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func appendUniqueTransports(left, right []TransportClass) []TransportClass {
+	out := append([]TransportClass(nil), left...)
+	seen := make(map[TransportClass]struct{}, len(out)+len(right))
+	for _, value := range out {
+		seen[value] = struct{}{}
+	}
+	for _, value := range right {
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func intersectTransports(left, right []TransportClass) []TransportClass {
+	allowed := make(map[TransportClass]struct{}, len(right))
+	for _, value := range right {
+		allowed[value] = struct{}{}
+	}
+	out := make([]TransportClass, 0, len(left))
+	for _, value := range left {
+		if _, exists := allowed[value]; exists {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func removeTransport(values []TransportClass, prohibited TransportClass) []TransportClass {
+	out := make([]TransportClass, 0, len(values))
+	for _, value := range values {
+		if value != prohibited {
+			out = append(out, value)
+		}
+	}
 	return out
 }

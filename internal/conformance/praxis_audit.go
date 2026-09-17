@@ -121,8 +121,8 @@ const (
 	workspaceAttestation          = "docs/research/conformance/attestations/workspace-intelligence-v1.json"
 	isolationAttestation          = "docs/research/conformance/attestations/plugin-isolation-v1.json"
 	mutationBoundaryAttestation   = "docs/research/conformance/attestations/mutation-boundary-v2.json"
-	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v39.json"
-	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v40.json"
+	portableStateAttestation      = "docs/research/conformance/attestations/portable-state-v40.json"
+	packageLifecycleAttestation   = "docs/research/conformance/attestations/package-lifecycle-v41.json"
 	pluginLifecycleAttestation    = "docs/research/conformance/attestations/plugin-lifecycle-v1.json"
 	schedulerLifecycleAttestation = "docs/research/conformance/attestations/scheduler-lifecycle-v2.json"
 )

@@ -158,7 +158,13 @@ func FreezeSurfaceRouteRequest(request SurfaceRouteRequest) (SurfaceRouteRequest
 	return request, nil
 }
 
-func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, composer *SurfaceEligibilityComposer, decidedAt time.Time) (SurfaceRoutingDecision, error) {
+func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, composer *SurfaceEligibilityComposer) (SurfaceRoutingDecision, error) {
+	return selectExecutorSurfaceAt(ctx, request, surfaces, composer, time.Now().UTC())
+}
+
+// selectExecutorSurfaceAt is a non-authoritative deterministic test seam. The
+// public selection boundary always derives time from the core clock.
+func selectExecutorSurfaceAt(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, composer *SurfaceEligibilityComposer, decidedAt time.Time) (SurfaceRoutingDecision, error) {
 	frozen, err := FreezeSurfaceRouteRequest(request)
 	if err != nil || frozen.ID != request.ID || inferenceDigest(frozen) != inferenceDigest(request) {
 		return SurfaceRoutingDecision{}, errors.New("surface route request is not frozen")

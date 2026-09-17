@@ -41,7 +41,7 @@ func TestUnifiedRouteV2ProhibitsPairedAuthoritativeRecords(t *testing.T) {
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
-	surfaceDecision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	surfaceDecision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed(t *testing.T) {
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
-	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
+	decision, err := selectExecutorSurfaceAt(ctx, request, []ExecutorSurface{surface}, surfaceComposer(t, authorizeSurfaces(t, request, []ExecutorSurface{surface})), surfaceDecisionTime)
 	if err != nil {
 		t.Fatal(err)
 	}

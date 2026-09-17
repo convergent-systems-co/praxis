@@ -32,11 +32,15 @@ func (a surfaceAuthority) EvaluateSurfaceEligibility(_ context.Context, _ Surfac
 }
 
 func surfaceTarget(mut func(*contracts.ExecutionTarget)) contracts.EffectiveExecutionTarget {
-	target := contracts.ExecutionTarget{Version: "1", RequiredCapabilities: []string{"reasoning"}, ReasoningTier: "D1", APIPolicy: contracts.APIPolicyAllow, SourceAuthority: "merged", Scope: "node:deliver", TransportPolicy: []contracts.TransportClass{contracts.TransportSubscriptionCLI, contracts.TransportMeteredAPI}}
+	target := contracts.ExecutionTarget{Version: "1", RequiredCapabilities: []string{"reasoning"}, ReasoningTier: "D1", APIPolicy: contracts.APIPolicyAllow, SourceAuthority: "node:deliver", Scope: "node:deliver", TransportPolicy: []contracts.TransportClass{contracts.TransportSubscriptionCLI, contracts.TransportMeteredAPI}}
 	if mut != nil {
 		mut(&target)
 	}
-	return contracts.EffectiveExecutionTarget{Target: target, Authorities: []contracts.TargetAuthority{contracts.AuthorityNode, contracts.AuthorityPlatformSecurity}}
+	effective, err := contracts.MergeExecutionTargets([]contracts.ExecutionTargetContribution{{Authority: contracts.AuthorityNode, SourceRef: "node:deliver", SourceDigest: "sha256:node-deliver", Target: target}})
+	if err != nil {
+		panic(err)
+	}
+	return effective
 }
 
 func surfaceRequest(t *testing.T, target contracts.EffectiveExecutionTarget) SurfaceRouteRequest {
@@ -106,6 +110,93 @@ func TestExecutorSurfaceV2UsesAuthoritativeEvidenceAndNeutralMetadata(t *testing
 	if err != nil || again.ID != decision.ID {
 		t.Fatalf("input order changed v2 decision: %#v %v", again, err)
 	}
+}
+
+func TestSurfaceRequestRejectsUnverifiedEffectiveTarget(t *testing.T) {
+	base := surfaceRequest(t, surfaceTarget(func(target *contracts.ExecutionTarget) {
+		target.PreferredProfiles = []string{"z-quality", "a-economy"}
+	}))
+	tests := []struct {
+		name   string
+		mutate func(*contracts.EffectiveExecutionTarget)
+	}{
+		{name: "manual without contributions", mutate: func(target *contracts.EffectiveExecutionTarget) {
+			target.Contributions = nil
+		}},
+		{name: "post-merge target mutation", mutate: func(target *contracts.EffectiveExecutionTarget) {
+			target.Target.PreferredProfiles[0], target.Target.PreferredProfiles[1] = target.Target.PreferredProfiles[1], target.Target.PreferredProfiles[0]
+		}},
+		{name: "post-merge provenance mutation", mutate: func(target *contracts.EffectiveExecutionTarget) {
+			target.Contributions[0].SourceDigest = "sha256:forged"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := base
+			request.ID = ""
+			test.mutate(&request.Target)
+			if _, err := FreezeSurfaceRouteRequest(request); err == nil {
+				t.Fatal("surface boundary accepted an unverified effective target")
+			}
+		})
+	}
+}
+
+func TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback(t *testing.T) {
+	merge := func(t *testing.T, preferred, fallback []string) contracts.EffectiveExecutionTarget {
+		t.Helper()
+		platform := contracts.ExecutionTarget{
+			Version: "1", RequiredCapabilities: []string{"reasoning"}, ReasoningTier: "D1",
+			PreferredProfiles: preferred, AllowedFallbackProfiles: fallback,
+			APIPolicy: contracts.APIPolicyAllow, SourceAuthority: "platform:security", Scope: "node:deliver",
+			TransportPolicy: []contracts.TransportClass{contracts.TransportSubscriptionCLI},
+		}
+		node := platform
+		node.SourceAuthority = "node:deliver"
+		node.PreferredProfiles = []string{"b-node"}
+		node.AllowedFallbackProfiles = append([]string(nil), fallback...)
+		for left, right := 0, len(node.AllowedFallbackProfiles)-1; left < right; left, right = left+1, right-1 {
+			node.AllowedFallbackProfiles[left], node.AllowedFallbackProfiles[right] = node.AllowedFallbackProfiles[right], node.AllowedFallbackProfiles[left]
+		}
+		effective, err := contracts.MergeExecutionTargets([]contracts.ExecutionTargetContribution{
+			{Authority: contracts.AuthorityNode, SourceRef: "node:deliver", SourceDigest: "sha256:node", Target: node},
+			{Authority: contracts.AuthorityPlatformSecurity, SourceRef: "platform:security", SourceDigest: "sha256:platform", Target: platform},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return effective
+	}
+
+	t.Run("preferred", func(t *testing.T) {
+		request := surfaceRequest(t, merge(t, []string{"z-quality", "a-economy"}, []string{"z-local", "a-local"}))
+		if got, want := request.Target.Target.PreferredProfiles, []string{"z-quality", "a-economy", "b-node"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("frozen preferred profiles = %v, want %v", got, want)
+		}
+		surfaces := []ExecutorSurface{
+			executorSurface("surface-a", "economy", contracts.TransportSubscriptionCLI, "a-economy"),
+			executorSurface("surface-z", "quality", contracts.TransportSubscriptionCLI, "z-quality"),
+		}
+		decision, err := SelectExecutorSurface(context.Background(), request, surfaces, authorizeSurfaces(t, request, surfaces), surfaceDecisionTime)
+		if err != nil || decision.SelectedProfile != "z-quality" || decision.SelectedSurfaceID != "surface-z" {
+			t.Fatalf("semantic preferred order was not preserved: %#v %v", decision, err)
+		}
+	})
+
+	t.Run("fallback", func(t *testing.T) {
+		request := surfaceRequest(t, merge(t, []string{"missing"}, []string{"z-local", "a-local"}))
+		if got, want := request.Target.Target.AllowedFallbackProfiles, []string{"z-local", "a-local"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("frozen fallback profiles = %v, want %v", got, want)
+		}
+		surfaces := []ExecutorSurface{
+			executorSurface("surface-a", "local-a", contracts.TransportSubscriptionCLI, "a-local"),
+			executorSurface("surface-z", "local-z", contracts.TransportSubscriptionCLI, "z-local"),
+		}
+		decision, err := SelectExecutorSurface(context.Background(), request, surfaces, authorizeSurfaces(t, request, surfaces), surfaceDecisionTime)
+		if err != nil || !decision.Fallback || decision.SelectedProfile != "z-local" || decision.SelectedSurfaceID != "surface-z" {
+			t.Fatalf("semantic fallback order was not preserved: %#v %v", decision, err)
+		}
+	})
 }
 
 func TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence(t *testing.T) {

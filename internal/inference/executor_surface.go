@@ -132,13 +132,14 @@ func FreezeSurfaceRouteRequest(request SurfaceRouteRequest) (SurfaceRouteRequest
 	if err != nil || frozenRoute.ID != request.RouteRequest.ID || inferenceDigest(frozenRoute) != inferenceDigest(request.RouteRequest) || request.AgentGeneration == "" {
 		return SurfaceRouteRequest{}, errors.New("surface route request requires frozen route lineage and agent generation")
 	}
-	if err := request.Target.Target.Validate(); err != nil || !validTargetAuthorities(request.Target.Authorities) {
+	frozenTarget, err := contracts.FreezeEffectiveExecutionTarget(request.Target)
+	if err != nil {
 		return SurfaceRouteRequest{}, errors.New("surface route request requires a valid effective execution target")
 	}
+	request.Target = frozenTarget
 	if tier := request.Target.Target.ReasoningTier; tier != "" && tier != string(request.RouteRequest.Tier) {
 		return SurfaceRouteRequest{}, errors.New("surface target reasoning tier does not match route request")
 	}
-	canonicalizeTarget(&request.Target)
 	request.ID = inferenceDigest(request)
 	return request, nil
 }
@@ -460,37 +461,6 @@ func uniqueSorted(values []string) []string {
 	return out[:write]
 }
 
-func canonicalizeTarget(target *contracts.EffectiveExecutionTarget) {
-	target.Target.RequiredCapabilities = uniqueSorted(target.Target.RequiredCapabilities)
-	target.Target.RequiredProfiles = uniqueSorted(target.Target.RequiredProfiles)
-	target.Target.PreferredProfiles = uniqueSorted(target.Target.PreferredProfiles)
-	target.Target.AllowedFallbackProfiles = uniqueSorted(target.Target.AllowedFallbackProfiles)
-	target.Target.ProhibitedProfiles = uniqueSorted(target.Target.ProhibitedProfiles)
-	target.Target.TelemetryRequirements = uniqueSorted(target.Target.TelemetryRequirements)
-	target.Target.TransportPolicy = append([]contracts.TransportClass(nil), target.Target.TransportPolicy...)
-	target.Authorities = append([]contracts.TargetAuthority(nil), target.Authorities...)
-	sort.Slice(target.Target.TransportPolicy, func(i, j int) bool { return target.Target.TransportPolicy[i] < target.Target.TransportPolicy[j] })
-	sort.Slice(target.Authorities, func(i, j int) bool { return target.Authorities[i] < target.Authorities[j] })
-}
-
-func validTargetAuthorities(authorities []contracts.TargetAuthority) bool {
-	if len(authorities) == 0 {
-		return false
-	}
-	seen := map[contracts.TargetAuthority]bool{}
-	for _, authority := range authorities {
-		if seen[authority] {
-			return false
-		}
-		seen[authority] = true
-		switch authority {
-		case contracts.AuthorityPlatformSecurity, contracts.AuthorityOrganization, contracts.AuthorityOperator, contracts.AuthorityPackage, contracts.AuthorityAgent, contracts.AuthorityGraph, contracts.AuthorityNode, contracts.AuthorityLearned:
-		default:
-			return false
-		}
-	}
-	return true
-}
 func validSurfaceTransport(transport contracts.TransportClass) bool {
 	switch transport {
 	case contracts.TransportSubscriptionCLI, contracts.TransportMeteredAPI, contracts.TransportLocal, contracts.TransportPlugin:

@@ -147,6 +147,44 @@ func TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering(t *testing.T) {
 	}
 }
 
+func TestUnifiedRouteRejectsRehashedZeroEvaluationFailure(t *testing.T) {
+	request := surfaceRequest(t, surfaceTarget(nil))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	record := unifiedRecordFor(t, request, []ExecutorSurface{surface}, authorizeSurfaces(t, request, []ExecutorSurface{surface}))
+
+	forgedDecision := record.Decision
+	forgedDecision.ID = ""
+	forgedDecision.Evaluations = nil
+	forgedDecision.Outcome = SurfaceNoEligible
+	forgedDecision.SelectedSurfaceID = ""
+	forgedDecision.SelectedProfile = ""
+	forgedDecision.Fallback = false
+	forgedDecision.ReasonCodes = []string{string(SurfaceNoEligible)}
+	forgedDecision.ID = inferenceDigest(forgedDecision)
+	if err := VerifySurfaceRoutingDecision(forgedDecision); err == nil {
+		t.Fatal("rehashed zero-evaluation surface decision verified")
+	}
+	if _, err := FreezeUnifiedRouteRecord(UnifiedRouteRecord{Decision: forgedDecision}); err == nil {
+		t.Fatal("unified route freeze accepted zero governed eligibility evaluations")
+	}
+
+	forgedRecord := UnifiedRouteRecord{Version: record.Version, Decision: forgedDecision}
+	forgedRecord.ID = inferenceDigest(forgedRecord)
+	if err := VerifyUnifiedRouteRecord(forgedRecord); err == nil {
+		t.Fatal("outer-record rehash bypassed governed eligibility verification")
+	}
+	payload, _ := json.Marshal(forgedRecord)
+	event := eventstore.Event{ID: "event:" + forgedRecord.ID, AggregateType: "inference_routes", Type: unifiedRouteRecordEvent, Version: "v2", Actor: forgedDecision.Evaluator, CommandID: "unified-route:" + forgedRecord.ID, CorrelationID: request.RouteRequest.RunID, CausationID: request.ID, Trust: contracts.TrustPolicy, Payload: payload, CreatedAt: forgedDecision.DecidedAt}
+	store := eventstore.NewMemoryStore()
+	if _, err := store.Append(context.Background(), routeAggregate(request.RouteRequest.SubjectAgentID), 0, []eventstore.Event{event}); err != nil {
+		t.Fatal(err)
+	}
+	ledger, _ := NewRouteLedger(store)
+	if _, err := ledger.UnifiedRoutes(context.Background(), request.RouteRequest.SubjectAgentID); err == nil {
+		t.Fatal("replay accepted outer-record rehash with zero governed eligibility evaluations")
+	}
+}
+
 func TestUnifiedRouteOutcomeBindsRecordIdentityAndReplayMetadata(t *testing.T) {
 	ctx := context.Background()
 	request := surfaceRequest(t, surfaceTarget(nil))

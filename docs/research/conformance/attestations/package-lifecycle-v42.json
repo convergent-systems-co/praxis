@@ -1,0 +1,52 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache-package-v42",
+    "go",
+    "test",
+    "-count=1",
+    "-v",
+    "./cmd/praxis",
+    "./internal/agent",
+    "./internal/distribution",
+    "./internal/packagecatalog",
+    "./internal/plugin",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/transfer",
+    "./migrations/sqlite",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T22:15:37.153848Z",
+  "finished_at": "2026-09-17T22:15:49.339055Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/package-lifecycle-v42.log",
+  "output_digest": "sha256:96a5bb3b64a08a87b0a13bf174a2a0686b0d465eba5031a1c37555a5fbf8d5ee",
+  "source_digests": {
+    "cmd/praxis": "sha256:73298dfc0aaf4f28bf1d395e788919cb226fbd4cbc0c4260d00ebb6a480b9055",
+    "internal/agent": "sha256:dcb55a7b41e9d7a05ed6f5ac1b35c88a18bc26cc6274281f542822368c988827",
+    "internal/distribution": "sha256:32889e31e3624dbdc2395a1a5540a1f60d585b5365ca35fbc5893019ba360ec7",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:5f094bb09ca3a123fd91f09e790c3edd730f99ab3f511dc34e35cc78db2e2ab4",
+    "internal/state": "sha256:ffa9c79cbe4871c9d0b1ce4df4a28523cb3731f89d71663ac03fd825a6fc297f",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/transfer": "sha256:521260c083540d90a77423d64dfc9d2e00ab66026405d2d9b0de5a515082d14c",
+    "migrations/sqlite": "sha256:683b1c17678b7d2255fe79eb081cdfe67e008a46ace8057643db1805d720a846",
+    "pkg/contracts": "sha256:7240680927dc8e732f74857a74065b6fd7c2f2678c0549cb3a4c5971e8048a16"
+  },
+  "observations": [
+    "TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart",
+    "TestCatalogContributionRequiresGovernedGeneralizedPublication",
+    "TestDistributedPackageTrustBindsCatalogResolutionReviewAndLocalAuthorityAcrossRestart",
+    "TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart",
+    "TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic",
+    "TestPackagePluginDefinitionBindsExecutableAcrossRestartAndRejectsOrphans",
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement",
+    "TestVerificationCannotMintActivationAuthority",
+    "TestVerifiedDependencyClosureDeploysAtomicallyAndSurvivesRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:5054004d1ee16c56f1cd8572428944cac9f675f472bbd3c5f3359b58b916642b"
+}

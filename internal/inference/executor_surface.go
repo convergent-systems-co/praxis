@@ -419,6 +419,9 @@ func verifyAndEvaluateSurface(request SurfaceRouteRequest, surface ExecutorSurfa
 }
 
 func buildSurfaceDecision(request SurfaceRouteRequest, lineage surfaceEvaluatorLineage, evaluations []SurfaceEvaluation, decidedAt time.Time) (SurfaceRoutingDecision, error) {
+	if len(evaluations) == 0 {
+		return SurfaceRoutingDecision{}, errors.New("surface routing decision requires governed eligibility evidence")
+	}
 	ordered := append([]SurfaceEvaluation(nil), evaluations...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Surface.ID < ordered[j].Surface.ID })
 	seen := map[string]bool{}

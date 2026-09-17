@@ -15,6 +15,7 @@ import (
 const routeDecisionEvent = "inference.route.decided"
 const routeOutcomeEvent = "inference.route.outcome_observed"
 const surfaceRouteDecisionEvent = "inference.surface_route.decided"
+const unifiedRouteRecordEvent = "inference.route.recorded"
 
 var routeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 var routeOutcomeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_outcome_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
@@ -26,6 +27,92 @@ var surfaceRouteEventVersions = contracts.MustVersionRegistry(contracts.Contract
 		{Version: "v2", Disposition: contracts.VersionCurrent},
 	},
 }, nil)
+var unifiedRouteRecordVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{
+	Contract:       "inference.unified_route_record",
+	CurrentVersion: "v2",
+	Versions: []contracts.ContractVersionDefinition{
+		{Version: "v1", Disposition: contracts.VersionUnsupportedPreRelease, Rationale: "v1 persisted route and surface authority in separate records"},
+		{Version: "v2", Disposition: contracts.VersionCurrent},
+	},
+}, nil)
+
+// UnifiedRouteRecord is the sole new-write routing authority. Its embedded
+// decision owns the effective target, governed eligibility lineage, and either
+// one selected execution surface or one stable terminal routing failure.
+type UnifiedRouteRecord struct {
+	ID       string                 `json:"id"`
+	Version  string                 `json:"version"`
+	Decision SurfaceRoutingDecision `json:"decision"`
+}
+
+func FreezeUnifiedRouteRecord(record UnifiedRouteRecord) (UnifiedRouteRecord, error) {
+	record.ID, record.Version = "", unifiedRouteRecordVersions.CurrentVersion()
+	if err := validateUnifiedRouteRecord(record, false); err != nil {
+		return UnifiedRouteRecord{}, err
+	}
+	record.ID = inferenceDigest(record)
+	return record, nil
+}
+
+func VerifyUnifiedRouteRecord(record UnifiedRouteRecord) error {
+	if err := validateUnifiedRouteRecord(record, true); err != nil {
+		return err
+	}
+	id := record.ID
+	record.ID = ""
+	if id != inferenceDigest(record) {
+		return errors.New("unified route record digest mismatch")
+	}
+	return nil
+}
+
+func validateUnifiedRouteRecord(record UnifiedRouteRecord, requireID bool) error {
+	if requireID && record.ID == "" {
+		return errors.New("unified route record identity is required")
+	}
+	if record.Version != unifiedRouteRecordVersions.CurrentVersion() {
+		return errors.New("unified route record v2 is required")
+	}
+	if err := VerifySurfaceRoutingDecision(record.Decision); err != nil {
+		return err
+	}
+	_, err := selectedSurface(record.Decision)
+	return err
+}
+
+func selectedSurface(decision SurfaceRoutingDecision) (*ExecutorSurface, error) {
+	if decision.Outcome == SurfaceSelected {
+		if decision.SelectedSurfaceID == "" || len(decision.ReasonCodes) == 0 {
+			return nil, errors.New("selected route requires exactly one selected surface")
+		}
+		var selected *ExecutorSurface
+		for index := range decision.Evaluations {
+			if decision.Evaluations[index].Surface.ID == decision.SelectedSurfaceID {
+				if selected != nil || !decision.Evaluations[index].Eligible {
+					return nil, errors.New("selected route does not bind one eligible surface")
+				}
+				copy := decision.Evaluations[index].Surface
+				selected = &copy
+			}
+		}
+		if selected == nil {
+			return nil, errors.New("selected route surface is absent from evaluations")
+		}
+		return selected, nil
+	}
+	if decision.SelectedSurfaceID != "" || decision.SelectedProfile != "" || decision.Fallback {
+		return nil, errors.New("terminal routing failure cannot select a surface")
+	}
+	switch decision.Outcome {
+	case SurfaceNoEligible, SurfaceRequiredUnavailable, SurfaceFallbackProhibited, SurfaceAPIUseProhibited, SurfaceTelemetryUnsatisfied:
+		if len(decision.ReasonCodes) == 0 {
+			return nil, errors.New("terminal routing failure requires stable reason codes")
+		}
+		return nil, nil
+	default:
+		return nil, errors.New("unrecognized terminal routing outcome")
+	}
+}
 
 type RouteRecord struct {
 	ID          string              `json:"id"`
@@ -153,6 +240,153 @@ func NewRouteLedger(store eventstore.Store) (*RouteLedger, error) {
 
 func routeAggregate(subject string) string { return "inference-routes:" + subject }
 
+func (l *RouteLedger) RecordUnifiedRoute(ctx context.Context, record UnifiedRouteRecord) error {
+	if err := VerifyUnifiedRouteRecord(record); err != nil {
+		return err
+	}
+	decision := record.Decision
+	subject := decision.Request.RouteRequest.SubjectAgentID
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if event.ID == "event:"+record.ID {
+			existing, decodeErr := decodeUnifiedRouteRecordEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if inferenceDigest(existing) != inferenceDigest(record) {
+				return errors.New("unified route event identity is already bound to different payload")
+			}
+			return verifyUnifiedRouteEventMetadata(event, existing, subject)
+		}
+		switch event.Type {
+		case unifiedRouteRecordEvent:
+			existing, decodeErr := decodeUnifiedRouteRecordEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if existing.Decision.Request.ID == decision.Request.ID || existing.Decision.Request.RouteRequest.ID == decision.Request.RouteRequest.ID {
+				return errors.New("route request already has a different unified routing record")
+			}
+		case routeDecisionEvent:
+			legacy, decodeErr := decodeRouteRecordEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if legacy.Request.ID == decision.Request.RouteRequest.ID {
+				return errors.New("route request already has an authoritative legacy route record")
+			}
+		case surfaceRouteDecisionEvent:
+			legacy, decodeErr := decodeSurfaceDecisionEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if legacy.Request.ID == decision.Request.ID || legacy.Request.RouteRequest.ID == decision.Request.RouteRequest.ID {
+				return errors.New("route request already has an authoritative legacy surface decision")
+			}
+		}
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	_, err = l.store.Append(ctx, routeAggregate(subject), int64(len(events)), []eventstore.Event{{
+		ID: "event:" + record.ID, AggregateType: "inference_routes", Type: unifiedRouteRecordEvent,
+		Version: unifiedRouteRecordVersions.CurrentVersion(), Actor: decision.Evaluator,
+		CommandID: "unified-route:" + record.ID, CorrelationID: decision.Request.RouteRequest.RunID,
+		CausationID: decision.Request.ID, Trust: contracts.TrustPolicy, Payload: payload, CreatedAt: decision.DecidedAt,
+	}})
+	return err
+}
+
+func (l *RouteLedger) UnifiedRoutes(ctx context.Context, subject string) ([]UnifiedRouteRecord, error) {
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
+	if err != nil {
+		return nil, err
+	}
+	out := []UnifiedRouteRecord{}
+	seen := map[string]bool{}
+	for _, event := range events {
+		if event.Type != unifiedRouteRecordEvent {
+			continue
+		}
+		record, err := decodeUnifiedRouteRecordEvent(event)
+		if err != nil {
+			return nil, err
+		}
+		request := record.Decision.Request
+		if seen[request.ID] || seen[request.RouteRequest.ID] {
+			return nil, errors.New("duplicate unified routing lineage")
+		}
+		if err := verifyUnifiedRouteEventMetadata(event, record, subject); err != nil {
+			return nil, err
+		}
+		for _, other := range events {
+			switch other.Type {
+			case routeDecisionEvent:
+				legacy, err := decodeRouteRecordEvent(other)
+				if err != nil {
+					return nil, err
+				}
+				if legacy.Request.ID == request.RouteRequest.ID {
+					return nil, errors.New("unified route record is paired with a legacy route record")
+				}
+			case surfaceRouteDecisionEvent:
+				legacy, err := decodeSurfaceDecisionEvent(other)
+				if err != nil {
+					return nil, err
+				}
+				if legacy.Request.ID == request.ID || legacy.Request.RouteRequest.ID == request.RouteRequest.ID {
+					return nil, errors.New("unified route record is paired with a legacy surface decision")
+				}
+			}
+		}
+		seen[request.ID], seen[request.RouteRequest.ID] = true, true
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func decodeUnifiedRouteRecordEvent(event eventstore.Event) (UnifiedRouteRecord, error) {
+	payload, _, err := unifiedRouteRecordVersions.Canonicalize(event.Version, event.Payload)
+	if err != nil {
+		return UnifiedRouteRecord{}, err
+	}
+	var record UnifiedRouteRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		return UnifiedRouteRecord{}, err
+	}
+	if err := VerifyUnifiedRouteRecord(record); err != nil {
+		return UnifiedRouteRecord{}, err
+	}
+	return record, nil
+}
+
+func verifyUnifiedRouteEventMetadata(event eventstore.Event, record UnifiedRouteRecord, subject string) error {
+	decision := record.Decision
+	if decision.Request.RouteRequest.SubjectAgentID != subject || event.ID != "event:"+record.ID || event.AggregateID != routeAggregate(subject) || event.AggregateType != "inference_routes" || event.Type != unifiedRouteRecordEvent || event.Version != unifiedRouteRecordVersions.CurrentVersion() || event.Actor != decision.Evaluator || event.CommandID != "unified-route:"+record.ID || event.CorrelationID != decision.Request.RouteRequest.RunID || event.CausationID != decision.Request.ID || event.Trust != contracts.TrustPolicy || !event.CreatedAt.Equal(decision.DecidedAt) {
+		return errors.New("unified route event metadata is invalid")
+	}
+	return nil
+}
+
+func decodeRouteRecordEvent(event eventstore.Event) (RouteRecord, error) {
+	payload, _, err := routeEventVersions.Canonicalize(event.Version, event.Payload)
+	if err != nil {
+		return RouteRecord{}, err
+	}
+	var record RouteRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		return RouteRecord{}, err
+	}
+	if err := VerifyRouteRecord(record); err != nil {
+		return RouteRecord{}, err
+	}
+	return record, nil
+}
+
 func (l *RouteLedger) Record(ctx context.Context, record RouteRecord) error {
 	if err := VerifyRouteRecord(record); err != nil {
 		return err
@@ -178,15 +412,22 @@ func (l *RouteLedger) Record(ctx context.Context, record RouteRecord) error {
 				return errors.New("route request already has a different decision")
 			}
 		}
+		if event.Type == unifiedRouteRecordEvent {
+			unified, decodeErr := decodeUnifiedRouteRecordEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if unified.Decision.Request.RouteRequest.ID == record.Request.ID {
+				return errors.New("route request already has a unified routing record")
+			}
+		}
 		if event.Type == surfaceRouteDecisionEvent {
 			surface, decodeErr := decodeSurfaceDecisionEvent(event)
 			if decodeErr != nil {
 				return decodeErr
 			}
 			if surface.Request.RouteRequest.ID == record.Request.ID {
-				if err := verifySurfaceRouteBinding(surface, record); err != nil {
-					return err
-				}
+				return errors.New("route request already has a legacy surface decision")
 			}
 		}
 	}
@@ -222,6 +463,28 @@ func (l *RouteLedger) Records(ctx context.Context, subject string) ([]RouteRecor
 		if record.Request.SubjectAgentID != subject || event.ID != "event:"+record.ID || event.Actor != (contracts.PrincipalRef{ID: record.Eligibility.AuthorityID, Kind: "authority"}) || event.CorrelationID != record.Request.RunID || event.Trust != contracts.TrustPolicy {
 			return nil, errors.New("route event metadata does not bind authority and run")
 		}
+		for _, other := range events {
+			if other.Type != unifiedRouteRecordEvent && other.Type != surfaceRouteDecisionEvent {
+				continue
+			}
+			if other.Type == unifiedRouteRecordEvent {
+				unified, err := decodeUnifiedRouteRecordEvent(other)
+				if err != nil {
+					return nil, err
+				}
+				if unified.Decision.Request.RouteRequest.ID == record.Request.ID {
+					return nil, errors.New("legacy route record is paired with a unified route record")
+				}
+			} else {
+				surface, err := decodeSurfaceDecisionEvent(other)
+				if err != nil {
+					return nil, err
+				}
+				if surface.Request.RouteRequest.ID == record.Request.ID {
+					return nil, errors.New("legacy route record is paired with a legacy surface decision")
+				}
+			}
+		}
 		out = append(out, record)
 	}
 	return out, nil
@@ -231,18 +494,12 @@ func (l *RouteLedger) RecordOutcome(ctx context.Context, subject string, outcome
 	if err := VerifyRouteOutcome(outcome); err != nil {
 		return err
 	}
-	records, err := l.Records(ctx, subject)
+	bindings, err := l.executionBindings(ctx, subject)
 	if err != nil {
 		return err
 	}
-	var route *RouteRecord
-	for index := range records {
-		if records[index].ID == outcome.RouteRecordID {
-			route = &records[index]
-			break
-		}
-	}
-	if route == nil || route.Request.ID != outcome.RequestID || route.Decision.ExecutorID != outcome.ExecutorID || route.Decision.ProviderID != outcome.ProviderID || route.Request.SubjectAgentID != outcome.Observation.SubjectAgentID || route.Request.RunID != outcome.Observation.RunID || route.Request.GoalClass != outcome.Observation.GoalClass || route.Request.Domain != outcome.Observation.Domain || route.Request.BehaviorKey != outcome.Observation.BehaviorKey || route.Request.Context != outcome.Observation.Context || string(route.Request.Tier) != outcome.Observation.ReasoningTier {
+	binding, ok := bindings[outcome.RouteRecordID]
+	if !ok || binding.RequestID != outcome.RequestID || binding.ExecutorID != outcome.ExecutorID || binding.ProviderID != outcome.ProviderID || !observationMatchesRequest(outcome.Observation, binding.Request) {
 		return errors.New("route outcome does not match its selected execution")
 	}
 	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
@@ -271,18 +528,14 @@ func (l *RouteLedger) RecordOutcome(ctx context.Context, subject string, outcome
 	if err != nil {
 		return err
 	}
-	_, err = l.store.Append(ctx, routeAggregate(subject), int64(len(events)), []eventstore.Event{{ID: "event:" + outcome.ID, AggregateType: "inference_routes", Type: routeOutcomeEvent, Version: routeOutcomeEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: subject, Kind: "agent"}, CommandID: "route-outcome:" + outcome.ID, CorrelationID: route.Request.RunID, CausationID: route.ID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: outcome.ObservedAt}})
+	_, err = l.store.Append(ctx, routeAggregate(subject), int64(len(events)), []eventstore.Event{{ID: "event:" + outcome.ID, AggregateType: "inference_routes", Type: routeOutcomeEvent, Version: routeOutcomeEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: subject, Kind: "agent"}, CommandID: "route-outcome:" + outcome.ID, CorrelationID: binding.Request.RunID, CausationID: outcome.RouteRecordID, Trust: contracts.TrustObserved, Payload: payload, CreatedAt: outcome.ObservedAt}})
 	return err
 }
 
 func (l *RouteLedger) Outcomes(ctx context.Context, subject string) ([]RouteOutcome, error) {
-	records, err := l.Records(ctx, subject)
+	bindings, err := l.executionBindings(ctx, subject)
 	if err != nil {
 		return nil, err
-	}
-	byID := map[string]RouteRecord{}
-	for _, record := range records {
-		byID[record.ID] = record
 	}
 	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
 	if err != nil {
@@ -305,14 +558,51 @@ func (l *RouteLedger) Outcomes(ctx context.Context, subject string) ([]RouteOutc
 		if err := VerifyRouteOutcome(outcome); err != nil {
 			return nil, err
 		}
-		route, ok := byID[outcome.RouteRecordID]
-		if !ok || route.Request.ID != outcome.RequestID || route.Decision.ExecutorID != outcome.ExecutorID || route.Decision.ProviderID != outcome.ProviderID || event.ID != "event:"+outcome.ID || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CorrelationID != route.Request.RunID || event.CausationID != route.ID || event.Trust != contracts.TrustObserved || seenRequests[outcome.RequestID] {
+		binding, ok := bindings[outcome.RouteRecordID]
+		if !ok || binding.RequestID != outcome.RequestID || binding.ExecutorID != outcome.ExecutorID || binding.ProviderID != outcome.ProviderID || !observationMatchesRequest(outcome.Observation, binding.Request) || event.ID != "event:"+outcome.ID || event.AggregateID != routeAggregate(subject) || event.AggregateType != "inference_routes" || event.Type != routeOutcomeEvent || event.Version != routeOutcomeEventVersions.CurrentVersion() || event.Actor != (contracts.PrincipalRef{ID: subject, Kind: "agent"}) || event.CommandID != "route-outcome:"+outcome.ID || event.CorrelationID != binding.Request.RunID || event.CausationID != outcome.RouteRecordID || event.Trust != contracts.TrustObserved || !event.CreatedAt.Equal(outcome.ObservedAt) || seenRequests[outcome.RequestID] {
 			return nil, errors.New("route outcome event metadata or lineage is invalid")
 		}
 		seenRequests[outcome.RequestID] = true
 		out = append(out, outcome)
 	}
 	return out, nil
+}
+
+type executionBinding struct {
+	RequestID  string
+	Request    RouteRequest
+	ExecutorID string
+	ProviderID string
+}
+
+func (l *RouteLedger) executionBindings(ctx context.Context, subject string) (map[string]executionBinding, error) {
+	legacy, err := l.Records(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	unified, err := l.UnifiedRoutes(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]executionBinding, len(legacy)+len(unified))
+	for _, record := range legacy {
+		out[record.ID] = executionBinding{RequestID: record.Request.ID, Request: record.Request, ExecutorID: record.Decision.ExecutorID, ProviderID: record.Decision.ProviderID}
+	}
+	for _, record := range unified {
+		surface, err := selectedSurface(record.Decision)
+		if err != nil {
+			return nil, err
+		}
+		if surface == nil {
+			continue
+		}
+		out[record.ID] = executionBinding{RequestID: record.Decision.Request.ID, Request: record.Decision.Request.RouteRequest, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID}
+	}
+	return out, nil
+}
+
+func observationMatchesRequest(observation adaptation.Observation, request RouteRequest) bool {
+	return request.SubjectAgentID == observation.SubjectAgentID && request.RunID == observation.RunID && request.GoalClass == observation.GoalClass && request.Domain == observation.Domain && request.BehaviorKey == observation.BehaviorKey && request.Context == observation.Context && string(request.Tier) == observation.ReasoningTier
 }
 
 func (l *RouteLedger) Execution(ctx context.Context, subject, requestID string) (*RouteRecord, *RouteOutcome, error) {
@@ -341,75 +631,28 @@ func (l *RouteLedger) Execution(ctx context.Context, subject, requestID string) 
 	return record, outcome, nil
 }
 
-// RecordSurfaceDecision appends provider-neutral surface routing evidence to
-// the existing per-agent inference-route aggregate.
-func (l *RouteLedger) RecordSurfaceDecision(ctx context.Context, decision SurfaceRoutingDecision) error {
-	if err := VerifySurfaceRoutingDecision(decision); err != nil {
-		return err
-	}
-	events, err := l.store.LoadAggregate(ctx, routeAggregate(decision.Request.RouteRequest.SubjectAgentID), 0)
-	if err != nil {
-		return err
-	}
-	for _, event := range events {
-		if event.ID == "event:"+decision.ID {
-			existing, decodeErr := decodeSurfaceDecisionEvent(event)
-			if decodeErr != nil {
-				return decodeErr
-			}
-			if existing.ID != decision.ID || inferenceDigest(existing) != inferenceDigest(decision) {
-				return errors.New("surface route event identity is already bound to different payload")
-			}
-			return verifySurfaceEventMetadata(event, existing, decision.Request.RouteRequest.SubjectAgentID)
-		}
-		if event.Type == routeDecisionEvent {
-			payload, _, canonicalErr := routeEventVersions.Canonicalize(event.Version, event.Payload)
-			if canonicalErr != nil {
-				return canonicalErr
-			}
-			var route RouteRecord
-			if err := json.Unmarshal(payload, &route); err != nil {
-				return err
-			}
-			if err := verifyRouteEventForSurfaceBridge(event, route); err != nil {
-				return err
-			}
-			if route.Request.ID == decision.Request.RouteRequest.ID {
-				if err := verifySurfaceRouteBinding(decision, route); err != nil {
-					return err
-				}
-			}
-		}
-		if event.Type == surfaceRouteDecisionEvent {
-			existing, decodeErr := decodeSurfaceDecisionEvent(event)
-			if decodeErr != nil {
-				return decodeErr
-			}
-			if existing.Request.ID == decision.Request.ID || existing.Request.RouteRequest.ID == decision.Request.RouteRequest.ID {
-				return errors.New("surface route request already has a different decision")
-			}
-		}
-	}
-	payload, err := json.Marshal(decision)
-	if err != nil {
-		return err
-	}
-	_, err = l.store.Append(ctx, routeAggregate(decision.Request.RouteRequest.SubjectAgentID), int64(len(events)), []eventstore.Event{{
-		ID: "event:" + decision.ID, AggregateType: "inference_routes", Type: surfaceRouteDecisionEvent,
-		Version: surfaceRouteEventVersions.CurrentVersion(), Actor: decision.Evaluator,
-		CommandID: "surface-route:" + decision.ID, CorrelationID: decision.Request.RouteRequest.RunID, CausationID: decision.Request.RouteRequest.ID, Trust: contracts.TrustPolicy,
-		Payload: payload, CreatedAt: decision.DecidedAt,
-	}})
-	return err
+// RecordSurfaceDecision is retained only to fail closed for callers of the
+// pre-release split persistence API. New writes must use RecordUnifiedRoute.
+func (l *RouteLedger) RecordSurfaceDecision(_ context.Context, _ SurfaceRoutingDecision) error {
+	return errors.Join(contracts.ErrUnsupportedPreReleaseContractVersion, errors.New("surface decision persistence was replaced by unified route record v2"))
 }
 
 func (l *RouteLedger) SurfaceDecisions(ctx context.Context, subject string) ([]SurfaceRoutingDecision, error) {
+	unified, err := l.UnifiedRoutes(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
 	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
 	if err != nil {
 		return nil, err
 	}
-	out := []SurfaceRoutingDecision{}
+	out := make([]SurfaceRoutingDecision, 0, len(unified))
 	seenRequests := map[string]bool{}
+	for _, record := range unified {
+		out = append(out, record.Decision)
+		seenRequests[record.Decision.Request.ID] = true
+		seenRequests[record.Decision.Request.RouteRequest.ID] = true
+	}
 	routes := map[string]RouteRecord{}
 	for _, event := range events {
 		if event.Type != routeDecisionEvent {
@@ -442,10 +685,8 @@ func (l *RouteLedger) SurfaceDecisions(ctx context.Context, subject string) ([]S
 		if err := verifySurfaceEventMetadata(event, decision, subject); err != nil || seenRequests[decision.Request.ID] || seenRequests[decision.Request.RouteRequest.ID] {
 			return nil, errors.New("surface route event metadata or request lineage is invalid")
 		}
-		if route, ok := routes[decision.Request.RouteRequest.ID]; ok {
-			if err := verifySurfaceRouteBinding(decision, route); err != nil {
-				return nil, err
-			}
+		if _, ok := routes[decision.Request.RouteRequest.ID]; ok {
+			return nil, errors.New("legacy surface decision is paired with a legacy route record")
 		}
 		seenRequests[decision.Request.ID] = true
 		seenRequests[decision.Request.RouteRequest.ID] = true
@@ -513,4 +754,36 @@ func (l *RouteLedger) SurfaceDecision(ctx context.Context, subject, requestID st
 		}
 	}
 	return nil, nil
+}
+
+func (l *RouteLedger) UnifiedRoute(ctx context.Context, subject, requestID string) (*UnifiedRouteRecord, error) {
+	records, err := l.UnifiedRoutes(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	for index := range records {
+		if records[index].Decision.Request.ID == requestID || records[index].Decision.Request.RouteRequest.ID == requestID {
+			copy := records[index]
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+func (l *RouteLedger) UnifiedExecution(ctx context.Context, subject, requestID string) (*UnifiedRouteRecord, *RouteOutcome, error) {
+	record, err := l.UnifiedRoute(ctx, subject, requestID)
+	if err != nil || record == nil {
+		return record, nil, err
+	}
+	outcomes, err := l.Outcomes(ctx, subject)
+	if err != nil {
+		return nil, nil, err
+	}
+	for index := range outcomes {
+		if outcomes[index].RouteRecordID == record.ID {
+			copy := outcomes[index]
+			return record, &copy, nil
+		}
+	}
+	return record, nil, nil
 }

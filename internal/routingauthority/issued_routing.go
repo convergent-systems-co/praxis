@@ -35,6 +35,13 @@ type IssuedRouteLedger struct {
 	authority *IssuedRoutingAuthority
 }
 
+type ReadinessRequest struct {
+	Request              inference.SurfaceRouteRequest
+	Surfaces             []inference.ExecutorSurface
+	TargetIssuances      []contracts.RoutingIssuanceRef
+	EligibilityIssuances []contracts.RoutingIssuanceRef
+}
+
 func NewIssuedRouteLedger(store eventstore.Store, authority *IssuedRoutingAuthority) (*IssuedRouteLedger, error) {
 	if authority == nil {
 		return nil, errors.New("issued route ledger requires core-issued authority")
@@ -64,6 +71,44 @@ func (l *IssuedRouteLedger) RecordUnifiedRoute(ctx context.Context, record infer
 		return errors.New("route decision does not match current issued authority")
 	}
 	return l.ledger.RecordUnifiedRoute(ctx, record)
+}
+
+// RecordReadiness reconstructs and persists one authoritative v2 route without
+// dispatching the selected surface. The API intentionally accepts no executor
+// or effect callback: a readiness decision is evidence, not execution authority.
+func (l *IssuedRouteLedger) RecordReadiness(ctx context.Context, request ReadinessRequest) (inference.UnifiedRouteRecord, error) {
+	if l == nil || l.authority == nil || l.ledger == nil {
+		return inference.UnifiedRouteRecord{}, errors.New("issued route readiness requires a core-issued durable ledger")
+	}
+	decision, err := SelectExecutorSurface(ctx, request.Request, request.Surfaces, l.authority, request.TargetIssuances, request.EligibilityIssuances)
+	if err != nil {
+		return inference.UnifiedRouteRecord{}, err
+	}
+	record, err := inference.FreezeUnifiedRouteRecord(inference.UnifiedRouteRecord{
+		Decision:             decision,
+		TargetIssuances:      request.TargetIssuances,
+		EligibilityIssuances: request.EligibilityIssuances,
+	})
+	if err != nil {
+		return inference.UnifiedRouteRecord{}, err
+	}
+	if err := l.RecordUnifiedRoute(ctx, record); err != nil {
+		return inference.UnifiedRouteRecord{}, err
+	}
+	replayed, err := l.UnifiedRoutes(ctx, request.Request.RouteRequest.SubjectAgentID)
+	if err != nil {
+		return inference.UnifiedRouteRecord{}, err
+	}
+	matches := 0
+	for _, candidate := range replayed {
+		if candidate.ID == record.ID && candidate.Decision.Request.ID == request.Request.ID {
+			matches++
+		}
+	}
+	if matches != 1 {
+		return inference.UnifiedRouteRecord{}, errors.New("persisted readiness route did not replay exactly once")
+	}
+	return record, nil
 }
 
 func (l *IssuedRouteLedger) UnifiedRoutes(ctx context.Context, subject string) ([]inference.UnifiedRouteRecord, error) {

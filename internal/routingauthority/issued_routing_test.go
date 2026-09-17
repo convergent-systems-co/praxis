@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/internal/inference"
+	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -109,5 +111,85 @@ func TestIssuedRoutingRejectsSwapsCrossScopeExpiryRevocationAndReplays(t *testin
 	store.values[eligibilityIssuance.ID] = expired
 	if _, err := restarted.UnifiedRoutes(ctx, "agent"); err == nil {
 		t.Fatal("expired issuance replayed")
+	}
+}
+
+func TestIssuedRouteReadinessReconstructsPersistsReplaysAndFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	target := contracts.ExecutionTarget{Version: "1", RequiredCapabilities: []string{"reasoning"}, ReasoningTier: "D1", TransportPolicy: []contracts.TransportClass{contracts.TransportLocal}, APIPolicy: contracts.APIPolicyForbid, SourceAuthority: "node", Scope: "develop:weather-dashboard"}
+	targetScope, _ := contracts.RoutingTargetContributionScope(target.Scope, target.Version, testDigest(target))
+	targetIssuance := freezeIssued(t, contracts.RoutingTargetContribution, contracts.AuthorityRoutingTargetContributionIssue, targetScope, IssuedTargetContribution{Authority: contracts.AuthorityNode, Target: target}, now)
+	store := &fakeIssuanceStore{values: map[string]contracts.RoutingIssuance{targetIssuance.ID: targetIssuance}, revoked: map[string]bool{}}
+	authority := &IssuedRoutingAuthority{repository: store}
+	targetRef := contracts.RoutingIssuanceRef{ID: targetIssuance.ID, Version: targetIssuance.Version}
+	effective, err := authority.MergeExecutionTargets(ctx, []contracts.RoutingIssuanceRef{targetRef})
+	if err != nil {
+		t.Fatal(err)
+	}
+	route, err := inference.FreezeRouteRequest(inference.RouteRequest{SubjectAgentID: "agent:develop-weather", RunID: "run:weather-readiness", GoalClass: "delivery", Domain: "software", BehaviorKey: "implement", Context: "develop:weather-dashboard", Tier: inference.D1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := inference.FreezeSurfaceRouteRequest(inference.SurfaceRouteRequest{RouteRequest: route, AgentGeneration: "1", Target: effective})
+	if err != nil {
+		t.Fatal(err)
+	}
+	surface := inference.ExecutorSurface{ID: "surface:local-weather", ExecutorID: "executor:local", ProviderID: "provider:local", Capabilities: []string{"reasoning"}, Profiles: []string{"local"}, Transport: contracts.TransportLocal}
+	surfaceDigest := testDigest(surface)
+	evidence, err := inference.FreezeEligibility(inference.EligibilityEvidence{RequestID: route.ID, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID, Tier: route.Tier, AuthorityID: "controller:routing", CapabilityEvidenceRef: "capability:weather", CapabilityEvidenceDigest: testDigest("capability:weather"), PolicyEvidenceRef: "policy:no-api", PolicyEvidenceDigest: testDigest("policy:no-api"), Authorized: true, CapabilityGranted: true, PolicyAllowed: true, Available: true, EvaluatedAt: now, SurfaceRequestID: request.ID, SurfaceID: surface.ID, SurfaceDigest: surfaceDigest, AuthorityGenerationRef: "generation:routing", AuthorityGenerationVersion: "1", AuthorityGenerationDigest: testDigest("generation"), AuthorityScope: request.ID, SecurityAllowed: true, SecurityEvidenceRef: "security:weather", SecurityEvidenceDigest: testDigest("security:weather"), AvailabilityEvidenceRef: "availability:local", AvailabilityEvidenceDigest: testDigest("availability:local"), BudgetAllowed: true, BudgetEvidenceRef: "budget:weather", BudgetEvidenceDigest: testDigest("budget:weather"), QuotaAllowed: true, QuotaEvidenceRef: "quota:local", QuotaEvidenceDigest: testDigest("quota:local"), ValidUntil: now.Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	eligibilityScope, _ := contracts.RoutingSurfaceEligibilityScope(request.ID, "1", request.ID, surfaceDigest)
+	eligibilityIssuance := freezeIssued(t, contracts.RoutingSurfaceEligibility, contracts.AuthorityRoutingSurfaceEligibilityIssue, eligibilityScope, IssuedSurfaceEligibility{RequestID: request.ID, SurfaceID: surface.ID, SurfaceDigest: surfaceDigest, Evidence: evidence}, now)
+	store.values[eligibilityIssuance.ID] = eligibilityIssuance
+	eligibilityRef := contracts.RoutingIssuanceRef{ID: eligibilityIssuance.ID, Version: eligibilityIssuance.Version}
+
+	databasePath := filepath.Join(t.TempDir(), "praxis.db")
+	db, err := state.OpenSQLite(ctx, databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := state.NewSQLiteEventStore(db)
+	ledger, err := NewIssuedRouteLedger(events, authority)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := ReadinessRequest{Request: request, Surfaces: []inference.ExecutorSurface{surface}, TargetIssuances: []contracts.RoutingIssuanceRef{targetRef}, EligibilityIssuances: []contracts.RoutingIssuanceRef{eligibilityRef}}
+	record, err := ledger.RecordReadiness(ctx, input)
+	if err != nil || record.Decision.Outcome != inference.SurfaceSelected || record.Decision.SelectedSurfaceID != surface.ID {
+		t.Fatalf("weather readiness route: %#v err=%v", record, err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := state.OpenSQLite(ctx, databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	restarted, err := NewIssuedRouteLedger(state.NewSQLiteEventStore(reopened), &IssuedRoutingAuthority{repository: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := restarted.UnifiedRoutes(ctx, route.SubjectAgentID)
+	if err != nil || len(replayed) != 1 || replayed[0].ID != record.ID || replayed[0].Decision.Request.ID != request.ID {
+		t.Fatalf("weather readiness replay: %#v err=%v", replayed, err)
+	}
+
+	mutated := input
+	mutated.Request.Target.Target.RequiredCapabilities = []string{"fabricated"}
+	if _, err := ledger.RecordReadiness(ctx, mutated); err == nil {
+		t.Fatal("caller-mutated effective target passed readiness")
+	}
+	missing := input
+	missing.EligibilityIssuances = nil
+	if _, err := ledger.RecordReadiness(ctx, missing); err == nil {
+		t.Fatal("readiness without issued eligibility passed")
+	}
+	store.revoked[eligibilityIssuance.ID] = true
+	if _, err := restarted.UnifiedRoutes(ctx, route.SubjectAgentID); err == nil {
+		t.Fatal("readiness replay survived eligibility revocation")
 	}
 }

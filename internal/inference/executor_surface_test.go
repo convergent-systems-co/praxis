@@ -265,6 +265,73 @@ func TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence(t *testing.T) {
 	}
 }
 
+func TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay(t *testing.T) {
+	request := surfaceRequest(t, surfaceTarget(func(target *contracts.ExecutionTarget) {
+		target.TelemetryRequirements = []string{"quota_state"}
+	}))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	validEvidence := func(t *testing.T) EligibilityEvidence {
+		t.Helper()
+		authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
+		evidence := authority.evidence[surface.ID]
+		evidence.Telemetry = map[string]SurfaceTelemetryEvidence{
+			"quota_state": {Known: true, Value: "available", ProvenanceRef: "quota:probe", ProvenanceDigest: inferenceDigest("quota:probe"), ObservedAt: surfaceDecisionTime.Add(-time.Minute), ValidUntil: surfaceDecisionTime.Add(time.Minute)},
+		}
+		frozen, err := FreezeEligibility(evidence)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return frozen
+	}
+	tests := []struct {
+		name   string
+		mutate func(*EligibilityEvidence)
+	}{
+		{name: "capability", mutate: func(e *EligibilityEvidence) { e.CapabilityEvidenceDigest = inferenceDigest("other capability") }},
+		{name: "policy", mutate: func(e *EligibilityEvidence) { e.PolicyEvidenceDigest = inferenceDigest("other policy") }},
+		{name: "security", mutate: func(e *EligibilityEvidence) { e.SecurityEvidenceDigest = inferenceDigest("other security") }},
+		{name: "availability", mutate: func(e *EligibilityEvidence) { e.AvailabilityEvidenceDigest = inferenceDigest("other availability") }},
+		{name: "budget", mutate: func(e *EligibilityEvidence) { e.BudgetEvidenceDigest = inferenceDigest("other budget") }},
+		{name: "quota", mutate: func(e *EligibilityEvidence) { e.QuotaEvidenceDigest = inferenceDigest("other quota") }},
+		{name: "telemetry", mutate: func(e *EligibilityEvidence) {
+			telemetry := e.Telemetry["quota_state"]
+			telemetry.ProvenanceDigest = inferenceDigest("other telemetry")
+			e.Telemetry["quota_state"] = telemetry
+		}},
+		{name: "authority generation", mutate: func(e *EligibilityEvidence) { e.AuthorityGenerationDigest = inferenceDigest("other generation") }},
+	}
+	for _, test := range tests {
+		t.Run(test.name+" freeze", func(t *testing.T) {
+			evidence := validEvidence(t)
+			evidence.Telemetry = cloneSurfaceTelemetry(evidence.Telemetry)
+			test.mutate(&evidence)
+			if _, err := FreezeEligibility(evidence); err == nil {
+				t.Fatal("freeze accepted a well-formed digest that did not bind its reference")
+			}
+		})
+		t.Run(test.name+" replay", func(t *testing.T) {
+			authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
+			authority.evidence[surface.ID] = validEvidence(t)
+			decision, err := SelectExecutorSurface(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority), surfaceDecisionTime)
+			if err != nil {
+				t.Fatal(err)
+			}
+			evidence := &decision.Evaluations[0].Evidence.RouteEligibility
+			evidence.Telemetry = cloneSurfaceTelemetry(evidence.Telemetry)
+			test.mutate(evidence)
+			evidence.ID = ""
+			evidence.ID = inferenceDigest(*evidence)
+			decision.Evaluations[0].Evidence.ID = ""
+			decision.Evaluations[0].Evidence.ID = inferenceDigest(decision.Evaluations[0].Evidence)
+			decision.ID = ""
+			decision.ID = inferenceDigest(decision)
+			if err := VerifySurfaceRoutingDecision(decision); err == nil {
+				t.Fatal("replay accepted a well-formed digest that did not bind its reference")
+			}
+		})
+	}
+}
+
 func TestSurfaceCompositionDerivesOneGovernedEvaluatorLineage(t *testing.T) {
 	request := surfaceRequest(t, surfaceTarget(nil))
 	surfaces := []ExecutorSurface{

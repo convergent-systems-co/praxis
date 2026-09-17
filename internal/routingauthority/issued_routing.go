@@ -111,6 +111,55 @@ func (l *IssuedRouteLedger) RecordReadiness(ctx context.Context, request Readine
 	return record, nil
 }
 
+// PrepareDispatch reconstructs a selected surface from durable issued-route
+// evidence and binds it to the active agent work. Separate dispatch authority
+// is still required before an executor may be invoked.
+func (l *IssuedRouteLedger) PrepareDispatch(ctx context.Context, binding inference.DispatchBinding) (inference.DispatchCandidate, error) {
+	if l == nil || l.authority == nil || l.ledger == nil {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch preparation requires a core-issued durable ledger")
+	}
+	if binding.RequestID == "" || binding.SubjectAgentID == "" || binding.AgentGeneration == "" || binding.RunID == "" || binding.GraphID == "" || binding.GraphVersion == "" || binding.NodeID == "" || binding.GoalRef == "" {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch preparation requires exact request, agent, run, graph, node, and goal binding")
+	}
+	records, err := l.UnifiedRoutes(ctx, binding.SubjectAgentID)
+	if err != nil {
+		return inference.DispatchCandidate{}, err
+	}
+	var matched *inference.UnifiedRouteRecord
+	for index := range records {
+		if records[index].Decision.Request.ID != binding.RequestID {
+			continue
+		}
+		if matched != nil {
+			return inference.DispatchCandidate{}, errors.New("issued dispatch request has multiple authoritative routes")
+		}
+		matched = &records[index]
+	}
+	if matched == nil {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch request has no authoritative route")
+	}
+	request := matched.Decision.Request
+	if request.RouteRequest.SubjectAgentID != binding.SubjectAgentID || request.AgentGeneration != binding.AgentGeneration || request.RouteRequest.RunID != binding.RunID || request.GraphID != binding.GraphID || request.GraphVersion != binding.GraphVersion || request.NodeID != binding.NodeID || request.GoalRef != binding.GoalRef {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch route does not bind the active agent work")
+	}
+	if matched.Decision.Outcome != inference.SurfaceSelected || matched.Decision.SelectedSurfaceID == "" {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch route has no selected surface")
+	}
+	var selected *inference.ExecutorSurface
+	for index := range matched.Decision.Evaluations {
+		if matched.Decision.Evaluations[index].Surface.ID == matched.Decision.SelectedSurfaceID {
+			if selected != nil {
+				return inference.DispatchCandidate{}, errors.New("issued dispatch route selects multiple surfaces")
+			}
+			selected = &matched.Decision.Evaluations[index].Surface
+		}
+	}
+	if selected == nil {
+		return inference.DispatchCandidate{}, errors.New("issued dispatch selected surface is absent")
+	}
+	return inference.DispatchCandidate{RouteRecordID: matched.ID, RequestID: request.ID, SurfaceID: selected.ID, ExecutorID: selected.ExecutorID, ProviderID: selected.ProviderID}, nil
+}
+
 func (l *IssuedRouteLedger) UnifiedRoutes(ctx context.Context, subject string) ([]inference.UnifiedRouteRecord, error) {
 	records, err := l.ledger.UnifiedRoutes(ctx, subject)
 	if err != nil {

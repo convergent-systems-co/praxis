@@ -131,7 +131,7 @@ func TestIssuedRouteReadinessReconstructsPersistsReplaysAndFailsClosed(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := inference.FreezeSurfaceRouteRequest(inference.SurfaceRouteRequest{RouteRequest: route, AgentGeneration: "1", Target: effective})
+	request, err := inference.FreezeSurfaceRouteRequest(inference.SurfaceRouteRequest{RouteRequest: route, AgentGeneration: "1", GraphID: "praxis.package.develop.default", GraphVersion: "0.2.0", NodeID: "implement", GoalRef: "goal:weather-dashboard", Target: effective})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,6 +176,16 @@ func TestIssuedRouteReadinessReconstructsPersistsReplaysAndFailsClosed(t *testin
 	replayed, err := restarted.UnifiedRoutes(ctx, route.SubjectAgentID)
 	if err != nil || len(replayed) != 1 || replayed[0].ID != record.ID || replayed[0].Decision.Request.ID != request.ID {
 		t.Fatalf("weather readiness replay: %#v err=%v", replayed, err)
+	}
+	binding := inference.DispatchBinding{RequestID: request.ID, SubjectAgentID: route.SubjectAgentID, AgentGeneration: request.AgentGeneration, RunID: route.RunID, GraphID: request.GraphID, GraphVersion: request.GraphVersion, NodeID: request.NodeID, GoalRef: request.GoalRef}
+	candidate, err := restarted.PrepareDispatch(ctx, binding)
+	if err != nil || candidate.RouteRecordID != record.ID || candidate.SurfaceID != surface.ID || candidate.ExecutorID != surface.ExecutorID || candidate.ProviderID != surface.ProviderID {
+		t.Fatalf("weather dispatch candidate: %#v err=%v", candidate, err)
+	}
+	mismatched := binding
+	mismatched.NodeID = "review"
+	if _, err := restarted.PrepareDispatch(ctx, mismatched); err == nil {
+		t.Fatal("route prepared for a different active node")
 	}
 
 	mutated := input

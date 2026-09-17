@@ -18,7 +18,14 @@ const surfaceRouteDecisionEvent = "inference.surface_route.decided"
 
 var routeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 var routeOutcomeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_outcome_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
-var surfaceRouteEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.surface_route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
+var surfaceRouteEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{
+	Contract:       "inference.surface_route_decision_event",
+	CurrentVersion: "v2",
+	Versions: []contracts.ContractVersionDefinition{
+		{Version: "v1", Disposition: contracts.VersionUnsupportedPreRelease, Rationale: "v1 accepted caller-asserted eligibility and untrusted event authority"},
+		{Version: "v2", Disposition: contracts.VersionCurrent},
+	},
+}, nil)
 
 type RouteRecord struct {
 	ID          string              `json:"id"`
@@ -169,6 +176,17 @@ func (l *RouteLedger) Record(ctx context.Context, record RouteRecord) error {
 			}
 			if existing.Request.ID == record.Request.ID {
 				return errors.New("route request already has a different decision")
+			}
+		}
+		if event.Type == surfaceRouteDecisionEvent {
+			surface, decodeErr := decodeSurfaceDecisionEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if surface.Request.RouteRequest.ID == record.Request.ID {
+				if err := verifySurfaceRouteBinding(surface, record); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -329,37 +347,57 @@ func (l *RouteLedger) RecordSurfaceDecision(ctx context.Context, decision Surfac
 	if err := VerifySurfaceRoutingDecision(decision); err != nil {
 		return err
 	}
-	events, err := l.store.LoadAggregate(ctx, routeAggregate(decision.Request.SubjectAgentID), 0)
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(decision.Request.RouteRequest.SubjectAgentID), 0)
 	if err != nil {
 		return err
 	}
 	for _, event := range events {
 		if event.ID == "event:"+decision.ID {
-			return nil
+			existing, decodeErr := decodeSurfaceDecisionEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if existing.ID != decision.ID || inferenceDigest(existing) != inferenceDigest(decision) {
+				return errors.New("surface route event identity is already bound to different payload")
+			}
+			return verifySurfaceEventMetadata(event, existing, decision.Request.RouteRequest.SubjectAgentID)
 		}
-		if event.Type != surfaceRouteDecisionEvent {
-			continue
+		if event.Type == routeDecisionEvent {
+			payload, _, canonicalErr := routeEventVersions.Canonicalize(event.Version, event.Payload)
+			if canonicalErr != nil {
+				return canonicalErr
+			}
+			var route RouteRecord
+			if err := json.Unmarshal(payload, &route); err != nil {
+				return err
+			}
+			if err := verifyRouteEventForSurfaceBridge(event, route); err != nil {
+				return err
+			}
+			if route.Request.ID == decision.Request.RouteRequest.ID {
+				if err := verifySurfaceRouteBinding(decision, route); err != nil {
+					return err
+				}
+			}
 		}
-		payload, _, canonicalErr := surfaceRouteEventVersions.Canonicalize(event.Version, event.Payload)
-		if canonicalErr != nil {
-			return canonicalErr
-		}
-		var existing SurfaceRoutingDecision
-		if err := json.Unmarshal(payload, &existing); err != nil {
-			return err
-		}
-		if existing.Request.ID == decision.Request.ID {
-			return errors.New("surface route request already has a different decision")
+		if event.Type == surfaceRouteDecisionEvent {
+			existing, decodeErr := decodeSurfaceDecisionEvent(event)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if existing.Request.ID == decision.Request.ID || existing.Request.RouteRequest.ID == decision.Request.RouteRequest.ID {
+				return errors.New("surface route request already has a different decision")
+			}
 		}
 	}
 	payload, err := json.Marshal(decision)
 	if err != nil {
 		return err
 	}
-	_, err = l.store.Append(ctx, routeAggregate(decision.Request.SubjectAgentID), int64(len(events)), []eventstore.Event{{
+	_, err = l.store.Append(ctx, routeAggregate(decision.Request.RouteRequest.SubjectAgentID), int64(len(events)), []eventstore.Event{{
 		ID: "event:" + decision.ID, AggregateType: "inference_routes", Type: surfaceRouteDecisionEvent,
-		Version: surfaceRouteEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: decision.Request.Target.Target.SourceAuthority, Kind: "authority"},
-		CommandID: "surface-route:" + decision.ID, CorrelationID: decision.Request.RunID, Trust: contracts.TrustPolicy,
+		Version: surfaceRouteEventVersions.CurrentVersion(), Actor: decision.Evaluator,
+		CommandID: "surface-route:" + decision.ID, CorrelationID: decision.Request.RouteRequest.RunID, CausationID: decision.Request.RouteRequest.ID, Trust: contracts.TrustPolicy,
 		Payload: payload, CreatedAt: decision.DecidedAt,
 	}})
 	return err
@@ -372,28 +410,95 @@ func (l *RouteLedger) SurfaceDecisions(ctx context.Context, subject string) ([]S
 	}
 	out := []SurfaceRoutingDecision{}
 	seenRequests := map[string]bool{}
+	routes := map[string]RouteRecord{}
+	for _, event := range events {
+		if event.Type != routeDecisionEvent {
+			continue
+		}
+		payload, _, err := routeEventVersions.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var route RouteRecord
+		if err := json.Unmarshal(payload, &route); err != nil {
+			return nil, err
+		}
+		if err := VerifyRouteRecord(route); err != nil {
+			return nil, err
+		}
+		if err := verifyRouteEventForSurfaceBridge(event, route); err != nil {
+			return nil, err
+		}
+		routes[route.Request.ID] = route
+	}
 	for _, event := range events {
 		if event.Type != surfaceRouteDecisionEvent {
 			continue
 		}
-		payload, _, err := surfaceRouteEventVersions.Canonicalize(event.Version, event.Payload)
+		decision, err := decodeSurfaceDecisionEvent(event)
 		if err != nil {
 			return nil, err
 		}
-		var decision SurfaceRoutingDecision
-		if err := json.Unmarshal(payload, &decision); err != nil {
-			return nil, err
-		}
-		if err := VerifySurfaceRoutingDecision(decision); err != nil {
-			return nil, err
-		}
-		if decision.Request.SubjectAgentID != subject || event.ID != "event:"+decision.ID || event.Actor != (contracts.PrincipalRef{ID: decision.Request.Target.Target.SourceAuthority, Kind: "authority"}) || event.CorrelationID != decision.Request.RunID || event.Trust != contracts.TrustPolicy || seenRequests[decision.Request.ID] {
+		if err := verifySurfaceEventMetadata(event, decision, subject); err != nil || seenRequests[decision.Request.ID] || seenRequests[decision.Request.RouteRequest.ID] {
 			return nil, errors.New("surface route event metadata or request lineage is invalid")
 		}
+		if route, ok := routes[decision.Request.RouteRequest.ID]; ok {
+			if err := verifySurfaceRouteBinding(decision, route); err != nil {
+				return nil, err
+			}
+		}
 		seenRequests[decision.Request.ID] = true
+		seenRequests[decision.Request.RouteRequest.ID] = true
 		out = append(out, decision)
 	}
 	return out, nil
+}
+
+func decodeSurfaceDecisionEvent(event eventstore.Event) (SurfaceRoutingDecision, error) {
+	payload, _, err := surfaceRouteEventVersions.Canonicalize(event.Version, event.Payload)
+	if err != nil {
+		return SurfaceRoutingDecision{}, err
+	}
+	var decision SurfaceRoutingDecision
+	if err := json.Unmarshal(payload, &decision); err != nil {
+		return SurfaceRoutingDecision{}, err
+	}
+	if err := VerifySurfaceRoutingDecision(decision); err != nil {
+		return SurfaceRoutingDecision{}, err
+	}
+	return decision, nil
+}
+
+func verifySurfaceEventMetadata(event eventstore.Event, decision SurfaceRoutingDecision, subject string) error {
+	if decision.Request.RouteRequest.SubjectAgentID != subject || event.ID != "event:"+decision.ID || event.AggregateID != routeAggregate(subject) || event.AggregateType != "inference_routes" || event.Type != surfaceRouteDecisionEvent || event.Version != surfaceRouteEventVersions.CurrentVersion() || event.Actor != decision.Evaluator || event.CommandID != "surface-route:"+decision.ID || event.CorrelationID != decision.Request.RouteRequest.RunID || event.CausationID != decision.Request.RouteRequest.ID || event.Trust != contracts.TrustPolicy || !event.CreatedAt.Equal(decision.DecidedAt) {
+		return errors.New("surface route event metadata is invalid")
+	}
+	return nil
+}
+
+func verifySurfaceRouteBinding(surface SurfaceRoutingDecision, route RouteRecord) error {
+	if surface.Request.RouteRequest.ID != route.Request.ID || inferenceDigest(surface.Request.RouteRequest) != inferenceDigest(route.Request) || surface.Outcome != SurfaceSelected {
+		return errors.New("surface and evidence route lineage disagree")
+	}
+	for _, evaluation := range surface.Evaluations {
+		if evaluation.Surface.ID == surface.SelectedSurfaceID {
+			if evaluation.Surface.ExecutorID == route.Decision.ExecutorID && evaluation.Surface.ProviderID == route.Decision.ProviderID {
+				return nil
+			}
+			break
+		}
+	}
+	return errors.New("surface and evidence route selected different executors")
+}
+
+func verifyRouteEventForSurfaceBridge(event eventstore.Event, route RouteRecord) error {
+	if err := VerifyRouteRecord(route); err != nil {
+		return err
+	}
+	if event.ID != "event:"+route.ID || event.AggregateID != routeAggregate(route.Request.SubjectAgentID) || event.AggregateType != "inference_routes" || event.Type != routeDecisionEvent || event.Version != routeEventVersions.CurrentVersion() || event.Actor != (contracts.PrincipalRef{ID: route.Eligibility.AuthorityID, Kind: "authority"}) || event.CommandID != "route:"+route.ID || event.CorrelationID != route.Request.RunID || event.CausationID != "" || event.Trust != contracts.TrustPolicy || !event.CreatedAt.Equal(route.DecidedAt) {
+		return errors.New("evidence route event metadata is invalid for surface binding")
+	}
+	return nil
 }
 
 func (l *RouteLedger) SurfaceDecision(ctx context.Context, subject, requestID string) (*SurfaceRoutingDecision, error) {

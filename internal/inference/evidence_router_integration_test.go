@@ -3,6 +3,7 @@ package inference
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,6 +16,115 @@ import (
 
 type routeAuthority struct {
 	evidence map[string]EligibilityEvidence
+}
+
+func bridgeRouteRecord(t *testing.T, request RouteRequest, surface ExecutorSurface, decidedAt time.Time) RouteRecord {
+	t.Helper()
+	policy, err := FreezeRoutingPolicy(RoutingPolicy{Tier: request.Tier, RequiredMetrics: []MetricRule{{ID: "quality", Name: "quality", Kind: adaptation.DerivedMeasure, Operator: adaptation.GreaterThanOrEqual, Threshold: 1}}, ObjectiveMetric: "quality", MinimumIndependentRoots: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	eligibility, err := FreezeEligibility(EligibilityEvidence{RequestID: request.ID, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID, Tier: request.Tier, AuthorityID: surfaceEvaluator.ID, CapabilityEvidenceRef: "capability:" + surface.ID, PolicyEvidenceRef: "policy:" + surface.ID, Authorized: true, CapabilityGranted: true, PolicyAllowed: true, Available: true, EvaluatedAt: decidedAt.Add(-time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := EvidenceDecision{RequestID: request.ID, PolicyID: policy.ID, ExecutorID: surface.ExecutorID, ProviderID: surface.ProviderID, Tier: request.Tier, EligibilityID: eligibility.ID, MeasurementIDs: []string{"measurement"}, ObservationIDs: []string{"observation"}, IndependentRoots: []string{"root"}, ObjectiveMeasureID: "measurement"}
+	decision.ID = inferenceDigest(decision)
+	record, err := FreezeRouteRecord(RouteRecord{Request: request, Policy: policy, Eligibility: eligibility, Decision: decision, DecidedAt: decidedAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return record
+}
+
+func TestSurfaceV2AndEvidenceRouteMustShareSelectionLineage(t *testing.T) {
+	ctx := context.Background()
+	request := surfaceRequest(t, surfaceTarget(nil))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	surfaceDecision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, authorizeSurfaces(t, request, []ExecutorSurface{surface}), surfaceDecisionTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matching := bridgeRouteRecord(t, request.RouteRequest, surface, surfaceDecisionTime)
+	other := surface
+	other.ExecutorID, other.ProviderID = "executor:other", "provider:other"
+	disagreeing := bridgeRouteRecord(t, request.RouteRequest, other, surfaceDecisionTime)
+
+	ledgers := []*RouteLedger{}
+	for range 3 {
+		ledger, _ := NewRouteLedger(eventstore.NewMemoryStore())
+		ledgers = append(ledgers, ledger)
+	}
+	if err := ledgers[0].RecordSurfaceDecision(ctx, surfaceDecision); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledgers[0].Record(ctx, disagreeing); err == nil {
+		t.Fatal("legacy route disagreed with an already persisted surface selection")
+	}
+	if err := ledgers[1].Record(ctx, disagreeing); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledgers[1].RecordSurfaceDecision(ctx, surfaceDecision); err == nil {
+		t.Fatal("surface selection disagreed with an already persisted legacy route")
+	}
+	if err := ledgers[2].Record(ctx, matching); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledgers[2].RecordSurfaceDecision(ctx, surfaceDecision); err != nil {
+		t.Fatalf("matching route lineage was rejected: %v", err)
+	}
+	if replayed, err := ledgers[2].SurfaceDecisions(ctx, request.RouteRequest.SubjectAgentID); err != nil || len(replayed) != 1 {
+		t.Fatalf("bound route lineage did not replay: %#v %v", replayed, err)
+	}
+}
+
+func TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed(t *testing.T) {
+	ctx := context.Background()
+	request := surfaceRequest(t, surfaceTarget(nil))
+	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
+	decision, err := SelectExecutorSurface(ctx, request, []ExecutorSurface{surface}, authorizeSurfaces(t, request, []ExecutorSurface{surface}), surfaceDecisionTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(decision)
+	t.Run("unsupported v1", func(t *testing.T) {
+		v1Decision := decision
+		v1Decision.Version = "v1"
+		if err := VerifySurfaceRoutingDecision(v1Decision); !errors.Is(err, contracts.ErrUnsupportedPreReleaseContractVersion) {
+			t.Fatalf("v1 decision did not fail as unsupported pre-release: %v", err)
+		}
+		store := eventstore.NewMemoryStore()
+		_, err := store.Append(ctx, routeAggregate(request.RouteRequest.SubjectAgentID), 0, []eventstore.Event{{ID: "event:v1", AggregateType: "inference_routes", Type: surfaceRouteDecisionEvent, Version: "v1", Actor: surfaceEvaluator, CommandID: "surface-route:v1", CorrelationID: request.RouteRequest.RunID, Trust: contracts.TrustPolicy, Payload: []byte(`{}`), CreatedAt: surfaceDecisionTime}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ledger, _ := NewRouteLedger(store)
+		if _, err := ledger.SurfaceDecisions(ctx, request.RouteRequest.SubjectAgentID); !errors.Is(err, contracts.ErrUnsupportedPreReleaseContractVersion) {
+			t.Fatalf("v1 replay did not fail as unsupported pre-release: %v", err)
+		}
+	})
+	for _, test := range []struct {
+		name   string
+		mutate func(*eventstore.Event)
+	}{
+		{name: "actor", mutate: func(event *eventstore.Event) { event.Actor = contracts.PrincipalRef{ID: "other", Kind: "authority"} }},
+		{name: "command", mutate: func(event *eventstore.Event) { event.CommandID = "surface-route:other" }},
+		{name: "causation", mutate: func(event *eventstore.Event) { event.CausationID = "request:other" }},
+		{name: "created time", mutate: func(event *eventstore.Event) { event.CreatedAt = surfaceDecisionTime.Add(time.Second) }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := eventstore.NewMemoryStore()
+			event := eventstore.Event{ID: "event:" + decision.ID, AggregateType: "inference_routes", Type: surfaceRouteDecisionEvent, Version: "v2", Actor: surfaceEvaluator, CommandID: "surface-route:" + decision.ID, CorrelationID: request.RouteRequest.RunID, CausationID: request.RouteRequest.ID, Trust: contracts.TrustPolicy, Payload: payload, CreatedAt: surfaceDecisionTime}
+			test.mutate(&event)
+			if _, err := store.Append(ctx, routeAggregate(request.RouteRequest.SubjectAgentID), 0, []eventstore.Event{event}); err != nil {
+				t.Fatal(err)
+			}
+			ledger, _ := NewRouteLedger(store)
+			if _, err := ledger.SurfaceDecisions(ctx, request.RouteRequest.SubjectAgentID); err == nil {
+				t.Fatal("tampered surface event metadata replayed")
+			}
+		})
+	}
 }
 
 func TestRouteReplayRejectsAuthorityMetadataMismatch(t *testing.T) {

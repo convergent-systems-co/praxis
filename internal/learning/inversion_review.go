@@ -9,7 +9,7 @@ import (
 var ErrMissingBlindDerivation = errors.New("inversion review requires the blind candidate derivation digest")
 
 func validateInversionReviewRecord(record InversionReviewRecord) error {
-	if record.CandidateID == "" || record.BlindDerivationDigest == "" || !record.Review.AdvisoryOnly {
+	if record.ID == "" || record.CandidateID == "" || record.BlindDerivationDigest == "" || !record.Review.AdvisoryOnly {
 		return errors.New("invalid architecture inversion review record")
 	}
 	switch record.Review.Kind {
@@ -30,6 +30,15 @@ func validateInversionReviewRecord(record InversionReviewRecord) error {
 		}
 		seen[evidence.ID] = struct{}{}
 	}
+	payload := record
+	payload.ID = ""
+	digest, err := digestBehaviorValue(payload)
+	if err != nil {
+		return err
+	}
+	if record.ID != "sha256:"+digest {
+		return errors.New("architecture inversion review content digest mismatch")
+	}
 	return nil
 }
 
@@ -37,9 +46,23 @@ func validateInversionReviewRecord(record InversionReviewRecord) error {
 // inside, blind candidate derivation. The digest is provenance only: this
 // helper never promotes, activates, or rewrites a learning generation.
 type InversionReviewRecord struct {
+	ID                    string
 	CandidateID           string
 	BlindDerivationDigest string
 	Review                architecturereview.Result
+}
+
+func freezeInversionReviewRecord(record InversionReviewRecord) (InversionReviewRecord, error) {
+	record.ID = ""
+	digest, err := digestBehaviorValue(record)
+	if err != nil {
+		return InversionReviewRecord{}, err
+	}
+	record.ID = "sha256:" + digest
+	if err := validateInversionReviewRecord(record); err != nil {
+		return InversionReviewRecord{}, err
+	}
+	return record, nil
 }
 
 func ReviewCandidateOwnership(candidateID, blindDerivationDigest string, req architecturereview.Request) (InversionReviewRecord, error) {
@@ -50,5 +73,5 @@ func ReviewCandidateOwnership(candidateID, blindDerivationDigest string, req arc
 	if err != nil {
 		return InversionReviewRecord{}, err
 	}
-	return InversionReviewRecord{CandidateID: candidateID, BlindDerivationDigest: blindDerivationDigest, Review: review}, nil
+	return freezeInversionReviewRecord(InversionReviewRecord{CandidateID: candidateID, BlindDerivationDigest: blindDerivationDigest, Review: review})
 }

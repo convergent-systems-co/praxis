@@ -16,8 +16,17 @@ func TestReviewCandidateOwnershipPreservesBlindBoundary(t *testing.T) {
 		PolicyEvidence:    []architecturereview.EvidenceRef{{ID: "policy", Kind: "policy", Digest: "sha256:policy"}},
 	}
 	record, err := ReviewCandidateOwnership("candidate-1", "sha256:blind", req)
-	if err != nil || record.Review.Kind != architecturereview.UniversalMechanism || record.BlindDerivationDigest != "sha256:blind" {
+	if err != nil || record.ID == "" || record.Review.Kind != architecturereview.UniversalMechanism || record.BlindDerivationDigest != "sha256:blind" {
 		t.Fatalf("unexpected review record: %#v, %v", record, err)
+	}
+	if err := validateInversionReviewRecord(record); err != nil {
+		t.Fatalf("content-addressed review record did not verify: %v", err)
+	}
+	tampered := record
+	tampered.Review.Reasons = append([]string(nil), record.Review.Reasons...)
+	tampered.Review.Reasons[0] = "changed but structurally valid reason"
+	if err := validateInversionReviewRecord(tampered); err == nil {
+		t.Fatal("valid-shape review content tampering retained the original identity")
 	}
 	if _, err := ReviewCandidateOwnership("candidate-1", "", req); !errors.Is(err, ErrMissingBlindDerivation) {
 		t.Fatalf("missing blind digest did not fail closed: %v", err)

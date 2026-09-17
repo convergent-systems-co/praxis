@@ -71,12 +71,19 @@ func TestBehaviorRegistryRejectsOrphanAndConflictingInversionReviews(t *testing.
 	if err := registry.Register(candidate); err != nil {
 		t.Fatal(err)
 	}
-	record.CandidateID = candidate.ID
+	record, err = ReviewCandidateOwnership(candidate.ID, "sha256:blind", inversionReviewRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := registry.RecordInversionReview(record); err != nil {
 		t.Fatal(err)
 	}
 	conflict := record
 	conflict.BlindDerivationDigest = "sha256:different"
+	conflict, err = freezeInversionReviewRecord(conflict)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := registry.RecordInversionReview(conflict); err == nil {
 		t.Fatal("conflicting inversion review replacement was accepted")
 	}
@@ -120,7 +127,8 @@ func TestBehaviorRegistryRejectsTamperedPersistedInversionReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	tampered := snapshot.InversionReviews[candidate.ID]
-	tampered.Review.Kind = architecturereview.ResultKind("authority_granted")
+	tampered.Review.Reasons = append([]string(nil), tampered.Review.Reasons...)
+	tampered.Review.Reasons[0] = "different but structurally valid advisory reason"
 	snapshot.InversionReviews[candidate.ID] = tampered
 	bytes, err = json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
@@ -131,7 +139,7 @@ func TestBehaviorRegistryRejectsTamperedPersistedInversionReview(t *testing.T) {
 	}
 	if _, err := OpenBehaviorRegistry(path, seed); err == nil {
 		t.Fatal("tampered persisted inversion review was accepted")
-	} else if !strings.Contains(err.Error(), "unknown result kind") {
+	} else if !strings.Contains(err.Error(), "content digest mismatch") {
 		t.Fatalf("tampered persisted inversion review returned wrong error: %v", err)
 	}
 }

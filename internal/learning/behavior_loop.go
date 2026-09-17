@@ -471,9 +471,10 @@ func OpenBehaviorRegistry(path string, seed BehaviorGeneration) (*BehaviorRegist
 	return &BehaviorRegistry{generations: snapshot.Generations, states: snapshot.States, evaluations: snapshot.Evaluations, demotions: snapshot.Demotions, inversionReviews: snapshot.InversionReviews, activeID: snapshot.ActiveID, rollbackID: snapshot.RollbackID, path: path}, nil
 }
 
-// RecordInversionReview persists advisory ownership evidence beside learning
-// state. It cannot register, evaluate, promote, activate, or alter a
-// candidate; blind derivation remains identified by its separate digest.
+// RecordInversionReview persists content-addressed advisory ownership evidence
+// beside learning state. It cannot register, evaluate, promote, activate, or
+// alter a candidate; blind derivation remains identified by its separate
+// digest.
 func (r *BehaviorRegistry) RecordInversionReview(record InversionReviewRecord) error {
 	if r == nil {
 		return errors.New("behavior registry is required")

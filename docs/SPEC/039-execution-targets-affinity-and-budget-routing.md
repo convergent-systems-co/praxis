@@ -165,6 +165,21 @@ The composed evaluator SHALL bind:
 
 A caller MUST NOT independently choose or implement the authoritative evaluator, select the evaluator principal, obtain authority by labeling a principal kind `authority`, or satisfy provenance with opaque self-attested references. Adapter and catalog metadata are descriptive inputs only. Authority-bearing references MUST be resolved and verified against authoritative state at evaluation and replay.
 
+### Typed routing issuance
+
+Routing authority SHALL extend the existing durable `AuthorityRequest`, `AuthorityDecision`, and `AuthorityGeneration` lineage. It SHALL NOT create an independent routing trust root.
+
+Core SHALL atomically persist two typed issuance forms:
+
+1. a target-contribution approval binding the exact canonical contribution payload/content digest, authority class, target scope, issuer generation, effective time, and optional expiry;
+2. a per-request/per-surface eligibility decision binding the exact frozen route request, canonical surface digest, complete resolved eligibility payload/content digest, evaluator generation, routing scope, effective time, and expiry.
+
+Both forms SHALL be stored beneath an approved immutable authority decision and SHALL bind its exact request/decision identities. The issuing generation SHALL carry the required routing authority or capability, be effective and unexpired, be neither revoked nor superseded, and have a recursively verified delegation lineage terminating at the sole installation-governance root derived from the protected `BootstrapRecord` digest. A standalone generation record, self-hash, authority label, principal kind, or caller-provided validation implementation is insufficient.
+
+Authoritative target merge and surface selection SHALL accept immutable typed-issuance identities and load their payloads through the core-owned protected repository. They SHALL NOT accept caller-constructed authority-bearing contribution/evaluation values or caller-provided evaluator/validator interfaces. Core-owned current time governs issuance, selection, persistence, and replay. A private deterministic clock seam MAY be used by tests, but no public authority-bearing API may accept decision time from its caller.
+
+Typed issuance has no implicit migration from pre-existing caller-asserted target contributions or eligibility evidence. Such values remain non-authoritative and must be re-issued through the governed lineage before use.
+
 ## Unified Route Record and Event v2
 
 One request SHALL have exactly one authority-bearing, content-addressed route record and event. Route record/event v2 owns:

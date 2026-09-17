@@ -1,6 +1,7 @@
 # SPEC-039: Execution Targets, Affinity, and Budget-Aware Routing
 
-- Status: DRAFT — POST-RELEASE
+- Status: Accepted
+- Date: 2026-09-17
 - Governing ADR: ADR-076
 - Issue: #102
 - Related: SPEC-003, SPEC-009, SPEC-010, SPEC-012, SPEC-013 (persistent agent identity), SPEC-016 (software-development proving package)

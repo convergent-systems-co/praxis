@@ -21,6 +21,24 @@ import (
 var assetNames = []string{"praxis-package.json", "praxis-package.tar.gz", "praxis-package.sig.json"}
 var assetDigests = []string{contracts.GoalsPublicationManifest, contracts.GoalsPublicationArchive, contracts.GoalsPublicationSignature}
 
+// assetRoleIndex is the single authoritative translation from a GitHub
+// asset's real uploaded filename to its canonical role index (0=manifest,
+// 1=archive, 2=signature — the same order as assetNames/assetDigests).
+// ok is false for any name that isn't exactly one of assetNames: callers
+// MUST check ok and fail closed rather than using idx, since a Go map
+// keyed directly by role name ("manifest"/"archive"/"signature") and
+// indexed with an asset filename would silently miss on every lookup and
+// return index 0 for every asset — comparing archive/signature bytes
+// against manifest expectations without any error.
+func assetRoleIndex(name string) (idx int, ok bool) {
+	for i, n := range assetNames {
+		if n == name {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 func hash(b []byte) string { s := sha256.Sum256(b); return fmt.Sprintf("sha256:%x", s) }
 
 type Assets [3][]byte

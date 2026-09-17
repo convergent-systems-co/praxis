@@ -52,8 +52,8 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 	if a.Parameters["contract"] == contracts.GoalsFailedVerificationContract && step == "verify-draft" {
 		seen := map[string]bool{}
 		for _, asset := range r.Assets {
-			idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[map[string]string{"praxis-package.json": "manifest", "praxis-package.tar.gz": "archive", "praxis-package.sig.json": "signature"}[asset.Name]]
-			if asset.ID <= 0 || seen[asset.Name] || asset.State != "uploaded" {
+			idx, ok := assetRoleIndex(asset.Name)
+			if !ok || asset.ID <= 0 || seen[asset.Name] || asset.State != "uploaded" {
 				return errors.New("failed-verification asset inventory mismatch")
 			}
 			seen[asset.Name] = true
@@ -83,11 +83,14 @@ func (g RecoveryGitHub) Check(ctx context.Context, a contracts.ActionIntent, ste
 		return err
 	}
 	for _, asset := range r.Assets {
+		idx, ok := assetRoleIndex(asset.Name)
+		if !ok {
+			return errors.New("unrecognized recovery asset name")
+		}
 		b, err := readAsset(ctx, asset.ID, asset.Size)
 		if err != nil {
 			return err
 		}
-		idx := map[string]int{"manifest": 0, "archive": 1, "signature": 2}[asset.Name]
 		if hash(b) != assetDigests[idx] || int64(len(b)) != asset.Size || fmt.Sprint(asset.Size) != a.Parameters[[]string{"manifest_size", "archive_size", "signature_size"}[idx]] {
 			return errors.New("recovery asset bytes differ from signed Goals")
 		}

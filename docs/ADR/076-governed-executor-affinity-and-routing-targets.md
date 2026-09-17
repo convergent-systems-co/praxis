@@ -1,6 +1,7 @@
 # ADR-076: Governed Executor Affinity and Routing Targets
 
-- Status: DRAFT — POST-RELEASE
+- Status: Accepted for post-release implementation
+- Date: 2026-09-17
 - Issue: #102
 - Related: ADR-003, ADR-015, ADR-016, ADR-022, ADR-034, ADR-037, ADR-038
 

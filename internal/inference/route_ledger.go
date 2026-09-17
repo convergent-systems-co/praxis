@@ -14,9 +14,11 @@ import (
 
 const routeDecisionEvent = "inference.route.decided"
 const routeOutcomeEvent = "inference.route.outcome_observed"
+const surfaceRouteDecisionEvent = "inference.surface_route.decided"
 
 var routeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 var routeOutcomeEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.route_outcome_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
+var surfaceRouteEventVersions = contracts.MustVersionRegistry(contracts.ContractVersionPolicy{Contract: "inference.surface_route_decision_event", CurrentVersion: "v1", Versions: []contracts.ContractVersionDefinition{{Version: "v1", Disposition: contracts.VersionCurrent}}}, nil)
 
 type RouteRecord struct {
 	ID          string              `json:"id"`
@@ -319,4 +321,91 @@ func (l *RouteLedger) Execution(ctx context.Context, subject, requestID string) 
 		}
 	}
 	return record, outcome, nil
+}
+
+// RecordSurfaceDecision appends provider-neutral surface routing evidence to
+// the existing per-agent inference-route aggregate.
+func (l *RouteLedger) RecordSurfaceDecision(ctx context.Context, decision SurfaceRoutingDecision) error {
+	if err := VerifySurfaceRoutingDecision(decision); err != nil {
+		return err
+	}
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(decision.Request.SubjectAgentID), 0)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if event.ID == "event:"+decision.ID {
+			return nil
+		}
+		if event.Type != surfaceRouteDecisionEvent {
+			continue
+		}
+		payload, _, canonicalErr := surfaceRouteEventVersions.Canonicalize(event.Version, event.Payload)
+		if canonicalErr != nil {
+			return canonicalErr
+		}
+		var existing SurfaceRoutingDecision
+		if err := json.Unmarshal(payload, &existing); err != nil {
+			return err
+		}
+		if existing.Request.ID == decision.Request.ID {
+			return errors.New("surface route request already has a different decision")
+		}
+	}
+	payload, err := json.Marshal(decision)
+	if err != nil {
+		return err
+	}
+	_, err = l.store.Append(ctx, routeAggregate(decision.Request.SubjectAgentID), int64(len(events)), []eventstore.Event{{
+		ID: "event:" + decision.ID, AggregateType: "inference_routes", Type: surfaceRouteDecisionEvent,
+		Version: surfaceRouteEventVersions.CurrentVersion(), Actor: contracts.PrincipalRef{ID: decision.Request.Target.Target.SourceAuthority, Kind: "authority"},
+		CommandID: "surface-route:" + decision.ID, CorrelationID: decision.Request.RunID, Trust: contracts.TrustPolicy,
+		Payload: payload, CreatedAt: decision.DecidedAt,
+	}})
+	return err
+}
+
+func (l *RouteLedger) SurfaceDecisions(ctx context.Context, subject string) ([]SurfaceRoutingDecision, error) {
+	events, err := l.store.LoadAggregate(ctx, routeAggregate(subject), 0)
+	if err != nil {
+		return nil, err
+	}
+	out := []SurfaceRoutingDecision{}
+	seenRequests := map[string]bool{}
+	for _, event := range events {
+		if event.Type != surfaceRouteDecisionEvent {
+			continue
+		}
+		payload, _, err := surfaceRouteEventVersions.Canonicalize(event.Version, event.Payload)
+		if err != nil {
+			return nil, err
+		}
+		var decision SurfaceRoutingDecision
+		if err := json.Unmarshal(payload, &decision); err != nil {
+			return nil, err
+		}
+		if err := VerifySurfaceRoutingDecision(decision); err != nil {
+			return nil, err
+		}
+		if decision.Request.SubjectAgentID != subject || event.ID != "event:"+decision.ID || event.Actor != (contracts.PrincipalRef{ID: decision.Request.Target.Target.SourceAuthority, Kind: "authority"}) || event.CorrelationID != decision.Request.RunID || event.Trust != contracts.TrustPolicy || seenRequests[decision.Request.ID] {
+			return nil, errors.New("surface route event metadata or request lineage is invalid")
+		}
+		seenRequests[decision.Request.ID] = true
+		out = append(out, decision)
+	}
+	return out, nil
+}
+
+func (l *RouteLedger) SurfaceDecision(ctx context.Context, subject, requestID string) (*SurfaceRoutingDecision, error) {
+	decisions, err := l.SurfaceDecisions(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	for index := range decisions {
+		if decisions[index].Request.ID == requestID {
+			decision := decisions[index]
+			return &decision, nil
+		}
+	}
+	return nil, nil
 }

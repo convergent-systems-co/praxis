@@ -278,11 +278,11 @@ func validateSurfaceEligibilityLineage(e EligibilityEvidence) error {
 	if !surfaceBound {
 		return nil
 	}
-	if e.SurfaceRequestID == "" || e.SurfaceID == "" || !validSHA256Digest(e.SurfaceDigest) || e.AuthorityGenerationRef == "" || e.AuthorityGenerationVersion == "" || !validSHA256Digest(e.AuthorityGenerationDigest) || e.AuthorityScope != e.SurfaceRequestID || !validSHA256Digest(e.CapabilityEvidenceDigest) || !validSHA256Digest(e.PolicyEvidenceDigest) || e.SecurityEvidenceRef == "" || !validSHA256Digest(e.SecurityEvidenceDigest) || e.AvailabilityEvidenceRef == "" || !validSHA256Digest(e.AvailabilityEvidenceDigest) || e.BudgetEvidenceRef == "" || !validSHA256Digest(e.BudgetEvidenceDigest) || e.QuotaEvidenceRef == "" || !validSHA256Digest(e.QuotaEvidenceDigest) || !e.ValidUntil.After(e.EvaluatedAt) {
+	if e.SurfaceRequestID == "" || e.SurfaceID == "" || !validSHA256Digest(e.SurfaceDigest) || e.AuthorityGenerationRef == "" || e.AuthorityGenerationVersion == "" || e.AuthorityGenerationDigest != inferenceDigest(e.AuthorityGenerationRef+"@"+e.AuthorityGenerationVersion) || e.AuthorityScope != e.SurfaceRequestID || e.CapabilityEvidenceDigest != inferenceDigest(e.CapabilityEvidenceRef) || e.PolicyEvidenceDigest != inferenceDigest(e.PolicyEvidenceRef) || e.SecurityEvidenceRef == "" || e.SecurityEvidenceDigest != inferenceDigest(e.SecurityEvidenceRef) || e.AvailabilityEvidenceRef == "" || e.AvailabilityEvidenceDigest != inferenceDigest(e.AvailabilityEvidenceRef) || e.BudgetEvidenceRef == "" || e.BudgetEvidenceDigest != inferenceDigest(e.BudgetEvidenceRef) || e.QuotaEvidenceRef == "" || e.QuotaEvidenceDigest != inferenceDigest(e.QuotaEvidenceRef) || !e.ValidUntil.After(e.EvaluatedAt) {
 		return errors.New("surface-bound eligibility requires exact surface, authority generation, scope, evidence, and validity")
 	}
 	for name, telemetry := range e.Telemetry {
-		if name == "" || telemetry.ProvenanceRef == "" || !validSHA256Digest(telemetry.ProvenanceDigest) || telemetry.ObservedAt.IsZero() || !telemetry.ValidUntil.After(telemetry.ObservedAt) || telemetry.ObservedAt.After(e.EvaluatedAt) || telemetry.Known == (telemetry.Value == "") {
+		if name == "" || telemetry.ProvenanceRef == "" || telemetry.ProvenanceDigest != inferenceDigest(telemetry.ProvenanceRef) || telemetry.ObservedAt.IsZero() || !telemetry.ValidUntil.After(telemetry.ObservedAt) || telemetry.ObservedAt.After(e.EvaluatedAt) || telemetry.Known == (telemetry.Value == "") {
 			return errors.New("surface-bound eligibility telemetry is incomplete")
 		}
 	}

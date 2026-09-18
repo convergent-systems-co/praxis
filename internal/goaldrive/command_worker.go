@@ -26,6 +26,17 @@ type CommandWorker struct {
 	Env         []string
 	OutputLimit int
 	Activity    *ActivityLog
+	// Granted are the operator-declared capabilities of the command worker.
+	// nil means the operator asserts the full repository contract; an empty
+	// slice is an explicit refusal.
+	Granted []WorkerCapability
+}
+
+func (w CommandWorker) Capabilities() []WorkerCapability {
+	if w.Granted == nil {
+		return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
+	}
+	return append([]WorkerCapability(nil), w.Granted...)
 }
 
 var (

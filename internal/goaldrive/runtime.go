@@ -40,6 +40,9 @@ type Runtime struct {
 	// is allocated, before any provider execution, so the caller can make
 	// the turn observable by identity before control blocks on the worker.
 	OnTurnAllocated func(turnID string)
+	// Recovery binds this invocation to the uncommitted consequence of an
+	// earlier BLOCKED turn of the same objective (see --recover-turn).
+	Recovery *WorkerRecoveryContext
 }
 
 func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (TurnRecord, error) {
@@ -134,5 +137,15 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
 		ProviderID: invocation.ProviderID, Mode: mode,
 		NoPush: invocation.NoPush, GoalBaseline: &baseline,
+		Recovery: r.Recovery, ChildObjective: recoveryObjective(r.Recovery),
 	}, r.Repository)
+}
+
+// recoveryObjective pins a recovery turn to the objective of the turn it
+// recovers; the controller never reselects work while consequence is bound.
+func recoveryObjective(recovery *WorkerRecoveryContext) string {
+	if recovery == nil {
+		return ""
+	}
+	return recovery.Objective
 }

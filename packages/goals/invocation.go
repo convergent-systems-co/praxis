@@ -42,6 +42,7 @@ func GoalDriveInvocation() contracts.InvocationContract {
 			{Name: "ledger", Type: "path", Description: "authoritative Praxis state location"},
 			{Name: "no-push", Type: "bool", Description: "retain validated local checkpoint without publication"},
 			{Name: "require-clean", Type: "bool", Default: "true", Description: "require clean synchronized repository"},
+			{Name: "recover-turn", Type: "string", Description: "exact durable BLOCKED turn identity whose uncommitted consequence this invocation validates, corrects, or discards under the same objective"},
 		},
 		RequiredEnforcement: []string{"deterministic_authority_boundary", "goal_drive_controller"},
 	}

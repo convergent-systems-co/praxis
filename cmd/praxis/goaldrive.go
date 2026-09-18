@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -65,6 +67,7 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 		return fmt.Errorf("construct native Goal-drive runtime: %w", err)
 	}
 	defer db.Close()
+	repositoryAdapter, isGit := runtime.Repository.(goaldrive.GitRepository)
 	var record goaldrive.TurnRecord
 	if reconcileOnly {
 		record, err = loadProviderWorkspaceTurn(ctx, runtime, getenv("PRAXIS_PROVIDER_WORKSPACE_ID"), getenv("PRAXIS_PROVIDER_WORKSPACE_VERSION"), invocation)
@@ -91,6 +94,9 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	}
 	if err != nil {
 		return fmt.Errorf("execute supervised Goal-drive turn: %w", err)
+	}
+	if !reconcileOnly && isGit {
+		announceBlockedConsequence(ctx, os.Stderr, repositoryAdapter, invocation, record)
 	}
 	encoded, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
@@ -182,7 +188,18 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	if remote == "" {
 		remote = "origin"
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: goaldrive.Ledger{Store: activityStore, Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached, AllowDirtyStart: dirtyStartDigest != "", DirtyStartDigest: dirtyStartDigest}, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity}
+	repository := goaldrive.GitRepository{Dir: invocation.RepositoryPath, Remote: remote, Branch: invocation.Branch, AllowDetached: allowDetached, AllowDirtyStart: dirtyStartDigest != "", DirtyStartDigest: dirtyStartDigest}
+	ledger := goaldrive.Ledger{Store: activityStore, Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}
+	var recovery *goaldrive.WorkerRecoveryContext
+	if invocation.RecoverTurn != "" {
+		bound, fingerprint, err := bindRecoveredTurn(ctx, ledger, repository, invocation)
+		if err != nil {
+			return goaldrive.Runtime{}, nil, err
+		}
+		repository.AllowRecoveryStart, repository.RecoveryDigest = true, fingerprint
+		recovery = bound
+	}
+	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: ledger, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: repository, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity, Recovery: recovery}
 	closeOnError = false
 	return runtime, db, nil
 }
@@ -295,6 +312,86 @@ func announceGoalDriveTurn(w io.Writer, out normalizedOutput, invocation goaldri
 		"invocation_id": invocation.InvocationID, "turn_id": turnID, "provider": invocation.ProviderID, "mode": string(invocation.Mode),
 		"observe_with":    "praxis supervise observe --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --invocation-id=" + invocation.InvocationID + " --turn-id=" + turnID + " --follow",
 		"invocation_with": "praxis supervise observe --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --invocation-id=" + invocation.InvocationID + " --follow",
+	}
+	if encoded, err := json.Marshal(announcement); err == nil {
+		fmt.Fprintln(w, string(encoded))
+	}
+}
+
+// bindRecoveredTurn binds the checkout's uncommitted consequence to the
+// exact BLOCKED turn named by --recover-turn. The turn must belong to this
+// Goal generation, must have ended BLOCKED with uncommitted changes, its
+// end HEAD must be the checkout's current HEAD, and the checkout must be
+// dirty. The consequence fingerprint (status, tracked diff, untracked file
+// contents) is recorded on the new turn and enforced by the repository
+// adapter, so only that exact consequence can be recovered.
+func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository goaldrive.GitRepository, invocation goaldrive.InvocationRequest) (*goaldrive.WorkerRecoveryContext, string, error) {
+	turns, err := ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
+	if err != nil {
+		return nil, "", fmt.Errorf("load Goal-drive ledger for recovery: %w", err)
+	}
+	var recovered *goaldrive.TurnRecord
+	for i := range turns {
+		if turns[i].TurnID == invocation.RecoverTurn {
+			recovered = &turns[i]
+		}
+	}
+	if recovered == nil {
+		return nil, "", fmt.Errorf("turn %q is not a durable turn of %s/%s", invocation.RecoverTurn, invocation.Input.GoalID, invocation.GoalVersion)
+	}
+	if recovered.Outcome != goaldrive.OutcomeBlocked || recovered.Progress {
+		return nil, "", fmt.Errorf("turn %s is %s, not a BLOCKED turn without checkpoint", recovered.TurnID, recovered.Outcome)
+	}
+	for _, later := range turns {
+		if later.ChildObjective == recovered.ChildObjective && later.Progress {
+			return nil, "", fmt.Errorf("objective %s already progressed in turn %s after the blocked turn; recovery is superseded", recovered.ChildObjective, later.TurnID)
+		}
+	}
+	head, err := gitOutput(ctx, repository.Dir, "rev-parse", "HEAD^{commit}")
+	if err != nil {
+		return nil, "", fmt.Errorf("read recovery checkout HEAD: %w", err)
+	}
+	if head != recovered.EndHead {
+		return nil, "", fmt.Errorf("checkout HEAD %s is not the blocked turn's HEAD %s; the consequence is not the one recorded", head, recovered.EndHead)
+	}
+	fingerprint, files, err := repository.Fingerprint(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("fingerprint recovery consequence: %w", err)
+	}
+	if len(files) == 0 {
+		return nil, "", errors.New("checkout is clean; there is no uncommitted consequence to recover")
+	}
+	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files}, fingerprint, nil
+}
+
+func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// announceBlockedConsequence tells the operator, when a turn ends BLOCKED
+// with uncommitted work in the checkout, that the consequence is retained
+// and names the exact public recovery command. The new invocation identity
+// is operator intent and is the only value left to supply.
+func announceBlockedConsequence(ctx context.Context, w io.Writer, repository goaldrive.GitRepository, invocation goaldrive.InvocationRequest, record goaldrive.TurnRecord) {
+	if record.Outcome != goaldrive.OutcomeBlocked || record.Progress {
+		return
+	}
+	fingerprint, files, err := repository.Fingerprint(ctx)
+	if err != nil || len(files) == 0 {
+		return
+	}
+	announcement := map[string]any{
+		"type": "goal-drive.turn_blocked_with_consequence", "goal_id": invocation.Input.GoalID, "goal_version": invocation.GoalVersion,
+		"invocation_id": invocation.InvocationID, "turn_id": record.TurnID, "child_objective": record.ChildObjective, "end_head": record.EndHead,
+		"consequence_fingerprint": fingerprint, "consequence_files": files,
+		"recover_with":      "praxis goal-drive --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --mode=supervised --provider=" + invocation.ProviderID + " --repo=" + invocation.RepositoryPath + " --branch=" + invocation.Branch + " --recover-turn=" + record.TurnID,
+		"operator_supplies": []string{"--invocation-id=<new durable invocation identity>"},
 	}
 	if encoded, err := json.Marshal(announcement); err == nil {
 		fmt.Fprintln(w, string(encoded))

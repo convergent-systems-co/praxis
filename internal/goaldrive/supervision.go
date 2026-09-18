@@ -33,6 +33,8 @@ const (
 	ActivityValidationCompleted   ActivityType = "validation.completed"
 	ActivityCheckpointCreated     ActivityType = "checkpoint.created"
 	ActivityBlockerDetected       ActivityType = "blocker.detected"
+	ActivityCapabilityUnsatisfied ActivityType = "capability.unsatisfiable"
+	ActivityRecoveryBound         ActivityType = "workspace.recovery_bound"
 	ActivityAuthorityRequired     ActivityType = "authority.required"
 	ActivityAuthorityResolved     ActivityType = "authority.resolved"
 	ActivityHumanComment          ActivityType = "human.comment"
@@ -53,6 +55,7 @@ var activityTypes = map[ActivityType]struct{}{
 	ActivityCheckpointCreated: {}, ActivityBlockerDetected: {}, ActivityAuthorityRequired: {}, ActivityAuthorityResolved: {}, ActivityHumanComment: {},
 	ActivityHumanCorrection: {}, ActivityHumanConstraint: {}, ActivitySuspendRequested: {}, ActivitySuspended: {}, ActivityCancelRequested: {},
 	ActivityCancelled: {}, ActivityResumed: {}, ActivityCompletionClaimed: {}, ActivityCompletionQualified: {},
+	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {},
 }
 
 const supervisionAggregateType = "goal_drive_supervision"

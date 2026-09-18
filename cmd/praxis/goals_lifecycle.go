@@ -15,6 +15,7 @@ import (
 
 	"github.com/convergent-systems-co/praxis/internal/client"
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/packages/goals"
@@ -407,6 +408,12 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 	result := map[string]any{"goal": baseline, "drivable": baseline.WorkPlan != nil, "pending_authority": pending, "proposals": proposalEntries, "reviews": reviewEntries, "authority_requests": requestEntries, "acceptances": acceptanceEntries}
 	if baseline.WorkPlan != nil {
 		result["drive_template"] = driveTemplate(baseline)
+		turns, err := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}.Load(ctx, goalID, version)
+		if err != nil {
+			return fmt.Errorf("load Goal-drive ledger: %w", err)
+		}
+		result["turns"] = len(turns)
+		result["recoverable_turns"] = recoverableTurns(baseline, turns)
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
 	}
@@ -451,6 +458,37 @@ func acceptCommand(requestDigest string) string {
 
 func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 	return "praxis goals-lifecycle --operation=attach --goal-id=" + goalID + " --goal-version=" + goalVersion + " --acceptance-ref=" + acceptanceRef
+}
+
+// recoverableTurns lists the generation's BLOCKED turns whose objective has
+// not progressed since, each with the exact public recovery template. The
+// checkout is not durable state, so whether the consequence still exists is
+// established by goal-drive itself when --recover-turn binds it.
+func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord) []map[string]any {
+	out := make([]map[string]any, 0)
+	for _, turn := range turns {
+		if turn.Outcome != goaldrive.OutcomeBlocked || turn.Progress {
+			continue
+		}
+		superseded := false
+		for _, later := range turns {
+			if later.ChildObjective == turn.ChildObjective && later.Progress {
+				superseded = true
+			}
+		}
+		if superseded {
+			continue
+		}
+		out = append(out, map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recover_template": recoverTemplate(baseline.ID, baseline.Version, turn.TurnID)})
+	}
+	return out
+}
+
+// recoverTemplate is the drive template pinned to one BLOCKED turn: the same
+// operator intent (provider, new invocation identity, repository, branch)
+// plus the exact turn whose uncommitted consequence the invocation binds.
+func recoverTemplate(goalID, goalVersion, turnID string) map[string]any {
+	return map[string]any{"command": "praxis goal-drive --goal-id=" + goalID + " --goal-version=" + goalVersion + " --mode=supervised --recover-turn=" + turnID, "operator_supplies": []string{"--provider=<registered provider>", "--invocation-id=<new durable invocation identity>", "--repo=<repository path holding the blocked turn's checkout>", "--branch=<exact branch>"}, "providers_with": "praxis providers"}
 }
 
 // driveTemplate names the drivable generation exactly; the provider,

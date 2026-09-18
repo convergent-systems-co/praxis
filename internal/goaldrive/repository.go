@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -24,6 +25,18 @@ type RepositoryAdapter interface {
 }
 
 type DirtyStartRepository interface{ DirtyStartAllowed() bool }
+
+// DeclaredValidator is implemented by repository adapters that can run the
+// repository's own declared validation (an executable ./.praxis/validate).
+// Validation is controller-owned: it runs after the provider's local commit
+// and before any checkpoint is accepted.
+type DeclaredValidator interface {
+	DeclaredValidation() (string, bool)
+	RunDeclaredValidation(context.Context) (string, error)
+}
+
+// LocatedRepository exposes the exact path and branch a worker is bound to.
+type LocatedRepository interface{ Location() (path, branch string) }
 
 func PrepareRepository(ctx context.Context, repo RepositoryAdapter) (RepositorySnapshot, error) {
 	if repo == nil {
@@ -88,12 +101,23 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	}
 	req.StartHead = snapshot.Head
 	req.Repository = contracts.RepositorySynced
+	if located, ok := repo.(LocatedRepository); ok && req.RepositoryPath == "" {
+		req.RepositoryPath, req.RepositoryBranch = located.Location()
+	}
+	if validator, ok := repo.(DeclaredValidator); ok {
+		req.DeclaredValidation, req.ValidationDeclared = validator.DeclaredValidation()
+	}
 	turns, req, err := c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, err
 	}
 	if err := c.emit(ctx, ActivityExecutionStarted, req, map[string]string{"mode": string(req.Mode)}); err != nil {
 		return TurnRecord{}, err
+	}
+	if req.Recovery != nil {
+		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "blocker": req.Recovery.Blocker}); err != nil {
+			return TurnRecord{}, err
+		}
 	}
 	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
 		return TurnRecord{}, err
@@ -182,8 +206,36 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:head-unchanged")
 		return base, nil
 	}
+	if validator, ok := repo.(DeclaredValidator); ok {
+		if command, declared := validator.DeclaredValidation(); declared {
+			if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "declared-validation", "command": command}); err != nil {
+				return TurnRecord{}, err
+			}
+			output, runErr := validator.RunDeclaredValidation(ctx)
+			passed := runErr == nil
+			if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "declared-validation", "command": command, "passed": fmt.Sprint(passed), "output": truncateForActivity(output)}); err != nil {
+				return TurnRecord{}, err
+			}
+			if !passed {
+				base.Outcome = OutcomeBlocked
+				base.Blocker = "declared validation failed; the local commit is retained as evidence and no checkpoint is valid: " + runErr.Error()
+				return base, errors.New(base.Blocker)
+			}
+			base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:declared-validation-passed")
+		} else {
+			base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:no-declared-validation")
+		}
+	}
 	base.Outcome = OutcomeContinue
 	base.Progress = true
 	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
 	return base, nil
+}
+
+func truncateForActivity(text string) string {
+	const limit = 2000
+	if len(text) <= limit {
+		return text
+	}
+	return text[len(text)-limit:]
 }

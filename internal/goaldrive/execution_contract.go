@@ -183,6 +183,10 @@ type WorkerRecoveryContext struct {
 	Blocker         string   `json:"blocker"`
 	Fingerprint     string   `json:"fingerprint"`
 	Files           []string `json:"files"`
+	// Commits are the turn's local commits not yet published to the remote
+	// (for example the evidence commit retained after a failed declared
+	// validation), oldest first.
+	Commits []string `json:"commits,omitempty"`
 }
 
 // BuildWorkerContext derives the worker context from the exact Goal
@@ -240,14 +244,14 @@ func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.Wor
 // tree: its porcelain status, the tracked diff, and the content of every
 // untracked file. Two trees with the same fingerprint carry the same
 // consequence.
-func ConsequenceFingerprint(ctx context.Context, run func(context.Context, ...string) (string, error), readFile func(string) ([]byte, error)) (string, []string, error) {
+func ConsequenceFingerprint(ctx context.Context, run func(context.Context, ...string) (string, error), readFile func(string) ([]byte, error), upstream string) (string, []string, []string, error) {
 	status, err := run(ctx, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	diff, err := run(ctx, "diff", "--binary", "HEAD")
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	hasher := sha256.New()
 	hasher.Write([]byte("status\n" + status + "\ndiff\n" + diff + "\n"))
@@ -261,12 +265,25 @@ func ConsequenceFingerprint(ctx context.Context, run func(context.Context, ...st
 		if strings.HasPrefix(line, "??") {
 			body, err := readFile(path)
 			if err != nil {
-				return "", nil, fmt.Errorf("read untracked %s: %w", path, err)
+				return "", nil, nil, fmt.Errorf("read untracked %s: %w", path, err)
 			}
 			sum := sha256.Sum256(body)
 			hasher.Write([]byte("untracked\n" + path + "\n" + hex.EncodeToString(sum[:]) + "\n"))
 		}
 	}
 	sort.Strings(files)
-	return "sha256:" + hex.EncodeToString(hasher.Sum(nil)), files, nil
+	var commits []string
+	if upstream != "" {
+		ahead, err := run(ctx, "rev-list", "--reverse", upstream+"..HEAD")
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("list unpublished commits: %w", err)
+		}
+		for _, line := range strings.Split(strings.TrimSpace(ahead), "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				commits = append(commits, line)
+				hasher.Write([]byte("commit\n" + line + "\n"))
+			}
+		}
+	}
+	return "sha256:" + hex.EncodeToString(hasher.Sum(nil)), files, commits, nil
 }

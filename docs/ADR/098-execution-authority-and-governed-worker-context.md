@@ -109,14 +109,19 @@ controller predicates only, and the turn record says so.
 `goal-drive` gains `--recover-turn=<turn id>`. Praxis loads the exact turn
 from the ledger and requires: it ended BLOCKED with no checkpoint; no later
 turn progressed the same objective; the checkout HEAD is the turn's end
-HEAD; the checkout is dirty. It fingerprints the consequence (status,
-tracked diff, untracked file contents) and binds it: the repository adapter
-admits that dirty checkout only when the fingerprint matches, the turn is
+HEAD; the checkout carries a consequence, meaning uncommitted changes, local
+commits not yet published to the remote branch (the evidence retained after
+a failed declared validation), or both. It fingerprints the consequence
+(status, tracked diff, untracked file contents, unpublished commit
+identities) and binds it: at turn start the repository adapter admits the
+dirty or local-ahead checkout only when the fingerprint matches, the turn is
 pinned to the blocked turn's objective, `workspace.recovery_bound` is
 durable before work, and the worker is told what it recovers (turn,
-objective, blocker, fingerprint, files) and that it validates, corrects, or
-discards that work under the same contract. Recovery of an altered,
-foreign, or clean checkout is refused. `goals-lifecycle inspect` lists
+objective, blocker, fingerprint, files, commits) and that it validates,
+corrects with a further commit, or removes that work under the same
+contract. Publication then carries the evidence commit and the correction
+together. Recovery of an altered, foreign, or clean published checkout is
+refused; without a binding, a local-ahead checkout remains unsafe. `goals-lifecycle inspect` lists
 `recoverable_turns` with the exact `recover_template`, and goal-drive
 announces `goal-drive.turn_blocked_with_consequence` on stderr with the
 exact recovery command when a turn ends BLOCKED and the checkout is dirty;

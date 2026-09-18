@@ -155,15 +155,37 @@ func TestDeclaredValidationGatesTheCheckpoint(t *testing.T) {
 	if head == remote {
 		t.Fatal("the failing local commit must be retained as evidence and not published")
 	}
-	// Reset the checkout to the published state and run a passing worker.
-	runGitTest(t, workDir, "reset", "--hard", "origin/main")
+	// The retained evidence commit leaves the checkout ahead of the remote:
+	// an ordinary turn is refused, and only a bound recovery of that exact
+	// consequence may continue.
+	plain := GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}
+	if _, err := PrepareRepository(ctx, plain); err == nil {
+		t.Fatal("an unpublished evidence commit must be refused without a recovery binding")
+	}
+	fingerprint, files, commits, err := plain.Fingerprint(ctx)
+	if err != nil || len(files) != 0 || len(commits) != 1 || commits[0] != head {
+		t.Fatalf("fingerprint must name the retained commit: %v %v %v", files, commits, err)
+	}
+	bound := plain
+	bound.AllowRecoveryStart, bound.RecoveryDigest = true, fingerprint
 	passing := ProviderCLIWorker{ProviderID: "local", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'ok\\n' > ok.txt && git add ok.txt && git commit -q -m ok"}}
 	controller.Worker = passing
 	req := contractRequest("")
 	req.InvocationID, req.TurnID = "inv-contract-2", "inv-contract-2:turn:2"
-	record, err = controller.ExecuteTurnWithRepository(ctx, req, GitRepository{Dir: workDir, Remote: "origin", Branch: "main"})
+	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: record.TurnID, Objective: record.ChildObjective, Blocker: record.Blocker, Fingerprint: fingerprint, Commits: commits}
+	record, err = controller.ExecuteTurnWithRepository(ctx, req, bound)
 	if err != nil || !record.Progress || !record.CheckpointPublished || !containsString(record.CheckpointEvidence, "repository:declared-validation-passed") {
-		t.Fatalf("passing validation must checkpoint and publish: %+v %v", record, err)
+		t.Fatalf("recovered evidence plus a fix must checkpoint and publish: %+v %v", record, err)
+	}
+	if remote := strings.TrimSpace(runGitOutput(t, workDir, "rev-parse", "origin/main")); remote != record.EndHead || !strings.Contains(runGitOutput(t, workDir, "log", "--oneline", "origin/main"), "wrong") {
+		t.Fatalf("publication must carry the evidence commit and the fix: %s", remote)
+	}
+	// A foreign commit on top of the consequence is not the bound consequence.
+	writeFile(t, filepath.Join(workDir, "other.txt"), "x\n")
+	runGitTest(t, workDir, "add", "other.txt")
+	runGitTest(t, workDir, "commit", "-q", "-m", "foreign")
+	if _, err := PrepareRepository(ctx, bound); err == nil {
+		t.Fatal("a changed set of unpublished commits must be refused")
 	}
 }
 
@@ -179,7 +201,7 @@ func TestRecoveryBindsExactConsequence(t *testing.T) {
 	if _, err := PrepareRepository(ctx, repo); err == nil {
 		t.Fatal("a dirty checkout must be refused without a binding")
 	}
-	fingerprint, files, err := repo.Fingerprint(ctx)
+	fingerprint, files, _, err := repo.Fingerprint(ctx)
 	if err != nil || len(files) != 1 || files[0] != "left.txt" {
 		t.Fatalf("fingerprint: %v %v %v", fingerprint, files, err)
 	}

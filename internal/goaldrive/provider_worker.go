@@ -32,9 +32,23 @@ type ProviderCLIWorker struct {
 	Env         []string
 	OutputLimit int
 	Activity    *ActivityLog
+	// Granted are the capabilities the launch contract actually allows. They
+	// are declared by the constructor, never inferred, and the controller
+	// refuses dispatch when they do not cover the checkpoint contract.
+	Granted []WorkerCapability
 }
 
 func (w ProviderCLIWorker) RepositoryResultIsControllerOwned() bool { return true }
+
+// Capabilities reports the launch contract's grants. A nil Granted (an
+// adapter constructed without a profile) asserts the full repository
+// contract; an explicit empty slice is a refusal.
+func (w ProviderCLIWorker) Capabilities() []WorkerCapability {
+	if w.Granted == nil {
+		return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
+	}
+	return append([]WorkerCapability(nil), w.Granted...)
+}
 
 func (w ProviderCLIWorker) Execute(ctx context.Context, request WorkerRequest) (WorkerResult, error) {
 	if w.ProviderID == "" {
@@ -203,22 +217,70 @@ func providerPrompt(request WorkerRequest) (string, error) {
 	if request.GoalID == "" || request.GoalVersion == "" || request.TurnID == "" || request.ChildObjective == "" {
 		return "", errors.New("provider request requires exact Goal, turn, and child objective identity")
 	}
-	return fmt.Sprintf(`You are a bounded Praxis provider worker.
+	var b strings.Builder
+	fmt.Fprintf(&b, "You are a bounded Praxis provider worker executing exactly one accepted work unit.\n\n")
+	fmt.Fprintf(&b, "Objective (already selected, do not choose another): %s\nGoal: %s version %s\nTurn: %s\nGraph: %s version %s\nStarting repository HEAD: %s\n", request.ChildObjective, request.GoalID, request.GoalVersion, request.TurnID, request.GraphID, request.GraphVersion, request.StartHead)
+	if c := request.Context; c != nil {
+		fmt.Fprintf(&b, "\n## Goal (authoritative, Praxis-owned; do not look for it elsewhere)\nGoal digest: %s\nOriginal intent: %s\nRefined outcome: %s\n", c.Goal.Digest, c.Goal.OriginalIntent, c.Goal.RefinedOutcome)
+		if c.Goal.Scope != "" {
+			fmt.Fprintf(&b, "Scope: %s\n", c.Goal.Scope)
+		}
+		writeList(&b, "Success criteria", c.Goal.SuccessCriteria)
+		writeList(&b, "Constraints", c.Goal.Constraints)
+		writeList(&b, "Non-goals", c.Goal.NonGoals)
+		writeList(&b, "Validity predicates", c.Goal.ValidityPredicates)
+		fmt.Fprintf(&b, "\n## Work unit\nID: %s\nProvenance: %s (%s)\n", c.Unit.ID, c.Unit.Provenance, c.Unit.SourceRef)
+		for _, requirement := range c.Unit.Requirements {
+			fmt.Fprintf(&b, "Requirement %s: %s\n", requirement.ID, requirement.SourceRef)
+		}
+		writeList(&b, "Prerequisite units (already accepted as done or not your concern)", c.Unit.Prerequisites)
+		writeList(&b, "Units that depend on this one", c.Unit.Dependents)
+		fmt.Fprintf(&b, "\n## Repository authority\nPath: %s\nBranch: %s\nStart HEAD: %s\nWork only inside this path.\n", c.Repository.Path, c.Repository.Branch, c.Repository.StartHead)
+		if c.Recovery != nil {
+			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe working tree already contains uncommitted work from that turn (fingerprint %s):\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint)
+			for _, file := range c.Recovery.Files {
+				fmt.Fprintf(&b, "  - %s\n", file)
+			}
+			fmt.Fprintf(&b, "Inspect it against this unit. Validate and commit what is correct, fix what is not, and remove what should not exist. Nothing may remain uncommitted.\n")
+		}
+		writeList(&b, "\n## Checkpoint contract (Praxis verifies every item after you finish)", c.Checkpoint.Predicates)
+		fmt.Fprintf(&b, "\n## Authority\nGranted capabilities: %s\n", joinCapabilities(c.Authority.Granted))
+		writeList(&b, "Forbidden", c.Authority.Forbidden)
+		writeList(&b, "\n## Invariants", c.Invariants)
+	}
+	fmt.Fprintf(&b, "\nWhen the work is ready: stage the intended files and create a local Git commit with a message naming the unit. Then finish. Do not push, fetch, rewrite refs, alter Praxis durable state, or claim that a checkpoint is valid. Praxis inspects the clean changed repository, runs the declared validation if any, decides progress and checkpoint validity, publishes only through controller policy, and decides the next invocation.\n")
+	return b.String(), nil
+}
 
-Work only on this already-selected child objective: %s
-Goal: %s version %s
-Turn: %s
-Graph: %s version %s
-Starting repository HEAD: %s
+func writeList(b *strings.Builder, title string, items []string) {
+	if len(items) == 0 {
+		return
+	}
+	fmt.Fprintf(b, "%s:\n", title)
+	for _, item := range items {
+		fmt.Fprintf(b, "  - %s\n", item)
+	}
+}
 
-Do not select another objective. Do not decide Goal completion or authority.
-Do not push, rewrite remote history, alter Praxis durable state, or claim that
-a checkpoint is valid. Make only the bounded repository changes needed for the
-selected objective, and create a local Git commit when those changes are
-ready. Praxis will inspect the clean changed repository, decide progress and
-checkpoint validity, publish only through controller policy, and decide the
-next invocation.
-`, request.ChildObjective, request.GoalID, request.GoalVersion, request.TurnID, request.GraphID, request.GraphVersion, request.StartHead), nil
+// claudeSubscriptionTools is the bounded tool allowlist that makes the
+// Claude subscription profile able to satisfy the checkpoint contract:
+// repository edits, read-only inspection, staging, local commits, and
+// running the repository's own validation toolchain. Push, arbitrary shell,
+// and anything outside the repository stay denied.
+var claudeSubscriptionTools = []string{
+	"Read", "Edit", "Write", "MultiEdit", "Glob", "Grep", "LS",
+	"Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git add:*)", "Bash(git rm:*)", "Bash(git mv:*)", "Bash(git commit:*)", "Bash(git restore:*)",
+	"Bash(./.praxis/validate:*)", "Bash(npm test:*)", "Bash(npm run:*)", "Bash(npm ci:*)", "Bash(npm install:*)", "Bash(node:*)", "Bash(npx:*)",
+	"Bash(go test:*)", "Bash(go build:*)", "Bash(go vet:*)", "Bash(gofmt:*)", "Bash(pytest:*)", "Bash(python3:*)", "Bash(python:*)", "Bash(make test:*)", "Bash(make check:*)", "Bash(cargo test:*)", "Bash(cargo build:*)",
+	"Bash(ls:*)", "Bash(cat:*)", "Bash(chmod +x:*)", "Bash(mkdir:*)",
+}
+
+func claudeSubscriptionCapabilities() []WorkerCapability {
+	return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
+}
+
+func codexSubscriptionCapabilities() []WorkerCapability {
+	return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
 }
 
 func NewCodexSubscriptionWorker(providerID, dir, model string, activity *ActivityLog) (Worker, error) {
@@ -234,7 +296,7 @@ func NewCodexSubscriptionWorker(providerID, dir, model string, activity *Activit
 		args = append(args, "--model", model)
 	}
 	args = append(args, "-")
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: codexSubscriptionCapabilities()}, nil
 }
 
 func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *ActivityLog) (Worker, error) {
@@ -245,9 +307,10 @@ func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *Activi
 	if err != nil {
 		return nil, fmt.Errorf("claude subscription CLI is unavailable: %w", err)
 	}
-	args := []string{"--print", "--output-format", "text", "--no-session-persistence", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--add-dir", dir}
+	args := []string{"--print", "--output-format", "text", "--no-session-persistence", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--add-dir", dir, "--allowedTools"}
+	args = append(args, claudeSubscriptionTools...)
 	if model != "" {
 		args = append(args, "--model", model)
 	}
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: claudeSubscriptionCapabilities()}, nil
 }

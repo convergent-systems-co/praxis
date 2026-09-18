@@ -41,6 +41,7 @@ type WorkerRequest struct {
 	GraphVersion   string                 `json:"graph_version"`
 	StartHead      string                 `json:"start_head"`
 	ProviderID     string                 `json:"provider_id"`
+	Context        *WorkerContext         `json:"context,omitempty"`
 	Activity       *ActivityLog           `json:"-"`
 	ActivityActor  contracts.PrincipalRef `json:"-"`
 }
@@ -62,6 +63,11 @@ type TurnRequest struct {
 	WorkCandidates                                                                              []contracts.WorkCandidate
 	WorkRelationships                                                                           []contracts.WorkRelationship
 	GoalBaseline                                                                                *goals.GoalBaseline
+	RepositoryPath, RepositoryBranch                                                            string
+	ValidationDeclared                                                                          bool
+	DeclaredValidation                                                                          string
+	Recovery                                                                                    *WorkerRecoveryContext
+	Context                                                                                     *WorkerContext
 }
 
 type Controller struct {
@@ -130,8 +136,40 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		}
 		req.ChildObjective = candidate.ID
 	}
-	if _, err := c.worker(req); err != nil {
+	worker, err := c.worker(req)
+	if err != nil {
 		return nil, TurnRequest{}, err
+	}
+	// The worker must be able to bring about every consequence the
+	// checkpoint contract requires; otherwise the turn fails here, before
+	// any implementation begins, with durable evidence of the class
+	// "checkpoint-required action unavailable to worker".
+	if err := CheckCapabilities(worker, req.ProviderID, RequiredRepositoryCapabilities()); err != nil {
+		var capErr *CapabilityError
+		if errors.As(err, &capErr) {
+			if emitErr := c.emit(ctx, ActivityCapabilityUnsatisfied, req, map[string]string{"provider": req.ProviderID, "required": joinCapabilities(capErr.Required), "granted": joinCapabilities(capErr.Granted), "missing": joinCapabilities(capErr.Missing), "evidence_class": "checkpoint-required action unavailable to worker"}); emitErr != nil {
+				return nil, TurnRequest{}, emitErr
+			}
+		}
+		return nil, TurnRequest{}, err
+	}
+	if req.GoalBaseline != nil && req.Context == nil {
+		granted := RequiredRepositoryCapabilities()
+		if declaring, ok := worker.(CapabilityDeclaringWorker); ok {
+			granted = declaring.Capabilities()
+		}
+		if len(req.WorkCandidates) == 0 {
+			candidates, relationships, err := MaterializeGoalWork(*req.GoalBaseline)
+			if err != nil {
+				return nil, TurnRequest{}, err
+			}
+			req.WorkCandidates, req.WorkRelationships = candidates, relationships
+		}
+		workerContext, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, req.WorkRelationships, req.ChildObjective, WorkerRepositoryContext{Path: req.RepositoryPath, Branch: req.RepositoryBranch, StartHead: req.StartHead}, granted, req.ValidationDeclared, req.DeclaredValidation, req.Recovery)
+		if err != nil {
+			return nil, TurnRequest{}, err
+		}
+		req.Context = workerContext
 	}
 	if req.Repository != contracts.RepositorySynced {
 		return nil, TurnRequest{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, req.Repository)
@@ -233,7 +271,7 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 }
 
 func (c Controller) workerRequest(req TurnRequest) WorkerRequest {
-	return WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ProviderID: req.ProviderID, Activity: c.Activity, ActivityActor: c.Ledger.Actor}
+	return WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ProviderID: req.ProviderID, Context: req.Context, Activity: c.Activity, ActivityActor: c.Ledger.Actor}
 }
 
 func (c Controller) emit(ctx context.Context, typ ActivityType, req TurnRequest, data map[string]string) error {

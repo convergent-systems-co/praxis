@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -23,9 +25,53 @@ type GitRepository struct {
 	AllowDetached    bool
 	AllowDirtyStart  bool
 	DirtyStartDigest string
+	// AllowRecoveryStart admits a dirty authoritative checkout only when its
+	// consequence fingerprint equals RecoveryDigest, the fingerprint bound to
+	// the BLOCKED turn being recovered.
+	AllowRecoveryStart bool
+	RecoveryDigest     string
 }
 
-func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart }
+func (r GitRepository) Location() (string, string) { return r.Dir, r.Branch }
+
+// Fingerprint binds the exact uncommitted consequence of the checkout.
+func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, error) {
+	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) })
+}
+
+const declaredValidationPath = ".praxis/validate"
+
+// DeclaredValidation reports the repository's own validation entry point.
+func (r GitRepository) DeclaredValidation() (string, bool) {
+	info, err := os.Stat(filepath.Join(r.Dir, declaredValidationPath))
+	if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+		return "", false
+	}
+	return "./" + declaredValidationPath, true
+}
+
+// RunDeclaredValidation executes the declared validation in the checkout
+// with the same minimal environment providers receive.
+func (r GitRepository) RunDeclaredValidation(ctx context.Context) (string, error) {
+	command, declared := r.DeclaredValidation()
+	if !declared {
+		return "", errors.New("repository declares no validation")
+	}
+	env, err := commandEnvironment(nil, os.Environ())
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, filepath.Join(r.Dir, declaredValidationPath))
+	cmd.Dir = r.Dir
+	cmd.Env = env
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("%s: %w", command, err)
+	}
+	return string(output), nil
+}
+
+func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart || r.AllowRecoveryStart }
 
 func (r GitRepository) validate() error {
 	if r.Dir == "" || r.Remote == "" || r.Branch == "" {
@@ -65,7 +111,12 @@ func (r GitRepository) Snapshot(ctx context.Context) (RepositorySnapshot, error)
 	}
 	if local == remote {
 		isClean := strings.TrimSpace(clean) == ""
-		if !isClean && r.AllowDirtyStart {
+		if !isClean && r.AllowRecoveryStart {
+			fingerprint, _, fpErr := r.Fingerprint(ctx)
+			if fpErr != nil || r.RecoveryDigest == "" || fingerprint != r.RecoveryDigest {
+				return RepositorySnapshot{}, fmt.Errorf("dirty checkout does not match the consequence fingerprint bound to the recovered turn")
+			}
+		} else if !isClean && r.AllowDirtyStart {
 			diff, diffErr := r.run(ctx, "diff", "--binary")
 			if diffErr != nil || r.DirtyStartDigest == "" || digestBytes([]byte(diff)) != r.DirtyStartDigest {
 				return RepositorySnapshot{}, fmt.Errorf("dirty provider workspace migration input does not match its persisted digest")

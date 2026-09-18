@@ -19,6 +19,7 @@ type InvocationRequest struct {
 	RepositoryPath  string
 	Branch          string
 	MaxTurns        int
+	RecoverTurn     string
 	TurnTimeout     time.Duration
 	NoProgressLimit int
 	LedgerPath      string
@@ -49,7 +50,7 @@ func ParseInvocation(options map[string]string) (InvocationRequest, error) {
 	if invocationID == "" {
 		return InvocationRequest{}, errors.New("Goal-drive invocation-id is required")
 	}
-	out := InvocationRequest{Input: input, GoalVersion: options["goal-version"], Mode: mode, InvocationID: invocationID, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true}
+	out := InvocationRequest{Input: input, GoalVersion: options["goal-version"], Mode: mode, InvocationID: invocationID, ProviderID: provider, Model: options["model"], RepositoryPath: options["repo"], Branch: options["branch"], LedgerPath: options["ledger"], RequireClean: true, RecoverTurn: options["recover-turn"]}
 	if value := options["max-turns"]; value != "" {
 		out.MaxTurns, err = positiveInt("max-turns", value)
 		if err != nil {

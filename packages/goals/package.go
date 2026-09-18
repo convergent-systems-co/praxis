@@ -13,7 +13,7 @@ import (
 
 const (
 	PackageID                 = "praxis.package.goals"
-	PackageVersion            = "0.1.1"
+	PackageVersion            = "0.1.2"
 	GoalsPluginID             = "praxis.package.goals"
 	GoalsPluginVersion        = "0.1.0"
 	GoalsExecutableID         = "praxis.package.goals.executable"

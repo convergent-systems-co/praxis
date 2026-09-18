@@ -50,8 +50,8 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	if operation == "inspect" {
 		return inspectGoalsLifecycle(ctx, in.Options, getenv)
 	}
-	if len(input) == 0 {
-		return errors.New("Goals lifecycle mutation requires --input <canonical-json>")
+	if _, selected := selectorFromOptions(in.Options); len(input) == 0 && !selected {
+		return errors.New("Goals lifecycle mutation requires exact selector options or --input <document>")
 	}
 	repo, db, err := openGovernedRepository(ctx, getenv)
 	if err != nil {
@@ -95,9 +95,21 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		if err != nil {
 			return err
 		}
-		return printJSON(map[string]any{"operation": operation, "proposal": proposal, "record_digest": digest})
+		return printJSON(map[string]any{"operation": operation, "proposal": proposal, "record_digest": digest, "proposal_digest": digest, "review_accept_with": reviewCommand(digest, string(contracts.ReviewAcceptableForAuthority)), "review_revise_with": reviewCommand(digest, string(contracts.ReviewRevisionRequired))})
 	case "review":
-		if selector, ok := decodeSelector(input); ok {
+		if selector, ok := lifecycleSelectorFor(in.Options, input); ok {
+			if selector.ReviewedBy.ID == "" || selector.ReviewerGeneration == "" {
+				owner, root, err := installationOwnerAndRoot(ctx, repo, getenv, now)
+				if err != nil {
+					return err
+				}
+				if selector.ReviewedBy.ID == "" {
+					selector.ReviewedBy = owner
+				}
+				if selector.ReviewerGeneration == "" {
+					selector.ReviewerGeneration = root.Ref + "/" + root.Version + "@" + root.Digest
+				}
+			}
 			review, proposalID, proposalVersion, err := reviewFromSelector(ctx, repo, selector, now)
 			if err != nil {
 				return err
@@ -105,7 +117,15 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if err := repo.SaveWorkPlanReview(ctx, proposalID, proposalVersion, review, "1", now, nil); err != nil {
 				return err
 			}
-			return printJSON(map[string]any{"operation": operation, "review": review, "review_ref": review.ReviewRef, "review_digest": review.ReviewDigest, "proposal_digest": review.ProposalDigest})
+			proposal, _, err := repo.LoadWorkPlanProposalByDigest(ctx, selector.ProposalDigest, now)
+			if err != nil {
+				return err
+			}
+			result := map[string]any{"operation": operation, "review": review, "review_ref": review.ReviewRef, "review_digest": review.ReviewDigest, "proposal_digest": review.ProposalDigest}
+			if review.Status == contracts.ReviewAcceptableForAuthority {
+				result["request_with"] = requestCommand(proposal.GoalID, proposal.GoalVersion, review.ProposalDigest, review.ReviewDigest)
+			}
+			return printJSON(result)
 		}
 		var req struct {
 			ProposalID, ProposalVersion, ReviewVersion string
@@ -119,10 +139,10 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		}
 		return printJSON(map[string]any{"operation": operation, "review": req.Review})
 	case "request":
-		if selector, ok := decodeSelector(input); ok {
+		if selector, ok := lifecycleSelectorFor(in.Options, input); ok {
 			goalID, goalVersion := in.Options["goal-id"], in.Options["goal-version"]
 			if goalID == "" || goalVersion == "" || selector.ProposalDigest == "" || selector.ReviewDigest == "" {
-				return errors.New("request selector requires --goal-id, --goal-version, proposal_digest, and review_digest")
+				return errors.New("request requires --goal-id, --goal-version, --proposal-digest, and --review-digest")
 			}
 			baseline, err := repo.Load(ctx, goalID, goalVersion, now)
 			if err != nil {
@@ -142,15 +162,7 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if review.Status != contracts.ReviewAcceptableForAuthority {
 				return fmt.Errorf("review %s is %q, not acceptable for an authority decision", review.ReviewDigest, review.Status)
 			}
-			bootstrapDigest, err := installationBootstrapDigest(getenv)
-			if err != nil {
-				return err
-			}
-			owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
-			if err != nil {
-				return err
-			}
-			root, err := currentInstallationRoot(ctx, repo, owner, now)
+			_, root, err := installationOwnerAndRoot(ctx, repo, getenv, now)
 			if err != nil {
 				return err
 			}
@@ -163,7 +175,7 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if err != nil {
 				return err
 			}
-			return printJSON(map[string]any{"operation": operation, "request": req, "request_digest": digest, "resolve_with": "praxis authority decide --request " + digest + " --outcome approve|reject"})
+			return printJSON(map[string]any{"operation": operation, "request": req, "request_digest": digest, "resolve_with": decideCommand(digest, "approve"), "reject_with": decideCommand(digest, "reject")})
 		}
 		var req contracts.AuthorityRequest
 		if err := json.Unmarshal(input, &req); err != nil {
@@ -187,9 +199,9 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		}
 		return printJSON(map[string]any{"operation": operation, "decision": req.Decision})
 	case "accept", "bind":
-		if selector, ok := decodeSelector(input); ok {
+		if selector, ok := lifecycleSelectorFor(in.Options, input); ok {
 			if selector.RequestDigest == "" {
-				return errors.New("accept selector requires request_digest")
+				return errors.New("accept requires --request-digest")
 			}
 			request, err := repo.LoadAuthorityRequestByDigest(ctx, selector.RequestDigest, now)
 			if err != nil {
@@ -211,7 +223,7 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if err != nil {
 				return err
 			}
-			return printJSON(map[string]any{"operation": operation, "plan": accepted, "acceptance_ref": acceptanceRef, "acceptance_version": "1", "attach_with": "praxis goals-lifecycle --operation=attach --goal-id " + request.BaselineID + " --goal-version " + request.BaselineVersion + " --input <{\"acceptance_ref\": \"" + acceptanceRef + "\"}>"})
+			return printJSON(map[string]any{"operation": operation, "plan": accepted, "acceptance_ref": acceptanceRef, "acceptance_version": "1", "attach_with": attachCommand(request.BaselineID, request.BaselineVersion, acceptanceRef)})
 		}
 		var req struct {
 			RequestID, RequestVersion, AcceptanceRef, AcceptanceVersion string
@@ -230,10 +242,10 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		// an authority-backed accepted WorkPlan. It is the only way a Goal
 		// becomes drivable: goal-drive materializes work from the baseline's
 		// embedded WorkPlan and never from prose, PlanRef, or model output.
-		if selector, ok := decodeSelector(input); ok {
+		if selector, ok := lifecycleSelectorFor(in.Options, input); ok {
 			goalID, goalVersion := in.Options["goal-id"], in.Options["goal-version"]
 			if goalID == "" || goalVersion == "" || selector.AcceptanceRef == "" {
-				return errors.New("attach selector requires --goal-id, --goal-version, and acceptance_ref")
+				return errors.New("attach requires --goal-id, --goal-version, and --acceptance-ref")
 			}
 			source, err := repo.Load(ctx, goalID, goalVersion, now)
 			if err != nil {
@@ -243,11 +255,19 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if err != nil {
 				return fmt.Errorf("Goal generation %q is not numeric; supply the successor version explicitly", goalVersion)
 			}
-			successor, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, source.Digest, selector.AcceptanceRef, "1", strconv.Itoa(next+1), now, nil)
+			successorVersion := strconv.Itoa(next + 1)
+			// Replay: the successor already carries this exact acceptance.
+			if existing, err := repo.Load(ctx, source.ID, successorVersion, now); err == nil {
+				if existing.PredecessorDigest == source.Digest && existing.WorkPlan != nil && existing.WorkPlan.AcceptanceRef == selector.AcceptanceRef {
+					return printJSON(map[string]any{"operation": operation, "replay": true, "goal_id": existing.ID, "goal_version": existing.Version, "baseline_digest": existing.Digest, "predecessor_digest": existing.PredecessorDigest, "work_plan_candidates": len(existing.WorkPlan.Candidates), "drive_template": driveTemplate(existing)})
+				}
+				return fmt.Errorf("Goal generation %s/%s already exists with a different lineage", existing.ID, existing.Version)
+			}
+			successor, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, source.Digest, selector.AcceptanceRef, "1", successorVersion, now, nil)
 			if err != nil {
 				return err
 			}
-			return printJSON(map[string]any{"operation": operation, "goal_id": successor.ID, "goal_version": successor.Version, "baseline_digest": successor.Digest, "predecessor_digest": successor.PredecessorDigest, "work_plan_candidates": len(successor.WorkPlan.Candidates), "drive_with": "praxis goal-drive --goal-id=" + successor.ID + " --goal-version=" + successor.Version + " --provider=<provider> --invocation-id=<id> --repo=<path> --branch=<branch>"})
+			return printJSON(map[string]any{"operation": operation, "goal_id": successor.ID, "goal_version": successor.Version, "baseline_digest": successor.Digest, "predecessor_digest": successor.PredecessorDigest, "work_plan_candidates": len(successor.WorkPlan.Candidates), "drive_template": driveTemplate(successor)})
 		}
 		var req struct {
 			GoalID, GoalVersion, BaselineDigest, AcceptanceRef, AcceptanceVersion, SuccessorVersion string
@@ -355,12 +375,13 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 	for _, item := range requests {
 		entry := map[string]any{"id": item.Request.ID, "request_digest": item.RequestDigest, "status": item.Status, "requested_authority": item.Request.RequestedAuthority, "proposal_digest": item.Request.ProposalDigest, "review_digest": item.Request.ReviewDigest}
 		if item.Status == string(contracts.AuthorityRequestPending) {
-			entry["resolve_with"] = "praxis authority decide --request " + item.RequestDigest + " --outcome approve|reject"
+			entry["resolve_with"] = decideCommand(item.RequestDigest, "approve")
+			entry["reject_with"] = decideCommand(item.RequestDigest, "reject")
 		}
 		if item.Decision != nil {
 			entry["decision_ref"], entry["outcome"], entry["decided_by"] = item.Decision.DecisionRef, item.Decision.Outcome, item.Decision.DecidedBy
 			if item.Decision.Outcome == contracts.AuthorityApprove {
-				entry["accept_with"] = "praxis goals-lifecycle --operation=accept --input <{\"request_digest\": ...}>"
+				entry["accept_with"] = acceptCommand(item.RequestDigest)
 			}
 		}
 		requestEntries = append(requestEntries, entry)
@@ -371,9 +392,72 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 	}
 	acceptanceEntries := make([]map[string]any, 0, len(acceptances))
 	for key, plan := range acceptances {
-		acceptanceEntries = append(acceptanceEntries, map[string]any{"acceptance": key, "acceptance_ref": plan.AcceptanceRef, "proposal_digest": plan.ProposalDigest, "accepted_by": plan.AcceptedBy, "candidates": len(plan.Candidates)})
+		acceptanceEntries = append(acceptanceEntries, map[string]any{"acceptance": key, "acceptance_ref": plan.AcceptanceRef, "proposal_digest": plan.ProposalDigest, "accepted_by": plan.AcceptedBy, "candidates": len(plan.Candidates), "attach_with": attachCommand(baseline.ID, baseline.Version, plan.AcceptanceRef)})
 	}
-	return printJSON(map[string]any{"goal": baseline, "drivable": baseline.WorkPlan != nil, "pending_authority": pending, "proposals": proposalEntries, "reviews": reviewEntries, "authority_requests": requestEntries, "acceptances": acceptanceEntries})
+	for _, entry := range proposalEntries {
+		digest := entry["proposal_digest"].(string)
+		entry["review_accept_with"] = reviewCommand(digest, string(contracts.ReviewAcceptableForAuthority))
+		entry["review_revise_with"] = reviewCommand(digest, string(contracts.ReviewRevisionRequired))
+	}
+	for _, entry := range reviewEntries {
+		if entry["status"] == contracts.ReviewAcceptableForAuthority {
+			entry["request_with"] = requestCommand(baseline.ID, baseline.Version, entry["proposal_digest"].(string), entry["review_digest"].(string))
+		}
+	}
+	result := map[string]any{"goal": baseline, "drivable": baseline.WorkPlan != nil, "pending_authority": pending, "proposals": proposalEntries, "reviews": reviewEntries, "authority_requests": requestEntries, "acceptances": acceptanceEntries}
+	if baseline.WorkPlan != nil {
+		result["drive_template"] = driveTemplate(baseline)
+	} else if len(proposalEntries) == 0 {
+		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
+	}
+	return printJSON(result)
+}
+
+// installationOwnerAndRoot resolves the installation owner principal and the
+// current root generation from durable state.
+func installationOwnerAndRoot(ctx context.Context, repo goalstore.Repository, getenv func(string) string, now time.Time) (contracts.PrincipalRef, contracts.AuthorityGeneration, error) {
+	bootstrapDigest, err := installationBootstrapDigest(getenv)
+	if err != nil {
+		return contracts.PrincipalRef{}, contracts.AuthorityGeneration{}, err
+	}
+	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if err != nil {
+		return contracts.PrincipalRef{}, contracts.AuthorityGeneration{}, err
+	}
+	root, err := currentInstallationRoot(ctx, repo, owner, now)
+	if err != nil {
+		return contracts.PrincipalRef{}, contracts.AuthorityGeneration{}, err
+	}
+	return owner, root, nil
+}
+
+// The emitted next-action commands are product contracts: each is a complete
+// public CLI invocation carrying full durable identities, never a placeholder.
+func reviewCommand(proposalDigest, status string) string {
+	return "praxis goals-lifecycle --operation=review --proposal-digest=" + proposalDigest + " --status=" + status
+}
+
+func requestCommand(goalID, goalVersion, proposalDigest, reviewDigest string) string {
+	return "praxis goals-lifecycle --operation=request --goal-id=" + goalID + " --goal-version=" + goalVersion + " --proposal-digest=" + proposalDigest + " --review-digest=" + reviewDigest
+}
+
+func decideCommand(requestDigest, outcome string) string {
+	return "praxis authority decide --request " + requestDigest + " --outcome " + outcome
+}
+
+func acceptCommand(requestDigest string) string {
+	return "praxis goals-lifecycle --operation=accept --request-digest=" + requestDigest
+}
+
+func attachCommand(goalID, goalVersion, acceptanceRef string) string {
+	return "praxis goals-lifecycle --operation=attach --goal-id=" + goalID + " --goal-version=" + goalVersion + " --acceptance-ref=" + acceptanceRef
+}
+
+// driveTemplate names the drivable generation exactly; the provider,
+// invocation identity, repository, and branch are operator intent and are
+// deliberately not invented here.
+func driveTemplate(baseline goals.GoalBaseline) map[string]any {
+	return map[string]any{"goal_id": baseline.ID, "goal_version": baseline.Version, "command": "praxis goal-drive --goal-id=" + baseline.ID + " --goal-version=" + baseline.Version + " --mode=supervised", "operator_supplies": []string{"--provider=<registered provider>", "--invocation-id=<durable invocation identity>", "--repo=<repository path>", "--branch=<exact branch>"}}
 }
 
 // lifecycleSelector is the documented public input for the derived lifecycle
@@ -391,6 +475,36 @@ type lifecycleSelector struct {
 	ReviewerGeneration string                 `json:"reviewer_generation"`
 	Findings           []string               `json:"findings"`
 	Reason             string                 `json:"reason"`
+}
+
+// selectorFromOptions builds the lifecycle selector from the invocation's
+// declared options. This is the ordinary product path: the operator passes
+// exact durable identities as options and never authors a document.
+func selectorFromOptions(options map[string]string) (lifecycleSelector, bool) {
+	selector := lifecycleSelector{ProposalDigest: options["proposal-digest"], ReviewDigest: options["review-digest"], RequestDigest: options["request-digest"], AcceptanceRef: options["acceptance-ref"], Status: options["status"], ReviewerGeneration: options["reviewer-generation"], Reason: options["reason"]}
+	if options["reviewer-id"] != "" {
+		selector.ReviewedBy = contracts.PrincipalRef{ID: options["reviewer-id"], Kind: options["reviewer-kind"]}
+		if selector.ReviewedBy.Kind == "" {
+			selector.ReviewedBy.Kind = "human"
+		}
+	}
+	if options["finding"] != "" {
+		selector.Findings = []string{options["finding"]}
+	}
+	present := selector.ProposalDigest != "" || selector.ReviewDigest != "" || selector.RequestDigest != "" || selector.AcceptanceRef != "" || selector.Status != ""
+	return selector, present
+}
+
+// lifecycleSelectorFor resolves the operation's selector: declared options
+// first, then a selector document passed through --input.
+func lifecycleSelectorFor(options map[string]string, input []byte) (lifecycleSelector, bool) {
+	if selector, ok := selectorFromOptions(options); ok {
+		return selector, true
+	}
+	if len(input) == 0 {
+		return lifecycleSelector{}, false
+	}
+	return decodeSelector(input)
 }
 
 func decodeSelector(input []byte) (lifecycleSelector, bool) {

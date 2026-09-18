@@ -51,7 +51,7 @@ func TestCLIHelpResolvesInstalledEntryPointsFromTheRegistry(t *testing.T) {
 		if !strings.Contains(text, "usage: praxis "+args[len(args)-1]) && !strings.Contains(text, "usage: praxis "+args[0]) {
 			t.Fatalf("%v: usage missing: %s", args, text)
 		}
-		if !strings.Contains(text, "praxis.package.goals@0.1.1") {
+		if !strings.Contains(text, "praxis.package.goals@"+goals.PackageVersion) {
 			t.Fatalf("%v: package identity missing: %s", args, text)
 		}
 	}

@@ -468,12 +468,12 @@ func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 // by goal-drive itself when --recover-turn binds it.
 func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord) []map[string]any {
 	out := make([]map[string]any, 0)
-	for _, turn := range turns {
+	for i, turn := range turns {
 		if turn.Outcome != goaldrive.OutcomeBlocked || turn.Progress {
 			continue
 		}
 		superseded := false
-		for _, later := range turns {
+		for _, later := range turns[i+1:] {
 			if later.ChildObjective == turn.ChildObjective && later.Progress {
 				superseded = true
 			}

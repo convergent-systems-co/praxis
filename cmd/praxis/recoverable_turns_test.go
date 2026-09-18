@@ -19,10 +19,13 @@ func TestRecoverableTurnsNameExactBlockedTurns(t *testing.T) {
 		{TurnID: "live-003:turn:3", InvocationID: "live-003", ChildObjective: "unit:b", Outcome: goaldrive.OutcomeContinue, Progress: true},
 		{TurnID: "live-004:turn:4", InvocationID: "live-004", ChildObjective: "unit:c", Outcome: goaldrive.OutcomeContinue, Progress: true},
 		{TurnID: "live-005:turn:5", InvocationID: "live-005", ChildObjective: "unit:d", Outcome: goaldrive.OutcomeBlocked, Blocker: "worker crashed"},
+		// A second block on unit:b after its progress is recoverable: only
+		// turns recorded after a blocked turn can supersede it.
+		{TurnID: "live-006:turn:6", InvocationID: "live-006", ChildObjective: "unit:b", Outcome: goaldrive.OutcomeBlocked, EndHead: "c778fe5"},
 	}
 	out := recoverableTurns(baseline, turns)
-	if len(out) != 2 || out[0]["turn_id"] != "live-001:turn:1" || out[0]["recoverable"] != true || out[1]["turn_id"] != "live-005:turn:5" || out[1]["recoverable"] != false || out[1]["recover_template"] != nil {
-		t.Fatalf("unprogressed blocked turns are listed; only one with a known end HEAD is recoverable: %v", out)
+	if len(out) != 3 || out[0]["turn_id"] != "live-001:turn:1" || out[0]["recoverable"] != true || out[1]["turn_id"] != "live-005:turn:5" || out[1]["recoverable"] != false || out[1]["recover_template"] != nil || out[2]["turn_id"] != "live-006:turn:6" || out[2]["recoverable"] != true {
+		t.Fatalf("unprogressed blocked turns are listed in ledger order; supersession counts later turns only: %v", out)
 	}
 	template := out[0]["recover_template"].(map[string]any)
 	command := template["command"].(string)

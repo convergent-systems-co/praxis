@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-succ-cache-mutation-boundary-v6-r4",
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T14:34:49.75376Z",
+  "finished_at": "2026-09-17T14:35:00.997389Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/mutation-boundary-v7.log",
+  "output_digest": "sha256:902b0332dce78dfbced16b500fa77c2213141c8fc8f7d818d4ecf13a1e9531a9",
+  "source_digests": {
+    "internal/state": "sha256:5784194224292dc6863b478ea4200c0d20a96930e2b9f82ccab3d2ab3d54b34a",
+    "internal/state/effect_lifecycle_test.go": "sha256:dcc8bea88bc1062047095bf600198c3dbad1b790128db599488f42cebccade5e",
+    "internal/state/store_integration_test.go": "sha256:0b8bf446fcfedd550347d0f2f311f565e2a0743436199981dd8cb39369d3bf0d"
+  },
+  "observations": [
+    "TestCommitTransitionIsAtomic",
+    "TestCommitTransitionRollsBackAuthorityOnVersionConflict",
+    "TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:02c3fa4c40cedfee4db2bed2f60b513a4a078477a83aaacaeebc47874928527b"
+}

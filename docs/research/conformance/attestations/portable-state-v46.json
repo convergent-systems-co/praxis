@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-plan016-attest-portable-v46",
+    "go",
+    "test",
+    "-v",
+    "./internal/eventstore",
+    "./internal/packagecatalog",
+    "./internal/plugin",
+    "./internal/state",
+    "./internal/stateprovider",
+    "./internal/sync",
+    "./pkg/contracts"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T17:08:54.502655Z",
+  "finished_at": "2026-09-17T17:09:21.740313Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/portable-state-v46.log",
+  "output_digest": "sha256:f83516ea88e301d55a6f6efd7b871723656ca288afb241e3f1eb210cc9104f4a",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/packagecatalog": "sha256:58929b5b085118c6db194e20e30e7bf7b33c4eb1b9257959120ce6333189251d",
+    "internal/plugin": "sha256:5f094bb09ca3a123fd91f09e790c3edd730f99ab3f511dc34e35cc78db2e2ab4",
+    "internal/state": "sha256:890d56b1d32dca116998102832708b57dab0f84619c5383c9c94fc114deb5384",
+    "internal/stateprovider": "sha256:2cd36d4c0cd49ca39344812666c76c2c730d930a2ffebb380a166c94b6153e5b",
+    "internal/sync": "sha256:65c89409deffbca8818b4e3cacb0b6cc15b770f1cb878b8608044f3c4f65c439",
+    "pkg/contracts": "sha256:25a21b308264aa1f9a35f3458db64dff5a05e66023a87ae0590d152198a51639"
+  },
+  "observations": [
+    "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart",
+    "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed",
+    "TestPortableImportReplayRejectsAuthorityActorMismatch",
+    "TestRuntimeAuthorityIsNotReusableOnImport",
+    "TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt",
+    "TestSchedulerResourceLeaseCancellationReleasesOnlyExactAttempt",
+    "TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements",
+    "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:fca98c08465facd96fccfcbdbc143ca0b4a41ce679512ec6c816b7317e38355d"
+}

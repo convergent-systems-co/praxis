@@ -1,0 +1,37 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-plan016-attest-scheduler-v9",
+    "go",
+    "test",
+    "-race",
+    "-v",
+    "./internal/scheduler",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T17:09:37.267713Z",
+  "finished_at": "2026-09-17T17:10:36.428297Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/scheduler-lifecycle-v9.log",
+  "output_digest": "sha256:d4dba2d37be4cd415afbe1515cc11051e509b926fa8496b1571d595e2aa0c377",
+  "source_digests": {
+    "internal/scheduler": "sha256:2fa4dfde5d6230e9857d25cc3af31b4289561b05af47398684d9a31d51e633a3",
+    "internal/state": "sha256:890d56b1d32dca116998102832708b57dab0f84619c5383c9c94fc114deb5384"
+  },
+  "observations": [
+    "TestCanAcquireAllHoldsNothingOnFailure",
+    "TestExclusiveResourceRequiresZeroAllocation",
+    "TestOrderRunnableBoundsStarvationUnderSustainedHigherPriorityLoad",
+    "TestOrderRunnableFIFOWithinEffectivePriority",
+    "TestOrderRunnableUsesAgeAwarePriority",
+    "TestOrderedRequirementsDeterministic",
+    "TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt",
+    "TestSchedulerResourceLeaseCancellationReleasesOnlyExactAttempt",
+    "TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements",
+    "TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:d35901270bc19816ca948427a32ac7f8ddce8f0681276a68d1c261473d4a0e41"
+}

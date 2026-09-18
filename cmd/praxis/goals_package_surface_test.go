@@ -96,8 +96,8 @@ func TestGoalsPackageExposesGoalDriveThroughInstalledSurface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if built.Manifest.Version != "0.1.1" {
-		t.Fatalf("canonical Goals package version is %q, want 0.1.1", built.Manifest.Version)
+	if built.Manifest.Version != goals.PackageVersion {
+		t.Fatalf("canonical Goals package version is %q, want %s", built.Manifest.Version, goals.PackageVersion)
 	}
 	activated := activateGoalsPackageFixture(t, ctx, db, built.Manifest, built.ArtifactBytes, nil, now)
 	if err := db.Close(); err != nil {
@@ -115,7 +115,7 @@ func TestGoalsPackageExposesGoalDriveThroughInstalledSurface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lifecycle.EntryPointID != "goals-lifecycle" || lifecycle.PackageID != goals.PackageID || lifecycle.PackageVersion != "0.1.1" || lifecycle.PackageDigest != activated.ContentDigest {
+	if lifecycle.EntryPointID != "goals-lifecycle" || lifecycle.PackageID != goals.PackageID || lifecycle.PackageVersion != goals.PackageVersion || lifecycle.PackageDigest != activated.ContentDigest {
 		t.Fatalf("goals-lifecycle did not resolve to the installed generation: %+v", lifecycle)
 	}
 	if _, err := resolveDynamicInvocation(ctx, []string{"goals-lifecycle"}, getenv); err == nil || !strings.Contains(err.Error(), `required option "operation"`) {
@@ -127,7 +127,7 @@ func TestGoalsPackageExposesGoalDriveThroughInstalledSurface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if drive.EntryPointID != "goal-drive" || drive.PackageID != goals.PackageID || drive.PackageVersion != "0.1.1" || drive.PackageDigest != activated.ContentDigest || drive.GraphID != "praxis.package.goals.default" || drive.GraphVersion != "0.3.0" {
+	if drive.EntryPointID != "goal-drive" || drive.PackageID != goals.PackageID || drive.PackageVersion != goals.PackageVersion || drive.PackageDigest != activated.ContentDigest || drive.GraphID != "praxis.package.goals.default" || drive.GraphVersion != "0.3.0" {
 		t.Fatalf("goal-drive did not resolve to the installed generation: %+v", drive)
 	}
 

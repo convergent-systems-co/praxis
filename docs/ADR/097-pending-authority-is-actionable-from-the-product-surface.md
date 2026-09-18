@@ -73,10 +73,30 @@ exact next public command. The full-document forms remain accepted for
 compatibility. `propose` still takes the planner's decomposition: that is
 the planner's contribution, not a Praxis-internal artifact.
 
-The selector form fits the published `praxis.package.goals@0.1.1` invocation
-contract (`--operation`, `--input`, `--goal-id`, `--goal-version`), so no
-package republication is required; the registry refuses undeclared options,
-which is why selectors travel in `--input` rather than as new flags.
+### Emitted next actions are product contracts (0.1.2)
+
+The selector-in-`--input` form fit the published 0.1.1 contract, but
+`--input` is a path, so the next action inspect emitted ("accept with a
+document containing the request digest") could not be executed as rendered
+without authoring a file. The registry refuses undeclared options, so the
+corrected surface required an immutable successor,
+`praxis.package.goals@0.1.2`, whose `goals-lifecycle` contract declares the
+selectors as options: `--proposal-digest`, `--review-digest`,
+`--request-digest`, `--acceptance-ref`, `--status`, `--reviewer-id`,
+`--reviewer-kind`, `--reviewer-generation`, `--finding`, `--reason`.
+Every next action the product emits (`review_accept_with`,
+`review_revise_with`, `request_with`, `resolve_with`, `reject_with`,
+`accept_with`, `attach_with`) is a complete public command carrying full
+durable identities and is executable exactly as rendered; a regression test
+executes each emitted command through the public dispatcher and requires
+the expected transition. Two inputs remain operator intent by design and are
+never rendered as executable commands: the planner's decomposition
+(`propose --input`) and the goal-drive provider, invocation identity,
+repository, and branch (`drive_template`). A review without an explicit
+reviewer is recorded for the installation owner at the current root
+generation. Acceptance and attachment replays return the existing durable
+result instead of creating a second one. `--input` documents remain a legacy
+compatibility path.
 
 ## Consequences
 

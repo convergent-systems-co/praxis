@@ -59,7 +59,67 @@ type AuthorityGeneration struct {
 	SubjectVersion        string                   `json:"subject_version,omitempty"`
 	SubjectDigest         string                   `json:"subject_digest,omitempty"`
 	SubjectKeyDigest      string                   `json:"subject_key_digest,omitempty"`
+
+	// preDelegationForm records that this value was decoded from the
+	// representation persisted before DelegatedBy existed: installation roots
+	// enrolled by `praxis authority bootstrap` between commits 5850f27 and
+	// ae6fd0f, all at storage schema 11. encoding/json never omits an empty
+	// struct, so the current representation always serializes "delegated_by";
+	// re-serializing such a record through the current form changes the
+	// digested bytes and makes an untouched, sealed record fail VerifyDigest.
+	// The flag is set only by UnmarshalJSON, keeps MarshalJSON byte-exact with
+	// the persisted representation, and is never set for generations created
+	// by this binary. It is not part of the wire form.
+	preDelegationForm bool
 }
+
+// authorityGenerationJSON is the method-free wire form of AuthorityGeneration.
+type authorityGenerationJSON AuthorityGeneration
+
+// authorityGenerationWire lets DelegatedBy be absent on the wire. The outer
+// pointer field dominates the embedded value field of the same JSON name, so
+// a nil pointer omits "delegated_by" exactly as the pre-delegation
+// representation did, while a present key decodes into the value field.
+type authorityGenerationWire struct {
+	authorityGenerationJSON
+	DelegatedBy *PrincipalRef `json:"delegated_by,omitempty"`
+}
+
+// MarshalJSON reproduces the exact representation a generation was persisted
+// with: the current form for every generation created by this binary, and the
+// pre-delegation form (no "delegated_by" key) only for values decoded from it.
+func (g AuthorityGeneration) MarshalJSON() ([]byte, error) {
+	if !g.preDelegationForm {
+		return json.Marshal(authorityGenerationJSON(g))
+	}
+	if g.DelegatedBy != (PrincipalRef{}) {
+		return nil, errors.New("pre-delegation authority generation cannot carry a delegating principal")
+	}
+	return json.Marshal(authorityGenerationWire{authorityGenerationJSON: authorityGenerationJSON(g)})
+}
+
+// UnmarshalJSON decodes either representation and remembers which one the
+// payload carried so that ComputeDigest re-derives the writer's exact bytes.
+func (g *AuthorityGeneration) UnmarshalJSON(payload []byte) error {
+	var wire authorityGenerationWire
+	if err := json.Unmarshal(payload, &wire); err != nil {
+		return err
+	}
+	decoded := AuthorityGeneration(wire.authorityGenerationJSON)
+	if wire.DelegatedBy != nil {
+		decoded.DelegatedBy = *wire.DelegatedBy
+	} else {
+		decoded.preDelegationForm = true
+	}
+	*g = decoded
+	return nil
+}
+
+// PreDelegationForm reports whether this value was decoded from the persisted
+// representation that predates delegated generations (schema-11 root
+// enrollment). Such values verify against their own persisted bytes; they are
+// read-only evidence and must not be persisted as new generations.
+func (g AuthorityGeneration) PreDelegationForm() bool { return g.preDelegationForm }
 
 type PackagePublishAuthorization struct {
 	Generation AuthorityGeneration

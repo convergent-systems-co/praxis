@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/migrations/sqlite"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -76,7 +77,11 @@ func runMigrationPreview(args []string, getenv func(string) string, out io.Write
 	if err != nil {
 		return err
 	}
-	root, err := currentInstallationRoot(context.Background(), repo, owner, time.Now().UTC())
+	status, err := sqlite.StatusOf(context.Background(), db)
+	if err != nil {
+		return err
+	}
+	root, err := installationRootForSchema(context.Background(), repo, owner, status.CurrentSchema, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -98,13 +103,17 @@ func runMigrationPreview(args []string, getenv func(string) string, out io.Write
 }
 
 func runMigrationExecute(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {
+	return runMigrationExecuteWithTerminal(args, getenv, input, out, isInteractiveTerminal())
+}
+
+func runMigrationExecuteWithTerminal(args []string, getenv func(string) string, input io.Reader, out io.Writer, interactive bool) error {
 	f := flag.NewFlagSet("migration execute", flag.ContinueOnError)
 	f.SetOutput(out)
 	previewPath := f.String("preview-file", "", "system-produced migration preview JSON")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
-	if f.NArg() != 0 || *previewPath == "" || !isInteractiveTerminal() {
+	if f.NArg() != 0 || *previewPath == "" || !interactive {
 		return errAuthorityBootstrapConfirmation
 	}
 	payload, err := os.ReadFile(*previewPath)
@@ -140,7 +149,10 @@ func runMigrationExecute(args []string, getenv func(string) string, input io.Rea
 		readDB.Close()
 		return errors.New("migration preview belongs to another installation")
 	}
-	root, err := currentInstallationRoot(context.Background(), repo, owner, time.Now().UTC())
+	// The plan was authorized by the root valid at its source schema; ApplyPlan
+	// binds the plan to the live ledger, so a resumed plan is still authorized
+	// by that same source-schema root rather than by destination-schema state.
+	root, err := installationRootForSchema(context.Background(), repo, owner, envelope.Plan.CurrentSchema, time.Now().UTC())
 	readDB.Close()
 	if err != nil || root.Ref != envelope.Plan.InstallationRoot || root.Digest != envelope.Plan.RootDigest {
 		return errors.New("migration preview root is no longer current")
@@ -189,4 +201,16 @@ func runMigrationRecover(args []string, getenv func(string) string, out io.Write
 		return err
 	}
 	return printJSONTo(out, journal)
+}
+
+// installationRootForSchema resolves the installation root under the root
+// semantics valid for the migration source schema. A governed migration is
+// authorized by the root that exists at the source schema and must never
+// require destination-schema state or representation to exist first.
+func installationRootForSchema(ctx context.Context, repo goalstore.Repository, owner contracts.PrincipalRef, sourceSchema int, now time.Time) (contracts.AuthorityGeneration, error) {
+	const prefix = "installation-owner:"
+	if owner.Kind != "human" || !strings.HasPrefix(owner.ID, prefix) {
+		return contracts.AuthorityGeneration{}, errors.New("installation governance owner is invalid")
+	}
+	return repo.LoadInstallationRootForSchema(ctx, strings.TrimPrefix(owner.ID, prefix), sourceSchema, now)
 }

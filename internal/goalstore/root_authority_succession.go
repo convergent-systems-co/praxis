@@ -13,7 +13,43 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
+// legacyRootEnrollmentSchema is the last storage schema at which an
+// installation root may have been enrolled by the original
+// `praxis authority bootstrap --scope <least-scope>` boundary (commit
+// 5850f27): ref and principal bound to the bootstrap digest, provenance bound
+// to the bootstrap record and OS user, and an owner-declared least scope.
+// Commit ae6fd0f replaced that boundary with the installation-governance
+// scope while the latest schema was still 11; migration 0012 was added
+// afterwards, so every root first enrolled at schema 12 or later carries the
+// governance scope. Governed migration (commit c6d6ae7) also post-dates
+// ae6fd0f and must still authorize from a root enrolled under the original
+// boundary.
+const legacyRootEnrollmentSchema = 11
+
+// LoadCurrentInstallationRoot resolves the sole active installation root
+// under the current root semantics: governance scope bound to the bootstrap
+// digest.
 func (r Repository) LoadCurrentInstallationRoot(ctx context.Context, bootstrapDigest string, now time.Time) (contracts.AuthorityGeneration, error) {
+	return r.loadInstallationRoot(ctx, bootstrapDigest, true, now)
+}
+
+// LoadInstallationRootForSchema resolves the sole active installation root
+// under the root semantics that were valid when sourceSchema was the latest
+// storage schema. A governed migration is authorized by the root that exists
+// at its source schema, so it must never require destination-schema
+// representation or state to exist first. At schema 11 that admits, in
+// addition to the current form, a root enrolled by the original least-scope
+// boundary: it is recognisable by its pre-delegation persisted representation
+// and verifies against its own persisted bytes. From schema 12 onward only
+// the current semantics apply.
+func (r Repository) LoadInstallationRootForSchema(ctx context.Context, bootstrapDigest string, sourceSchema int, now time.Time) (contracts.AuthorityGeneration, error) {
+	if sourceSchema < 1 {
+		return contracts.AuthorityGeneration{}, errors.New("installation root source schema is required")
+	}
+	return r.loadInstallationRoot(ctx, bootstrapDigest, sourceSchema > legacyRootEnrollmentSchema, now)
+}
+
+func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest string, requireGovernanceScope bool, now time.Time) (contracts.AuthorityGeneration, error) {
 	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
@@ -28,7 +64,10 @@ func (r Repository) LoadCurrentInstallationRoot(ctx context.Context, bootstrapDi
 	}
 	var active []contracts.AuthorityGeneration
 	for _, generation := range generations {
-		if generation.Ref != scope || generation.Scope != scope || generation.Principal != owner || generation.ParentRef != "" || generation.DelegatedBy != (contracts.PrincipalRef{}) || generation.ProvenanceDigest != bootstrapDigest {
+		if generation.Ref != scope || generation.Principal != owner || generation.ParentRef != "" || generation.DelegatedBy != (contracts.PrincipalRef{}) || generation.ProvenanceDigest != bootstrapDigest {
+			continue
+		}
+		if generation.Scope != scope && (requireGovernanceScope || !generation.PreDelegationForm() || generation.Scope == "") {
 			continue
 		}
 		if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {

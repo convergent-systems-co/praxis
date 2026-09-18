@@ -20,7 +20,11 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
-func openGovernedRepositoryReadOnly(ctx context.Context, getenv func(string) string) (goalstore.Repository, *sql.DB, praxiscrypto.BootstrapRecord, error) {
+// openGovernedRepositoryReadOnly is a variable so read-only CLI qualification
+// can open fixture installations without the platform bootstrap backend.
+var openGovernedRepositoryReadOnly = openGovernedRepositoryReadOnlyFromBootstrap
+
+func openGovernedRepositoryReadOnlyFromBootstrap(ctx context.Context, getenv func(string) string) (goalstore.Repository, *sql.DB, praxiscrypto.BootstrapRecord, error) {
 	bootstrapPath, dbPath := getenv("PRAXIS_BOOTSTRAP_RECORD"), getenv("PRAXIS_DB")
 	if bootstrapPath == "" || dbPath == "" {
 		return goalstore.Repository{}, nil, praxiscrypto.BootstrapRecord{}, errors.New("PRAXIS_BOOTSTRAP_RECORD and PRAXIS_DB are required")

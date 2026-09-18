@@ -324,6 +324,9 @@ func (s *Store) PutAuthorityGeneration(ctx context.Context, write AuthorityGener
 	if err := write.Generation.VerifyDigest(); err != nil {
 		return err
 	}
+	if write.Generation.PreDelegationForm() {
+		return errors.New("authority generation must be persisted in the current representation")
+	}
 	if authorityGenerationHasInstallationRepair(write.Generation) {
 		return ErrRepairAuthorityRequiresRootSuccession
 	}

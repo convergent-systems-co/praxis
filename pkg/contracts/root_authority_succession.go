@@ -104,6 +104,7 @@ func BuildRootAuthoritySuccession(predecessor AuthorityGeneration, bootstrapDige
 		}
 	}
 	successor := predecessor
+	successor.preDelegationForm = false
 	successor.Version = strconv.Itoa(version + 1)
 	successor.Digest = ""
 	successor.EffectiveAt = now.UTC()
@@ -171,6 +172,7 @@ func BuildRootAuthoritySuccessionUnchecked(predecessor AuthorityGeneration, boot
 		}
 	}
 	successor := predecessor
+	successor.preDelegationForm = false
 	successor.Version, successor.Digest, successor.EffectiveAt = strconv.Itoa(version+1), "", now.UTC()
 	successor.PredecessorRef, successor.PredecessorVersion, successor.PredecessorDigest = predecessor.Ref, predecessor.Version, predecessor.Digest
 	successor.Authorities = append([]string(nil), predecessor.Authorities...)

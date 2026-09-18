@@ -291,7 +291,15 @@ func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string
 		if err := json.Unmarshal([]byte(encoded), &argv); err != nil || len(argv) == 0 || argv[0] == "" {
 			return nil, errors.New("PRAXIS_GOAL_WORKER_ARGV must be a non-empty JSON argv array")
 		}
-		return goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv, Activity: activity}, nil
+		worker := goaldrive.CommandWorker{ProviderID: invocation.ProviderID, Dir: invocation.RepositoryPath, Command: argv, Activity: activity}
+		if declared := getenv("PRAXIS_GOAL_WORKER_CAPABILITIES"); declared != "" {
+			granted, err := goaldrive.ParseCapabilities(declared)
+			if err != nil {
+				return nil, fmt.Errorf("PRAXIS_GOAL_WORKER_CAPABILITIES: %w", err)
+			}
+			worker.Granted = granted
+		}
+		return worker, nil
 	}
 	switch invocation.ProviderID {
 	case "codex", "codex-subscription":

@@ -275,11 +275,15 @@ var claudeSubscriptionTools = []string{
 	"Bash(ls:*)", "Bash(cat:*)", "Bash(chmod +x:*)", "Bash(mkdir:*)",
 }
 
-func claudeSubscriptionCapabilities() []WorkerCapability {
+// ClaudeSubscriptionCapabilities are the consequences the Claude
+// subscription launch contract grants (see claudeSubscriptionTools).
+func ClaudeSubscriptionCapabilities() []WorkerCapability {
 	return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
 }
 
-func codexSubscriptionCapabilities() []WorkerCapability {
+// CodexSubscriptionCapabilities are the consequences the Codex
+// workspace-write launch grants.
+func CodexSubscriptionCapabilities() []WorkerCapability {
 	return []WorkerCapability{CapabilityEdit, CapabilityValidate, CapabilityStage, CapabilityCommit}
 }
 
@@ -296,7 +300,7 @@ func NewCodexSubscriptionWorker(providerID, dir, model string, activity *Activit
 		args = append(args, "--model", model)
 	}
 	args = append(args, "-")
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: codexSubscriptionCapabilities()}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: CodexSubscriptionCapabilities()}, nil
 }
 
 func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *ActivityLog) (Worker, error) {
@@ -312,5 +316,5 @@ func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *Activi
 	if model != "" {
 		args = append(args, "--model", model)
 	}
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: claudeSubscriptionCapabilities()}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: ClaudeSubscriptionCapabilities()}, nil
 }

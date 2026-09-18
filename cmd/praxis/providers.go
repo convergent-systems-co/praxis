@@ -7,6 +7,8 @@ import (
 	"io"
 	"os/exec"
 	"sort"
+
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
 )
 
 // goalDriveProvider is one entry of the control-plane provider catalog that
@@ -24,11 +26,27 @@ type goalDriveProvider struct {
 	Executable  string `json:"executable,omitempty"`
 	Model       string `json:"model"`
 	DriveOption string `json:"drive_option"`
+	// Capabilities are the consequences the worker's launch contract grants
+	// (edit, validate, stage, commit). goal-drive refuses, before any
+	// execution, a turn whose checkpoint contract needs more.
+	Capabilities []string `json:"capabilities"`
+	Required     []string `json:"required_by_repository_turn"`
 }
 
-var firstPartyProviderProfiles = []struct{ id, cli string }{
-	{"claude", "claude"}, {"claude-subscription", "claude"},
-	{"codex", "codex"}, {"codex-subscription", "codex"},
+var firstPartyProviderProfiles = []struct {
+	id, cli      string
+	capabilities []goaldrive.WorkerCapability
+}{
+	{"claude", "claude", goaldrive.ClaudeSubscriptionCapabilities()}, {"claude-subscription", "claude", goaldrive.ClaudeSubscriptionCapabilities()},
+	{"codex", "codex", goaldrive.CodexSubscriptionCapabilities()}, {"codex-subscription", "codex", goaldrive.CodexSubscriptionCapabilities()},
+}
+
+func capabilityNames(items []goaldrive.WorkerCapability) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		out = append(out, string(item))
+	}
+	return out
 }
 
 // goalDriveProviderCatalog resolves availability exactly as goal-drive will
@@ -37,16 +55,24 @@ func goalDriveProviderCatalog(getenv func(string) string) ([]goalDriveProvider, 
 	var out []goalDriveProvider
 	if encoded := getenv("PRAXIS_GOAL_WORKER_ARGV"); encoded != "" {
 		var argv []string
-		entry := goalDriveProvider{ID: "<any identity>", Kind: "environment command worker (PRAXIS_GOAL_WORKER_ARGV)", Model: "ignored", DriveOption: "--provider=<the identity you choose; recorded as the turn's executor>"}
+		entry := goalDriveProvider{ID: "<any identity>", Kind: "environment command worker (PRAXIS_GOAL_WORKER_ARGV)", Model: "ignored", DriveOption: "--provider=<the identity you choose; recorded as the turn's executor>", Capabilities: capabilityNames(goaldrive.CommandWorker{}.Capabilities()), Required: capabilityNames(goaldrive.RequiredRepositoryCapabilities())}
 		if err := json.Unmarshal([]byte(encoded), &argv); err != nil || len(argv) == 0 || argv[0] == "" {
 			entry.Reason = "PRAXIS_GOAL_WORKER_ARGV must be a non-empty JSON argv array"
 		} else {
 			entry.Available, entry.Executable = true, argv[0]
 		}
+		if declared := getenv("PRAXIS_GOAL_WORKER_CAPABILITIES"); declared != "" {
+			granted, err := goaldrive.ParseCapabilities(declared)
+			if err != nil {
+				entry.Available, entry.Reason = false, "PRAXIS_GOAL_WORKER_CAPABILITIES: "+err.Error()
+			} else {
+				entry.Capabilities = capabilityNames(granted)
+			}
+		}
 		out = append(out, entry)
 	}
 	for _, profile := range firstPartyProviderProfiles {
-		entry := goalDriveProvider{ID: profile.id, Kind: "first-party subscription profile", Model: "optional --model hint passed to the " + profile.cli + " CLI", DriveOption: "--provider=" + profile.id}
+		entry := goalDriveProvider{ID: profile.id, Kind: "first-party subscription profile", Model: "optional --model hint passed to the " + profile.cli + " CLI", DriveOption: "--provider=" + profile.id, Capabilities: capabilityNames(profile.capabilities), Required: capabilityNames(goaldrive.RequiredRepositoryCapabilities())}
 		if path, err := exec.LookPath(profile.cli); err != nil {
 			entry.Reason = profile.cli + " CLI is not on PATH"
 		} else {

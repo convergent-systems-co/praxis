@@ -70,6 +70,23 @@ func (r Repository) ListAuthorityRequests(ctx context.Context, goalID, goalVersi
 	return out, nil
 }
 
+// decodeRecord opens and decodes one secure blob without validating its
+// contract. Enumeration filters on the decoded identity first and validates
+// only records that belong to the requested lineage, so an unrelated or
+// historical record that no longer validates (for example a superseded
+// dogfood lineage, #149) cannot abort inspection of another Goal.
+func (r Repository) decodeRecord(ctx context.Context, record state.SecureBlobRecord, out any) error {
+	aad := state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest)
+	payload, err := r.Crypto.Open(ctx, record.Envelope, aad)
+	if err != nil {
+		return fmt.Errorf("decrypt %s record %s: %w", record.Namespace, record.ObjectID, err)
+	}
+	if err := json.Unmarshal(payload, out); err != nil {
+		return fmt.Errorf("decode %s record %s: %w", record.Namespace, record.ObjectID, err)
+	}
+	return nil
+}
+
 // ListWorkPlanProposals enumerates the durable proposals bound to one exact
 // Goal generation, with their canonical digests.
 func (r Repository) ListWorkPlanProposals(ctx context.Context, goalID, goalVersion string, now time.Time) ([]contracts.WorkPlanProposal, []string, error) {
@@ -83,12 +100,16 @@ func (r Repository) ListWorkPlanProposals(ctx context.Context, goalID, goalVersi
 	var proposals []contracts.WorkPlanProposal
 	var digests []string
 	for _, record := range records {
+		var raw contracts.WorkPlanProposal
+		if err := r.decodeRecord(ctx, record, &raw); err != nil {
+			return nil, nil, err
+		}
+		if raw.GoalID != goalID || raw.GoalVersion != goalVersion {
+			continue
+		}
 		proposal, err := r.LoadWorkPlanProposal(ctx, record.ObjectID, record.ObjectVersion, now)
 		if err != nil {
 			return nil, nil, err
-		}
-		if proposal.GoalID != goalID || proposal.GoalVersion != goalVersion {
-			continue
 		}
 		digest, err := proposal.Digest()
 		if err != nil {
@@ -110,17 +131,19 @@ func (r Repository) LoadWorkPlanProposalByDigest(ctx context.Context, wanted str
 		return contracts.WorkPlanProposal{}, "", err
 	}
 	for _, record := range records {
+		var raw contracts.WorkPlanProposal
+		if err := r.decodeRecord(ctx, record, &raw); err != nil {
+			return contracts.WorkPlanProposal{}, "", err
+		}
+		digest, err := raw.Digest()
+		if err != nil || digest != wanted {
+			continue
+		}
 		proposal, err := r.LoadWorkPlanProposal(ctx, record.ObjectID, record.ObjectVersion, now)
 		if err != nil {
 			return contracts.WorkPlanProposal{}, "", err
 		}
-		digest, err := proposal.Digest()
-		if err != nil {
-			return contracts.WorkPlanProposal{}, "", err
-		}
-		if digest == wanted {
-			return proposal, record.ObjectVersion, nil
-		}
+		return proposal, record.ObjectVersion, nil
 	}
 	return contracts.WorkPlanProposal{}, "", fmt.Errorf("WorkPlan proposal %s is not a durable record", wanted)
 }
@@ -135,15 +158,22 @@ func (r Repository) ListWorkPlanReviews(ctx context.Context, proposalDigest stri
 	if err != nil {
 		return nil, nil, err
 	}
+	if proposalDigest == "" {
+		return nil, nil, errors.New("review enumeration requires an exact proposal digest")
+	}
 	var reviews []contracts.WorkPlanProposalReview
 	var versions []string
 	for _, record := range records {
+		var raw workPlanReviewRecord
+		if err := r.decodeRecord(ctx, record, &raw); err != nil {
+			return nil, nil, err
+		}
+		if raw.Review.ProposalDigest != proposalDigest {
+			continue
+		}
 		review, err := r.LoadWorkPlanReview(ctx, record.ObjectID, record.ObjectVersion, now)
 		if err != nil {
 			return nil, nil, err
-		}
-		if proposalDigest != "" && review.ProposalDigest != proposalDigest {
-			continue
 		}
 		reviews, versions = append(reviews, review), append(versions, record.ObjectVersion)
 	}
@@ -178,14 +208,21 @@ func (r Repository) ListAcceptedWorkPlans(ctx context.Context, baselineDigest st
 	if err != nil {
 		return nil, err
 	}
+	if baselineDigest == "" {
+		return nil, errors.New("acceptance enumeration requires an exact baseline digest")
+	}
 	out := map[string]contracts.WorkPlan{}
 	for _, record := range records {
+		var raw acceptedWorkPlanRecord
+		if err := r.decodeRecord(ctx, record, &raw); err != nil {
+			return nil, err
+		}
+		if raw.Plan.BaselineDigest != baselineDigest {
+			continue
+		}
 		plan, err := r.LoadAcceptedWorkPlan(ctx, record.ObjectID, record.ObjectVersion, now)
 		if err != nil {
 			return nil, err
-		}
-		if baselineDigest != "" && plan.BaselineDigest != baselineDigest {
-			continue
 		}
 		out[record.ObjectID+"/"+record.ObjectVersion] = plan
 	}

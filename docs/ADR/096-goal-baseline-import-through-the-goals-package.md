@@ -36,6 +36,18 @@ non-root generation requires its stored predecessor, and import admits only
 Goal state. The importer opens the governed repository through the same
 bootstrap-backed path as every other lifecycle mutation.
 
+The same qualification showed that an authority-backed acceptance was
+stored but never bound into a Goal generation, while `goal-drive`
+materializes work only from the baseline's embedded WorkPlan. The
+`attach` operation closes that gap by calling the existing
+`AttachAcceptedWorkPlan`: it creates the successor immutable generation
+that carries the accepted plan, refuses a source that already carries one,
+and requires the exact source digest and an effective acceptance authority.
+
+```
+praxis goals-lifecycle --operation=attach --input=<attach.json>
+```
+
 No kernel command is added. The published `praxis.package.goals@0.1.1`
 invocation contract is unchanged; the `operation` option's descriptive text
 will list `import` in the next package version.

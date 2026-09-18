@@ -426,7 +426,10 @@ func revalidateDeploymentApproval(ctx context.Context, db *sql.DB, deployment pa
 	if err != nil {
 		return err
 	}
-	repo, authDB, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
+	// Deriving the approval re-persists the canonical governed lineage
+	// idempotently before comparing it, so revalidation needs the writable
+	// governed repository even though it changes nothing on a match.
+	repo, authDB, err := openGovernedRepository(ctx, getenv)
 	if err != nil {
 		return err
 	}

@@ -653,7 +653,7 @@ func TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce(t *testing.T) {
 	if _, err := repo.SaveAuthorityRequest(ctx, request, time.Now().UTC(), nil); err != nil {
 		t.Fatal(err)
 	}
-	generation := contracts.AuthorityGeneration{Ref: "policy:goal-acceptance", Version: "7", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: request.RequestedScope, ProvenanceRef: "policy:goal-acceptance", ProvenanceDigest: "sha256:policy-source", State: contracts.AuthorityGenerationActive, EffectiveAt: time.Now().UTC()}
+	generation := contracts.AuthorityGeneration{Ref: "policy:goal-acceptance", Version: "7", Principal: contracts.PrincipalRef{ID: "operator-1", Kind: "human"}, Scope: request.RequestedScope, Authorities: []string{contracts.GovernedWorkPlanAccept}, ProvenanceRef: "policy:goal-acceptance", ProvenanceDigest: "sha256:policy-source", State: contracts.AuthorityGenerationActive, EffectiveAt: time.Now().UTC()}
 	generation.Digest, err = generation.ComputeDigest()
 	if err != nil {
 		t.Fatal(err)

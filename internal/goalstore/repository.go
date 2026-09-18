@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -1211,4 +1212,93 @@ func sessionDigest(payload []byte) string {
 func payloadDigest(payload []byte) string {
 	digest := sha256.Sum256(payload)
 	return fmt.Sprintf("sha256:%x", digest[:])
+}
+
+// ValidateAuthorityGenerationLineage walks a generation's parent chain and
+// proves every edge: each generation is exact, active, and not invalidated;
+// each delegated edge binds its parent's decision and request and satisfies
+// the closed built-in containment rule for its profile; and the chain
+// terminates at the exact current canonical installation root resolved by
+// LoadCurrentInstallationRoot. No model version or root label substitutes
+// for that termination (ADR-092 supersedes the parallel v2 root migration).
+func (r Repository) ValidateAuthorityGenerationLineage(ctx context.Context, ref, version, digest, bootstrapDigest string, now time.Time) (contracts.AuthorityGeneration, error) {
+	root, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	seen := map[string]bool{}
+	var walk func(string, string, string) (contracts.AuthorityGeneration, error)
+	walk = func(currentRef, currentVersion, currentDigest string) (contracts.AuthorityGeneration, error) {
+		key := currentRef + "@" + currentVersion
+		if seen[key] {
+			return contracts.AuthorityGeneration{}, errors.New("authority generation lineage contains a cycle")
+		}
+		seen[key] = true
+		generation, err := r.LoadAuthorityGeneration(ctx, currentRef, currentVersion, now)
+		if err != nil {
+			return generation, err
+		}
+		if generation.Digest != currentDigest || generation.EffectiveAt.After(now) || (generation.ExpiresAt != nil && !now.Before(*generation.ExpiresAt)) {
+			return generation, errors.New("authority generation is mismatched or inactive")
+		}
+		if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
+			return generation, errors.New("authority generation is revoked or superseded")
+		} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+			return generation, err
+		}
+		if generation.ParentRef == "" {
+			if generation.Ref != root.Ref || generation.Version != root.Version || generation.Digest != root.Digest {
+				return generation, errors.New("authority lineage does not terminate at the current installation root")
+			}
+			return generation, nil
+		}
+		parent, err := walk(generation.ParentRef, generation.ParentVersion, generation.ParentDigest)
+		if err != nil {
+			return generation, err
+		}
+		requestID, requestVersion, ok := strings.Cut(generation.DelegationRef, "/")
+		if !ok {
+			return generation, errors.New("delegated generation request lineage is malformed")
+		}
+		request, err := r.LoadAuthorityRequest(ctx, requestID, requestVersion, now)
+		if err != nil || request.Delegation == nil {
+			return generation, errors.New("delegated generation request is unavailable")
+		}
+		decision, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, now)
+		if err != nil {
+			return generation, err
+		}
+		if decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal || generation.DelegatedBy != parent.Principal {
+			return generation, errors.New("delegated generation does not bind its parent decision")
+		}
+		if err := containBuiltinDelegation(parent, *request.Delegation, now); err != nil {
+			return generation, err
+		}
+		if request.Delegation.DelegatedPrincipal != generation.Principal || request.Delegation.RequestedAuthority != firstAuthority(generation.Authorities) || request.Delegation.RequestedScope != generation.Scope || request.Delegation.Profile != generation.DelegationProfile {
+			return generation, errors.New("delegated generation exceeds its exact request")
+		}
+		return generation, nil
+	}
+	return walk(ref, version, digest)
+}
+
+// containBuiltinDelegation dispatches the closed built-in containment rule
+// by delegation profile. It has no fallback beyond the v1 WorkPlan rule.
+func containBuiltinDelegation(parent contracts.AuthorityGeneration, request contracts.DelegationRequest, now time.Time) error {
+	switch request.Profile {
+	case contracts.DelegationProfilePackagePublish:
+		return contracts.ValidateBuiltinPackagePublishDelegation(parent, request, now)
+	case contracts.DelegationProfilePackageDeploy:
+		return contracts.ValidateBuiltinPackageDeployDelegation(parent, request, now)
+	case contracts.DelegationProfileRoutingTargetContribution, contracts.DelegationProfileRoutingSurfaceEligibility:
+		return contracts.ValidateBuiltinRoutingDelegation(parent, request, now)
+	}
+	return contracts.ValidateBuiltinDelegation(parent, request, now)
+}
+
+func firstAuthority(values []string) string {
+	if len(values) == 1 {
+		return values[0]
+	}
+	return ""
 }

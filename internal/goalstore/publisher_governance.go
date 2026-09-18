@@ -818,6 +818,8 @@ func validModelSuccessor(a contracts.AuthorityModelAdoption) bool {
 		return a.FromDigest == contracts.AuthorityModelSuccessorDigest() && a.ToVersion == contracts.AuthorityModelDeploymentVersion && a.ToDigest == contracts.AuthorityModelDeploymentDigest()
 	case contracts.AuthorityModelDeploymentVersion:
 		return a.FromDigest == contracts.AuthorityModelDeploymentDigest() && a.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && a.ToDigest == contracts.AuthorityModelGoalsPublicationDigest()
+	case contracts.AuthorityModelGoalsRecoveryVersion:
+		return a.FromDigest == contracts.AuthorityModelGoalsRecoveryDigest() && a.ToVersion == contracts.AuthorityModelRoutingVersion && a.ToDigest == contracts.AuthorityModelRoutingDigest()
 	case contracts.AuthorityModelGoalsPublicationVersion:
 		return a.FromDigest == contracts.AuthorityModelGoalsPublicationDigest() && a.ToVersion == contracts.AuthorityModelGoalsRecoveryVersion && a.ToDigest == contracts.AuthorityModelGoalsRecoveryDigest()
 	}

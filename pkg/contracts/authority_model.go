@@ -40,7 +40,100 @@ const (
 	// closure), which validates the exact plaintext before it can be sealed.
 	GovernedInstallationRepairStorageSchema = "installation.repair.storage_schema"
 	GovernedInstallationRepairRuntimeState  = "installation.repair.runtime_state"
+
+	// Authority model v6 (ADR-092) is the exact-dispatch and executor-surface
+	// routing issuance successor of v5. It is adopted only through the
+	// canonical authority-model adoption ceremony from an active v5 state
+	// and adds exactly the two routing issuance authorities and their
+	// closed delegation profiles. Nothing is inherited by version order:
+	// AuthorityModelRoutingDigest binds the immutable v5 digest by value and
+	// enumerates every addition, and TestAuthorityModelV6 proves the set.
+	AuthorityModelRoutingVersion               = "v6"
+	AuthorityRoutingTargetContributionIssue    = "routing.target-contribution.issue"
+	AuthorityRoutingSurfaceEligibilityIssue    = "routing.surface-eligibility.issue"
+	DelegationProfileRoutingTargetContribution = "ROUTING_TARGET_CONTRIBUTION"
+	DelegationProfileRoutingSurfaceEligibility = "ROUTING_SURFACE_ELIGIBILITY"
+	RoutingIssuanceOperation                   = "issue"
 )
+
+// AuthorityModelRoutingDigest identifies the immutable v6 rule set: the exact
+// v5 identity retained by value plus the two routing issuance authorities,
+// their delegation profiles, and the single "issue" operation.
+func AuthorityModelRoutingDigest() string {
+	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelGoalsRecoveryDigest(), AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue, DelegationProfileRoutingTargetContribution, DelegationProfileRoutingSurfaceEligibility, RoutingIssuanceOperation})
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// RoutingAuthorityForProfile maps a closed routing delegation profile to the
+// single authority it may carry. Unknown profiles map to nothing.
+func RoutingAuthorityForProfile(profile string) string {
+	switch profile {
+	case DelegationProfileRoutingTargetContribution:
+		return AuthorityRoutingTargetContributionIssue
+	case DelegationProfileRoutingSurfaceEligibility:
+		return AuthorityRoutingSurfaceEligibilityIssue
+	}
+	return ""
+}
+
+// ValidateBuiltinRoutingDelegation is the closed v6 containment rule for a
+// routing issuance child of the installation root. The parent must be the
+// v1-labelled installation root (the active model is adopted state, not a
+// root label), the policy must be exactly v6, the profile must name the one
+// authority requested, the operation is "issue", no runtime capability may be
+// requested, and the scope is the canonical exact target scope.
+func ValidateBuiltinRoutingDelegation(parent AuthorityGeneration, request DelegationRequest, now time.Time) error {
+	if request.PolicyRef != AuthorityModelID || request.PolicyVersion != AuthorityModelRoutingVersion || request.PolicyDigest != AuthorityModelRoutingDigest() {
+		return errors.New("routing delegation requires authority model v6 policy")
+	}
+	if err := ValidateAuthorityModel(parent.AuthorityModel, parent.AuthorityModelVersion, parent.AuthorityModelDigest); err != nil {
+		return fmt.Errorf("parent authority model: %w", err)
+	}
+	if parent.ParentRef != "" || parent.Principal.Kind != "human" || !strings.HasPrefix(parent.Principal.ID, "installation-owner:") || !strings.HasPrefix(parent.Scope, InstallationGovernanceScopePrefix) || !containsString(parent.Capabilities, AuthorityDelegateCapability) {
+		return errors.New("routing delegation parent is not the installation governance root")
+	}
+	if request.ParentRef != parent.Ref || request.ParentVersion != parent.Version || request.ParentDigest != parent.Digest {
+		return errors.New("routing delegation does not bind the exact parent generation")
+	}
+	if request.DelegatedPrincipal.Kind != "controller" || !strings.HasPrefix(request.DelegatedPrincipal.ID, "controller:") || request.DelegatedPrincipal == parent.Principal {
+		return errors.New("routing delegation requires a distinct controller principal")
+	}
+	authority := RoutingAuthorityForProfile(request.Profile)
+	if authority == "" || request.RequestedAuthority != authority || request.RequestedOperation != RoutingIssuanceOperation || len(request.RequestedCapabilities) != 0 || len(request.RequestedOperations) != 0 {
+		return errors.New("routing delegation profile, authority, and operation must form one closed pair with no runtime capabilities")
+	}
+	wantKind, wantScope := "", ""
+	switch authority {
+	case AuthorityRoutingTargetContributionIssue:
+		wantKind = "routing.target-contribution"
+		wantScope, _ = RoutingTargetContributionScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest)
+	case AuthorityRoutingSurfaceEligibilityIssue:
+		wantKind = "routing.surface-eligibility"
+		if len(request.TargetConstraints) != 1 {
+			return errors.New("surface eligibility delegation requires one canonical surface digest")
+		}
+		wantScope, _ = RoutingSurfaceEligibilityScope(request.TargetIdentity, request.TargetVersion, request.TargetDigest, request.TargetConstraints[0])
+	}
+	if wantScope == "" || request.TargetKind != wantKind || request.TargetIdentity == "" || request.TargetVersion == "" || request.RequestedScope != wantScope || !isSHA256Digest(request.TargetDigest) || !isSHA256Digest(request.ProposalDigest) || !isSHA256Digest(request.ReviewDigest) || request.ExpiresAt.IsZero() || !request.ExpiresAt.After(now) {
+		return errors.New("routing delegation requires exact target, canonical scope, protected proposal and review digests, and future expiry")
+	}
+	return nil
+}
+
+func RoutingTargetContributionScope(identity, version, digest string) (string, error) {
+	if identity == "" || version == "" || !isSHA256Digest(digest) {
+		return "", errors.New("target contribution scope requires exact identity, version, and digest")
+	}
+	return fmt.Sprintf("routing-target/%s/%s/%s", identity, version, digest), nil
+}
+
+func RoutingSurfaceEligibilityScope(requestID, requestVersion, requestDigest, surfaceDigest string) (string, error) {
+	if requestID == "" || requestVersion == "" || !isSHA256Digest(requestDigest) || !isSHA256Digest(surfaceDigest) {
+		return "", errors.New("surface eligibility scope requires exact request and surface digests")
+	}
+	return fmt.Sprintf("routing-eligibility/%s/%s/%s/%s", requestID, requestVersion, requestDigest, surfaceDigest), nil
+}
 
 func AuthorityModelDigest() string {
 	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelVersion, AuthorityDelegateCapability, GovernedWorkPlanAccept})
@@ -65,7 +158,7 @@ func AuthorityModelDeploymentDigest() string {
 }
 
 func ValidateAuthorityModel(id, version, digest string) error {
-	if id == AuthorityModelID && ((version == AuthorityModelGoalsPublicationVersion && digest == AuthorityModelGoalsPublicationDigest()) || (version == AuthorityModelGoalsRecoveryVersion && digest == AuthorityModelGoalsRecoveryDigest())) {
+	if id == AuthorityModelID && ((version == AuthorityModelGoalsPublicationVersion && digest == AuthorityModelGoalsPublicationDigest()) || (version == AuthorityModelGoalsRecoveryVersion && digest == AuthorityModelGoalsRecoveryDigest()) || (version == AuthorityModelRoutingVersion && digest == AuthorityModelRoutingDigest())) {
 		return nil
 	}
 	if id != AuthorityModelID || (version != AuthorityModelVersion && version != AuthorityModelSuccessorVersion && version != AuthorityModelDeploymentVersion) || (version == AuthorityModelVersion && digest != AuthorityModelDigest()) || (version == AuthorityModelSuccessorVersion && digest != AuthorityModelSuccessorDigest()) || (version == AuthorityModelDeploymentVersion && digest != AuthorityModelDeploymentDigest()) {

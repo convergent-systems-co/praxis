@@ -98,6 +98,9 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 	if model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
 		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v4-to-v5:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsPublicationVersion, FromDigest: contracts.AuthorityModelGoalsPublicationDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsRecoveryVersion, ToDigest: contracts.AuthorityModelGoalsRecoveryDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals established-state successor edge", CreatedAt: now.UTC()}, nil
 	}
+	if model.ActiveVersion == contracts.AuthorityModelGoalsRecoveryVersion && model.ActiveDigest == contracts.AuthorityModelGoalsRecoveryDigest() {
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v5-to-v6:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsRecoveryVersion, FromDigest: contracts.AuthorityModelGoalsRecoveryDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelRoutingVersion, ToDigest: contracts.AuthorityModelRoutingDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact-dispatch and executor-surface routing issuance model (ADR-092)", CreatedAt: now.UTC()}, nil
+	}
 	return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 }
 

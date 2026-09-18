@@ -246,7 +246,7 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 		return errAuthorityBootstrapConfirmation
 	}
 	authorityDigest := contracts.AuthorityModelDigest()
-	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy || request.Delegation.Profile == contracts.GoalsPublicationProfile || request.Delegation.Profile == contracts.GoalsPublicationRecoveryProfile {
+	if request.Delegation.Profile == contracts.DelegationProfilePackagePublish || request.Delegation.Profile == contracts.DelegationProfilePackageDeploy || request.Delegation.Profile == contracts.GoalsPublicationProfile || request.Delegation.Profile == contracts.GoalsPublicationRecoveryProfile || contracts.RoutingAuthorityForProfile(request.Delegation.Profile) != "" {
 		authorityDigest = request.Delegation.PolicyDigest
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigestValue, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: parent.Principal, AuthorityRef: parent.Ref, AuthorityVersion: parent.Version, AuthorityGenerationDigest: parent.Digest, GrantedScope: request.RequestedScope, Outcome: contracts.AuthorityApprove, AuthorityDigest: authorityDigest, IssuedAt: now, ExpiresAt: &request.Delegation.ExpiresAt, Delegation: request.Delegation}
@@ -290,6 +290,9 @@ func (builtinDelegationPolicy) ContainDelegation(parent contracts.AuthorityGener
 	}
 	if request.Profile == contracts.DelegationProfilePackageDeploy {
 		return contracts.ValidateBuiltinPackageDeployDelegation(parent, request, now)
+	}
+	if contracts.RoutingAuthorityForProfile(request.Profile) != "" {
+		return contracts.ValidateBuiltinRoutingDelegation(parent, request, now)
 	}
 	return contracts.ValidateBuiltinDelegation(parent, request, now)
 }

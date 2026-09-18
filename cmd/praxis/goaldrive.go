@@ -341,9 +341,10 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 		return nil, "", fmt.Errorf("load Goal-drive ledger for recovery: %w", err)
 	}
 	var recovered *goaldrive.TurnRecord
+	position := -1
 	for i := range turns {
 		if turns[i].TurnID == invocation.RecoverTurn {
-			recovered = &turns[i]
+			recovered, position = &turns[i], i
 		}
 	}
 	if recovered == nil {
@@ -352,7 +353,8 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	if recovered.Outcome != goaldrive.OutcomeBlocked || recovered.Progress {
 		return nil, "", fmt.Errorf("turn %s is %s, not a BLOCKED turn without checkpoint", recovered.TurnID, recovered.Outcome)
 	}
-	for _, later := range turns {
+	// Only turns recorded after the blocked one can supersede it.
+	for _, later := range turns[position+1:] {
 		if later.ChildObjective == recovered.ChildObjective && later.Progress {
 			return nil, "", fmt.Errorf("objective %s already progressed in turn %s after the blocked turn; recovery is superseded", recovered.ChildObjective, later.TurnID)
 		}

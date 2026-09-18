@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -806,13 +807,33 @@ func (s *Store) HasSecureBlobDigest(ctx context.Context, namespace, objectID, di
 // order. Callers still decrypt and validate each record through their owning
 // contract; this method exposes no plaintext.
 func (s *Store) ListSecureBlobs(ctx context.Context, namespace string, now time.Time) ([]SecureBlobRecord, error) {
-	if s == nil || s.db == nil {
-		return nil, errors.New("state store is required")
-	}
 	if namespace == "" {
 		return nil, errors.New("secure blob namespace is required")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace=? ORDER BY object_id,object_version`, namespace)
+	return s.ListSecureBlobsInNamespaces(ctx, []string{namespace}, now)
+}
+
+// ListSecureBlobsInNamespaces lists every record of the given namespaces with
+// one statement, so callers that must relate records across namespaces (for
+// example generations and their invalidations) observe a single consistent
+// snapshot rather than two statements that a concurrent commit may split.
+func (s *Store) ListSecureBlobsInNamespaces(ctx context.Context, namespaces []string, now time.Time) ([]SecureBlobRecord, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("state store is required")
+	}
+	if len(namespaces) == 0 {
+		return nil, errors.New("secure blob namespace is required")
+	}
+	args := make([]any, 0, len(namespaces))
+	marks := make([]string, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		if namespace == "" {
+			return nil, errors.New("secure blob namespace is required")
+		}
+		args = append(args, namespace)
+		marks = append(marks, "?")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace IN (`+strings.Join(marks, ",")+`) ORDER BY namespace,object_id,object_version`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list secure blobs: %w", err)
 	}
@@ -823,10 +844,10 @@ func (s *Store) ListSecureBlobs(ctx context.Context, namespace string, now time.
 		var sensitivity, profile, created string
 		var envelopeJSON []byte
 		var expires sql.NullString
-		if err := rows.Scan(&r.ObjectID, &r.ObjectVersion, &r.ObjectDigest, &sensitivity, &profile, &envelopeJSON, &created, &expires); err != nil {
+		if err := rows.Scan(&r.Namespace, &r.ObjectID, &r.ObjectVersion, &r.ObjectDigest, &sensitivity, &profile, &envelopeJSON, &created, &expires); err != nil {
 			return nil, fmt.Errorf("scan secure blob: %w", err)
 		}
-		r.Namespace, r.Sensitivity, r.CryptoProfile = namespace, Sensitivity(sensitivity), contracts.CryptoProfile(profile)
+		r.Sensitivity, r.CryptoProfile = Sensitivity(sensitivity), contracts.CryptoProfile(profile)
 		if err := json.Unmarshal(envelopeJSON, &r.Envelope); err != nil {
 			return nil, fmt.Errorf("decode secure blob envelope: %w", err)
 		}

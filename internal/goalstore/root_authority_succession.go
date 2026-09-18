@@ -45,7 +45,10 @@ func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest st
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	generations, err := r.ListAuthorityGenerations(ctx, now)
+	// Generations and invalidations are read from one snapshot: a succession
+	// committing between two statements must never make a concurrent reader
+	// see the predecessor invalidated and the successor absent.
+	generations, invalidated, err := r.listAuthorityGenerationsSnapshot(ctx, now)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
@@ -57,10 +60,8 @@ func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest st
 		if generation.Scope != scope && (requireGovernanceScope || !generation.PreDelegationForm() || generation.Scope == "") {
 			continue
 		}
-		if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
+		if invalidated[generation.Ref+"@"+generation.Version] {
 			continue
-		} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
-			return contracts.AuthorityGeneration{}, err
 		}
 		active = append(active, generation)
 	}
@@ -276,6 +277,17 @@ func (r Repository) AcceptRootAuthoritySuccession(ctx context.Context, proposalD
 	}
 	err = r.Store.PutRootAuthoritySuccessor(ctx, state.RootAuthoritySuccessionWrite{Proposal: proposal, Review: review, Decision: decision, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: now})
 	if err != nil {
+		// Commit-boundary re-resolution: if another process committed this
+		// exact transition between our pre-check and our transaction, the
+		// durable result is the same successor and decision; return it as
+		// the idempotent outcome instead of a stale conflict. Any other
+		// difference remains a fail-closed error.
+		if current, loadErr := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now); loadErr == nil && current.Digest == proposal.Successor.Digest {
+			var existing contracts.RootAuthoritySuccessionDecision
+			if r.loadRootSuccessionRecord(ctx, state.RootAuthoritySuccessionDecisionNamespace, decision.ID, decision.Version, now, &existing) == nil && existing.ReviewDigest == reviewDigest && existing.SuccessorDigest == current.Digest {
+				return current, existing, nil
+			}
+		}
 		return contracts.AuthorityGeneration{}, contracts.RootAuthoritySuccessionDecision{}, err
 	}
 	return proposal.Successor, decision, nil

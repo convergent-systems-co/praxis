@@ -1149,35 +1149,54 @@ func (r Repository) ListProviderWorkspaces(ctx context.Context, now time.Time) (
 // enrollment to reject a second installation root rather than silently
 // creating a competing principal.
 func (r Repository) ListAuthorityGenerations(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, error) {
+	generations, _, err := r.listAuthorityGenerationsSnapshot(ctx, now)
+	return generations, err
+}
+
+// listAuthorityGenerationsSnapshot returns every durable generation together
+// with the set of generation identities that carry an invalidation record,
+// both read from one statement so a concurrent succession commit can never
+// be observed as "generation present, invalidation present, successor
+// absent". Keys are ref + "@" + version.
+func (r Repository) listAuthorityGenerationsSnapshot(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, map[string]bool, error) {
 	if err := r.validateWorkPlanStore(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	records, err := r.Store.ListSecureBlobs(ctx, authorityGenerationNamespace, now)
+	all, err := r.Store.ListSecureBlobsInNamespaces(ctx, []string{authorityGenerationNamespace, authorityGenerationInvalidationNamespace}, now)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	invalidated := map[string]bool{}
+	records := make([]state.SecureBlobRecord, 0, len(all))
+	for _, record := range all {
+		if record.Namespace == authorityGenerationInvalidationNamespace {
+			invalidated[record.ObjectID+"@"+record.ObjectVersion] = true
+			continue
+		}
+		records = append(records, record)
 	}
 	generations := make([]contracts.AuthorityGeneration, 0, len(records))
 	for _, record := range records {
 		payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
 		if err != nil {
-			return nil, fmt.Errorf("decrypt authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+			return nil, nil, fmt.Errorf("decrypt authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
 		}
 		var generation contracts.AuthorityGeneration
 		if err := json.Unmarshal(payload, &generation); err != nil {
-			return nil, fmt.Errorf("decode authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+			return nil, nil, fmt.Errorf("decode authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
 		}
 		if generation.Ref != record.ObjectID || generation.Version != record.ObjectVersion || payloadDigest(payload) != record.ObjectDigest {
-			return nil, errors.New("authority generation identity or digest mismatch")
+			return nil, nil, errors.New("authority generation identity or digest mismatch")
 		}
 		if err := generation.Validate(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := generation.VerifyDigest(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		generations = append(generations, generation)
 	}
-	return generations, nil
+	return generations, invalidated, nil
 }
 
 func (r Repository) SaveAuthorityGenerationInvalidation(ctx context.Context, invalidation contracts.AuthorityGenerationInvalidation, createdAt time.Time, expiresAt *time.Time) error {

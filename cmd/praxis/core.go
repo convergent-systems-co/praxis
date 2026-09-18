@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -18,12 +20,43 @@ import (
 
 const praxisVersion = "2.0.0-dev"
 
+// buildProvenance reports the exact source state a binary was built from,
+// as stamped by the Go toolchain's VCS build settings. A binary used for a
+// durable governed transition must be attributable to a clean commit: the
+// commit is the revision and "modified" must be false.
+func buildProvenance() map[string]any {
+	provenance := map[string]any{"version": praxisVersion, "commit": "unknown", "modified": "unknown", "vcs_time": "unknown"}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return provenance
+	}
+	provenance["go_version"] = info.GoVersion
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			provenance["commit"] = setting.Value
+		case "vcs.modified":
+			provenance["modified"] = setting.Value
+		case "vcs.time":
+			provenance["vcs_time"] = setting.Value
+		}
+	}
+	return provenance
+}
+
 func runVersion(args []string) error {
 	if len(args) != 0 {
 		return errors.New("usage: praxis version")
 	}
-	fmt.Println(praxisVersion)
-	return nil
+	return writeVersion(os.Stdout)
+}
+
+// writeVersion keeps the first line as the bare semantic version and adds the
+// embedded source provenance on following lines.
+func writeVersion(out io.Writer) error {
+	provenance := buildProvenance()
+	_, err := fmt.Fprintf(out, "%s\ncommit: %v\nmodified: %v\nvcs_time: %v\n", praxisVersion, provenance["commit"], provenance["modified"], provenance["vcs_time"])
+	return err
 }
 
 func runDoctor(args []string) error {
@@ -32,6 +65,7 @@ func runDoctor(args []string) error {
 	}
 	result := map[string]any{
 		"praxis_version":         praxisVersion,
+		"build_provenance":       buildProvenance(),
 		"go_version":             runtime.Version(),
 		"state":                  "not configured",
 		"governance_root":        map[string]any{"status": "unavailable"},

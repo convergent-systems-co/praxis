@@ -413,7 +413,7 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 			return fmt.Errorf("load Goal-drive ledger: %w", err)
 		}
 		result["turns"] = len(turns)
-		result["recoverable_turns"] = recoverableTurns(baseline, turns)
+		result["blocked_turns"] = recoverableTurns(baseline, turns)
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
 	}
@@ -460,10 +460,12 @@ func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 	return "praxis goals-lifecycle --operation=attach --goal-id=" + goalID + " --goal-version=" + goalVersion + " --acceptance-ref=" + acceptanceRef
 }
 
-// recoverableTurns lists the generation's BLOCKED turns whose objective has
-// not progressed since, each with the exact public recovery template. The
-// checkout is not durable state, so whether the consequence still exists is
-// established by goal-drive itself when --recover-turn binds it.
+// recoverableTurns lists the generation's BLOCKED turns without checkpoint
+// whose objective has not progressed since. A turn whose end HEAD is known
+// carries the exact public recovery template; one whose end HEAD was never
+// observed is listed as not recoverable, with the reason. The checkout is
+// not durable state, so whether the consequence still exists is established
+// by goal-drive itself when --recover-turn binds it.
 func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord) []map[string]any {
 	out := make([]map[string]any, 0)
 	for _, turn := range turns {
@@ -479,7 +481,13 @@ func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord)
 		if superseded {
 			continue
 		}
-		out = append(out, map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recover_template": recoverTemplate(baseline.ID, baseline.Version, turn.TurnID)})
+		entry := map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recoverable": turn.EndHead != ""}
+		if turn.EndHead != "" {
+			entry["recover_template"] = recoverTemplate(baseline.ID, baseline.Version, turn.TurnID)
+		} else {
+			entry["reason"] = "the turn's end HEAD was never observed, so no consequence can be bound to it"
+		}
+		out = append(out, entry)
 	}
 	return out
 }

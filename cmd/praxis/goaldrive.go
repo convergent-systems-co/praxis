@@ -92,11 +92,11 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 			return fmt.Errorf("reconcile provider workspace: %w", reconcileErr)
 		}
 	}
-	if err != nil {
-		return fmt.Errorf("execute supervised Goal-drive turn: %w", err)
-	}
 	if !reconcileOnly && isGit {
 		announceBlockedConsequence(ctx, os.Stderr, repositoryAdapter, invocation, record)
+	}
+	if err != nil {
+		return fmt.Errorf("execute supervised Goal-drive turn: %w", err)
 	}
 	encoded, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {

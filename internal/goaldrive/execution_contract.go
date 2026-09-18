@@ -140,14 +140,16 @@ type WorkerContext struct {
 }
 
 type WorkerGoalContext struct {
-	ID, Version, Digest string   `json:"-"`
-	OriginalIntent      string   `json:"original_intent"`
-	RefinedOutcome      string   `json:"refined_outcome"`
-	Scope               string   `json:"scope,omitempty"`
-	SuccessCriteria     []string `json:"success_criteria,omitempty"`
-	Constraints         []string `json:"constraints,omitempty"`
-	NonGoals            []string `json:"non_goals,omitempty"`
-	ValidityPredicates  []string `json:"validity_predicates,omitempty"`
+	ID                 string   `json:"id"`
+	Version            string   `json:"version"`
+	Digest             string   `json:"digest"`
+	OriginalIntent     string   `json:"original_intent"`
+	RefinedOutcome     string   `json:"refined_outcome"`
+	Scope              string   `json:"scope,omitempty"`
+	SuccessCriteria    []string `json:"success_criteria,omitempty"`
+	Constraints        []string `json:"constraints,omitempty"`
+	NonGoals           []string `json:"non_goals,omitempty"`
+	ValidityPredicates []string `json:"validity_predicates,omitempty"`
 }
 
 type WorkerUnitContext struct {
@@ -160,7 +162,9 @@ type WorkerUnitContext struct {
 }
 
 type WorkerRepositoryContext struct {
-	Path, Branch, StartHead string
+	Path      string `json:"path"`
+	Branch    string `json:"branch"`
+	StartHead string `json:"start_head"`
 }
 
 type WorkerCheckpointContext struct {

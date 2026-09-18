@@ -18,10 +18,11 @@ func TestRecoverableTurnsNameExactBlockedTurns(t *testing.T) {
 		{TurnID: "live-002:turn:2", InvocationID: "live-002", ChildObjective: "unit:b", Outcome: goaldrive.OutcomeBlocked},
 		{TurnID: "live-003:turn:3", InvocationID: "live-003", ChildObjective: "unit:b", Outcome: goaldrive.OutcomeContinue, Progress: true},
 		{TurnID: "live-004:turn:4", InvocationID: "live-004", ChildObjective: "unit:c", Outcome: goaldrive.OutcomeContinue, Progress: true},
+		{TurnID: "live-005:turn:5", InvocationID: "live-005", ChildObjective: "unit:d", Outcome: goaldrive.OutcomeBlocked, Blocker: "worker crashed"},
 	}
 	out := recoverableTurns(baseline, turns)
-	if len(out) != 1 || out[0]["turn_id"] != "live-001:turn:1" {
-		t.Fatalf("only the unprogressed blocked turn is recoverable: %v", out)
+	if len(out) != 2 || out[0]["turn_id"] != "live-001:turn:1" || out[0]["recoverable"] != true || out[1]["turn_id"] != "live-005:turn:5" || out[1]["recoverable"] != false || out[1]["recover_template"] != nil {
+		t.Fatalf("unprogressed blocked turns are listed; only one with a known end HEAD is recoverable: %v", out)
 	}
 	template := out[0]["recover_template"].(map[string]any)
 	command := template["command"].(string)

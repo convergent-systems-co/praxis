@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +34,14 @@ type Store interface {
 	Append(ctx context.Context, aggregateID string, expectedVersion int64, events []Event) ([]Event, error)
 	LoadAggregate(ctx context.Context, aggregateID string, afterVersion int64) ([]Event, error)
 	ReadFrom(ctx context.Context, afterSequence int64, limit int) ([]Event, error)
+}
+
+// AggregateLister is implemented by stores that can enumerate aggregate
+// identities of one type sharing a prefix, oldest first. Composable
+// observation (goal -> invocation -> turn -> events) uses it to discover
+// child identities from a parent identity the caller already holds.
+type AggregateLister interface {
+	ListAggregates(ctx context.Context, aggregateType, prefix string) ([]string, error)
 }
 
 type MemoryStore struct {
@@ -101,6 +110,26 @@ func (s *MemoryStore) ReadFrom(_ context.Context, afterSequence int64, limit int
 		if len(out) == limit {
 			break
 		}
+	}
+	return out, nil
+}
+
+// ListAggregates enumerates aggregate identities of the given type whose id
+// starts with prefix, in order of first appearance.
+func (m *MemoryStore) ListAggregates(ctx context.Context, aggregateType, prefix string) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	seen := map[string]struct{}{}
+	var out []string
+	for _, event := range m.events {
+		if event.AggregateType != aggregateType || !strings.HasPrefix(event.AggregateID, prefix) {
+			continue
+		}
+		if _, ok := seen[event.AggregateID]; ok {
+			continue
+		}
+		seen[event.AggregateID] = struct{}{}
+		out = append(out, event.AggregateID)
 	}
 	return out, nil
 }

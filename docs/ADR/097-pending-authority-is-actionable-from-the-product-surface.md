@@ -121,6 +121,20 @@ distinguishable errors. `--model` is an optional hint interpreted by the
 provider's own CLI; Praxis does not enumerate models. The executor identity
 is recorded on every turn.
 
+### Running execution is discoverable from the identities the operator holds
+
+goal-drive allocates the turn identity (`<invocation>:turn:<n>`) before any
+provider execution and its supervision events are durable from
+`execution.started` on, but the identity was never disclosed, and
+`supervise observe` demanded it. Now goal-drive announces the allocated
+turn on stderr, with the exact observation commands, before control enters
+the worker; `supervise observe` accepts invocation scope (goal, version,
+invocation), discovers the invocation's durable turns from the event
+store, streams them in order, and with `--follow` keeps discovering turns
+that start later until the newest reaches a terminal activity. Exact
+`--turn-id` observation remains, and interventions (comment, correction,
+constraint, suspend, cancel, resume) still require the exact turn.
+
 ## Consequences
 
 - A user with an installed Praxis, the installed Goals package, a Goal, and

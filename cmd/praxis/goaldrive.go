@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -71,6 +72,9 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 			return fmt.Errorf("load durable turn for workspace reconciliation: %w", err)
 		}
 	} else {
+		runtime.OnTurnAllocated = func(turnID string) {
+			announceGoalDriveTurn(os.Stderr, out, invocation, turnID)
+		}
 		record, err = runtime.Execute(ctx, invocation)
 	}
 	if workspaceID := getenv("PRAXIS_PROVIDER_WORKSPACE_ID"); workspaceID != "" {
@@ -279,5 +283,20 @@ func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string
 		return goaldrive.NewClaudeSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model, activity)
 	default:
 		return nil, fmt.Errorf("%w: provider %q is not a registered provider; list valid identities with `praxis providers`", errGoalDriveDispatchDependencies, invocation.ProviderID)
+	}
+}
+
+// announceGoalDriveTurn tells the operator the exact turn identity and the
+// observation command before control enters the provider worker. It goes
+// to stderr so the turn record on stdout stays the command's result.
+func announceGoalDriveTurn(w io.Writer, out normalizedOutput, invocation goaldrive.InvocationRequest, turnID string) {
+	announcement := map[string]any{
+		"type": "goal-drive.turn_allocated", "goal_id": invocation.Input.GoalID, "goal_version": invocation.GoalVersion,
+		"invocation_id": invocation.InvocationID, "turn_id": turnID, "provider": invocation.ProviderID, "mode": string(invocation.Mode),
+		"observe_with":    "praxis supervise observe --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --invocation-id=" + invocation.InvocationID + " --turn-id=" + turnID + " --follow",
+		"invocation_with": "praxis supervise observe --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --invocation-id=" + invocation.InvocationID + " --follow",
+	}
+	if encoded, err := json.Marshal(announcement); err == nil {
+		fmt.Fprintln(w, string(encoded))
 	}
 }

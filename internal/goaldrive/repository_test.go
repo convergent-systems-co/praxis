@@ -3,6 +3,7 @@ package goaldrive
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -108,5 +109,21 @@ func TestExecuteTurnWithRepositoryRefusesWorkerHeadClaimTheCheckoutDoesNotShow(t
 	record, err = controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
 	if err == nil || record.Outcome != OutcomeBlocked || record.Progress || len(repo.publishes) != 0 {
 		t.Fatalf("a dirty checkout must block regardless of the worker's claim: %+v err=%v", record, err)
+	}
+}
+
+// TestExecuteTurnWithRepositoryBlocksDirtyCheckoutBehindNoProgressClaim proves
+// a worker cannot hide uncommitted work behind a NO_PROGRESS (or BLOCKED)
+// report: the controller inspects the checkout and blocks with the exact
+// consequence blocker so the work is recoverable.
+func TestExecuteTurnWithRepositoryBlocksDirtyCheckoutBehindNoProgressClaim(t *testing.T) {
+	for _, claimed := range []Outcome{OutcomeNoProgress, OutcomeContinue, OutcomeBlocked} {
+		worker := &fakeWorker{result: WorkerResult{Outcome: claimed, EndHead: "a"}}
+		controller := controllerFixture(worker)
+		repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}, {Clean: false, Relation: contracts.RelationEqual, Head: "a"}}}
+		record, err := controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
+		if err == nil || record.Outcome != OutcomeBlocked || !strings.Contains(record.Blocker, "uncommitted changes") || record.EndHead != "a" || len(repo.publishes) != 0 {
+			t.Fatalf("claimed %s with a dirty checkout must block with the consequence: %+v err=%v", claimed, record, err)
+		}
 	}
 }

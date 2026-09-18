@@ -204,7 +204,8 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 	// A worker that reports its own outcome (the environment command worker)
 	// is still not the authority on the repository: the same inspection
 	// decides clean tree, progress, and declared validation, and its
-	// reported EndHead must be what the checkout shows.
+	// reported EndHead must be what the checkout shows. A claimed
+	// NO_PROGRESS is inspected too, so uncommitted work is never dropped.
 	record, workerErr := c.invoke(ctx, req)
 	if workerErr != nil {
 		if record.EndHead == "" {
@@ -212,7 +213,17 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 		}
 		return record, workerErr
 	}
-	if record.Outcome != OutcomeContinue && record.Outcome != OutcomeComplete {
+	if record.Outcome == OutcomeBlocked || record.Outcome == OutcomeUserDecisionRequired {
+		// The worker stopped on its own account; the checkout must still not
+		// be left dirty, or the consequence would be silently lost.
+		if snapshot, snapErr := repo.Snapshot(ctx); snapErr == nil {
+			record.EndHead = snapshot.Head
+			if !snapshot.Clean {
+				record.Outcome = OutcomeBlocked
+				record.Blocker = "provider left repository with uncommitted changes; no checkpoint is valid"
+				return record, errors.New(record.Blocker)
+			}
+		}
 		return record, nil
 	}
 	claimed := record.EndHead

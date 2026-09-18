@@ -32,11 +32,16 @@ const providerWorkspaceNamespace = "provider_workspace"
 var ErrAuthorityDecisionRevoked = errors.New("authority decision is revoked")
 
 type Repository struct {
-	Store               *state.Store
-	Crypto              praxiscrypto.EnvelopeService
-	KeyRef              string
-	Profile             contracts.CryptoProfile
-	Sensitivity         state.Sensitivity
+	Store       *state.Store
+	Crypto      praxiscrypto.EnvelopeService
+	KeyRef      string
+	Profile     contracts.CryptoProfile
+	Sensitivity state.Sensitivity
+	// InstallationDigest is the digest of the protected bootstrap record
+	// opened by the production repository constructor. Lifecycle repair uses
+	// it to bind authority to this installation rather than to a merely
+	// self-consistent root identity supplied by durable request data.
+	InstallationDigest  string
 	AuthorityGeneration AuthorityGenerationValidator
 }
 
@@ -724,6 +729,11 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 			return err
 		}
 	}
+	if request.RequestedAuthority == contracts.GovernedInstallationRepairStorageSchema || request.RequestedAuthority == contracts.GovernedInstallationRepairRuntimeState {
+		if request.Repair == nil || decision.AuthorityRef != request.Repair.RootRef || decision.AuthorityVersion != request.Repair.RootVersion || decision.AuthorityGenerationDigest != request.Repair.RootDigest || decision.DecidedBy.Kind != "human" || decision.AuthorityDigest != request.Repair.SuccessionDecisionDigest {
+			return errors.New("installation-repair decision lacks exact successor-root lineage")
+		}
+	}
 	if existing, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
 		left, _ := json.Marshal(existing)
 		right, _ := json.Marshal(decision)
@@ -820,14 +830,10 @@ func (r Repository) validateWorkPlanStore() error {
 }
 
 func (r Repository) SaveAuthorityGeneration(ctx context.Context, generation contracts.AuthorityGeneration, createdAt time.Time, expiresAt *time.Time) error {
-	if err := generation.Validate(); err != nil {
-		return err
-	}
-	payload, err := json.Marshal(generation)
-	if err != nil {
-		return fmt.Errorf("encode authority generation: %w", err)
-	}
-	return r.putWorkPlanBlob(ctx, authorityGenerationNamespace, generation.Ref, generation.Version, payload, createdAt, expiresAt)
+	return r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
+		Generation: generation, Crypto: r.Crypto, KeyRef: r.KeyRef,
+		Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: expiresAt,
+	})
 }
 
 // SaveDelegatedAuthorityGeneration is the generic authority-owned child
@@ -873,11 +879,11 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("derive delegated generation digest: %w", err)
 	}
-	payload, err := json.Marshal(child)
-	if err != nil {
-		return contracts.AuthorityGeneration{}, fmt.Errorf("encode delegated generation: %w", err)
-	}
-	if err := r.putWorkPlanBlobWithLock(ctx, authorityGenerationNamespace, child.Ref, child.Version, payload, createdAt, &delegation.ExpiresAt, authorityRequestNamespace, request.ID, request.Version); err != nil {
+	if err := r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
+		Generation: child, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile,
+		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt,
+		LockNamespace: authorityRequestNamespace, LockID: request.ID, LockVersion: request.Version,
+	}); err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegated generation: %w", err)
 	}
 	return child, nil
@@ -938,19 +944,16 @@ func (r Repository) SaveAuthorityDecisionAndDelegatedAuthorityGeneration(ctx con
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("encode authority decision: %w", err)
 	}
-	childPayload, err := json.Marshal(child)
-	if err != nil {
-		return contracts.AuthorityGeneration{}, fmt.Errorf("encode delegated generation: %w", err)
-	}
 	decisionRecord, err := r.workPlanSecureRecord(ctx, authorityDecisionNamespace, request.ID, request.Version, decisionPayload, createdAt, &delegation.ExpiresAt)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
-	childRecord, err := r.workPlanSecureRecord(ctx, authorityGenerationNamespace, child.Ref, child.Version, childPayload, createdAt, &delegation.ExpiresAt)
-	if err != nil {
-		return contracts.AuthorityGeneration{}, err
-	}
-	if err := r.Store.PutSecureBlobsWithLock(ctx, []state.SecureBlobRecord{decisionRecord, childRecord}, authorityRequestNamespace, request.ID, request.Version); err != nil {
+	if err := r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
+		Generation: child, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile,
+		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt,
+		RelatedRecords: []state.SecureBlobRecord{decisionRecord},
+		LockNamespace:  authorityRequestNamespace, LockID: request.ID, LockVersion: request.Version,
+	}); err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegation decision and generation: %w", err)
 	}
 	return child, nil

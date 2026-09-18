@@ -65,7 +65,17 @@ func newHistoricalAdversarialFixture(t *testing.T, mutate func(*historicalAdvers
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: id, ObjectVersion: version, ObjectDigest: digest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: created, ExpiresAt: expires}); err != nil {
+		record := state.SecureBlobRecord{Namespace: namespace, ObjectID: id, ObjectVersion: version, ObjectDigest: digest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: created, ExpiresAt: expires}
+		if namespace == authorityGenerationNamespace {
+			generation, ok := value.(contracts.AuthorityGeneration)
+			if !ok {
+				t.Fatalf("authority generation fixture has type %T", value)
+			}
+			err = store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{Generation: generation, Crypto: repo.Crypto, KeyRef: repo.KeyRef, Profile: repo.Profile, Sensitivity: repo.Sensitivity, CreatedAt: created, ExpiresAt: expires})
+		} else {
+			err = store.PutSecureBlob(ctx, record)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 		return digest

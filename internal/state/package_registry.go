@@ -41,6 +41,11 @@ func digestPackageBytes(body []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// DigestPackageBytes exposes activation's exact byte-digest formula to the
+// governed lifecycle recovery driver. Keeping one implementation prevents the
+// recovery derivation from drifting from package activation semantics.
+func DigestPackageBytes(body []byte) string { return digestPackageBytes(body) }
+
 type RegisteredInvocation struct {
 	Contract       contracts.InvocationContract
 	ContentDigest  string
@@ -508,7 +513,8 @@ func (s *Store) ActiveInvocations(ctx context.Context) ([]RegisteredInvocation, 
 			}
 			item.RuntimeBinding.Executable = &binding
 		}
-		if err := json.Unmarshal(body, &item.Contract); err != nil {
+		item.Contract, err = contracts.DecodeInvocationContract(body)
+		if err != nil {
 			return nil, fmt.Errorf("decode invocation registry: %w", err)
 		}
 		if digestPackageBytes(body) != item.ContractDigest {
@@ -581,7 +587,8 @@ func (s *Store) ResolveInvocationAlias(ctx context.Context, alias string) (Regis
 		}
 		item.RuntimeBinding.Executable = &binding
 	}
-	if err := json.Unmarshal(body, &item.Contract); err != nil {
+	item.Contract, err = contracts.DecodeInvocationContract(body)
+	if err != nil {
 		return RegisteredInvocation{}, err
 	}
 	if digestPackageBytes(body) != item.ContractDigest {

@@ -147,6 +147,10 @@ func openGovernedRepository(ctx context.Context, getenv func(string) string) (go
 	if err != nil {
 		return goalstore.Repository{}, nil, err
 	}
+	installationDigest, err := record.Digest()
+	if err != nil {
+		return goalstore.Repository{}, nil, err
+	}
 	registry, err := praxiscrypto.NewFirstPartyBootstrapRegistry()
 	if err != nil {
 		return goalstore.Repository{}, nil, err
@@ -167,7 +171,7 @@ func openGovernedRepository(ctx context.Context, getenv func(string) string) (go
 	if err != nil {
 		return goalstore.Repository{}, nil, err
 	}
-	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
+	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest}
 	return repo, db, nil
 }
 

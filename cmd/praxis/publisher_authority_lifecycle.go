@@ -278,16 +278,11 @@ func runPublisherAuthorityRequestCanonical(args []string, getenv func(string) st
 }
 
 func currentInstallationRoot(ctx context.Context, repo goalstore.Repository, owner contracts.PrincipalRef, now time.Time) (contracts.AuthorityGeneration, error) {
-	gens, err := repo.ListAuthorityGenerations(ctx, now)
-	if err != nil {
-		return contracts.AuthorityGeneration{}, err
+	const prefix = "installation-owner:"
+	if owner.Kind != "human" || !strings.HasPrefix(owner.ID, prefix) {
+		return contracts.AuthorityGeneration{}, errors.New("installation governance owner is invalid")
 	}
-	for _, generation := range gens {
-		if generation.ParentRef == "" && generation.Principal == owner {
-			return generation, nil
-		}
-	}
-	return contracts.AuthorityGeneration{}, errors.New("installation governance root unavailable")
+	return repo.LoadCurrentInstallationRoot(ctx, strings.TrimPrefix(owner.ID, prefix), now)
 }
 
 func validatePublisherAuthorityProposalCurrent(ctx context.Context, repo goalstore.Repository, store *state.Store, proposal contracts.PublisherAuthorityProposal, now time.Time) error {

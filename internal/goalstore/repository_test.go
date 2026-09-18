@@ -90,7 +90,7 @@ func persistAuthorityGenerationPayload(t *testing.T, repo Repository, store *sta
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.PutSecureBlob(context.Background(), state.SecureBlobRecord{
+	insertRawSecureBlobForLoaderTest(t, store, state.SecureBlobRecord{
 		Namespace:     authorityGenerationNamespace,
 		ObjectID:      generation.Ref,
 		ObjectVersion: generation.Version,
@@ -99,7 +99,23 @@ func persistAuthorityGenerationPayload(t *testing.T, repo Repository, store *sta
 		CryptoProfile: repo.Profile,
 		Envelope:      envelope,
 		CreatedAt:     generation.EffectiveAt,
-	}); err != nil {
+	})
+}
+
+// insertRawSecureBlobForLoaderTest deliberately bypasses production APIs to
+// construct corrupt-at-rest fixtures for loader rejection tests. Production
+// code has no equivalent reserved-namespace writer.
+func insertRawSecureBlobForLoaderTest(t *testing.T, store *state.Store, record state.SecureBlobRecord) {
+	t.Helper()
+	envelopeJSON, err := json.Marshal(record.Envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expires any
+	if record.ExpiresAt != nil {
+		expires = record.ExpiresAt.UTC().Format(time.RFC3339Nano)
+	}
+	if _, err := store.DB().Exec(`INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), expires); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -150,11 +166,7 @@ func TestHistoricalGenerationLoaderSeparatesDigestDomains(t *testing.T) {
 	if objectDigest == generation.Digest {
 		t.Fatal("fixture must keep secure-blob and generation digests distinct")
 	}
-	envelope, err := repo.Crypto.Seal(context.Background(), repo.KeyRef, repo.Profile, payload, state.SecureBlobAAD(authorityGenerationNamespace, generation.Ref, generation.Version, objectDigest))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.PutSecureBlob(context.Background(), state.SecureBlobRecord{Namespace: authorityGenerationNamespace, ObjectID: generation.Ref, ObjectVersion: generation.Version, ObjectDigest: objectDigest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: generation.EffectiveAt, ExpiresAt: &expired}); err != nil {
+	if err := repo.SaveAuthorityGeneration(context.Background(), generation, generation.EffectiveAt, &expired); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := repo.loadHistoricalGeneration(context.Background(), generation.Ref, generation.Version, generation.Digest)
@@ -180,9 +192,7 @@ func TestHistoricalGenerationLoaderSeparatesDigestDomains(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.PutSecureBlob(context.Background(), state.SecureBlobRecord{Namespace: authorityGenerationNamespace, ObjectID: tampered.Ref, ObjectVersion: tampered.Version, ObjectDigest: objectDigest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: tamperedEnvelope, CreatedAt: tampered.EffectiveAt, ExpiresAt: &expired}); err != nil {
-		t.Fatal(err)
-	}
+	insertRawSecureBlobForLoaderTest(t, store, state.SecureBlobRecord{Namespace: authorityGenerationNamespace, ObjectID: tampered.Ref, ObjectVersion: tampered.Version, ObjectDigest: objectDigest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: tamperedEnvelope, CreatedAt: tampered.EffectiveAt, ExpiresAt: &expired})
 	if _, err := repo.loadHistoricalGeneration(context.Background(), tampered.Ref, tampered.Version, tampered.Digest); err == nil || !strings.Contains(err.Error(), "payload digest") {
 		t.Fatalf("tampered serialized payload must fail at object-digest layer: %v", err)
 	}
@@ -209,7 +219,17 @@ func TestExpiredHistoricalAuthorityResolvesPersistedParentAndDelegatedChild(t *t
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := store.PutSecureBlob(ctx, state.SecureBlobRecord{Namespace: namespace, ObjectID: id, ObjectVersion: version, ObjectDigest: digest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: created, ExpiresAt: expires}); err != nil {
+		record := state.SecureBlobRecord{Namespace: namespace, ObjectID: id, ObjectVersion: version, ObjectDigest: digest, Sensitivity: repo.Sensitivity, CryptoProfile: repo.Profile, Envelope: envelope, CreatedAt: created, ExpiresAt: expires}
+		if namespace == authorityGenerationNamespace {
+			generation, ok := value.(contracts.AuthorityGeneration)
+			if !ok {
+				t.Fatalf("authority generation fixture has type %T", value)
+			}
+			err = store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{Generation: generation, Crypto: repo.Crypto, KeyRef: repo.KeyRef, Profile: repo.Profile, Sensitivity: repo.Sensitivity, CreatedAt: created, ExpiresAt: expires})
+		} else {
+			err = store.PutSecureBlob(ctx, record)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 		return digest

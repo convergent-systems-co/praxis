@@ -1,6 +1,9 @@
 package contracts
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 var (
 	clientContractCatalog    = NewVersionCatalog()
@@ -37,6 +40,51 @@ type InvocationContract struct {
 	OptionalCapabilities      []string           `json:"optional_capabilities,omitempty"`
 	RequiredEnforcement       []string           `json:"required_enforcement,omitempty"`
 	RequireExclusiveMediation bool               `json:"require_exclusive_mediation,omitempty"`
+}
+
+// DecodeInvocationContract decodes every durable wire shape admitted by the
+// invocation compatibility policy. Version "1" predates the JSON tags on
+// InvocationContract and therefore used exported Go field names.
+func DecodeInvocationContract(body []byte) (InvocationContract, error) {
+	var current InvocationContract
+	currentErr := json.Unmarshal(body, &current)
+	if currentErr == nil && current.Validate() == nil {
+		return current, nil
+	}
+	var legacy struct {
+		Version                   string
+		PackageID                 string
+		PackageVersion            string
+		GraphID                   string
+		GraphVersion              string
+		EntryPointID              string
+		Aliases                   []string
+		Options                   []InvocationOption
+		RequiredCapabilities      []string
+		OptionalCapabilities      []string
+		RequiredEnforcement       []string
+		RequireExclusiveMediation bool
+	}
+	if err := json.Unmarshal(body, &legacy); err != nil {
+		return InvocationContract{}, err
+	}
+	decoded := InvocationContract{
+		Version: legacy.Version, PackageID: legacy.PackageID,
+		PackageVersion: legacy.PackageVersion, GraphID: legacy.GraphID,
+		GraphVersion: legacy.GraphVersion, EntryPointID: legacy.EntryPointID,
+		Aliases: legacy.Aliases, Options: legacy.Options,
+		RequiredCapabilities:      legacy.RequiredCapabilities,
+		OptionalCapabilities:      legacy.OptionalCapabilities,
+		RequiredEnforcement:       legacy.RequiredEnforcement,
+		RequireExclusiveMediation: legacy.RequireExclusiveMediation,
+	}
+	if err := decoded.Validate(); err != nil {
+		if currentErr != nil {
+			return InvocationContract{}, currentErr
+		}
+		return InvocationContract{}, err
+	}
+	return decoded, nil
 }
 
 func (c InvocationContract) Validate() error {

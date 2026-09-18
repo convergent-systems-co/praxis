@@ -16,6 +16,21 @@ func migrationReadiness() contracts.LifecycleReadiness {
 	return contracts.LifecycleReadiness{CryptoBootstrap: "ready", StateStore: "ready", SchemaCompatibility: "ready", GovernanceRoot: "ready", AuthorityTopology: "ready", PackageRuntimeClosure: "ready", LifecycleRecovery: "ready", Installation: "ready"}
 }
 
+func assertReconcileEntriesValidate(t *testing.T, history []contracts.LifecycleTransitionJournal) {
+	t.Helper()
+	for _, entry := range history {
+		if entry.State != contracts.LifecycleReconcileRequired {
+			continue
+		}
+		if entry.RecoveryAction == "" {
+			t.Fatalf("reconcile_required entry lacks a specific RecoveryAction: %+v", entry)
+		}
+		if err := entry.Validate(); err != nil {
+			t.Fatalf("reconcile_required entry fails LifecycleTransitionJournal.Validate: %v entry=%+v", err, entry)
+		}
+	}
+}
+
 type migrationDriver struct {
 	result       ApplyResult
 	err          error
@@ -82,12 +97,12 @@ func TestRunStepRefusesAmbiguousRetryAndRecordsReconciliation(t *testing.T) {
 	plan := migrationPlan(t, true)
 	journal, _ := NewJournal(eventstore.NewMemoryStore(), plan.InstallationID, contracts.PrincipalRef{ID: "lifecycle", Kind: "system"})
 	driver := &migrationDriver{err: ErrAmbiguousApply, idempotent: false}
-	if err := RunStep(context.Background(), journal, RunRequest{Plan: plan, StepID: "migrate", PreconditionDigest: migrationDigest("e"), SnapshotDigest: migrationDigest("f"), Now: time.Now().UTC()}, driver); err != nil {
-		t.Fatal(err)
+	if err := RunStep(context.Background(), journal, RunRequest{Plan: plan, StepID: "migrate", PreconditionDigest: migrationDigest("e"), SnapshotDigest: migrationDigest("f"), Now: time.Now().UTC()}, driver); !errors.Is(err, ErrAmbiguousApply) {
+		t.Fatalf("expected ambiguous apply error, got %v", err)
 	}
 	history, _ := journal.Load(context.Background())
-	if history[len(history)-1].State != contracts.LifecycleReconcileRequired {
-		t.Fatal("ambiguous apply was not fenced for reconciliation")
+	if history[len(history)-1].State != contracts.LifecycleApplying {
+		t.Fatalf("failed apply must leave the durable retry boundary at applying: %+v", history)
 	}
 	if err := RunStep(context.Background(), journal, RunRequest{Plan: plan, StepID: "migrate", PreconditionDigest: migrationDigest("e"), SnapshotDigest: migrationDigest("f"), RetryFailedRecoverable: true, Now: time.Now().UTC()}, driver); err == nil {
 		t.Fatal("reconcile-required step was retried")
@@ -182,6 +197,7 @@ func TestRunStepFencesUnsafeRollbackAndUnknownOutcome(t *testing.T) {
 				t.Fatal(err)
 			}
 			history, err := j.Load(context.Background())
+			assertReconcileEntriesValidate(t, history)
 			if err != nil || history[len(history)-1].State != test.want {
 				t.Fatalf("unexpected recovery state: %v %+v", err, history)
 			}

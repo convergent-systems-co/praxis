@@ -262,8 +262,8 @@ func validateRollbackTargetTx(ctx context.Context, tx *sql.Tx, target packagecat
 		if err := invocations.Scan(&body, &digest); err != nil {
 			return err
 		}
-		var contract contracts.InvocationContract
-		if err := json.Unmarshal(body, &contract); err != nil || contract.Validate() != nil || digestPackageBytes(body) != digest || contract.PackageID != target.PackageID || contract.PackageVersion != target.Version {
+		contract, decodeErr := contracts.DecodeInvocationContract(body)
+		if decodeErr != nil || digestPackageBytes(body) != digest || contract.PackageID != target.PackageID || contract.PackageVersion != target.Version {
 			return fmt.Errorf("rollback target %q invocation contract is invalid", target.PackageID)
 		}
 		for _, alias := range contract.Aliases {
@@ -352,8 +352,8 @@ func reactivatePackageGenerationTx(ctx context.Context, tx *sql.Tx, target packa
 		if err := rows.Scan(&body, &entryPoint); err != nil {
 			return err
 		}
-		var contract contracts.InvocationContract
-		if err := json.Unmarshal(body, &contract); err != nil {
+		contract, err := contracts.DecodeInvocationContract(body)
+		if err != nil {
 			rows.Close()
 			return err
 		}

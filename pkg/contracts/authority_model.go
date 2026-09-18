@@ -23,6 +23,23 @@ const (
 	DelegationProfilePackageDeploy  = "PACKAGE_DEPLOY"
 	PackageManagerPrincipalID       = "package-manager:praxis"
 	PackageManagerPrincipalKind     = "package-manager"
+
+	// GovernedInstallationRepairStorageSchema and
+	// GovernedInstallationRepairRuntimeState are the two ADR-088-governed
+	// installation-repair lifecycle authorities (the storage_schema and
+	// runtime_state transitions respectively). ADR-088 §10 requires both
+	// to be root-owner-only and non-delegable: no production path may
+	// persist a child/delegated AuthorityGeneration carrying either
+	// authority. Neither is a closed delegation profile — no
+	// ValidateBuiltin*Delegation function exists for them, and none
+	// should be added — so they are rejected by the delegation-profile
+	// dispatch's default case exactly as any other unrecognized authority
+	// string is, and independently rejected by the plaintext
+	// non-delegability check in internal/state.Store's sole typed
+	// AuthorityGeneration persistence boundary (the actual ADR-088 §10(b)
+	// closure), which validates the exact plaintext before it can be sealed.
+	GovernedInstallationRepairStorageSchema = "installation.repair.storage_schema"
+	GovernedInstallationRepairRuntimeState  = "installation.repair.runtime_state"
 )
 
 func AuthorityModelDigest() string {

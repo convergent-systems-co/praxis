@@ -284,6 +284,40 @@ func TestPackageActivationPublishesAndRemovesAliasesAndContents(t *testing.T) {
 	}
 }
 
+func TestOrdinaryInvocationResolutionAcceptsOldestDurableWireShape(t *testing.T) {
+	ctx := context.Background()
+	db, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := New(db)
+	manifest := activateFixturePackage(t, ctx, db, store, fixturePackage("example/pkg", "1", "", "example"), time.Now().UTC())
+	const historical = `{"Version":"1","PackageID":"example/pkg","PackageVersion":"1","GraphID":"example/pkg.graph","GraphVersion":"1","EntryPointID":"example/pkg.default","Aliases":["example"],"Options":[{"Name":"flag","Type":"bool","Required":false,"Default":"","Description":""}],"RequiredCapabilities":null,"OptionalCapabilities":null,"RequiredEnforcement":null,"RequireExclusiveMediation":false}`
+	body := []byte(historical)
+	digest := digestPackageBytes(body)
+	if _, err := db.ExecContext(ctx, `UPDATE invocation_registry SET contract_json=?,contract_digest=? WHERE package_id=?`, body, digest, manifest.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE invocation_runtime_bindings SET contract_digest=?,runtime_version=?,runtime_digest=? WHERE package_id=?`, digest, "1", digest, manifest.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := store.ResolveInvocationAlias(ctx, "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Contract.Version != "1" || resolved.Contract.PackageID != manifest.PackageID || resolved.ContractDigest != digest {
+		t.Fatalf("historical ordinary resolution = %+v", resolved)
+	}
+	active, err := store.ActiveInvocations(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 1 || active[0].Contract.EntryPointID != "example/pkg.default" {
+		t.Fatalf("historical active invocation population = %+v", active)
+	}
+}
+
 func TestVerifiedGraphArtifactSurvivesActivationAndRestart(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "praxis.db")

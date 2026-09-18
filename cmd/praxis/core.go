@@ -146,7 +146,7 @@ func inspectAuthorityTopology(ctx context.Context, db *sql.DB, record *praxiscry
 	if err != nil {
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
-	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
+	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: digest}
 	generations, err := repo.ListAuthorityGenerations(ctx, time.Now().UTC())
 	if err != nil {
 		return authorityTopologyInspection{Status: "unqualified"}, err
@@ -159,21 +159,15 @@ func inspectAuthorityTopology(ctx context.Context, db *sql.DB, record *praxiscry
 	if err != nil {
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
-	var roots []contracts.AuthorityGeneration
-	for _, generation := range generations {
-		if generation.ParentRef == "" {
-			roots = append(roots, generation)
-		}
+	root, err := repo.LoadCurrentInstallationRoot(ctx, digest, time.Now().UTC())
+	if err != nil {
+		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
-	if len(roots) != 1 {
-		return authorityTopologyInspection{Status: "unqualified"}, fmt.Errorf("expected exactly one authority root, found %d", len(roots))
-	}
-	root := roots[0]
-	if root.Ref != rootScope || root.Version != "1" || root.Digest == "" || root.Principal != principal || root.Scope != rootScope || root.AuthorityModel != contracts.AuthorityModelID || root.AuthorityModelVersion != contracts.AuthorityModelVersion || root.AuthorityModelDigest != contracts.AuthorityModelDigest() || !authorityContainsCapability(root.Capabilities, contracts.AuthorityDelegateCapability) || root.ParentRef != "" {
+	if root.Ref != rootScope || root.Digest == "" || root.Principal != principal || root.Scope != rootScope || root.AuthorityModel != contracts.AuthorityModelID || root.AuthorityModelVersion != contracts.AuthorityModelVersion || root.AuthorityModelDigest != contracts.AuthorityModelDigest() || !authorityContainsCapability(root.Capabilities, contracts.AuthorityDelegateCapability) || root.ParentRef != "" {
 		return authorityTopologyInspection{Status: "unqualified"}, errors.New("installation governance root does not match authority model v1")
 	}
 	if err := root.VerifyDigest(); err != nil {
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
-	return authorityTopologyInspection{Status: "qualified", Root: map[string]any{"status": "ready", "principal": root.Principal, "generation_ref": root.Ref, "generation_version": root.Version, "generation_digest": root.Digest, "scope": root.Scope, "capabilities": root.Capabilities, "authority_model": root.AuthorityModel, "authority_model_version": root.AuthorityModelVersion, "authority_model_digest": root.AuthorityModelDigest}}, nil
+	return authorityTopologyInspection{Status: "qualified", Root: map[string]any{"status": "ready", "principal": root.Principal, "generation_ref": root.Ref, "generation_version": root.Version, "generation_digest": root.Digest, "scope": root.Scope, "capabilities": root.Capabilities, "authorities": root.Authorities, "predecessor_ref": root.PredecessorRef, "predecessor_version": root.PredecessorVersion, "predecessor_digest": root.PredecessorDigest, "retained_root_generations": len(generations), "authority_model": root.AuthorityModel, "authority_model_version": root.AuthorityModelVersion, "authority_model_digest": root.AuthorityModelDigest}}, nil
 }

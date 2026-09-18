@@ -29,6 +29,10 @@ func openGovernedRepositoryReadOnly(ctx context.Context, getenv func(string) str
 	if err != nil {
 		return goalstore.Repository{}, nil, record, err
 	}
+	installationDigest, err := record.Digest()
+	if err != nil {
+		return goalstore.Repository{}, nil, record, err
+	}
 	registry, err := praxiscrypto.NewFirstPartyBootstrapRegistry()
 	if err != nil {
 		return goalstore.Repository{}, nil, record, err
@@ -49,7 +53,7 @@ func openGovernedRepositoryReadOnly(ctx context.Context, getenv func(string) str
 	if err != nil {
 		return goalstore.Repository{}, nil, record, err
 	}
-	return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}, db, record, nil
+	return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest}, db, record, nil
 }
 
 func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, record praxiscrypto.BootstrapRecord, now time.Time) (contracts.AuthorityModelAdoption, error) {
@@ -57,49 +61,40 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 	if err != nil {
 		return contracts.AuthorityModelAdoption{}, err
 	}
-	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
-	if err != nil {
-		return contracts.AuthorityModelAdoption{}, err
-	}
 	model, err := repo.LoadAuthorityModelState(ctx, now)
 	if err != nil {
 		return contracts.AuthorityModelAdoption{}, err
 	}
-	gens, err := repo.ListAuthorityGenerations(ctx, now)
+	g, err := repo.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
 	if err != nil {
 		return contracts.AuthorityModelAdoption{}, err
 	}
-	for _, g := range gens {
-		if g.ParentRef == "" && g.Principal == owner {
-			if model.ActiveVersion == contracts.AuthorityModelVersion {
-				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v1-to-v2", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelVersion, FromDigest: contracts.AuthorityModelDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelSuccessorVersion, ToDigest: contracts.AuthorityModelSuccessorDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in authority model successor", CreatedAt: now.UTC()}, nil
-			}
-			if model.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
-				legacyID := "authority-model-adoption:v2-to-v3"
-				if stale, err := repo.LoadAuthorityModelAdoptionByID(ctx, legacyID, "1", now); err == nil {
-					digest, _ := stale.Digest()
-					if _, err := repo.LoadAuthorityModelAdoptionDecision(ctx, digest, now); err != nil {
-						superseded, err := repo.IsAuthorityModelAdoptionSuperseded(ctx, stale.ID, stale.Version, now)
-						if err != nil {
-							return contracts.AuthorityModelAdoption{}, err
-						}
-						if !superseded {
-							return contracts.AuthorityModelAdoption{}, errors.New("historical incomplete v3 adoption must be abandoned before a new preview")
-						}
-					}
-				}
-				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now.UTC()}, nil
-			}
-			if model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
-				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v3-to-v4:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelDeploymentVersion, FromDigest: contracts.AuthorityModelDeploymentDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsPublicationVersion, ToDigest: contracts.AuthorityModelGoalsPublicationDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals initial-publication edge", CreatedAt: now.UTC()}, nil
-			}
-			if model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
-				return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v4-to-v5:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsPublicationVersion, FromDigest: contracts.AuthorityModelGoalsPublicationDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsRecoveryVersion, ToDigest: contracts.AuthorityModelGoalsRecoveryDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals established-state successor edge", CreatedAt: now.UTC()}, nil
-			}
-			return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
-		}
+	if model.ActiveVersion == contracts.AuthorityModelVersion {
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v1-to-v2", Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelVersion, FromDigest: contracts.AuthorityModelDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelSuccessorVersion, ToDigest: contracts.AuthorityModelSuccessorDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in authority model successor", CreatedAt: now.UTC()}, nil
 	}
-	return contracts.AuthorityModelAdoption{}, errors.New("installation root generation unavailable")
+	if model.ActiveVersion == contracts.AuthorityModelSuccessorVersion {
+		legacyID := "authority-model-adoption:v2-to-v3"
+		if stale, err := repo.LoadAuthorityModelAdoptionByID(ctx, legacyID, "1", now); err == nil {
+			digest, _ := stale.Digest()
+			if _, err := repo.LoadAuthorityModelAdoptionDecision(ctx, digest, now); err != nil {
+				superseded, err := repo.IsAuthorityModelAdoptionSuperseded(ctx, stale.ID, stale.Version, now)
+				if err != nil {
+					return contracts.AuthorityModelAdoption{}, err
+				}
+				if !superseded {
+					return contracts.AuthorityModelAdoption{}, errors.New("historical incomplete v3 adoption must be abandoned before a new preview")
+				}
+			}
+		}
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v2-to-v3:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelSuccessorVersion, FromDigest: contracts.AuthorityModelSuccessorDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelDeploymentVersion, ToDigest: contracts.AuthorityModelDeploymentDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted built-in package-deployment authority model", CreatedAt: now.UTC()}, nil
+	}
+	if model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v3-to-v4:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelDeploymentVersion, FromDigest: contracts.AuthorityModelDeploymentDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsPublicationVersion, ToDigest: contracts.AuthorityModelGoalsPublicationDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals initial-publication edge", CreatedAt: now.UTC()}, nil
+	}
+	if model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v4-to-v5:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsPublicationVersion, FromDigest: contracts.AuthorityModelGoalsPublicationDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsRecoveryVersion, ToDigest: contracts.AuthorityModelGoalsRecoveryDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals established-state successor edge", CreatedAt: now.UTC()}, nil
+	}
+	return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 }
 
 func currentOSUser() string {

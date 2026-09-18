@@ -39,6 +39,9 @@ type AuthorityGeneration struct {
 	ParentRef             string                   `json:"parent_ref,omitempty"`
 	ParentVersion         string                   `json:"parent_version,omitempty"`
 	ParentDigest          string                   `json:"parent_digest,omitempty"`
+	PredecessorRef        string                   `json:"predecessor_ref,omitempty"`
+	PredecessorVersion    string                   `json:"predecessor_version,omitempty"`
+	PredecessorDigest     string                   `json:"predecessor_digest,omitempty"`
 	DelegatedBy           PrincipalRef             `json:"delegated_by,omitempty"`
 	DelegationRef         string                   `json:"delegation_ref,omitempty"`
 	DelegationDigest      string                   `json:"delegation_digest,omitempty"`
@@ -105,6 +108,12 @@ func (g AuthorityGeneration) Validate() error {
 	}
 	if (g.ParentRef == "") != (g.ParentVersion == "") || (g.ParentRef == "") != (g.ParentDigest == "") {
 		return errors.New("authority generation parent lineage is incomplete")
+	}
+	if (g.PredecessorRef == "") != (g.PredecessorVersion == "") || (g.PredecessorRef == "") != (g.PredecessorDigest == "") {
+		return errors.New("authority generation predecessor lineage is incomplete")
+	}
+	if g.ParentRef != "" && g.PredecessorRef != "" {
+		return errors.New("authority generation cannot be both delegated and a root successor")
 	}
 	if g.ParentRef != "" {
 		if err := g.DelegatedBy.Validate(); err != nil {
@@ -217,11 +226,12 @@ type AuthorityRequest struct {
 	Delegation            *DelegationRequest     `json:"delegation,omitempty"`
 	// Package deployment requests bind the exact verified action separately
 	// from the long-lived PACKAGE_DEPLOY delegation.
-	IntentDigest               string        `json:"intent_digest,omitempty"`
-	InstallationDigest         string        `json:"installation_digest,omitempty"`
-	ClosureDigest              string        `json:"closure_digest,omitempty"`
-	VerificationEvidenceDigest string        `json:"verification_evidence_digest,omitempty"`
-	Intent                     *ActionIntent `json:"intent,omitempty"`
+	IntentDigest               string                              `json:"intent_digest,omitempty"`
+	InstallationDigest         string                              `json:"installation_digest,omitempty"`
+	ClosureDigest              string                              `json:"closure_digest,omitempty"`
+	VerificationEvidenceDigest string                              `json:"verification_evidence_digest,omitempty"`
+	Intent                     *ActionIntent                       `json:"intent,omitempty"`
+	Repair                     *InstallationRepairAuthorityRequest `json:"installation_repair,omitempty"`
 	// ReRequestOf records the immutable predecessor authority chain when this
 	// request is a fresh solicitation for the same ActionIntent. It is
 	// lineage, not authority, and is never interpreted as a renewed grant.
@@ -429,8 +439,17 @@ func (r AuthorityRequest) ValidateAt(at time.Time) error {
 	if r.ID == "" || r.Version == "" || r.RequestedAuthority == "" || r.RequestedScope == "" || r.Reason == "" {
 		return errors.New("authority request identity and decision scope are required")
 	}
-	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && r.RequestedAuthority != GovernedPackageDeploy && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
+	isRepair := r.RequestedAuthority == GovernedInstallationRepairStorageSchema || r.RequestedAuthority == GovernedInstallationRepairRuntimeState
+	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && r.RequestedAuthority != GovernedPackageDeploy && !isRepair && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
 		return errors.New("authority request requires exact evidence and decision scope")
+	}
+	if isRepair {
+		if r.Repair == nil || r.Repair.Operation != r.RequestedAuthority || r.Repair.RootRef == "" || r.Repair.RootVersion == "" || r.Repair.RootDigest == "" || r.InstallationDigest != r.Repair.BootstrapDigest {
+			return errors.New("installation-repair request requires exact root succession lineage")
+		}
+		if err := r.Repair.Validate(at); err != nil {
+			return err
+		}
 	}
 	if r.Status != AuthorityRequestPending && r.Status != AuthorityRequestResolved && r.Status != AuthorityRequestInvalidated {
 		return fmt.Errorf("unknown authority request status %q", r.Status)

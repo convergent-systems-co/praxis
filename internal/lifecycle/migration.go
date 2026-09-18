@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,11 @@ import (
 )
 
 var (
-	ErrDowngradeRefused = errors.New("lifecycle downgrade refused")
-	ErrAmbiguousApply   = errors.New("lifecycle apply outcome is ambiguous")
-	ErrRetryNotSafe     = errors.New("lifecycle retry is not proven idempotent")
-	ErrJournalConflict  = errors.New("lifecycle journal has conflicting history")
+	ErrDowngradeRefused   = errors.New("lifecycle downgrade refused")
+	ErrAmbiguousApply     = errors.New("lifecycle apply outcome is ambiguous")
+	ErrRetryNotSafe       = errors.New("lifecycle retry is not proven idempotent")
+	ErrJournalConflict    = errors.New("lifecycle journal has conflicting history")
+	ErrPlanDigestMismatch = errors.New("lifecycle step cannot resume under a different plan digest")
 )
 
 const lifecycleJournalAggregateType = "lifecycle_transition"
@@ -46,6 +48,42 @@ func (j *Journal) Load(ctx context.Context) ([]contracts.LifecycleTransitionJour
 	if err != nil {
 		return nil, err
 	}
+	return j.decodeHistory(events)
+}
+
+// TxCapableEventStore is implemented by eventstore.Store backends (the
+// production SQLite-backed store) that can participate in a caller-owned
+// SQL transaction. It is deliberately not part of eventstore.Store itself
+// — that interface stays storage-agnostic (eventstore.MemoryStore has no
+// notion of *sql.Tx) — so LoadInTx/AppendInTx type-assert for it instead.
+type TxCapableEventStore interface {
+	AppendInTx(ctx context.Context, tx *sql.Tx, aggregateID string, expectedVersion int64, events []eventstore.Event) ([]eventstore.Event, error)
+	LoadAggregateInTx(ctx context.Context, tx *sql.Tx, aggregateID string, afterVersion int64) ([]eventstore.Event, error)
+}
+
+// LoadInTx reads journal history through a caller-supplied transaction
+// rather than a fresh connection-pool query. This store's pool is capped
+// at exactly one connection, so a query against the pool while a governed
+// Apply transaction holds that one connection open would deadlock, not
+// merely race — a StepDriver computing the next journal Sequence inside
+// its own transaction (ADR-088 §13.3) MUST use LoadInTx, never Load,
+// while that transaction is open.
+func (j *Journal) LoadInTx(ctx context.Context, tx *sql.Tx) ([]contracts.LifecycleTransitionJournal, error) {
+	if j == nil || j.store == nil {
+		return nil, errors.New("lifecycle journal is required")
+	}
+	txStore, ok := j.store.(TxCapableEventStore)
+	if !ok {
+		return nil, errors.New("lifecycle journal store does not support tx-scoped reads")
+	}
+	events, err := txStore.LoadAggregateInTx(ctx, tx, lifecycleAggregate(j.installation), 0)
+	if err != nil {
+		return nil, err
+	}
+	return j.decodeHistory(events)
+}
+
+func (j *Journal) decodeHistory(events []eventstore.Event) ([]contracts.LifecycleTransitionJournal, error) {
 	out := make([]contracts.LifecycleTransitionJournal, 0, len(events))
 	for _, event := range events {
 		var entry contracts.LifecycleTransitionJournal
@@ -67,24 +105,78 @@ func (j *Journal) Append(ctx context.Context, entry contracts.LifecycleTransitio
 	if j == nil || j.store == nil {
 		return errors.New("lifecycle journal is required")
 	}
-	if err := entry.Validate(); err != nil {
-		return err
-	}
-	if entry.InstallationID != j.installation {
-		return errors.New("lifecycle journal installation mismatch")
-	}
 	history, err := j.Load(ctx)
 	if err != nil {
 		return err
 	}
-	if entry.Sequence != len(history)+1 {
-		return errors.New("lifecycle journal sequence is not append-only")
-	}
-	payload, err := json.Marshal(entry)
+	event, err := j.prepareAppend(entry, history)
 	if err != nil {
 		return err
 	}
-	_, err = j.store.Append(ctx, lifecycleAggregate(j.installation), int64(len(history)), []eventstore.Event{{
+	_, err = j.store.Append(ctx, lifecycleAggregate(j.installation), int64(len(history)), []eventstore.Event{event})
+	return err
+}
+
+// AppendInTx durably records entry inside the caller-supplied, already-open
+// transaction, atomically with whatever domain mutation the caller
+// performs in the same tx (ADR-088 §13.3). It enforces every invariant
+// Append does — append-only history (no update/delete path exists for
+// either), the expected-sequence check, transition legality via
+// entry.Validate() (including validLifecycleTransition), and exact
+// plan/step identity — but never opens or commits its own transaction:
+// the caller (a StepDriver's Apply) owns the transaction lifecycle
+// entirely, and must have performed any predicate/authority revalidation
+// and the domain mutation itself, through the same *sql.Tx, before calling
+// this. On success, the domain mutation and this outcome event commit or
+// roll back together as one atomic unit when the caller commits or aborts
+// tx — there is no window where one is durable and the other is not.
+func (j *Journal) AppendInTx(ctx context.Context, tx *sql.Tx, entry contracts.LifecycleTransitionJournal) error {
+	if j == nil || j.store == nil {
+		return errors.New("lifecycle journal is required")
+	}
+	txStore, ok := j.store.(TxCapableEventStore)
+	if !ok {
+		return errors.New("lifecycle journal store does not support tx-scoped append")
+	}
+	history, err := j.LoadInTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	event, err := j.prepareAppend(entry, history)
+	if err != nil {
+		return err
+	}
+	_, err = txStore.AppendInTx(ctx, tx, lifecycleAggregate(j.installation), int64(len(history)), []eventstore.Event{event})
+	return err
+}
+
+// prepareAppend performs the validation and event-shaping shared by
+// Append and AppendInTx, so the two entry points cannot drift and enforce
+// different invariants for the same durable record.
+func (j *Journal) prepareAppend(entry contracts.LifecycleTransitionJournal, history []contracts.LifecycleTransitionJournal) (eventstore.Event, error) {
+	if err := entry.Validate(); err != nil {
+		return eventstore.Event{}, err
+	}
+	if entry.InstallationID != j.installation {
+		return eventstore.Event{}, errors.New("lifecycle journal installation mismatch")
+	}
+	if entry.Sequence != len(history)+1 {
+		return eventstore.Event{}, errors.New("lifecycle journal sequence is not append-only")
+	}
+	var actualPrevious contracts.LifecycleTransitionState
+	for _, prior := range history {
+		if prior.PlanID == entry.PlanID && prior.StepID == entry.StepID {
+			actualPrevious = prior.State
+		}
+	}
+	if entry.PreviousState != actualPrevious {
+		return eventstore.Event{}, errors.New("lifecycle journal previous state does not match the exact plan step history")
+	}
+	payload, err := json.Marshal(entry)
+	if err != nil {
+		return eventstore.Event{}, err
+	}
+	return eventstore.Event{
 		ID:            "lifecycle-journal:" + entry.JournalID,
 		AggregateType: lifecycleJournalAggregateType,
 		Type:          "lifecycle.transition",
@@ -95,8 +187,7 @@ func (j *Journal) Append(ctx context.Context, entry contracts.LifecycleTransitio
 		Trust:         contracts.TrustPolicy,
 		Payload:       payload,
 		CreatedAt:     entry.RecordedAt,
-	}})
-	return err
+	}, nil
 }
 
 func lifecycleAggregate(installation string) string { return "lifecycle:" + installation }
@@ -114,6 +205,19 @@ type ApplyResult struct {
 	Outcome                 ApplyOutcome
 	ResultingManifestDigest string
 	RecoveryAction          string
+	// OutcomeAlreadyRecorded is set by a driver whose Apply already
+	// durably committed this exact outcome as a journal entry itself, via
+	// Journal.AppendInTx inside its own atomic transaction (ADR-088
+	// §13.3) — i.e. the domain mutation and the outcome journal entry
+	// already committed together, in one transaction, before Apply
+	// returned. When set, RunStep MUST NOT append a second outcome entry
+	// for this attempt: doing so would either violate the append-only
+	// sequence check (the driver's entry already advanced it) or, worse,
+	// attempt an illegal transition out of an already-recorded terminal
+	// state. A driver setting this MUST NOT also return a non-nil error
+	// from Apply — an error implies its transaction rolled back and
+	// nothing was recorded, which is the mutually exclusive case.
+	OutcomeAlreadyRecorded bool
 }
 
 type StepDriver interface {
@@ -122,6 +226,14 @@ type StepDriver interface {
 	// Idempotent reports whether retrying the exact step/precondition is safe.
 	Idempotent(contracts.LifecycleTransitionStep) bool
 	Apply(context.Context, contracts.LifecycleTransitionStep) (ApplyResult, error)
+}
+
+// RunRequestBoundDriver is implemented by drivers that own their outcome
+// journal append inside Apply's transaction. RunStep supplies the exact,
+// already-validated invocation identity instead of requiring those drivers to
+// trust a second set of caller-populated plan/evidence fields.
+type RunRequestBoundDriver interface {
+	BindRunRequest(context.Context, RunRequest, contracts.LifecycleTransitionStep, *contracts.AuthorityDecision) error
 }
 
 // AuthorityValidator is the existing authority system's lifecycle adapter.
@@ -169,6 +281,42 @@ func RunStep(ctx context.Context, journal *Journal, req RunRequest, driver StepD
 			return fmt.Errorf("snapshot: %w", err)
 		}
 	}
+	history, err := journal.Load(ctx)
+	if err != nil {
+		return err
+	}
+	current, currentPlanDigest, err := lastStepState(history, req.Plan.PlanID, req.StepID)
+	if err != nil {
+		return err
+	}
+	sequence := len(history) + 1
+	appendState := func(state contracts.LifecycleTransitionState, recovery string) error {
+		entry := journalEntry(req, step, sequence, state, current, recovery, nil)
+		if err := journal.Append(ctx, entry); err != nil {
+			return err
+		}
+		sequence++
+		current = state
+		return nil
+	}
+	if current != "" && currentPlanDigest != req.Plan.Digest {
+		if current == contracts.LifecycleApplying {
+			return appendState(contracts.LifecycleReconcileRequired, "plan-digest-mismatch")
+		}
+		return ErrPlanDigestMismatch
+	}
+	if current != "" {
+		prior, ok := lastExactStepEntry(history, req.Plan.PlanID, req.StepID)
+		if !ok || prior.PreconditionDigest != req.PreconditionDigest || prior.SnapshotDigest != req.SnapshotDigest || prior.ReadinessDigest != req.Plan.TargetManifestDigest {
+			return errors.New("lifecycle restart evidence identity does not match the exact prior attempt")
+		}
+	}
+	if current == contracts.LifecycleCommitted {
+		return nil
+	}
+	if current == contracts.LifecycleReconcileRequired || current == contracts.LifecycleRolledBack {
+		return fmt.Errorf("lifecycle step is terminal in state %s", current)
+	}
 	var authority *contracts.AuthorityDecision
 	if step.Authority.Required {
 		if err := exactAuthorityRequirement(step.Authority); err != nil {
@@ -199,33 +347,18 @@ func RunStep(ctx context.Context, journal *Journal, req RunRequest, driver StepD
 		}
 		authority = &decision
 	}
+	if bound, ok := driver.(RunRequestBoundDriver); ok {
+		if err := bound.BindRunRequest(ctx, req, step, authority); err != nil {
+			return fmt.Errorf("bind lifecycle run request: %w", err)
+		}
+	}
 	if err := driver.Preflight(ctx, step); err != nil {
 		if errors.Is(err, ErrDowngradeRefused) {
 			return err
 		}
 		return fmt.Errorf("lifecycle preflight: %w", err)
 	}
-	history, err := journal.Load(ctx)
-	if err != nil {
-		return err
-	}
-	current, err := lastStepState(history, req.Plan.PlanID, req.StepID)
-	if err != nil {
-		return err
-	}
-	if current == contracts.LifecycleCommitted {
-		return nil
-	}
-	if current == contracts.LifecycleReconcileRequired || current == contracts.LifecycleRolledBack {
-		return fmt.Errorf("lifecycle step is terminal in state %s", current)
-	}
-	if current == contracts.LifecycleFailedRecoverable {
-		if !req.RetryFailedRecoverable || !driver.Idempotent(step) {
-			return ErrRetryNotSafe
-		}
-	}
-	sequence := len(history) + 1
-	appendState := func(state contracts.LifecycleTransitionState, recovery string) error {
+	appendState = func(state contracts.LifecycleTransitionState, recovery string) error {
 		entry := journalEntry(req, step, sequence, state, current, recovery, authority)
 		if err := journal.Append(ctx, entry); err != nil {
 			return err
@@ -233,6 +366,20 @@ func RunStep(ctx context.Context, journal *Journal, req RunRequest, driver StepD
 		sequence++
 		current = state
 		return nil
+	}
+	// Restart-safe identity binding: a non-empty prior state may only be
+	// resumed under the exact PlanDigest it was previously advanced
+	// under. A plan edited (or substituted) under the same PlanID/StepID
+	// must never silently resume against a stale/different step
+	// definition. Discovered before applying was ever entered for this
+	// step, the step simply never advances (no illegal state is
+	// entered). Discovered after applying was already durably entered by
+	// a prior attempt, the step is fenced through the one legal edge
+	// applying->reconcile_required, never resumed silently.
+	if current == contracts.LifecycleFailedRecoverable {
+		if !req.RetryFailedRecoverable || !driver.Idempotent(step) {
+			return ErrRetryNotSafe
+		}
 	}
 	if current == "" {
 		if err := appendState(contracts.LifecyclePlanned, ""); err != nil {
@@ -249,20 +396,60 @@ func RunStep(ctx context.Context, journal *Journal, req RunRequest, driver StepD
 			return err
 		}
 	}
+	// Applying is entered exactly once per attempt: a second entry into
+	// Applying is illegal (validLifecycleTransition has no Applying ->
+	// Applying edge) and would otherwise be indistinguishable from a
+	// second real attempt for journal-reading purposes. Resuming with
+	// current already at Applying therefore does not append another
+	// Applying entry; it re-attempts Apply directly, subject to the
+	// driver's own Idempotent contract, and transitions out of Applying
+	// through one of its four legal successors based on the fresh
+	// attempt's outcome via the unchanged switch below.
+	resumingApplying := current == contracts.LifecycleApplying
 	if current == contracts.LifecyclePrepared {
-		// A prepared state is already the retry boundary.
-	} else if current != contracts.LifecycleApplying {
+		if err := appendState(contracts.LifecycleApplying, ""); err != nil {
+			return err
+		}
+	} else if !resumingApplying {
 		return errors.New("lifecycle step is not at an apply boundary")
 	}
-	if err := appendState(contracts.LifecycleApplying, ""); err != nil {
-		return err
+	if resumingApplying && !driver.Idempotent(step) {
+		return ErrRetryNotSafe
 	}
 	result, applyErr := driver.Apply(ctx, step)
 	if applyErr != nil {
-		if errors.Is(applyErr, ErrAmbiguousApply) {
-			return appendState(contracts.LifecycleReconcileRequired, "reconcile")
+		if result.OutcomeAlreadyRecorded {
+			return errors.New("lifecycle apply reported an already-recorded outcome alongside an error")
 		}
-		return appendState(contracts.LifecycleFailedRecoverable, "retry-or-rollback")
+		return applyErr
+	}
+	if result.OutcomeAlreadyRecorded {
+		// The driver's own transaction already durably committed both the
+		// domain mutation and the corresponding lifecycle outcome journal
+		// entry together, in one commit (ADR-088 §13.3, via
+		// Journal.AppendInTx). RunStep must not append a second outcome
+		// entry for this attempt — doing so is both unnecessary (the
+		// outcome is already durable) and, for a Committed outcome,
+		// illegal (validLifecycleTransition has no Committed successor).
+		// The ResultingManifestDigest-vs-step.Target.Digest comparison
+		// that gates a Committed outcome for the non-atomic path below is
+		// therefore the driver's own responsibility here, performed
+		// against live observation before its own commit — RunStep
+		// cannot and must not re-check it post hoc against a mutation it
+		// no longer has an open transaction to inspect.
+		switch result.Outcome {
+		case ApplyCommitted, ApplyFailedRecoverable, ApplyReconcileRequired:
+			current = lifecycleStateFor(result.Outcome)
+			return nil
+		case ApplyRolledBack:
+			if !step.Reversible {
+				return errors.New("irreversible lifecycle step cannot roll back")
+			}
+			current = contracts.LifecycleRolledBack
+			return nil
+		default:
+			return fmt.Errorf("lifecycle apply reported an already-recorded but unrecognized outcome %q", result.Outcome)
+		}
 	}
 	switch result.Outcome {
 	case ApplyCommitted:
@@ -284,6 +471,54 @@ func RunStep(ctx context.Context, journal *Journal, req RunRequest, driver StepD
 	}
 }
 
+func lastExactStepEntry(history []contracts.LifecycleTransitionJournal, planID, stepID string) (contracts.LifecycleTransitionJournal, bool) {
+	var found contracts.LifecycleTransitionJournal
+	ok := false
+	for _, entry := range history {
+		if entry.PlanID == planID && entry.StepID == stepID {
+			found, ok = entry, true
+		}
+	}
+	return found, ok
+}
+
+// lifecycleStateFor maps an already-recorded ApplyCommitted/
+// ApplyFailedRecoverable/ApplyReconcileRequired outcome to the
+// LifecycleTransitionState it corresponds to, for updating RunStep's
+// in-memory understanding of current after a driver's own transaction has
+// already durably recorded the journal entry itself.
+func lifecycleStateFor(outcome ApplyOutcome) contracts.LifecycleTransitionState {
+	switch outcome {
+	case ApplyCommitted:
+		return contracts.LifecycleCommitted
+	case ApplyFailedRecoverable:
+		return contracts.LifecycleFailedRecoverable
+	case ApplyReconcileRequired:
+		return contracts.LifecycleReconcileRequired
+	default:
+		return ""
+	}
+}
+
+// NewApplyOutcomeJournalEntry constructs the LifecycleTransitionJournal
+// entry a StepDriver's Apply must append via Journal.AppendInTx when it
+// owns its own atomic outcome (ApplyResult.OutcomeAlreadyRecorded, ADR-088
+// §13.3). It mirrors the executor's own journalEntry field construction
+// exactly, so a driver-recorded outcome and an executor-recorded outcome
+// are indistinguishable in the journal's own shape. authority may be nil
+// when the step does not require authority binding.
+func NewApplyOutcomeJournalEntry(planID, planDigest, installationID, stepID string, sequence int, state, previous contracts.LifecycleTransitionState, preconditionDigest, snapshotDigest, readinessDigest, recovery string, now time.Time, authority *contracts.AuthorityDecision) contracts.LifecycleTransitionJournal {
+	entry := contracts.LifecycleTransitionJournal{JournalID: fmt.Sprintf("%s:%s:%d", planID, stepID, sequence), Version: "1", PlanID: planID, PlanDigest: planDigest, InstallationID: installationID, Sequence: sequence, StepID: stepID, PreviousState: previous, State: state, PreconditionDigest: preconditionDigest, SnapshotDigest: snapshotDigest, RecoveryAction: recovery, ReadinessDigest: readinessDigest, RecordedAt: now.UTC()}
+	if authority != nil {
+		entry.AuthorityRef = authority.AuthorityRef
+		entry.AuthorityVersion = authority.AuthorityVersion
+		entry.AuthorityDecisionRef = authority.DecisionRef
+		entry.AuthorityDecisionDigest, _ = authority.Digest()
+		entry.AuthorityGenerationDigest = authority.AuthorityGenerationDigest
+	}
+	return entry
+}
+
 func exactAuthorityRequirement(requirement contracts.LifecycleAuthorityRequirement) error {
 	if requirement.RequestRef == "" || requirement.RequestVersion == "" || requirement.RequestDigest == "" || requirement.DecisionRef == "" || requirement.DecisionVersion == "" || requirement.DecisionDigest == "" || requirement.AuthorityRef == "" || requirement.AuthorityVersion == "" || requirement.AuthorityGenerationDigest == "" {
 		return errors.New("authority-bound lifecycle execution requires exact request, decision, and generation bindings")
@@ -300,14 +535,36 @@ func findStep(plan contracts.LifecyclePlan, id string) (contracts.LifecycleTrans
 	return contracts.LifecycleTransitionStep{}, false
 }
 
-func lastStepState(history []contracts.LifecycleTransitionJournal, planID, stepID string) (contracts.LifecycleTransitionState, error) {
+// lastStepState returns the most recent journal state recorded for
+// (planID, stepID), together with the PlanDigest that entry was recorded
+// under. Callers resuming a non-empty state MUST verify that digest
+// against the plan they are about to run before treating the state as
+// resumable (see RunStep) — a plan edited under the same PlanID/StepID
+// must never silently resume against a stale step definition.
+func lastStepState(history []contracts.LifecycleTransitionJournal, planID, stepID string) (contracts.LifecycleTransitionState, string, error) {
 	var state contracts.LifecycleTransitionState
+	var planDigest string
 	for _, entry := range history {
 		if entry.PlanID == planID && entry.StepID == stepID {
 			state = entry.State
+			planDigest = entry.PlanDigest
 		}
 	}
-	return state, nil
+	return state, planDigest, nil
+}
+
+func nextStepJournalPosition(history []contracts.LifecycleTransitionJournal, planID, planDigest, stepID string) (contracts.LifecycleTransitionState, int, error) {
+	previous, observedPlanDigest, err := lastStepState(history, planID, stepID)
+	if err != nil {
+		return "", 0, err
+	}
+	if previous != contracts.LifecycleApplying {
+		return "", 0, fmt.Errorf("lifecycle outcome requires exact step in applying, got %q", previous)
+	}
+	if observedPlanDigest != planDigest {
+		return "", 0, ErrPlanDigestMismatch
+	}
+	return previous, len(history) + 1, nil
 }
 
 func journalEntry(req RunRequest, step contracts.LifecycleTransitionStep, sequence int, state, previous contracts.LifecycleTransitionState, recovery string, authority *contracts.AuthorityDecision) contracts.LifecycleTransitionJournal {

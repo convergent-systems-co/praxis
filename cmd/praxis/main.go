@@ -59,6 +59,8 @@ func run(args []string) error {
 		return runPublisherCommand(args[1:])
 	case "supervise":
 		return runSuperviseCommand(args[1:])
+	case "lifecycle-recover":
+		return runLifecycleRecoveryCommand(args[1:])
 	}
 	return runDynamicInvocation(context.Background(), args, os.Getenv)
 }

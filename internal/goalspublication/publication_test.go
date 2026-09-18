@@ -57,7 +57,16 @@ func put(t *testing.T, r goalstore.Repository, ns, id string, v any, at time.Tim
 	d := hash(b)
 	env, e := r.Crypto.Seal(context.Background(), r.KeyRef, r.Profile, b, state.SecureBlobAAD(ns, id, "1", d))
 	must(t, e)
-	must(t, r.Store.PutSecureBlob(context.Background(), state.SecureBlobRecord{Namespace: ns, ObjectID: id, ObjectVersion: "1", ObjectDigest: d, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: env, CreatedAt: at, ExpiresAt: expiry}))
+	record := state.SecureBlobRecord{Namespace: ns, ObjectID: id, ObjectVersion: "1", ObjectDigest: d, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: env, CreatedAt: at, ExpiresAt: expiry}
+	if ns == state.AuthorityGenerationNamespace {
+		generation, ok := v.(contracts.AuthorityGeneration)
+		if !ok {
+			t.Fatalf("authority generation fixture has type %T", v)
+		}
+		must(t, r.Store.PutAuthorityGeneration(context.Background(), state.AuthorityGenerationWrite{Generation: generation, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: at, ExpiresAt: expiry}))
+		return
+	}
+	must(t, r.Store.PutSecureBlob(context.Background(), record))
 }
 func fixture(t *testing.T) (goalstore.Repository, publicFixture, time.Time) {
 	t.Helper()

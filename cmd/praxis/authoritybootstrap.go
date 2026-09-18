@@ -57,19 +57,43 @@ func runAuthorityCommand(args []string) error {
 		return runPackageDeploymentIntentPreview(args[1:], os.Getenv, os.Stdout)
 	case "package-deploy-intent-request":
 		return runPackageDeploymentIntentRequest(args[1:], os.Getenv, os.Stdout)
+	case "root-successor-preview":
+		return runRootAuthoritySuccessionPreview(args[1:], os.Getenv, os.Stdout)
+	case "root-successor-proposal":
+		return runRootAuthoritySuccessionProposal(args[1:], os.Getenv, os.Stdout)
+	case "root-successor-review":
+		return runRootAuthoritySuccessionReview(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "root-successor-accept":
+		return runRootAuthoritySuccessionAccept(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "installation-repair-request":
+		return runInstallationRepairAuthorityRequest(args[1:], os.Getenv, os.Stdout)
+	case "installation-repair-approve":
+		return runInstallationRepairAuthorityApprove(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	default:
-		return errors.New("usage: praxis authority {bootstrap|delegate|request-inspect|model-preview|model-adopt|model-abandon|model-status|package-deploy-preview|package-deploy-proposal|package-deploy-review|package-deploy-request|package-deploy-intent-preview|package-deploy-intent-request|package-deploy-approve}")
+		return errors.New("usage: praxis authority {bootstrap|delegate|request-inspect|model-preview|model-adopt|model-abandon|model-status|package-deploy-preview|package-deploy-proposal|package-deploy-review|package-deploy-request|package-deploy-intent-preview|package-deploy-intent-request|package-deploy-approve|root-successor-preview|root-successor-proposal|root-successor-review|root-successor-accept|installation-repair-request|installation-repair-approve}")
 	}
 }
 
 func writeAuthorityHelp(output io.Writer) error {
-	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate|request-inspect> [options]\n\n"); err != nil {
+	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate|request-inspect|root-successor-preview|root-successor-proposal|root-successor-review|root-successor-accept|installation-repair-request|installation-repair-approve> [options]\n\n"); err != nil {
 		return err
 	}
 	if err := writeAuthorityBootstrapHelp(output); err != nil {
 		return err
 	}
-	return writeAuthorityDelegateHelp(output)
+	if err := writeAuthorityDelegateHelp(output); err != nil {
+		return err
+	}
+	_, err := io.WriteString(output, `
+Root succession and repair authority:
+  root-successor-preview       Derive the exact immutable root successor.
+  root-successor-proposal      Persist a system-produced exact proposal.
+  root-successor-review        Record independent authenticated human review.
+  root-successor-accept        Atomically supersede the root and persist lineage.
+  installation-repair-request Create one exact operation-scoped repair request.
+  installation-repair-approve Approve one exact durable repair request.
+`)
+	return err
 }
 
 func writeAuthorityDelegateHelp(output io.Writer) error {
@@ -108,10 +132,14 @@ func goalsRecoveryDelegationCheckStep(intent contracts.ActionIntent) (string, er
 	}
 	switch intent.Parameters["contract"] {
 	case contracts.GoalsFailedPublicationContract:
-		if intent.Operation != contracts.GoalsFailedPublicationOperation { return "", errors.New("unsupported or ambiguous Goals recovery contract") }
+		if intent.Operation != contracts.GoalsFailedPublicationOperation {
+			return "", errors.New("unsupported or ambiguous Goals recovery contract")
+		}
 		return "publish", nil
 	case contracts.GoalsFailedVerificationContract:
-		if intent.Operation != contracts.GoalsRecoveryOperation { return "", errors.New("unsupported or ambiguous Goals recovery contract") }
+		if intent.Operation != contracts.GoalsRecoveryOperation {
+			return "", errors.New("unsupported or ambiguous Goals recovery contract")
+		}
 		return "verify-draft", nil
 	case contracts.GoalsRecoveryContract, contracts.GoalsChainedRecoveryContract, contracts.GoalsOrderedRecoveryContract:
 		return "manifest", nil

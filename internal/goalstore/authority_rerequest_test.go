@@ -56,6 +56,16 @@ func TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges(t *te
 		if marshalErr != nil {
 			t.Fatal(marshalErr)
 		}
+		if item.namespace == authorityGenerationNamespace {
+			generation, ok := item.value.(contracts.AuthorityGeneration)
+			if !ok {
+				t.Fatalf("authority generation fixture has type %T", item.value)
+			}
+			if err := repo.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{Generation: generation, Crypto: repo.Crypto, KeyRef: repo.KeyRef, Profile: repo.Profile, Sensitivity: repo.Sensitivity, CreatedAt: item.created, ExpiresAt: item.expires}); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
 		if err := repo.putWorkPlanBlob(ctx, item.namespace, item.id, item.version, payload, item.created, item.expires); err != nil {
 			t.Fatal(err)
 		}

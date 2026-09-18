@@ -51,14 +51,9 @@ func BuildSigningPreview(ctx context.Context, store *state.Store, authority Exac
 	if auth.Generation.SubjectKeyDigest != "" && auth.Generation.SubjectKeyDigest != record.Generation.PublicKeyDigest {
 		return contracts.SigningPreview{}, errors.New("package.publish authority key does not match publisher generation")
 	}
-	var invocation contracts.InvocationContract
-	if len(built.Manifest.Invocations) != 1 {
-		return contracts.SigningPreview{}, errors.New("signing preview requires one canonical invocation")
-	}
-	invocation = built.Manifest.Invocations[0]
-	binding, ok := built.Manifest.ExecutableBinding(invocation.EntryPointID)
-	if !ok {
-		return contracts.SigningPreview{}, errors.New("signing preview requires executable binding")
+	invocation, binding, err := executableBoundInvocation(built.Manifest)
+	if err != nil {
+		return contracts.SigningPreview{}, err
 	}
 	contractDigest, err := canonicalDigest(invocation)
 	if err != nil {
@@ -95,6 +90,29 @@ func BuildSigningPreview(ctx context.Context, store *state.Store, authority Exac
 	}
 	preview.Digest = d
 	return preview, nil
+}
+
+// executableBoundInvocation selects the one invocation the package binds to
+// its plugin executable. A first-party package may expose further
+// invocations that the control plane dispatches natively; those carry no
+// executable binding and are bound into the signature through the manifest
+// digest, which covers every invocation contract. Exactly one executable
+// binding is required so the preview freezes one plugin, one executable, and
+// one runtime identity.
+func executableBoundInvocation(manifest packagecatalog.Manifest) (contracts.InvocationContract, contracts.ExecutableBinding, error) {
+	if len(manifest.Invocations) == 0 {
+		return contracts.InvocationContract{}, contracts.ExecutableBinding{}, errors.New("signing preview requires at least one invocation")
+	}
+	if len(manifest.ExecutableBindings) != 1 {
+		return contracts.InvocationContract{}, contracts.ExecutableBinding{}, errors.New("signing preview requires exactly one executable binding")
+	}
+	binding := manifest.ExecutableBindings[0]
+	for _, invocation := range manifest.Invocations {
+		if invocation.EntryPointID == binding.EntryPointID {
+			return invocation, binding, nil
+		}
+	}
+	return contracts.InvocationContract{}, contracts.ExecutableBinding{}, errors.New("signing preview requires the executable-bound invocation")
 }
 
 // signingPreviewAttemptID separates a signing attempt from the immutable

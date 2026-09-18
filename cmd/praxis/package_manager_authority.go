@@ -26,8 +26,8 @@ func packageManagerProposalCurrent(ctx context.Context, repo goalstore.Repositor
 		return errors.New("proposal is not the closed v3 package-deploy profile")
 	}
 	model, err := repo.LoadAuthorityModelState(ctx, now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelDeploymentVersion || model.ActiveDigest != contracts.AuthorityModelDeploymentDigest() {
-		return errors.New("package-deploy proposal requires adopted authority-model v3")
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelDeploymentVersion) {
+		return errors.New("package-deploy proposal requires an adopted authority model that retains v3 deployment semantics")
 	}
 	bootstrapDigest := p.BootstrapDigest
 	owner, err := contracts.InstallationOwnerPrincipal(bootstrapDigest)
@@ -85,10 +85,10 @@ func runPackageManagerAuthorityPreview(args []string, out io.Writer) error {
 		return err
 	}
 	model, err := repo.LoadAuthorityModelState(context.Background(), now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelDeploymentVersion {
-		return errors.New("package-deploy proposal requires adopted authority-model v3")
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelDeploymentVersion) {
+		return errors.New("package-deploy proposal requires an adopted authority model that retains v3 deployment semantics")
 	}
-	p := contracts.GovernedAuthorityProposal{ID: "package-manager-authority-proposal:" + root.Digest, Version: "1", Kind: contracts.GovernedAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: model.ActiveVersion, AuthorityModelDigest: model.ActiveDigest, Profile: contracts.DelegationProfilePackageDeploy, Capability: contracts.GovernedPackageDeploy, PrincipalID: contracts.PackageManagerPrincipalID, PrincipalKind: contracts.PackageManagerPrincipalKind, TargetKind: contracts.PackageManagerPrincipalKind, TargetIdentity: contracts.PackageManagerPrincipalID, TargetVersion: "1", TargetDigest: root.Digest, Scope: scope, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Reason: "governed installation-local package deployment", ExpiresAt: expires.UTC(), CreatedAt: now}
+	p := contracts.GovernedAuthorityProposal{ID: "package-manager-authority-proposal:" + root.Digest, Version: "1", Kind: contracts.GovernedAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelDeploymentVersion, AuthorityModelDigest: contracts.AuthorityModelDeploymentDigest(), Profile: contracts.DelegationProfilePackageDeploy, Capability: contracts.GovernedPackageDeploy, PrincipalID: contracts.PackageManagerPrincipalID, PrincipalKind: contracts.PackageManagerPrincipalKind, TargetKind: contracts.PackageManagerPrincipalKind, TargetIdentity: contracts.PackageManagerPrincipalID, TargetVersion: "1", TargetDigest: root.Digest, Scope: scope, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Reason: "governed installation-local package deployment", ExpiresAt: expires.UTC(), CreatedAt: now}
 	digest, err := p.Digest()
 	if err != nil {
 		return err

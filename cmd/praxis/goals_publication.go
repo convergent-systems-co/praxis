@@ -442,6 +442,17 @@ func checkGoalsPublicationAcquisition(ctx context.Context, release distribution.
 	}
 	defer db.Close()
 	execution := goalspublication.Execution{Repository: repo, Adapter: goalspublication.GitHub{}}
+	// The acquisition-lineage check binds the publishing installation to its
+	// own publication. An installation that holds no publication lineage is
+	// an ordinary consumer: the release is admitted only through trusted-key
+	// signature verification, exactly like any third-party package.
+	holds, err := execution.HoldsLocalLineage(ctx)
+	if err != nil {
+		return err
+	}
+	if !holds {
+		return nil
+	}
 	completion, err := execution.CheckAcquisition(ctx, release, artifact)
 	if err != nil {
 		return err

@@ -49,7 +49,7 @@ func runPublisherAuthorityProposalPreview(args []string, out io.Writer) error {
 		return err
 	}
 	model, err := repo.LoadAuthorityModelState(context.Background(), now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return errors.New("package.publish proposal requires authority-model v2")
 	}
 	publisherRecord, err := state.New(db).PublisherGeneration(context.Background(), *generationDigest)
@@ -179,7 +179,7 @@ func runPublisherAuthorityReview(args []string, out io.Writer) error {
 		return errors.New("proposal root is no longer current")
 	}
 	model, err := repo.LoadAuthorityModelState(context.Background(), time.Now().UTC())
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return errors.New("package.publish review requires authority-model v2")
 	}
 	if !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+current.Username) {
@@ -246,7 +246,7 @@ func runPublisherAuthorityRequestCanonical(args []string, getenv func(string) st
 		return errors.New("proposal root is no longer current")
 	}
 	model, err := repo.LoadAuthorityModelState(context.Background(), now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return errors.New("package.publish request requires authority-model v2")
 	}
 	if err := validatePublisherAuthorityProposalCurrent(context.Background(), repo, state.New(db), proposal, now); err != nil {
@@ -291,7 +291,7 @@ func validatePublisherAuthorityProposalCurrent(ctx context.Context, repo goalsto
 		return errors.New("proposal owner does not bind installation bootstrap")
 	}
 	model, err := repo.LoadAuthorityModelState(ctx, now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() || proposal.AuthorityModel != model.ActiveModel || proposal.AuthorityModelVersion != model.ActiveVersion || proposal.AuthorityModelDigest != model.ActiveDigest {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) || proposal.AuthorityModel != contracts.AuthorityModelID || proposal.AuthorityModelVersion != contracts.AuthorityModelSuccessorVersion || proposal.AuthorityModelDigest != contracts.AuthorityModelSuccessorDigest() {
 		return errors.New("proposal authority model is not current")
 	}
 	root, err := currentInstallationRoot(ctx, repo, owner, now)

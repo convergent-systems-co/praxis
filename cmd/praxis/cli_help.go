@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"sort"
 	"strings"
+
+	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 type cliHelpSpec struct {
@@ -96,6 +102,12 @@ var cliHelpCatalog = map[string]cliHelpSpec{
 	"publisher receipt":                                        {"usage: praxis publisher receipt --digest <provenance-digest>", "Inspect signing provenance without mutation.", "--digest <provenance-digest> is required."},
 }
 
+// lookupInstalledEntryPointHelp resolves help for an installed package entry
+// point from the same active invocation registry the dynamic dispatcher
+// resolves commands from. It is a variable so qualification can point it at
+// a fixture installation.
+var lookupInstalledEntryPointHelp = installedEntryPointHelpFromRegistry
+
 func dispatchCLIHelp(args []string, out io.Writer) (bool, error) {
 	path, requested := helpPath(args)
 	if !requested {
@@ -103,6 +115,14 @@ func dispatchCLIHelp(args []string, out io.Writer) (bool, error) {
 	}
 	key := strings.Join(path, " ")
 	spec, ok := cliHelpCatalog[key]
+	if ok && key == "" {
+		spec.options += installedEntryPointSummary()
+	}
+	if !ok && len(path) == 1 {
+		if installed, found := lookupInstalledEntryPointHelp(path[0]); found {
+			return true, writeCLIHelp(out, installed)
+		}
+	}
 	if !ok {
 		parent := path
 		for len(parent) > 0 {
@@ -147,4 +167,92 @@ func writeCLIHelp(out io.Writer, spec cliHelpSpec) error {
 	}
 	_, err := fmt.Fprintln(out, "\nOptions:\n  "+spec.options)
 	return err
+}
+
+// installedEntryPointHelpFromRegistry renders help for one installed entry
+// point (by alias or entry-point id) from the active invocation registry.
+// Discovery grants no execution authority: the contract is read from the
+// installation's durable registry, never from a manifest on disk.
+func installedEntryPointHelpFromRegistry(name string) (cliHelpSpec, bool) {
+	contracts, err := installedInvocationContracts()
+	if err != nil {
+		return cliHelpSpec{}, false
+	}
+	for _, contract := range contracts {
+		matched := contract.EntryPointID == name
+		for _, alias := range contract.Aliases {
+			if alias == name {
+				matched = true
+			}
+		}
+		if !matched {
+			continue
+		}
+		return invocationContractHelp(name, contract), true
+	}
+	return cliHelpSpec{}, false
+}
+
+func installedInvocationContracts() ([]contracts.InvocationContract, error) {
+	path := os.Getenv("PRAXIS_DB")
+	if path == "" {
+		return nil, errors.New("PRAXIS_DB is not set")
+	}
+	db, err := state.OpenSQLiteReadOnly(context.Background(), path)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	items, err := state.New(db).ActiveInvocations(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]contracts.InvocationContract, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.Contract)
+	}
+	return out, nil
+}
+
+func installedEntryPointSummary() string {
+	items, err := installedInvocationContracts()
+	if err != nil {
+		return "\n  Installed entry points: unavailable (" + err.Error() + ")"
+	}
+	aliases := make([]string, 0)
+	for _, contract := range items {
+		aliases = append(aliases, contract.Aliases...)
+	}
+	sort.Strings(aliases)
+	if len(aliases) == 0 {
+		return "\n  Installed entry points: none"
+	}
+	return "\n  Installed entry points: " + strings.Join(aliases, ", ")
+}
+
+func invocationContractHelp(name string, contract contracts.InvocationContract) cliHelpSpec {
+	var options strings.Builder
+	for _, option := range contract.Options {
+		options.WriteString("\n  --" + option.Name + " <" + option.Type + ">")
+		if option.Required {
+			options.WriteString(" (required)")
+		}
+		if option.Default != "" {
+			options.WriteString(" [default: " + option.Default + "]")
+		}
+		if option.Description != "" {
+			options.WriteString("  " + option.Description)
+		}
+	}
+	if options.Len() == 0 {
+		options.WriteString("\n  (none)")
+	}
+	description := fmt.Sprintf("Installed entry point %q of package %s@%s (graph %s@%s); aliases: %s.", contract.EntryPointID, contract.PackageID, contract.PackageVersion, contract.GraphID, contract.GraphVersion, strings.Join(contract.Aliases, ", "))
+	if len(contract.RequiredCapabilities) > 0 {
+		description += " Required capabilities: " + strings.Join(contract.RequiredCapabilities, ", ") + "."
+	}
+	if len(contract.RequiredEnforcement) > 0 {
+		description += " Required enforcement: " + strings.Join(contract.RequiredEnforcement, ", ") + "."
+	}
+	return cliHelpSpec{usage: "usage: praxis " + name + " [--option=value ...]", description: description, options: strings.TrimPrefix(options.String(), "\n  ")}
 }

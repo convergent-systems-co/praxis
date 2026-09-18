@@ -132,18 +132,15 @@ func (r Repository) AdoptAuthorityModel(ctx context.Context, adoption contracts.
 	if err != nil {
 		return "", err
 	}
-	gens, err := r.ListAuthorityGenerations(ctx, now)
+	// Bind the exact current canonical installation root, never the first
+	// root-shaped generation: after ADR-089/090 succession the superseded
+	// predecessor is retained as evidence and must not authorize adoption.
+	canonical, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
 	if err != nil {
 		return "", err
 	}
-	var root *contracts.AuthorityGeneration
-	for i := range gens {
-		if gens[i].ParentRef == "" && gens[i].Principal == owner {
-			root = &gens[i]
-			break
-		}
-	}
-	if root == nil || root.Ref != adoption.RootRef || root.Version != adoption.RootVersion || root.Digest != adoption.RootDigest || root.AuthorityModelVersion != contracts.AuthorityModelVersion || root.AuthorityModelDigest != contracts.AuthorityModelDigest() || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+	root := &canonical
+	if root.Principal != owner || root.Ref != adoption.RootRef || root.Version != adoption.RootVersion || root.Digest != adoption.RootDigest || root.AuthorityModelVersion != contracts.AuthorityModelVersion || root.AuthorityModelDigest != contracts.AuthorityModelDigest() || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
 		return "", errors.New("authenticated installation root does not match adoption preview")
 	}
 	current, err := r.LoadAuthorityModelState(ctx, now)
@@ -359,18 +356,15 @@ func (r Repository) AbandonAuthorityModelAdoption(ctx context.Context, adoptionD
 	if err != nil {
 		return "", err
 	}
-	gens, err := r.ListAuthorityGenerations(ctx, now)
+	// Bind the exact current canonical installation root, never the first
+	// root-shaped generation: after ADR-089/090 succession the superseded
+	// predecessor is retained as evidence and must not authorize adoption.
+	canonical, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
 	if err != nil {
 		return "", err
 	}
-	var root *contracts.AuthorityGeneration
-	for i := range gens {
-		if gens[i].ParentRef == "" && gens[i].Principal == owner {
-			root = &gens[i]
-			break
-		}
-	}
-	if root == nil || root.Ref != adoption.RootRef || root.Version != adoption.RootVersion || root.Digest != adoption.RootDigest || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+	root := &canonical
+	if root.Principal != owner || root.Ref != adoption.RootRef || root.Version != adoption.RootVersion || root.Digest != adoption.RootDigest || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
 		return "", errors.New("authenticated installation root does not match adoption")
 	}
 	current, err := r.LoadAuthorityModelState(ctx, now)

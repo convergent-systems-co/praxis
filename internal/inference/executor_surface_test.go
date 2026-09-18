@@ -31,7 +31,7 @@ func (a *surfaceAuthority) EvaluateRouteEligibility(_ context.Context, _ RouteRe
 
 func surfaceComposer(t *testing.T, authority EligibilityAuthority) *SurfaceEligibilityComposer {
 	t.Helper()
-	composer, err := NewSurfaceEligibilityComposer(authority)
+	composer, err := newSurfaceEligibilityComposer(authority)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +351,7 @@ func TestSurfaceCompositionDerivesOneGovernedEvaluatorLineage(t *testing.T) {
 	if _, err := selectExecutorSurfaceAt(context.Background(), request, surfaces, surfaceComposer(t, authority), surfaceDecisionTime); err == nil {
 		t.Fatal("surface composition accepted mixed evaluator authority lineages")
 	}
-	if _, err := NewSurfaceEligibilityComposer(nil); err == nil {
+	if _, err := newSurfaceEligibilityComposer(nil); err == nil {
 		t.Fatal("surface composer accepted a missing governed eligibility authority")
 	}
 }
@@ -382,15 +382,6 @@ func TestSurfaceCompositionEnforcesGovernedBudgetAndQuota(t *testing.T) {
 				t.Fatalf("governed %s denial was not enforced: %#v %v", test.name, decision, err)
 			}
 		})
-	}
-}
-
-func TestPublicSurfaceSelectionUsesCoreTime(t *testing.T) {
-	request := surfaceRequest(t, surfaceTarget(nil))
-	surface := executorSurface("surface-a", "subscription", contracts.TransportSubscriptionCLI, "interactive")
-	authority := authorizeSurfaces(t, request, []ExecutorSurface{surface})
-	if _, err := SelectExecutorSurface(context.Background(), request, []ExecutorSurface{surface}, surfaceComposer(t, authority)); err == nil {
-		t.Fatal("public selection accepted evidence valid only under a caller-controlled historical clock")
 	}
 }
 

@@ -108,7 +108,7 @@ type SurfaceEligibilityComposer struct {
 	authority EligibilityAuthority
 }
 
-func NewSurfaceEligibilityComposer(authority EligibilityAuthority) (*SurfaceEligibilityComposer, error) {
+func newSurfaceEligibilityComposer(authority EligibilityAuthority) (*SurfaceEligibilityComposer, error) {
 	if authority == nil {
 		return nil, errors.New("surface eligibility composition requires governed route eligibility authority")
 	}
@@ -156,10 +156,6 @@ func FreezeSurfaceRouteRequest(request SurfaceRouteRequest) (SurfaceRouteRequest
 	}
 	request.ID = inferenceDigest(request)
 	return request, nil
-}
-
-func SelectExecutorSurface(ctx context.Context, request SurfaceRouteRequest, surfaces []ExecutorSurface, composer *SurfaceEligibilityComposer) (SurfaceRoutingDecision, error) {
-	return selectExecutorSurfaceAt(ctx, request, surfaces, composer, time.Now().UTC())
 }
 
 // selectExecutorSurfaceAt is a non-authoritative deterministic test seam. The

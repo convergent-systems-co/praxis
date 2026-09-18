@@ -457,7 +457,7 @@ func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 // invocation identity, repository, and branch are operator intent and are
 // deliberately not invented here.
 func driveTemplate(baseline goals.GoalBaseline) map[string]any {
-	return map[string]any{"goal_id": baseline.ID, "goal_version": baseline.Version, "command": "praxis goal-drive --goal-id=" + baseline.ID + " --goal-version=" + baseline.Version + " --mode=supervised", "operator_supplies": []string{"--provider=<registered provider>", "--invocation-id=<durable invocation identity>", "--repo=<repository path>", "--branch=<exact branch>"}}
+	return map[string]any{"goal_id": baseline.ID, "goal_version": baseline.Version, "command": "praxis goal-drive --goal-id=" + baseline.ID + " --goal-version=" + baseline.Version + " --mode=supervised", "operator_supplies": []string{"--provider=<registered provider>", "--invocation-id=<durable invocation identity>", "--repo=<repository path>", "--branch=<exact branch>"}, "providers_with": "praxis providers", "available_providers": availableProviderIDs(os.Getenv)}
 }
 
 // lifecycleSelector is the documented public input for the derived lifecycle

@@ -44,6 +44,9 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	}
 	invocation, err := goaldrive.ParseInvocation(out.Options)
 	if err != nil {
+		if out.Options["provider"] == "" {
+			return fmt.Errorf("parse goal-drive invocation: %w (list valid identities with `praxis providers`)", err)
+		}
 		return fmt.Errorf("parse goal-drive invocation: %w", err)
 	}
 	if invocation.Input.Kind != "goal_id" {
@@ -275,6 +278,6 @@ func configuredWorker(invocation goaldrive.InvocationRequest, getenv func(string
 	case "claude", "claude-subscription":
 		return goaldrive.NewClaudeSubscriptionWorker(invocation.ProviderID, invocation.RepositoryPath, invocation.Model, activity)
 	default:
-		return nil, fmt.Errorf("%w: provider %q requires explicit PRAXIS_GOAL_WORKER_ARGV or a registered first-party subscription profile", errGoalDriveDispatchDependencies, invocation.ProviderID)
+		return nil, fmt.Errorf("%w: provider %q is not a registered provider; list valid identities with `praxis providers`", errGoalDriveDispatchDependencies, invocation.ProviderID)
 	}
 }

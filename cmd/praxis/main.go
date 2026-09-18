@@ -57,6 +57,8 @@ func run(args []string) error {
 		return runAuthorityCommand(args[1:])
 	case "publisher":
 		return runPublisherCommand(args[1:])
+	case "providers":
+		return runProvidersCommand(args[1:], os.Getenv, os.Stdout)
 	case "supervise":
 		return runSuperviseCommand(args[1:])
 	case "lifecycle-recover":

@@ -179,28 +179,72 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 	if err != nil {
 		return TurnRecord{}, err
 	}
-	derived, ok := worker.(RepositoryDerivedWorker)
-	if !ok || !derived.RepositoryResultIsControllerOwned() {
-		return c.invoke(ctx, req)
-	}
-	if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
-		return TurnRecord{}, err
-	}
-	result, workerErr := worker.Execute(ctx, c.workerRequest(req))
-	if workerErr != nil {
-		if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
+	if derived, ok := worker.(RepositoryDerivedWorker); ok && derived.RepositoryResultIsControllerOwned() {
+		if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
 			return TurnRecord{}, err
 		}
-	} else {
-		if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
-			return TurnRecord{}, err
+		result, workerErr := worker.Execute(ctx, c.workerRequest(req))
+		if workerErr != nil {
+			if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
+				return TurnRecord{}, err
+			}
+		} else {
+			if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
+				return TurnRecord{}, err
+			}
 		}
+		base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+		if workerErr != nil {
+			base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
+			base.EndHead = c.observedHead(ctx, repo)
+			return base, workerErr
+		}
+		return c.deriveRepositoryOutcome(ctx, req, repo, base, "")
 	}
-	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+	// A worker that reports its own outcome (the environment command worker)
+	// is still not the authority on the repository: the same inspection
+	// decides clean tree, progress, and declared validation, and its
+	// reported EndHead must be what the checkout shows.
+	record, workerErr := c.invoke(ctx, req)
 	if workerErr != nil {
-		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
-		return base, workerErr
+		if record.EndHead == "" {
+			record.EndHead = c.observedHead(ctx, repo)
+		}
+		return record, workerErr
 	}
+	if record.Outcome != OutcomeContinue && record.Outcome != OutcomeComplete {
+		return record, nil
+	}
+	claimed := record.EndHead
+	record.Progress = false
+	derived, err := c.deriveRepositoryOutcome(ctx, req, repo, record, record.Outcome)
+	if err != nil {
+		return derived, err
+	}
+	if claimed != "" && derived.EndHead != claimed {
+		derived.Outcome, derived.Progress = OutcomeBlocked, false
+		derived.Blocker = fmt.Sprintf("worker reported end head %s but the checkout is at %s; no checkpoint is valid", claimed, derived.EndHead)
+		return derived, errors.New(derived.Blocker)
+	}
+	return derived, nil
+}
+
+// observedHead reads the checkout HEAD after a failed worker so the BLOCKED
+// record names the consequence it left; it is best effort and never fails
+// the turn.
+func (c Controller) observedHead(ctx context.Context, repo RepositoryAdapter) string {
+	snapshot, err := repo.Snapshot(ctx)
+	if err != nil {
+		return ""
+	}
+	return snapshot.Head
+}
+
+// deriveRepositoryOutcome is the controller-owned checkpoint inspection:
+// the tree must be clean, HEAD must have moved from the turn's start, and
+// the repository's declared validation, if any, must pass. claimedOutcome
+// (CONTINUE or COMPLETE) is retained only when every predicate holds.
+func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest, repo RepositoryAdapter, base TurnRecord, claimedOutcome Outcome) (TurnRecord, error) {
 	if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "repository-checkpoint"}); err != nil {
 		return TurnRecord{}, err
 	}
@@ -244,6 +288,9 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 		}
 	}
 	base.Outcome = OutcomeContinue
+	if claimedOutcome == OutcomeComplete {
+		base.Outcome = OutcomeComplete
+	}
 	base.Progress = true
 	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
 	return base, nil

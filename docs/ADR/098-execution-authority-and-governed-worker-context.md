@@ -99,6 +99,12 @@ the worker never has to read outside the repository.
 | Declared validation (`.praxis/validate`, executable, repository-owned) | controller, after the clean progressing commit, before the checkpoint |
 | Checkpoint validity, publication (push), next-turn decision | controller policy only |
 
+This holds for every worker kind. The environment command worker still
+reports an outcome, but the controller inspects the checkout the same way
+(clean tree, HEAD moved, declared validation) and refuses a reported end
+HEAD the checkout does not show. When a worker fails, the BLOCKED record
+still carries the observed HEAD so its consequence can be bound later.
+
 A failed declared validation ends the turn BLOCKED; the local commit is
 retained as evidence and no checkpoint is recorded or published. A
 repository without a declared validator is validated by the existing
@@ -122,7 +128,7 @@ corrects with a further commit, or removes that work under the same
 contract. Publication then carries the evidence commit and the correction
 together. Recovery of an altered, foreign, or clean published checkout is
 refused; without a binding, a local-ahead checkout remains unsafe. `goals-lifecycle inspect` lists
-`recoverable_turns` with the exact `recover_template`, and goal-drive
+`blocked_turns` with the exact `recover_template` for each recoverable one, and goal-drive
 announces `goal-drive.turn_blocked_with_consequence` on stderr with the
 exact recovery command when a turn ends BLOCKED and the checkout is dirty;
 only the new invocation identity is operator intent.

@@ -53,7 +53,7 @@ func TestPrepareRepositoryRefusesDirtyRemoteAhead(t *testing.T) {
 func TestExecuteTurnWithRepositoryPublishesOnlyValidatedProgress(t *testing.T) {
 	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
 	controller := controllerFixture(worker)
-	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}}}
+	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}, {Clean: true, Relation: contracts.RelationLocalAhead, Head: "b"}}}
 	record, err := controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
 	if err != nil || record.EndHead != "b" || len(repo.publishes) != 1 || repo.publishes[0] != "b" {
 		t.Fatalf("checkpoint publication mismatch: %+v err=%v publishes=%v", record, err, repo.publishes)
@@ -66,6 +66,7 @@ func TestExecuteTurnWithRepositoryNoPushRetainsProgressWithoutPublication(t *tes
 	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}}}
 	req := turnRequest()
 	req.NoPush = true
+	repo.snapshots = append(repo.snapshots, RepositorySnapshot{Clean: true, Relation: contracts.RelationLocalAhead, Head: "b"})
 	record, err := controller.ExecuteTurnWithRepository(context.Background(), req, repo)
 	if err != nil || record.Outcome != OutcomeComplete || !record.Progress || record.CheckpointPublished || len(repo.publishes) != 0 {
 		t.Fatalf("no-push must retain validated local progress without publication: %+v err=%v publishes=%v", record, err, repo.publishes)
@@ -79,7 +80,7 @@ func TestExecuteTurnWithRepositoryNoPushRetainsProgressWithoutPublication(t *tes
 func TestExecuteTurnWithRepositoryDoesNotPersistCompletionBeforeFailedPublish(t *testing.T) {
 	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
 	controller := controllerFixture(worker)
-	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}}, pushErr: errors.New("remote verification failed")}
+	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}, {Clean: true, Relation: contracts.RelationLocalAhead, Head: "b"}}, pushErr: errors.New("remote verification failed")}
 	record, err := controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
 	if err == nil || record.Outcome != OutcomeBlocked {
 		t.Fatalf("failed publication must return blocked evidence: %+v err=%v", record, err)
@@ -87,5 +88,25 @@ func TestExecuteTurnWithRepositoryDoesNotPersistCompletionBeforeFailedPublish(t 
 	turns, loadErr := controller.Ledger.Load(context.Background(), "goal-1", "1")
 	if loadErr != nil || len(turns) != 1 || turns[0].Outcome != OutcomeBlocked {
 		t.Fatalf("failed publication must not persist completion: %+v err=%v", turns, loadErr)
+	}
+}
+
+// TestExecuteTurnWithRepositoryRefusesWorkerHeadClaimTheCheckoutDoesNotShow
+// proves a self-reporting worker cannot assert progress the repository does
+// not show: the controller inspects the checkout and blocks on a mismatch.
+func TestExecuteTurnWithRepositoryRefusesWorkerHeadClaimTheCheckoutDoesNotShow(t *testing.T) {
+	worker := &fakeWorker{result: WorkerResult{Outcome: OutcomeComplete, EndHead: "b", CheckpointValid: true}}
+	controller := controllerFixture(worker)
+	repo := &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}, {Clean: true, Relation: contracts.RelationLocalAhead, Head: "z"}}}
+	record, err := controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
+	if err == nil || record.Outcome != OutcomeBlocked || record.Progress || len(repo.publishes) != 0 || record.EndHead != "z" {
+		t.Fatalf("a head claim the checkout does not show must block without publication: %+v err=%v publishes=%v", record, err, repo.publishes)
+	}
+	dirty := &fakeWorker{result: WorkerResult{Outcome: OutcomeContinue, EndHead: "b", CheckpointValid: true}}
+	controller = controllerFixture(dirty)
+	repo = &fakeRepository{snapshots: []RepositorySnapshot{{Clean: true, Relation: contracts.RelationEqual, Head: "a"}, {Clean: false, Relation: contracts.RelationLocalAhead, Head: "b"}}}
+	record, err = controller.ExecuteTurnWithRepository(context.Background(), turnRequest(), repo)
+	if err == nil || record.Outcome != OutcomeBlocked || record.Progress || len(repo.publishes) != 0 {
+		t.Fatalf("a dirty checkout must block regardless of the worker's claim: %+v err=%v", record, err)
 	}
 }

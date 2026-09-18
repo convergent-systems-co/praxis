@@ -131,6 +131,14 @@ func schema11InstallationFixture(t *testing.T, ctx context.Context, schema int) 
 	historicalDatabaseAt(t, ctx, dbPath, schema)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	record := praxiscrypto.BootstrapRecord{Version: praxiscrypto.BootstrapRecordVersion, ProviderID: "fixture", KeyID: "fixture-key", KeyVersion: "1", KeyMaterialHash: fixtureDigest('1'), Owner: "fixture", Purpose: "schema-11 migration qualification", Profile: contracts.CryptoClassicalCompatible, SecurityLevel: praxiscrypto.SecurityPortableUserControlled, Platform: "test", Architecture: "test", CreatedAt: now.Add(-24 * time.Hour)}
+	bootstrapPath := filepath.Join(dir, "bootstrap.json")
+	if err := praxiscrypto.SaveBootstrapRecord(bootstrapPath, record); err != nil {
+		t.Fatal(err)
+	}
+	record, err := praxiscrypto.LoadBootstrapRecord(bootstrapPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	bootstrapDigest, err := record.Digest()
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +168,7 @@ func schema11InstallationFixture(t *testing.T, ctx context.Context, schema int) 
 		return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: keyRef, Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential, InstallationDigest: bootstrapDigest}, db, nil
 	}
 	t.Cleanup(func() { openGovernedRepository = originalWrite })
-	env := map[string]string{"PRAXIS_DB": dbPath, "PRAXIS_BOOTSTRAP_RECORD": filepath.Join(dir, "bootstrap.json")}
+	env := map[string]string{"PRAXIS_DB": dbPath, "PRAXIS_BOOTSTRAP_RECORD": bootstrapPath}
 	return schema11Installation{dbPath: dbPath, bootstrapDigest: bootstrapDigest, rootDigest: rootDigest, getenv: func(key string) string { return env[key] }, service: service, record: record, osUser: current.Username}
 }
 

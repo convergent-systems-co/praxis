@@ -4,7 +4,7 @@ import "github.com/convergent-systems-co/praxis/pkg/contracts"
 
 func Invocation() contracts.InvocationContract {
 	return contracts.InvocationContract{
-		Version: "1", PackageID: "praxis.package.goals", PackageVersion: "0.1.0",
+		Version: "1", PackageID: "praxis.package.goals", PackageVersion: PackageVersion,
 		GraphID: "praxis.package.goals.default", GraphVersion: "0.3.0", EntryPointID: "goals",
 		Aliases: []string{"goals", "design"},
 		Options: []contracts.InvocationOption{
@@ -22,7 +22,7 @@ func Invocation() contracts.InvocationContract {
 // invocation registry; discovery grants no execution authority.
 func GoalDriveInvocation() contracts.InvocationContract {
 	return contracts.InvocationContract{
-		Version: "1", PackageID: "praxis.package.goals", PackageVersion: "0.1.0",
+		Version: "1", PackageID: "praxis.package.goals", PackageVersion: PackageVersion,
 		GraphID: "praxis.package.goals.default", GraphVersion: "0.3.0", EntryPointID: "goal-drive",
 		Aliases: []string{"goal-drive"},
 		Options: []contracts.InvocationOption{
@@ -52,7 +52,7 @@ func GoalDriveInvocation() contracts.InvocationContract {
 // it does not know these operations or their payload semantics.
 func LifecycleInvocation() contracts.InvocationContract {
 	return contracts.InvocationContract{
-		Version: "1", PackageID: "praxis.package.goals", PackageVersion: "0.1.0",
+		Version: "1", PackageID: "praxis.package.goals", PackageVersion: PackageVersion,
 		GraphID: "praxis.package.goals.default", GraphVersion: "0.3.0", EntryPointID: "goals-lifecycle",
 		Aliases: []string{"goals-lifecycle"},
 		Options: []contracts.InvocationOption{

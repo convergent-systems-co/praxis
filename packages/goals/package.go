@@ -13,7 +13,7 @@ import (
 
 const (
 	PackageID                 = "praxis.package.goals"
-	PackageVersion            = "0.1.0"
+	PackageVersion            = "0.1.1"
 	GoalsPluginID             = "praxis.package.goals"
 	GoalsPluginVersion        = "0.1.0"
 	GoalsExecutableID         = "praxis.package.goals.executable"
@@ -39,7 +39,7 @@ func PackageBuildInput(executable []byte) (packagecatalog.PackageBuildInput, err
 	}
 	definitionDigest := bytesDigest(definitionBytes)
 	binding := executableBinding(definitionDigest, executableDigest, runtimeDigest)
-	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: PackageID, Version: PackageVersion, Publisher: "publisher:praxis-first-party", Invocations: []contracts.InvocationContract{LifecycleInvocation()}, ExecutableBindings: []contracts.ExecutableBinding{binding}, Contents: []packagecatalog.ContentRef{
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: PackageID, Version: PackageVersion, Publisher: "publisher:praxis-first-party", Invocations: []contracts.InvocationContract{LifecycleInvocation(), GoalDriveInvocation()}, ExecutableBindings: []contracts.ExecutableBinding{binding}, Contents: []packagecatalog.ContentRef{
 		{Kind: packagecatalog.ContentPlugin, ID: GoalsPluginID, Version: GoalsPluginVersion, Digest: definitionDigest, Artifact: "plugins/praxis-goals.json"},
 		{Kind: packagecatalog.ContentPluginExecutable, ID: GoalsExecutableID, Version: GoalsExecutableVersion, Digest: executableDigest, Artifact: GoalsExecutablePath},
 	}}

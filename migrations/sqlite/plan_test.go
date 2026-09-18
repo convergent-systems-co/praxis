@@ -46,14 +46,14 @@ func TestPlanDiscoversExactV12ToV18AndAppliesOnlyBoundPlan(t *testing.T) {
 	db := v12Database(t)
 	defer db.Close()
 	status, err := StatusOf(ctx, db)
-	if err != nil || status.CurrentSchema != 12 || len(status.Pending) != 6 {
+	if err != nil || status.CurrentSchema != 12 || len(status.Pending) != 7 {
 		t.Fatalf("unexpected status: %+v %v", status, err)
 	}
 	plan, err := NewPlan(ctx, db, "sha256:bootstrap", "installation-owner:bootstrap", "authority:root", "sha256:root", time.Unix(1700000000, 0).UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := plan.Verify(); err != nil || plan.TargetSchema != 18 || len(plan.Migrations) != 6 {
+	if err := plan.Verify(); err != nil || plan.TargetSchema != 19 || len(plan.Migrations) != 7 {
 		t.Fatalf("invalid exact plan: %+v %v", plan, err)
 	}
 	snapshot := filepath.Join(t.TempDir(), "migration.snapshot")
@@ -65,7 +65,7 @@ func TestPlanDiscoversExactV12ToV18AndAppliesOnlyBoundPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	status, err = StatusOf(ctx, db)
-	if err != nil || status.CurrentSchema != 18 || len(status.Pending) != 0 {
+	if err != nil || status.CurrentSchema != 19 || len(status.Pending) != 0 {
 		t.Fatalf("migration did not reach exact target: %+v %v", status, err)
 	}
 	replayed, err := ApplyPlan(ctx, db, plan, snapshot, plan.OwnerID, time.Unix(1700000002, 0).UTC())

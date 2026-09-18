@@ -67,7 +67,7 @@ func TestSchema11HistoricalRootReachesCurrentAuthorityLifecycle(t *testing.T) {
 	rootRef := "installation-governance:" + fixture.bootstrapDigest
 	r0ObjectDigest, r0Bytes := schema11RootRecord(t, ctx, fixture.dbPath, rootRef)
 
-	// 1-3: schema 11 with R0, preview, full governed migration to 18.
+	// 1-3: schema 11 with R0, preview, full governed migration to 19.
 	previewPath := filepath.Join(dir, "migration-preview.json")
 	var previewOut bytes.Buffer
 	if err := runMigrationPreview([]string{"--output", previewPath}, fixture.getenv, &previewOut); err != nil {
@@ -89,7 +89,7 @@ func TestSchema11HistoricalRootReachesCurrentAuthorityLifecycle(t *testing.T) {
 		}
 		status, err := sqlite.StatusOf(ctx, db)
 		db.Close()
-		if err != nil || status.CurrentSchema != 18 || len(status.Pending) != 0 {
+		if err != nil || status.CurrentSchema != 19 || len(status.Pending) != 0 {
 			t.Fatalf("migration incomplete: %+v %v", status, err)
 		}
 	}

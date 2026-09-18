@@ -157,7 +157,7 @@ func (l *IssuedRouteLedger) PrepareDispatch(ctx context.Context, binding inferen
 	if selected == nil {
 		return inference.DispatchCandidate{}, errors.New("issued dispatch selected surface is absent")
 	}
-	return inference.DispatchCandidate{RouteRecordID: matched.ID, RequestID: request.ID, SurfaceID: selected.ID, ExecutorID: selected.ExecutorID, ProviderID: selected.ProviderID}, nil
+	return inference.DispatchCandidate{RouteRecordID: matched.ID, RequestID: request.ID, SurfaceID: selected.ID, ExecutorID: selected.ExecutorID, ProviderID: selected.ProviderID, WorkContext: request.RouteRequest.Context, TargetScope: request.Target.Target.Scope}, nil
 }
 
 func (l *IssuedRouteLedger) UnifiedRoutes(ctx context.Context, subject string) ([]inference.UnifiedRouteRecord, error) {

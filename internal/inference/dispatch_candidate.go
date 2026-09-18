@@ -21,4 +21,6 @@ type DispatchCandidate struct {
 	SurfaceID     string
 	ExecutorID    string
 	ProviderID    string
+	WorkContext   string
+	TargetScope   string
 }

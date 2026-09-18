@@ -43,7 +43,7 @@ func TestIssuedRoutedInferenceStopsAtSeparateDispatchAuthorityBoundary(t *testin
 	run := &kernel.RunExecution{RunID: "run:weather"}
 	agent := ExecutionContext{AgentID: "agent:weather", GenerationID: "7", GoalRef: "goal:weather"}
 	want := inference.DispatchBinding{RequestID: "request:weather", SubjectAgentID: agent.AgentID, AgentGeneration: agent.GenerationID, RunID: run.RunID, GraphID: graph.ID, GraphVersion: graph.Version, NodeID: node.ID, GoalRef: agent.GoalRef}
-	candidate := inference.DispatchCandidate{RouteRecordID: "route:weather", RequestID: want.RequestID, SurfaceID: "surface:local", ExecutorID: "executor:local", ProviderID: "provider:local"}
+	candidate := inference.DispatchCandidate{RouteRecordID: "route:weather", RequestID: want.RequestID, SurfaceID: "surface:local", ExecutorID: "executor:local", ProviderID: "provider:local", WorkContext: "develop:weather-dashboard", TargetScope: "develop:weather-dashboard"}
 	calls := 0
 	executor := IssuedRoutedAgentExecutor{Requests: fixedIssuedRequestID(want.RequestID), Routes: fixedDispatchCandidate{want: want, candidate: candidate}, Executors: map[string]RoutedInferenceExecutor{"executor:local": neverDispatchedExecutor{calls: &calls}}}
 	_, err := executor.ExecuteAgentNode(context.Background(), graph, node, run, agent)

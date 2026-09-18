@@ -164,7 +164,7 @@ func schema11InstallationFixture(t *testing.T, ctx context.Context, schema int) 
 	return schema11Installation{dbPath: dbPath, bootstrapDigest: bootstrapDigest, rootDigest: rootDigest, getenv: func(key string) string { return env[key] }, service: service, record: record, osUser: current.Username}
 }
 
-func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
+func TestGovernedMigrationFromRealSchema11RootReaches19(t *testing.T) {
 	ctx := context.Background()
 	fixture := schema11InstallationFixture(t, ctx, 11)
 	previewPath := filepath.Join(filepath.Dir(fixture.dbPath), "preview.json")
@@ -182,7 +182,7 @@ func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := preview.Plan
-	if plan.CurrentSchema != 11 || plan.TargetSchema != 18 || len(plan.Migrations) != 7 || plan.Migrations[0].Name != "0012_invocation_runtime_bindings.sql" || plan.Migrations[6].Name != "0018_authority_model_active_projection.sql" {
+	if plan.CurrentSchema != 11 || plan.TargetSchema != 19 || len(plan.Migrations) != 8 || plan.Migrations[0].Name != "0012_invocation_runtime_bindings.sql" || plan.Migrations[6].Name != "0018_authority_model_active_projection.sql" || plan.Migrations[7].Name != "0019_exact_dispatch_grants.sql" {
 		t.Fatalf("unexpected plan: %+v", plan)
 	}
 	if plan.RootDigest != fixture.rootDigest || plan.InstallationRoot != "installation-governance:"+fixture.bootstrapDigest || plan.BootstrapDigest != fixture.bootstrapDigest {
@@ -197,10 +197,10 @@ func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
 	}
 	var executeOut bytes.Buffer
 	if err := runMigrationExecuteWithTerminal([]string{"--preview-file", previewPath}, fixture.getenv, strings.NewReader("MIGRATE "+plan.PlanDigest+"\n"), &executeOut, true); err != nil {
-		t.Fatalf("governed 11->18 execution failed: %v\n%s", err, executeOut.String())
+		t.Fatalf("governed 11->19 execution failed: %v\n%s", err, executeOut.String())
 	}
-	if !strings.Contains(executeOut.String(), `"state": "committed"`) || !strings.Contains(executeOut.String(), "0018_authority_model_active_projection.sql") {
-		t.Fatalf("journal must commit through 0018: %s", executeOut.String())
+	if !strings.Contains(executeOut.String(), `"state": "committed"`) || !strings.Contains(executeOut.String(), "0019_exact_dispatch_grants.sql") {
+		t.Fatalf("journal must commit through 0019: %s", executeOut.String())
 	}
 
 	db, err := state.OpenSQLiteReadOnly(ctx, fixture.dbPath)
@@ -209,8 +209,8 @@ func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
 	}
 	defer db.Close()
 	status, err := sqlite.StatusOf(ctx, db)
-	if err != nil || status.CurrentSchema != 18 || len(status.Pending) != 0 {
-		t.Fatalf("installation did not reach schema 18: %+v %v", status, err)
+	if err != nil || status.CurrentSchema != 19 || len(status.Pending) != 0 {
+		t.Fatalf("installation did not reach schema 19: %+v %v", status, err)
 	}
 	var pointer string
 	if err := db.QueryRowContext(ctx, `SELECT object_id FROM authority_model_active WHERE singleton_id='authority-model-current'`).Scan(&pointer); err != nil || pointer != "active-authority-model" {
@@ -220,6 +220,10 @@ func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
 	if err != nil || journal.State != "committed" {
 		t.Fatalf("journal not committed: %+v %v", journal, err)
 	}
+	var grants int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM exact_dispatch_grants`).Scan(&grants); err != nil || grants != 0 {
+		t.Fatalf("0019 exact-dispatch grants table missing after migration: %v", err)
+	}
 
 	var statusOut bytes.Buffer
 	if err := runAuthorityModelStatus(nil, fixture.getenv, &statusOut); err != nil || !strings.Contains(statusOut.String(), "implicit-v1") {
@@ -228,7 +232,7 @@ func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {
 	// The migration ceremony is complete. Bringing the schema-11 enrollment
 	// root itself forward to the current root semantics (governance scope,
 	// capabilities, authority model) is a separate governed ceremony; until
-	// then current-semantics root resolution reports no root at schema 18.
+	// then current-semantics root resolution reports no root at schema 19.
 	if err := runMigrationPreview(nil, fixture.getenv, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "found 0") {
 		t.Fatalf("post-migration preview must fail closed on current root semantics, not on schema state: %v", err)
 	}

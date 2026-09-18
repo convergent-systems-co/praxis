@@ -1,0 +1,671 @@
+=== RUN   TestInstantiateDefinitionCreatesIndependentLocalAgents
+--- PASS: TestInstantiateDefinitionCreatesIndependentLocalAgents (0.00s)
+=== RUN   TestInstantiateDefinitionRejectsNonAgentContent
+--- PASS: TestInstantiateDefinitionRejectsNonAgentContent (0.00s)
+=== RUN   TestLaterGenerationRequiresParent
+--- PASS: TestLaterGenerationRequiresParent (0.00s)
+=== RUN   TestFirstGenerationCannotClaimParent
+--- PASS: TestFirstGenerationCannotClaimParent (0.00s)
+=== RUN   TestIssuedRoutedInferenceStopsAtSeparateDispatchAuthorityBoundary
+--- PASS: TestIssuedRoutedInferenceStopsAtSeparateDispatchAuthorityBoundary (0.00s)
+=== RUN   TestIssuedRoutedInferenceRejectsFabricatedOrMismatchedCandidateBeforeDispatch
+--- PASS: TestIssuedRoutedInferenceRejectsFabricatedOrMismatchedCandidateBeforeDispatch (0.00s)
+=== RUN   TestHighConfidenceUntrustedMemoryStaysUntrusted
+--- PASS: TestHighConfidenceUntrustedMemoryStaysUntrusted (0.00s)
+=== RUN   TestSupersededMemoryIsNotActive
+--- PASS: TestSupersededMemoryIsNotActive (0.00s)
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research
+--- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart (0.04s)
+    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery (0.02s)
+    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research (0.02s)
+=== RUN   TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection
+--- PASS: TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection (0.00s)
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research
+--- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains (0.03s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery (0.02s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research (0.02s)
+=== RUN   TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement
+--- PASS: TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement (0.01s)
+=== RUN   TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart
+--- PASS: TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart (0.01s)
+=== RUN   TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware
+--- PASS: TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware (0.01s)
+=== RUN   TestOperationalGraphFailsClosedWhenAgentRoleIsMissing
+--- PASS: TestOperationalGraphFailsClosedWhenAgentRoleIsMissing (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/agent	0.454s
+=== RUN   TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart
+--- PASS: TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart (0.00s)
+=== RUN   TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle
+--- PASS: TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle (0.00s)
+=== RUN   TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate
+--- PASS: TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate (0.00s)
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/software-delivery
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/research
+--- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart (0.00s)
+    --- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/software-delivery (0.00s)
+    --- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/research (0.00s)
+=== RUN   TestCandidateCannotSkipEvaluationToStabilized
+--- PASS: TestCandidateCannotSkipEvaluationToStabilized (0.00s)
+=== RUN   TestPromotedCandidateCanDemote
+--- PASS: TestPromotedCandidateCanDemote (0.00s)
+=== RUN   TestCandidateRequiresRollbackPlan
+--- PASS: TestCandidateRequiresRollbackPlan (0.00s)
+=== RUN   TestCandidateFromConformanceRequiresFrozenCriticalFailure
+--- PASS: TestCandidateFromConformanceRequiresFrozenCriticalFailure (0.00s)
+=== RUN   TestDuplicateDerivedEvidenceCountsOnce
+--- PASS: TestDuplicateDerivedEvidenceCountsOnce (0.00s)
+=== RUN   TestDistinctRootsMeetThreshold
+--- PASS: TestDistinctRootsMeetThreshold (0.00s)
+=== RUN   TestBehaviorRegistryPersistsAdvisoryInversionReviewAcrossRestart
+--- PASS: TestBehaviorRegistryPersistsAdvisoryInversionReviewAcrossRestart (0.00s)
+=== RUN   TestBehaviorRegistryRejectsOrphanAndConflictingInversionReviews
+--- PASS: TestBehaviorRegistryRejectsOrphanAndConflictingInversionReviews (0.00s)
+=== RUN   TestBehaviorRegistryRejectsTamperedPersistedInversionReview
+--- PASS: TestBehaviorRegistryRejectsTamperedPersistedInversionReview (0.00s)
+=== RUN   TestReviewCandidateOwnershipPreservesBlindBoundary
+--- PASS: TestReviewCandidateOwnershipPreservesBlindBoundary (0.00s)
+=== RUN   TestPolicyViolationBlocksPromotionDespitePerformanceGain
+--- PASS: TestPolicyViolationBlocksPromotionDespitePerformanceGain (0.00s)
+=== RUN   TestPromotionRequiresIndependentEvidence
+--- PASS: TestPromotionRequiresIndependentEvidence (0.00s)
+=== RUN   TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport
+--- PASS: TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport (0.00s)
+=== RUN   TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer
+--- PASS: TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer (0.00s)
+=== RUN   TestFailedCandidateRemainsRegisteredEvidence
+--- PASS: TestFailedCandidateRemainsRegisteredEvidence (0.00s)
+=== RUN   TestGenerationPromotionAndRollbackSurviveRestart
+--- PASS: TestGenerationPromotionAndRollbackSurviveRestart (0.00s)
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research
+--- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains (0.03s)
+    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery (0.02s)
+    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/learning	0.743s
+=== RUN   TestPreferenceReplayRejectsAuthorityActorMismatch
+--- PASS: TestPreferenceReplayRejectsAuthorityActorMismatch (0.00s)
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/software-delivery
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/research
+--- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains (0.03s)
+    --- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/software-delivery (0.02s)
+    --- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/research (0.01s)
+=== RUN   TestProfileDistancePrefersCloserBehavior
+--- PASS: TestProfileDistancePrefersCloserBehavior (0.00s)
+=== RUN   TestProfileEvidenceClassMustBeKnown
+--- PASS: TestProfileEvidenceClassMustBeKnown (0.00s)
+=== RUN   TestExplicitUserOutranksHighConfidenceLearned
+--- PASS: TestExplicitUserOutranksHighConfidenceLearned (0.00s)
+=== RUN   TestNarrowerScopeWinsWithinSameAuthority
+--- PASS: TestNarrowerScopeWinsWithinSameAuthority (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/preference	1.148s
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research
+--- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart (0.03s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery (0.02s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically
+--- PASS: TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything
+--- PASS: TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseRejectsRevokedLease
+--- PASS: TestCommitTransitionAuthorizedLeaseRejectsRevokedLease (0.01s)
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package
+--- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.02s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package (0.01s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package (0.01s)
+=== RUN   TestResourceHandoffDenialDoesNotMutateRun
+--- PASS: TestResourceHandoffDenialDoesNotMutateRun (0.00s)
+=== RUN   TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart
+--- PASS: TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart (0.01s)
+=== RUN   TestSQLiteEventStoreAppendLoadAndConflict
+--- PASS: TestSQLiteEventStoreAppendLoadAndConflict (0.01s)
+=== RUN   TestSQLiteEventStoreRejectsCommandIDMetadataHijack
+--- PASS: TestSQLiteEventStoreRejectsCommandIDMetadataHijack (0.01s)
+=== RUN   TestExactDispatchAuthorityConsumesBothGrantsAndCannotReplay
+--- PASS: TestExactDispatchAuthorityConsumesBothGrantsAndCannotReplay (0.01s)
+=== RUN   TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry
+=== RUN   TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry/identity
+=== RUN   TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry/revoked
+--- PASS: TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry (0.02s)
+    --- PASS: TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry/identity (0.01s)
+    --- PASS: TestExactDispatchAuthorityRejectsMutationRevocationAndExpiry/revoked (0.01s)
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research
+--- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart (0.02s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery (0.01s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research (0.01s)
+=== RUN   TestResolvedPluginLaunchSpecBindsExactVerifiedPackageBytes
+--- PASS: TestResolvedPluginLaunchSpecBindsExactVerifiedPackageBytes (0.00s)
+=== RUN   TestActivatedPackageBindsSupervisorLaunchAndFreshRestartHandshake
+--- PASS: TestActivatedPackageBindsSupervisorLaunchAndFreshRestartHandshake (0.01s)
+=== RUN   TestPackageActivationPublishesAndRemovesAliasesAndContents
+--- PASS: TestPackageActivationPublishesAndRemovesAliasesAndContents (0.01s)
+=== RUN   TestVerifiedGraphArtifactSurvivesActivationAndRestart
+--- PASS: TestVerifiedGraphArtifactSurvivesActivationAndRestart (0.01s)
+=== RUN   TestVerifiedDependencyClosureDeploysAtomicallyAndSurvivesRestart
+--- PASS: TestVerifiedDependencyClosureDeploysAtomicallyAndSurvivesRestart (0.01s)
+=== RUN   TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart
+--- PASS: TestCatalogBootstrapImportsGeneralizedBehaviorWithoutPrivateStateAcrossRestart (0.01s)
+=== RUN   TestDependencyDeploymentFailureRollsBackClosureAndAuthority
+--- PASS: TestDependencyDeploymentFailureRollsBackClosureAndAuthority (0.01s)
+=== RUN   TestSinglePackageActivationCannotBypassDependencyDeployment
+--- PASS: TestSinglePackageActivationCannotBypassDependencyDeployment (0.01s)
+=== RUN   TestGovernedPackageRollbackRestoresExactClosureAcrossRestart
+--- PASS: TestGovernedPackageRollbackRestoresExactClosureAcrossRestart (0.01s)
+=== RUN   TestPackageGenerationChangeCannotBreakActiveDependentLock
+--- PASS: TestPackageGenerationChangeCannotBreakActiveDependentLock (0.01s)
+=== RUN   TestRollbackRejectsCorruptedRetainedEvidenceWithoutConsumingAuthority
+--- PASS: TestRollbackRejectsCorruptedRetainedEvidenceWithoutConsumingAuthority (0.01s)
+=== RUN   TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract
+--- PASS: TestDynamicInvocationRejectsValidButDigestMismatchedPersistedContract (0.01s)
+=== RUN   TestAgentOnlyAndMixedPackagesAreFirstClassContents
+--- PASS: TestAgentOnlyAndMixedPackagesAreFirstClassContents (0.01s)
+=== RUN   TestPackagePluginDefinitionBindsExecutableAcrossRestartAndRejectsOrphans
+--- PASS: TestPackagePluginDefinitionBindsExecutableAcrossRestartAndRejectsOrphans (0.01s)
+=== RUN   TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart
+--- PASS: TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart (0.01s)
+=== RUN   TestAgentInstantiationCannotMutateApprovedIdentity
+--- PASS: TestAgentInstantiationCannotMutateApprovedIdentity (0.01s)
+=== RUN   TestPackageCannotShadowCoreCommand
+--- PASS: TestPackageCannotShadowCoreCommand (0.01s)
+=== RUN   TestPackageAliasCollisionFailsWithoutChangingExistingOwner
+--- PASS: TestPackageAliasCollisionFailsWithoutChangingExistingOwner (0.01s)
+=== RUN   TestPackageUpdateAtomicallyReplacesAliasAndContentSurface
+--- PASS: TestPackageUpdateAtomicallyReplacesAliasAndContentSurface (0.01s)
+=== RUN   TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic
+--- PASS: TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic (0.01s)
+=== RUN   TestPackageVerificationAuthorityAndRegistrationsSurviveRestart
+--- PASS: TestPackageVerificationAuthorityAndRegistrationsSurviveRestart (0.01s)
+=== RUN   TestGovernedDisableAndRemovePreserveHistoryAcrossRestart
+--- PASS: TestGovernedDisableAndRemovePreserveHistoryAcrossRestart (0.01s)
+=== RUN   TestPackageTransitionCannotChangeOperationAfterApproval
+--- PASS: TestPackageTransitionCannotChangeOperationAfterApproval (0.01s)
+=== RUN   TestDistributedPackageTrustBindsCatalogResolutionReviewAndLocalAuthorityAcrossRestart
+--- PASS: TestDistributedPackageTrustBindsCatalogResolutionReviewAndLocalAuthorityAcrossRestart (0.01s)
+=== RUN   TestConsumePluginLeaseBindsInstanceAndConsumesUse
+--- PASS: TestConsumePluginLeaseBindsInstanceAndConsumesUse (0.01s)
+=== RUN   TestConsumePluginLeaseRejectsDifferentRuntimeInstance
+--- PASS: TestConsumePluginLeaseRejectsDifferentRuntimeInstance (0.01s)
+=== RUN   TestPluginSupervisorSnapshotSurvivesSQLiteRestartWithoutRuntimeReadiness
+--- PASS: TestPluginSupervisorSnapshotSurvivesSQLiteRestartWithoutRuntimeReadiness (0.01s)
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research
+--- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains (0.02s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research (0.01s)
+=== RUN   TestSQLiteCheckpointStorePersistsMonotonically
+--- PASS: TestSQLiteCheckpointStorePersistsMonotonically (0.01s)
+=== RUN   TestAmbiguousEffectFailsClosedWithoutReconciliation
+--- PASS: TestAmbiguousEffectFailsClosedWithoutReconciliation (0.00s)
+=== RUN   TestAmbiguousEffectReconcilesWhenSupported
+--- PASS: TestAmbiguousEffectReconcilesWhenSupported (0.00s)
+=== RUN   TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency
+--- PASS: TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency (0.00s)
+=== RUN   TestQualificationRunControlSurvivesSQLiteRestart
+--- PASS: TestQualificationRunControlSurvivesSQLiteRestart (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease
+--- PASS: TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics
+--- PASS: TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics (0.01s)
+=== RUN   TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart
+--- PASS: TestSchedulerResourceLeasesAreAtomicAndRecoverAfterRestart (0.01s)
+=== RUN   TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt
+--- PASS: TestSchedulerResourceLeaseAdmissionIsIdempotentForRetriedAttempt (0.01s)
+=== RUN   TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements
+--- PASS: TestSchedulerResourceLeaseRetryRejectsMismatchedRequirements (0.01s)
+=== RUN   TestSchedulerResourceLeaseCancellationReleasesOnlyExactAttempt
+--- PASS: TestSchedulerResourceLeaseCancellationReleasesOnlyExactAttempt (0.01s)
+=== RUN   TestSecureBlobRoundTripStoresNoPlaintextColumn
+--- PASS: TestSecureBlobRoundTripStoresNoPlaintextColumn (0.01s)
+=== RUN   TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity
+--- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.01s)
+=== RUN   TestSecureBlobIsImmutableByVersion
+--- PASS: TestSecureBlobIsImmutableByVersion (0.01s)
+=== RUN   TestSecureBlobExpiryFailsClosed
+--- PASS: TestSecureBlobExpiryFailsClosed (0.01s)
+=== RUN   TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState
+--- PASS: TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState (0.01s)
+=== RUN   TestOpenSQLiteAppliesMigrationsAndPragmas
+--- PASS: TestOpenSQLiteAppliesMigrationsAndPragmas (0.01s)
+=== RUN   TestOpenSQLiteDoesNotReapplyLedgeredMigrations
+--- PASS: TestOpenSQLiteDoesNotReapplyLedgeredMigrations (0.01s)
+=== RUN   TestCommitTransitionIsAtomic
+--- PASS: TestCommitTransitionIsAtomic (0.01s)
+=== RUN   TestCommitTransitionRollsBackAuthorityOnVersionConflict
+--- PASS: TestCommitTransitionRollsBackAuthorityOnVersionConflict (0.01s)
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research
+--- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains (0.02s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research (0.01s)
+=== RUN   TestCrossAgentTransferRetainsRejectedPrivacyCandidate
+--- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/state	1.868s
+?   	github.com/convergent-systems-co/praxis/internal/transfer	[no test files]
+=== RUN   TestGatewayDispatchRequiresExactLeaseBoundInstance
+--- PASS: TestGatewayDispatchRequiresExactLeaseBoundInstance (0.00s)
+=== RUN   TestGatewayRejectsRestartedSessionUsingStaleLease
+--- PASS: TestGatewayRejectsRestartedSessionUsingStaleLease (0.00s)
+=== RUN   TestGatewayRejectsUnauthorizedOperationBeforeTransport
+--- PASS: TestGatewayRejectsUnauthorizedOperationBeforeTransport (0.00s)
+=== RUN   TestGatewayFailsIfBoundProviderNotEligible
+--- PASS: TestGatewayFailsIfBoundProviderNotEligible (0.00s)
+=== RUN   TestGatewayRequiresAuthoritativeLeaseConsumer
+--- PASS: TestGatewayRequiresAuthoritativeLeaseConsumer (0.00s)
+=== RUN   TestPluginV1HandshakeRoundTripAndAuthorityDerivedProtocol
+--- PASS: TestPluginV1HandshakeRoundTripAndAuthorityDerivedProtocol (0.00s)
+=== RUN   TestPluginV1ReservesDisplacedPreReleaseWireIdentities
+--- PASS: TestPluginV1ReservesDisplacedPreReleaseWireIdentities (0.00s)
+=== RUN   TestPreReleaseHandshakeResponseCannotBecomeCurrentAuthority
+--- PASS: TestPreReleaseHandshakeResponseCannotBecomeCurrentAuthority (0.00s)
+=== RUN   TestHandshakeRejectsPluginSelectedIdentityOrProtocol
+--- PASS: TestHandshakeRejectsPluginSelectedIdentityOrProtocol (0.00s)
+=== RUN   TestHandshakeUnknownFutureFieldDoesNotMintSemantics
+--- PASS: TestHandshakeUnknownFutureFieldDoesNotMintSemantics (0.00s)
+=== RUN   TestPluginProcessHelper
+    grpc_process_integration_test.go:24: helper process
+--- SKIP: TestPluginProcessHelper (0.00s)
+=== RUN   TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart
+--- PASS: TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart (0.13s)
+=== RUN   TestGRPCTransportBindsValidatedHandshakeToExactInstance
+--- PASS: TestGRPCTransportBindsValidatedHandshakeToExactInstance (0.00s)
+=== RUN   TestGRPCTransportRejectsHandshakeIdentityMismatchBeforePublication
+--- PASS: TestGRPCTransportRejectsHandshakeIdentityMismatchBeforePublication (0.00s)
+=== RUN   TestHandshakeAcceptsMatchingRuntime
+--- PASS: TestHandshakeAcceptsMatchingRuntime (0.00s)
+=== RUN   TestHandshakeRejectsArtifactIdentityMismatch
+--- PASS: TestHandshakeRejectsArtifactIdentityMismatch (0.00s)
+=== RUN   TestHandshakeRejectsUndeclaredCapability
+--- PASS: TestHandshakeRejectsUndeclaredCapability (0.00s)
+=== RUN   TestHandshakePermitsUnavailableManifestCapabilityWithoutMakingItRoutable
+--- PASS: TestHandshakePermitsUnavailableManifestCapabilityWithoutMakingItRoutable (0.00s)
+=== RUN   TestHandshakeRejectsDuplicateOrEmptyAdvertisement
+=== RUN   TestHandshakeRejectsDuplicateOrEmptyAdvertisement/duplicate
+=== RUN   TestHandshakeRejectsDuplicateOrEmptyAdvertisement/empty
+--- PASS: TestHandshakeRejectsDuplicateOrEmptyAdvertisement (0.00s)
+    --- PASS: TestHandshakeRejectsDuplicateOrEmptyAdvertisement/duplicate (0.00s)
+    --- PASS: TestHandshakeRejectsDuplicateOrEmptyAdvertisement/empty (0.00s)
+=== RUN   TestHandshakeRejectsProtocolMismatch
+--- PASS: TestHandshakeRejectsProtocolMismatch (0.00s)
+=== RUN   TestIsolationUnknownFailsClosed
+--- PASS: TestIsolationUnknownFailsClosed (0.00s)
+=== RUN   TestIsolationRequiredPropertiesMustAllBeEnforced
+--- PASS: TestIsolationRequiredPropertiesMustAllBeEnforced (0.00s)
+=== RUN   TestRestartedPluginCannotReuseInstanceBoundLease
+--- PASS: TestRestartedPluginCannotReuseInstanceBoundLease (0.00s)
+=== RUN   TestQuarantinedPluginCannotRestart
+--- PASS: TestQuarantinedPluginCannotRestart (0.00s)
+=== RUN   TestRepeatedFailuresTriggerQuarantine
+--- PASS: TestRepeatedFailuresTriggerQuarantine (0.00s)
+=== RUN   TestReadyPluginCanDrain
+--- PASS: TestReadyPluginCanDrain (0.00s)
+=== RUN   TestInstanceIdentityMustMatchManifest
+--- PASS: TestInstanceIdentityMustMatchManifest (0.00s)
+=== RUN   TestManifestRejectsDuplicateCapabilities
+--- PASS: TestManifestRejectsDuplicateCapabilities (0.00s)
+=== RUN   TestManifestVersionPolicyRejectsPreReleaseAndUnknownContracts
+--- PASS: TestManifestVersionPolicyRejectsPreReleaseAndUnknownContracts (0.00s)
+=== RUN   TestLocalProcessControlBindsIdentityAndReportsExit
+--- PASS: TestLocalProcessControlBindsIdentityAndReportsExit (1.08s)
+=== RUN   TestLocalProcessControlTerminationRequiresExactRuntimeSession
+--- PASS: TestLocalProcessControlTerminationRequiresExactRuntimeSession (0.00s)
+=== RUN   TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation
+--- PASS: TestLaunchSpecRequiresExactVerifiedExecutableBytesAndIsolation (0.00s)
+=== RUN   TestLocalProcessControlMaterializesOnlyVerifiedBytesAndTerminates
+--- PASS: TestLocalProcessControlMaterializesOnlyVerifiedBytesAndTerminates (0.00s)
+=== RUN   TestNegotiateProtocolUsesHighestMutualVersion
+--- PASS: TestNegotiateProtocolUsesHighestMutualVersion (0.00s)
+=== RUN   TestNegotiateProtocolFailsWhenRangesDoNotOverlap
+--- PASS: TestNegotiateProtocolFailsWhenRangesDoNotOverlap (0.00s)
+=== RUN   TestNegotiateProtocolRejectsMalformedRange
+--- PASS: TestNegotiateProtocolRejectsMalformedRange (0.00s)
+=== RUN   TestRegistrySelectsOnlyReadyIsolatedProviders
+--- PASS: TestRegistrySelectsOnlyReadyIsolatedProviders (0.00s)
+=== RUN   TestRegistryResolutionDoesNotTreatAdvertisementAsAuthority
+--- PASS: TestRegistryResolutionDoesNotTreatAdvertisementAsAuthority (0.00s)
+=== RUN   TestRegistryFailsClosedWhenRequiredIsolationIsUnknown
+--- PASS: TestRegistryFailsClosedWhenRequiredIsolationIsUnknown (0.00s)
+=== RUN   TestRegistryOrderingIsDeterministic
+--- PASS: TestRegistryOrderingIsDeterministic (0.00s)
+=== RUN   TestRegistryRejectsCallerConstructedAvailability
+--- PASS: TestRegistryRejectsCallerConstructedAvailability (0.00s)
+=== RUN   TestPersistentSupervisorRestoresLaunchButRequiresFreshHandshake
+--- PASS: TestPersistentSupervisorRestoresLaunchButRequiresFreshHandshake (0.00s)
+=== RUN   TestPersistentSupervisorFencesRestoredSchedulerLeases
+--- PASS: TestPersistentSupervisorFencesRestoredSchedulerLeases (0.00s)
+=== RUN   TestSupervisorRequiresIsolationBeforeStart
+--- PASS: TestSupervisorRequiresIsolationBeforeStart (0.00s)
+=== RUN   TestSupervisorQuarantinesAfterFailureThreshold
+--- PASS: TestSupervisorQuarantinesAfterFailureThreshold (0.00s)
+=== RUN   TestSupervisorStartFailurePreservesLaunchErrorWithoutTermination
+--- PASS: TestSupervisorStartFailurePreservesLaunchErrorWithoutTermination (0.00s)
+=== RUN   TestSupervisorClearsExitObserverWhenStartFails
+--- PASS: TestSupervisorClearsExitObserverWhenStartFails (0.00s)
+=== RUN   TestSupervisorRevokeRemovesProviderAndTerminates
+--- PASS: TestSupervisorRevokeRemovesProviderAndTerminates (0.00s)
+=== RUN   TestSupervisorRevokeStoppedProviderDoesNotTerminateAbsentProcess
+--- PASS: TestSupervisorRevokeStoppedProviderDoesNotTerminateAbsentProcess (0.00s)
+=== RUN   TestSupervisorRevokeTerminationFailureStaysRevoked
+--- PASS: TestSupervisorRevokeTerminationFailureStaysRevoked (0.00s)
+=== RUN   TestSupervisorRejectsCallerConstructedReadyState
+--- PASS: TestSupervisorRejectsCallerConstructedReadyState (0.00s)
+=== RUN   TestSupervisorRestartBackoff
+--- PASS: TestSupervisorRestartBackoff (0.00s)
+=== RUN   TestSupervisorResourceAdmissionGatesProcessAndReleasesOnStop
+--- PASS: TestSupervisorResourceAdmissionGatesProcessAndReleasesOnStop (0.00s)
+=== RUN   TestSupervisorRejectsPartialOrForeignResourceAdmission
+=== RUN   TestSupervisorRejectsPartialOrForeignResourceAdmission/partial
+=== RUN   TestSupervisorRejectsPartialOrForeignResourceAdmission/foreign
+--- PASS: TestSupervisorRejectsPartialOrForeignResourceAdmission (0.00s)
+    --- PASS: TestSupervisorRejectsPartialOrForeignResourceAdmission/partial (0.00s)
+    --- PASS: TestSupervisorRejectsPartialOrForeignResourceAdmission/foreign (0.00s)
+=== RUN   TestSupervisorFailurePersistsReleasedResourceLeases
+--- PASS: TestSupervisorFailurePersistsReleasedResourceLeases (0.00s)
+=== RUN   TestSupervisorUnexpectedExitPersistsReleasedResourceLeases
+--- PASS: TestSupervisorUnexpectedExitPersistsReleasedResourceLeases (0.00s)
+=== RUN   TestSupervisorResourceDenialDoesNotStartProcess
+--- PASS: TestSupervisorResourceDenialDoesNotStartProcess (0.00s)
+=== RUN   TestSupervisorReplacementCannotDiscardActiveProcess
+--- PASS: TestSupervisorReplacementCannotDiscardActiveProcess (0.00s)
+=== RUN   TestSupervisorRecordsUnexpectedProcessExit
+--- PASS: TestSupervisorRecordsUnexpectedProcessExit (0.00s)
+=== RUN   TestSupervisorStopDetachesObserverAndPersistsStopped
+--- PASS: TestSupervisorStopDetachesObserverAndPersistsStopped (0.00s)
+=== RUN   TestSupervisorStopFailurePersistsFailed
+--- PASS: TestSupervisorStopFailurePersistsFailed (0.00s)
+=== RUN   TestSupervisorPersistsUnexpectedExitFromLocalProcess
+--- PASS: TestSupervisorPersistsUnexpectedExitFromLocalProcess (0.22s)
+=== RUN   TestSupervisorUnexpectedExitReleaseFailureRetainsLeasesForRecovery
+--- PASS: TestSupervisorUnexpectedExitReleaseFailureRetainsLeasesForRecovery (0.00s)
+=== RUN   TestSupervisorIgnoresLateExitFromDifferentRuntimeSession
+--- PASS: TestSupervisorIgnoresLateExitFromDifferentRuntimeSession (0.00s)
+=== RUN   TestSupervisorIgnoresLateExitFromReusedRuntimeIdentity
+--- PASS: TestSupervisorIgnoresLateExitFromReusedRuntimeIdentity (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/plugin	3.052s
+=== RUN   TestUnifiedRouteV2ProhibitsPairedAuthoritativeRecords
+--- PASS: TestUnifiedRouteV2ProhibitsPairedAuthoritativeRecords (0.00s)
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/unsupported_v1
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/actor
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/command
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/causation
+=== RUN   TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/created_time
+--- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed (0.00s)
+    --- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/unsupported_v1 (0.00s)
+    --- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/actor (0.00s)
+    --- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/command (0.00s)
+    --- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/causation (0.00s)
+    --- PASS: TestSurfaceRouteV1AndTamperedV2EventMetadataFailClosed/created_time (0.00s)
+=== RUN   TestRouteReplayRejectsAuthorityMetadataMismatch
+--- PASS: TestRouteReplayRejectsAuthorityMetadataMismatch (0.01s)
+=== RUN   TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains
+=== RUN   TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains/software-delivery
+=== RUN   TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains/research
+--- PASS: TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains (0.01s)
+    --- PASS: TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains/research (0.01s)
+=== RUN   TestExecutorSurfaceV2UsesAuthoritativeEvidenceAndNeutralMetadata
+--- PASS: TestExecutorSurfaceV2UsesAuthoritativeEvidenceAndNeutralMetadata (0.00s)
+=== RUN   TestSurfaceRequestRejectsUnverifiedEffectiveTarget
+=== RUN   TestSurfaceRequestRejectsUnverifiedEffectiveTarget/manual_without_contributions
+=== RUN   TestSurfaceRequestRejectsUnverifiedEffectiveTarget/post-merge_target_mutation
+=== RUN   TestSurfaceRequestRejectsUnverifiedEffectiveTarget/post-merge_provenance_mutation
+--- PASS: TestSurfaceRequestRejectsUnverifiedEffectiveTarget (0.00s)
+    --- PASS: TestSurfaceRequestRejectsUnverifiedEffectiveTarget/manual_without_contributions (0.00s)
+    --- PASS: TestSurfaceRequestRejectsUnverifiedEffectiveTarget/post-merge_target_mutation (0.00s)
+    --- PASS: TestSurfaceRequestRejectsUnverifiedEffectiveTarget/post-merge_provenance_mutation (0.00s)
+=== RUN   TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback
+=== RUN   TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback/preferred
+=== RUN   TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback/fallback
+--- PASS: TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback (0.00s)
+    --- PASS: TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback/preferred (0.00s)
+    --- PASS: TestSurfaceV2PreservesAuthorityOrderedPreferenceAndFallback/fallback (0.00s)
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/tampered_boolean
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/tampered_ref
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_request
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_surface_request
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_surface
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_metadata_digest
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_scope
+=== RUN   TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/opaque_capability_reference
+--- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/tampered_boolean (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/tampered_ref (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_request (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_surface_request (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_surface (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_metadata_digest (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/wrong_scope (0.00s)
+    --- PASS: TestSurfaceV2RejectsForgedAndMismatchedEligibilityEvidence/opaque_capability_reference (0.00s)
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/capability_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/capability_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/policy_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/policy_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/security_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/security_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/availability_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/availability_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/budget_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/budget_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/quota_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/quota_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/telemetry_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/telemetry_replay
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/authority_generation_format_freeze
+=== RUN   TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/authority_generation_format_replay
+--- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/capability_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/capability_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/policy_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/policy_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/security_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/security_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/availability_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/availability_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/budget_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/budget_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/quota_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/quota_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/telemetry_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/telemetry_replay (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/authority_generation_format_freeze (0.00s)
+    --- PASS: TestSurfaceEligibilityRejectsWellFormedMismatchedDigestsAtFreezeAndReplay/authority_generation_format_replay (0.00s)
+=== RUN   TestSurfaceCompositionDerivesOneGovernedEvaluatorLineage
+--- PASS: TestSurfaceCompositionDerivesOneGovernedEvaluatorLineage (0.00s)
+=== RUN   TestSurfaceCompositionEnforcesGovernedBudgetAndQuota
+=== RUN   TestSurfaceCompositionEnforcesGovernedBudgetAndQuota/budget
+=== RUN   TestSurfaceCompositionEnforcesGovernedBudgetAndQuota/quota
+--- PASS: TestSurfaceCompositionEnforcesGovernedBudgetAndQuota (0.00s)
+    --- PASS: TestSurfaceCompositionEnforcesGovernedBudgetAndQuota/budget (0.00s)
+    --- PASS: TestSurfaceCompositionEnforcesGovernedBudgetAndQuota/quota (0.00s)
+=== RUN   TestSurfaceV2RejectsStaleEvidenceAndSelectsOnlyAuthorizedFallback
+--- PASS: TestSurfaceV2RejectsStaleEvidenceAndSelectsOnlyAuthorizedFallback (0.00s)
+=== RUN   TestSurfaceV2PreservesRequiredAndAPIFailClosedSemantics
+--- PASS: TestSurfaceV2PreservesRequiredAndAPIFailClosedSemantics (0.00s)
+=== RUN   TestSurfaceV2TelemetryRequiresProvenanceFreshnessAndExplicitUnknown
+--- PASS: TestSurfaceV2TelemetryRequiresProvenanceFreshnessAndExplicitUnknown (0.00s)
+=== RUN   TestSurfaceDecisionV2PersistsAcrossRestart
+--- PASS: TestSurfaceDecisionV2PersistsAcrossRestart (0.01s)
+=== RUN   TestConcurrentSurfaceDecisionWritesConvergeOrConflictExplicitly
+--- PASS: TestConcurrentSurfaceDecisionWritesConvergeOrConflictExplicitly (0.00s)
+=== RUN   TestD0UsesNoExecutor
+--- PASS: TestD0UsesNoExecutor (0.00s)
+=== RUN   TestRouterPrefersFasterSufficientExecutor
+--- PASS: TestRouterPrefersFasterSufficientExecutor (0.00s)
+=== RUN   TestRouterRejectsExecutorOutsideDeadline
+--- PASS: TestRouterRejectsExecutorOutsideDeadline (0.00s)
+=== RUN   TestUnifiedRouteRecordPersistsSelectionAtomically
+--- PASS: TestUnifiedRouteRecordPersistsSelectionAtomically (0.00s)
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/no_eligible
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/required_unavailable
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/fallback_prohibited
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/api_prohibited
+=== RUN   TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/telemetry_unsatisfied
+--- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure (0.00s)
+    --- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/no_eligible (0.00s)
+    --- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/required_unavailable (0.00s)
+    --- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/fallback_prohibited (0.00s)
+    --- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/api_prohibited (0.00s)
+    --- PASS: TestUnifiedRouteRecordPersistsEveryStableTerminalFailure/telemetry_unsatisfied (0.00s)
+=== RUN   TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering
+=== RUN   TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/actor
+=== RUN   TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/causation
+=== RUN   TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/payload
+--- PASS: TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering (0.00s)
+    --- PASS: TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/actor (0.00s)
+    --- PASS: TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/causation (0.00s)
+    --- PASS: TestUnifiedRouteReplayRejectsPayloadAndMetadataTampering/payload (0.00s)
+=== RUN   TestUnifiedRouteRejectsRehashedZeroEvaluationFailure
+--- PASS: TestUnifiedRouteRejectsRehashedZeroEvaluationFailure (0.00s)
+=== RUN   TestUnifiedRouteOutcomeBindsRecordIdentityAndReplayMetadata
+--- PASS: TestUnifiedRouteOutcomeBindsRecordIdentityAndReplayMetadata (0.00s)
+=== RUN   TestRouteOutcomeRejectsObservationMismatchAndUnrelatedDuplicateEventID
+--- PASS: TestRouteOutcomeRejectsObservationMismatchAndUnrelatedDuplicateEventID (0.00s)
+=== RUN   TestUnifiedTerminalFailureCannotAcceptExecutionOutcome
+--- PASS: TestUnifiedTerminalFailureCannotAcceptExecutionOutcome (0.00s)
+=== RUN   TestLegacySurfaceWriteIsUnsupportedButValidMigrationReadRemains
+--- PASS: TestLegacySurfaceWriteIsUnsupportedButValidMigrationReadRemains (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/inference	1.956s
+=== RUN   TestIssuedRoutingRejectsSwapsCrossScopeExpiryRevocationAndReplays
+--- PASS: TestIssuedRoutingRejectsSwapsCrossScopeExpiryRevocationAndReplays (0.00s)
+=== RUN   TestIssuedRouteReadinessReconstructsPersistsReplaysAndFailsClosed
+--- PASS: TestIssuedRouteReadinessReconstructsPersistsReplaysAndFailsClosed (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/routingauthority	2.286s
+=== RUN   TestPlanningMetricsAmortizeProjectCostAcrossSlices
+--- PASS: TestPlanningMetricsAmortizeProjectCostAcrossSlices (0.00s)
+=== RUN   TestEstimatedAvoidedPlanningRequiresMeasuredComparator
+--- PASS: TestEstimatedAvoidedPlanningRequiresMeasuredComparator (0.00s)
+=== RUN   TestPlanningTelemetryRejectsReuseWithoutBaseline
+--- PASS: TestPlanningTelemetryRejectsReuseWithoutBaseline (0.00s)
+=== RUN   TestNoSavingsReportedWhenActualCostIsHigher
+--- PASS: TestNoSavingsReportedWhenActualCostIsHigher (0.00s)
+=== RUN   TestApplicabilityFailsClosedForMissingEvidenceAndIdentity
+--- PASS: TestApplicabilityFailsClosedForMissingEvidenceAndIdentity (0.00s)
+=== RUN   TestMaterializePlanningBaselineBindsExactGoalDigest
+--- PASS: TestMaterializePlanningBaselineBindsExactGoalDigest (0.00s)
+=== RUN   TestMaterializationRejectsMutatedGoalBaseline
+--- PASS: TestMaterializationRejectsMutatedGoalBaseline (0.00s)
+=== RUN   TestSliceMustBindPlanningBaselineAndKnownArtifacts
+--- PASS: TestSliceMustBindPlanningBaselineAndKnownArtifacts (0.00s)
+=== RUN   TestSliceCannotUseDifferentGoalDigest
+--- PASS: TestSliceCannotUseDifferentGoalDigest (0.00s)
+=== RUN   TestPlanningBaselineReusesAndInvalidatesOnlyDependentSlices
+--- PASS: TestPlanningBaselineReusesAndInvalidatesOnlyDependentSlices (0.00s)
+=== RUN   TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices
+--- PASS: TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices (0.00s)
+=== RUN   TestKnownNarrowFixUsesDeterministicFastPath
+--- PASS: TestKnownNarrowFixUsesDeterministicFastPath (0.00s)
+=== RUN   TestSecuritySensitiveWorkWithoutBaselineRoutesToGoals
+--- PASS: TestSecuritySensitiveWorkWithoutBaselineRoutesToGoals (0.00s)
+=== RUN   TestMaterialWorkReusesApplicableBaselineWithBoundedPlanning
+--- PASS: TestMaterialWorkReusesApplicableBaselineWithBoundedPlanning (0.00s)
+=== RUN   TestStaleBaselineRoutesBackToGoals
+--- PASS: TestStaleBaselineRoutesBackToGoals (0.00s)
+=== RUN   TestBoundedTestableChangeAvoidsOpenReasoning
+--- PASS: TestBoundedTestableChangeAvoidsOpenReasoning (0.00s)
+=== RUN   TestDevelopGraphIsValidAndBounded
+--- PASS: TestDevelopGraphIsValidAndBounded (0.00s)
+=== RUN   TestDevelopFastPathSkipsGoalsAndPlan
+--- PASS: TestDevelopFastPathSkipsGoalsAndPlan (0.00s)
+=== RUN   TestDevelopLocalPlanPathSkipsGoals
+--- PASS: TestDevelopLocalPlanPathSkipsGoals (0.00s)
+=== RUN   TestDevelopArchitectedPathComposesGoalsThenMaterializes
+--- PASS: TestDevelopArchitectedPathComposesGoalsThenMaterializes (0.00s)
+=== RUN   TestDevelopRepairReturnsToValidation
+--- PASS: TestDevelopRepairReturnsToValidation (0.00s)
+=== RUN   TestInvocationContractMatchesGraph
+--- PASS: TestInvocationContractMatchesGraph (0.00s)
+=== RUN   TestDashboardIsOptionalCapability
+--- PASS: TestDashboardIsOptionalCapability (0.00s)
+=== RUN   TestWeatherRouteReadinessRequiresIssuedRouteLedger
+--- PASS: TestWeatherRouteReadinessRequiresIssuedRouteLedger (0.00s)
+=== RUN   TestDevelopFastPathRunsToCompletion
+--- PASS: TestDevelopFastPathRunsToCompletion (0.00s)
+=== RUN   TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd
+--- PASS: TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd (0.00s)
+=== RUN   TestDevelopFastPathDoesNotExecuteGoalsSubgraph
+--- PASS: TestDevelopFastPathDoesNotExecuteGoalsSubgraph (0.00s)
+=== RUN   TestSmokeWeatherDashboardFullTrace
+PRAXIS_INVOCATION {"Namespace":"praxis","EntryPoint":"develop","Arguments":["weather","dashboard"],"Options":{"dashboard":"true","mode":"auto","workspace":"/tmp/weather-dashboard"}}
+PRAXIS_RESOLUTION {"arguments":["weather","dashboard"],"entry_point":"praxis.package.develop.default","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","options":{"approval":"policy","dashboard":"true","mode":"auto","workspace":"/tmp/weather-dashboard"}}
+PRAXIS_TRACE {"kind":"started","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"discover","state":"running","transition_count":0}
+PRAXIS_EXECUTOR {"evidence":["workspace:temp-weather-dashboard"],"graph":"praxis.package.develop.default","node":"discover","outcome":"ready"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"discover","outcome":"ready","state":"running","transition_count":0,"attempt":1,"evidence":["workspace:temp-weather-dashboard"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"ready","from_node":"discover","to_node":"classify","state":"running","transition_count":1}
+PRAXIS_EXECUTOR {"evidence":["classification:architected"],"graph":"praxis.package.develop.default","node":"classify","outcome":"goals"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"classify","outcome":"goals","state":"running","transition_count":1,"attempt":1,"evidence":["classification:architected"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"goals","from_node":"classify","to_node":"goals","state":"running","transition_count":2}
+PRAXIS_EXECUTOR {"evidence":["intent:build-simple-weather-dashboard"],"graph":"praxis.package.goals.default","node":"intent","outcome":"captured"}
+PRAXIS_EXECUTOR {"evidence":["rigor:standard"],"graph":"praxis.package.goals.default","node":"frame","outcome":"rigorous"}
+PRAXIS_EXECUTOR {"evidence":["evidence:mock-weather-data"],"graph":"praxis.package.goals.default","node":"discover","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["variance:none-material"],"graph":"praxis.package.goals.default","node":"variance","outcome":"decide"}
+PRAXIS_EXECUTOR {"evidence":["decision:single-page-static-dashboard"],"graph":"praxis.package.goals.default","node":"decide","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["model:city-temp-condition-humidity-wind"],"graph":"praxis.package.goals.default","node":"model","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["spec:responsive-html-no-external-api"],"graph":"praxis.package.goals.default","node":"specify","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["plan:generate-validate-integrate"],"graph":"praxis.package.goals.default","node":"plan","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["candidate-baseline:sha256:weather-dashboard-smoke"],"graph":"praxis.package.goals.default","node":"candidate_baseline","outcome":"digested"}
+PRAXIS_EXECUTOR {"evidence":["architecture-review:advisory"],"graph":"praxis.package.goals.default","node":"architecture_review","outcome":"ready"}
+PRAXIS_EXECUTOR {"evidence":["goal-baseline:sha256:weather-dashboard-smoke"],"graph":"praxis.package.goals.default","node":"baseline","outcome":"stored"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"goals","outcome":"baseline","state":"running","transition_count":2,"attempt":1,"evidence":["intent:build-simple-weather-dashboard","rigor:standard","evidence:mock-weather-data","variance:none-material","decision:single-page-static-dashboard","model:city-temp-condition-humidity-wind","spec:responsive-html-no-external-api","plan:generate-validate-integrate","candidate-baseline:sha256:weather-dashboard-smoke","architecture-review:advisory","goal-baseline:sha256:weather-dashboard-smoke"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"baseline","from_node":"goals","to_node":"materialize","state":"running","transition_count":3}
+PRAXIS_EXECUTOR {"evidence":["materialized:weather-dashboard-spec"],"graph":"praxis.package.develop.default","node":"materialize","outcome":"ready"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"materialize","outcome":"ready","state":"running","transition_count":3,"attempt":1,"evidence":["materialized:weather-dashboard-spec"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"ready","from_node":"materialize","to_node":"plan","state":"running","transition_count":4}
+PRAXIS_EXECUTOR {"evidence":["local-plan:index.html"],"graph":"praxis.package.develop.default","node":"plan","outcome":"ready"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"plan","outcome":"ready","state":"running","transition_count":4,"attempt":1,"evidence":["local-plan:index.html"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"ready","from_node":"plan","to_node":"prepare","state":"running","transition_count":5}
+PRAXIS_EXECUTOR {"evidence":["capability:workspace-write-prepared"],"graph":"praxis.package.develop.default","node":"prepare","outcome":"ready"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"prepare","outcome":"ready","state":"running","transition_count":5,"attempt":1,"evidence":["capability:workspace-write-prepared"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"ready","from_node":"prepare","to_node":"implement","state":"running","transition_count":6}
+PRAXIS_EXECUTOR {"evidence":["artifact:/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestSmokeWeatherDashboardFullTrace2605560227/001/index.html","artifact-sha256:9ec724c8bd2f17789ac895cfe6ecabfcee2058cfafa4b5a3e7e84310eb9af24e"],"graph":"praxis.package.develop.default","node":"implement","outcome":"done"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"implement","outcome":"done","state":"running","transition_count":6,"attempt":1,"evidence":["artifact:/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestSmokeWeatherDashboardFullTrace2605560227/001/index.html","artifact-sha256:9ec724c8bd2f17789ac895cfe6ecabfcee2058cfafa4b5a3e7e84310eb9af24e"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"done","from_node":"implement","to_node":"validate","state":"running","transition_count":7}
+PRAXIS_EXECUTOR {"evidence":["validation:artifact-readable","validation:non-empty-html"],"graph":"praxis.package.develop.default","node":"validate","outcome":"pass"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"validate","outcome":"pass","state":"running","transition_count":7,"attempt":1,"evidence":["validation:artifact-readable","validation:non-empty-html"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"pass","from_node":"validate","to_node":"review","state":"running","transition_count":8}
+PRAXIS_EXECUTOR {"evidence":["review:requirements-satisfied"],"graph":"praxis.package.develop.default","node":"review","outcome":"pass"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"review","outcome":"pass","state":"running","transition_count":8,"attempt":1,"evidence":["review:requirements-satisfied"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"pass","from_node":"review","to_node":"integrate","state":"running","transition_count":9}
+PRAXIS_EXECUTOR {"evidence":["integration:local-artifact-complete"],"graph":"praxis.package.develop.default","node":"integrate","outcome":"done"}
+PRAXIS_TRACE {"kind":"node_completed","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"integrate","outcome":"done","state":"running","transition_count":9,"attempt":1,"evidence":["integration:local-artifact-complete"]}
+PRAXIS_TRACE {"kind":"transitioned","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","outcome":"done","from_node":"integrate","to_node":"complete","state":"running","transition_count":10}
+PRAXIS_TRACE {"kind":"terminal","run_id":"smoke-weather-dashboard-001","graph_id":"praxis.package.develop.default","graph_version":"0.2.0","node_id":"complete","state":"succeeded","transition_count":10}
+PRAXIS_FINAL_RUN {"RunID":"smoke-weather-dashboard-001","AgentID":"","GraphID":"praxis.package.develop.default","GraphVersion":"0.2.0","CurrentNode":"complete","State":"succeeded","TransitionCount":10,"Evidence":["workspace:temp-weather-dashboard","classification:architected","intent:build-simple-weather-dashboard","rigor:standard","evidence:mock-weather-data","variance:none-material","decision:single-page-static-dashboard","model:city-temp-condition-humidity-wind","spec:responsive-html-no-external-api","plan:generate-validate-integrate","candidate-baseline:sha256:weather-dashboard-smoke","architecture-review:advisory","goal-baseline:sha256:weather-dashboard-smoke","materialized:weather-dashboard-spec","local-plan:index.html","capability:workspace-write-prepared","artifact:/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestSmokeWeatherDashboardFullTrace2605560227/001/index.html","artifact-sha256:9ec724c8bd2f17789ac895cfe6ecabfcee2058cfafa4b5a3e7e84310eb9af24e","validation:artifact-readable","validation:non-empty-html","review:requirements-satisfied","integration:local-artifact-complete"],"AttemptCounts":{"classify":1,"discover":1,"goals":1,"implement":1,"integrate":1,"materialize":1,"plan":1,"prepare":1,"review":1,"validate":1},"PendingWait":null,"ResourceObservations":null,"ContinuationHistory":null,"LastCheckpoint":null}
+PRAXIS_ARTIFACT_PATH /var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestSmokeWeatherDashboardFullTrace2605560227/001/index.html
+PRAXIS_ARTIFACT_BEGIN
+<!doctype html><html><head><meta charset="utf-8"><title>Weather Dashboard</title></head><body><main><h1>Shenandoah Weather</h1><section id="current"><strong>72°F</strong><span>Sunny</span><span>Humidity 41%</span><span>Wind NW 8 mph</span></section><small>Deterministic smoke-test data</small></main></body></html>
+PRAXIS_ARTIFACT_END
+--- PASS: TestSmokeWeatherDashboardFullTrace (0.00s)
+=== RUN   TestWeatherDispatchConsumesExactAuthorityInvokesOnceAndPersistsOutcome
+--- PASS: TestWeatherDispatchConsumesExactAuthorityInvokesOnceAndPersistsOutcome (0.01s)
+=== RUN   TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError
+=== RUN   TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError/route-revoked
+=== RUN   TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError/executor-unknown
+--- PASS: TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError (0.01s)
+    --- PASS: TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError/route-revoked (0.01s)
+    --- PASS: TestWeatherDispatchFailsClosedOnFinalRouteReplayAndRecordsUnknownExecutorError/executor-unknown (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/packages/develop	2.689s

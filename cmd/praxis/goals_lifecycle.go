@@ -140,6 +140,25 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			return err
 		}
 		return printJSON(map[string]any{"operation": operation, "plan": plan})
+	case "attach":
+		// attach creates the successor immutable Goal generation that carries
+		// an authority-backed accepted WorkPlan. It is the only way a Goal
+		// becomes drivable: goal-drive materializes work from the baseline's
+		// embedded WorkPlan and never from prose, PlanRef, or model output.
+		var req struct {
+			GoalID, GoalVersion, BaselineDigest, AcceptanceRef, AcceptanceVersion, SuccessorVersion string
+		}
+		if err := json.Unmarshal(input, &req); err != nil {
+			return err
+		}
+		if req.AcceptanceVersion == "" {
+			req.AcceptanceVersion = "1"
+		}
+		successor, err := repo.AttachAcceptedWorkPlan(ctx, req.GoalID, req.GoalVersion, req.BaselineDigest, req.AcceptanceRef, req.AcceptanceVersion, req.SuccessorVersion, now, nil)
+		if err != nil {
+			return err
+		}
+		return printJSON(map[string]any{"operation": operation, "goal_id": successor.ID, "goal_version": successor.Version, "baseline_digest": successor.Digest, "predecessor_digest": successor.PredecessorDigest, "work_plan_candidates": len(successor.WorkPlan.Candidates)})
 	default:
 		return fmt.Errorf("unsupported Goals lifecycle operation %q", operation)
 	}

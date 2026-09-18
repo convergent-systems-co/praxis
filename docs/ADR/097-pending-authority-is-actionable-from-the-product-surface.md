@@ -98,6 +98,29 @@ generation. Acceptance and attachment replays return the existing durable
 result instead of creating a second one. `--input` documents remain a legacy
 compatibility path.
 
+### Provider discovery
+
+`goal-drive` requires `--provider`, an identity drawn from the kernel's
+provider catalog: first-party subscription profiles (`claude`,
+`claude-subscription`, `codex`, `codex-subscription`), available only when
+the corresponding CLI is on PATH, plus the environment command worker
+(`PRAXIS_GOAL_WORKER_ARGV`), which accepts any identity the operator names.
+Providers are not installation state and are resolved at execution time,
+so the public surface is a read-only catalog:
+
+```
+praxis providers
+```
+
+It reports every identity with availability and reason, computed exactly as
+goal-drive resolves them. Praxis never selects a provider implicitly; the
+drive template names the discovery command and the identities available
+now, and a goal-drive without `--provider` or with an unknown identity points
+at it. Unavailable (profile present, CLI missing) and unknown identities are
+distinguishable errors. `--model` is an optional hint interpreted by the
+provider's own CLI; Praxis does not enumerate models. The executor identity
+is recorded on every turn.
+
 ## Consequences
 
 - A user with an installed Praxis, the installed Goals package, a Goal, and

@@ -22,7 +22,7 @@ type cliHelpSpec struct {
 // The help catalog is the command-dispatcher's contract. Command handlers own
 // execution and validation, but they do not own discovery or help semantics.
 var cliHelpCatalog = map[string]cliHelpSpec{
-	"":                                      {"usage: praxis <command|installed-entry-point> [arguments] [options]", "Praxis control plane and installed package entry points.", "Commands: discover, info, install, update, rollback, disable, uninstall, list, status, resume, cancel, supervise, doctor, key-bootstrap, state-init, migration, authority, publisher, version, help"},
+	"":                                      {"usage: praxis <command|installed-entry-point> [arguments] [options]", "Praxis control plane and installed package entry points.", "Commands: discover, info, install, update, rollback, disable, uninstall, list, status, resume, cancel, supervise, providers, doctor, key-bootstrap, state-init, migration, authority, publisher, version, help"},
 	"status":                                {"usage: praxis status <run-id> [--db <path>]", "Inspect one durable run without mutation.", "--db <path>  Explicit Praxis database (or PRAXIS_DB)"},
 	"discover":                              {"usage: praxis discover [options]", "Discover package or installed entry-point information.", "See package discovery options."},
 	"info":                                  {"usage: praxis info [options]", "Inspect package information.", "See package information options."},
@@ -38,6 +38,7 @@ var cliHelpCatalog = map[string]cliHelpSpec{
 	"version":                               {"usage: praxis version", "Print the Praxis control-plane version.", "No options."},
 	"resume":                                {"usage: praxis resume <run-id> [options]", "Resume a governed suspended run.", "Run-control options are required by policy."},
 	"cancel":                                {"usage: praxis cancel <run-id> [options]", "Cancel a governed run.", "Run-control options are required by policy."},
+	"providers":                             {"usage: praxis providers", "List the goal-drive provider catalog: first-party subscription profiles (available when their CLI is on PATH) and the environment command worker, with the exact --provider option each accepts.", "No options. goal-drive requires an explicit --provider; Praxis never selects one implicitly."},
 	"supervise":                             {"usage: praxis supervise <observe|comment|correction|constraint|suspend|cancel|resume> [options]", "Observe or intervene in supervised execution.", "The operation and applicable run/goal identifiers are required."},
 	"lifecycle-recover":                     {"usage: praxis lifecycle-recover <status|storage-schema|runtime-state> --installation <id> [options]", "Reserved control-plane lifecycle_transition recovery entry point.", "Transitions require --plan, --storage-authority-request, and --runtime-authority-request. --db <path> or PRAXIS_DB; --actor-id/--actor-kind or PRAXIS_ACTOR_ID/PRAXIS_ACTOR_KIND."},
 	"supervise observe":                     {"usage: praxis supervise observe [options]", "Read live and durable supervision activity.", "--goal-id, --invocation-id, --turn-id, --after, --follow"},

@@ -44,7 +44,7 @@ func publisherEnrollmentPreview(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+	if !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return errors.New("publisher enrollment requires adopted authority-model v2")
 	}
 	if _, err := contracts.PackagePublishScope(namespace); err != nil {

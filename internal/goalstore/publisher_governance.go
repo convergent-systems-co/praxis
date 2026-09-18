@@ -708,7 +708,7 @@ func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDig
 		return contracts.PublisherGeneration{}, errors.New("publisher enrollment generation is not first-party")
 	}
 	model, err := r.LoadAuthorityModelState(ctx, now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherGeneration{}, errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
 	gens, err := r.ListAuthorityGenerations(ctx, now)
@@ -772,7 +772,7 @@ func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview cont
 		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment preview is not bound to the active accepted authority model")
 	}
 	model, err := r.LoadAuthorityModelState(ctx, now)
-	if err != nil || model.ActiveVersion != contracts.AuthorityModelSuccessorVersion || model.ActiveDigest != contracts.AuthorityModelSuccessorDigest() {
+	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
 	gens, err := r.ListAuthorityGenerations(ctx, now)

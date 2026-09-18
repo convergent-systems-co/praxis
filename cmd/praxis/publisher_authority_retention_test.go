@@ -105,6 +105,15 @@ func TestPackagePublishAdmissionFollowsRetainedV2Semantics(t *testing.T) {
 	if !strings.Contains(proposalOut.String(), v6Digest) {
 		t.Fatalf("persisted proposal digest mismatch: %s", proposalOut.String())
 	}
+	// A proposal is an attempt: renewing package.publish authority for the
+	// same generation and namespace persists a distinct durable proposal.
+	renewal, renewalDigest, renewalFile, err := publisherAuthorityPreview(t, dir, "v6-renewal", generationDigest)
+	if err != nil || renewalDigest == v6Digest || renewal.ID == v6Proposal.ID {
+		t.Fatalf("renewal preview must be a distinct attempt: %v %s %s", err, renewal.ID, v6Proposal.ID)
+	}
+	if err := runPublisherAuthorityProposal([]string{"--preview-file", renewalFile}, getenv, &bytes.Buffer{}); err != nil {
+		t.Fatalf("renewed package.publish proposal must persist alongside the earlier attempt: %v", err)
+	}
 	repo, db, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
 	if err != nil {
 		t.Fatal(err)

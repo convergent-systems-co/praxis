@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/user"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,7 +89,7 @@ func runPackageManagerAuthorityPreview(args []string, out io.Writer) error {
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelDeploymentVersion) {
 		return errors.New("package-deploy proposal requires an adopted authority model that retains v3 deployment semantics")
 	}
-	p := contracts.GovernedAuthorityProposal{ID: "package-manager-authority-proposal:" + root.Digest, Version: "1", Kind: contracts.GovernedAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelDeploymentVersion, AuthorityModelDigest: contracts.AuthorityModelDeploymentDigest(), Profile: contracts.DelegationProfilePackageDeploy, Capability: contracts.GovernedPackageDeploy, PrincipalID: contracts.PackageManagerPrincipalID, PrincipalKind: contracts.PackageManagerPrincipalKind, TargetKind: contracts.PackageManagerPrincipalKind, TargetIdentity: contracts.PackageManagerPrincipalID, TargetVersion: "1", TargetDigest: root.Digest, Scope: scope, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Reason: "governed installation-local package deployment", ExpiresAt: expires.UTC(), CreatedAt: now}
+	p := contracts.GovernedAuthorityProposal{ID: "package-manager-authority-proposal:" + root.Digest + ":" + strconv.FormatInt(now.UnixNano(), 10), Version: "1", Kind: contracts.GovernedAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelDeploymentVersion, AuthorityModelDigest: contracts.AuthorityModelDeploymentDigest(), Profile: contracts.DelegationProfilePackageDeploy, Capability: contracts.GovernedPackageDeploy, PrincipalID: contracts.PackageManagerPrincipalID, PrincipalKind: contracts.PackageManagerPrincipalKind, TargetKind: contracts.PackageManagerPrincipalKind, TargetIdentity: contracts.PackageManagerPrincipalID, TargetVersion: "1", TargetDigest: root.Digest, Scope: scope, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Reason: "governed installation-local package deployment", ExpiresAt: expires.UTC(), CreatedAt: now}
 	digest, err := p.Digest()
 	if err != nil {
 		return err

@@ -1058,3 +1058,26 @@ func TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch(t *testing.T) {
 		t.Fatal("credential-only dispatch")
 	}
 }
+
+func TestHoldsLocalLineageFollowsDurableCompletion(t *testing.T) {
+	a := exactAssets(t)
+	r, f, at := fixture(t)
+	e := Execution{Repository: r, Adapter: &fakeAdapter{}, Assets: a, Now: func() time.Time { return at }}
+	ctx := context.Background()
+	holds, err := e.HoldsLocalLineage(ctx)
+	must(t, err)
+	if holds {
+		t.Fatal("fresh installation reported publication lineage")
+	}
+	adopt(t, r, f, at)
+	q := authorize(t, r, f, at, intent(t, at, a))
+	must(t, VerifySigning(ctx, r, a, at))
+	if _, err := e.Execute(ctx, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	holds, err = e.HoldsLocalLineage(ctx)
+	must(t, err)
+	if !holds {
+		t.Fatal("publishing installation must report its own completion lineage")
+	}
+}

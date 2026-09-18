@@ -17,6 +17,20 @@ func RequiresLocalLineage(release distribution.Release) bool {
 	return release.Ref.String() == contracts.GoalsPublicationRepository || release.Manifest.PackageID == "praxis.package.goals" && release.Manifest.Version == "0.1.0" || release.ManifestDigest == contracts.GoalsPublicationManifest
 }
 
+// HoldsLocalLineage reports whether this installation carries a durable Goals
+// publication or recovery completion. Only the installation that performed a
+// publication can connect an acquisition to it; every other installation
+// verifies a first-party release through the ordinary trusted-key signature
+// path, which this check never replaces.
+func (e Execution) HoldsLocalLineage(ctx context.Context) (bool, error) {
+	var n int
+	err := e.Repository.Store.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM events v JOIN commands c ON c.command_id=v.command_id WHERE v.event_version='1' AND c.payload=v.payload AND ((v.event_type='goals-publication-recovery.completed' AND c.command_type='goals-publication-recovery.complete') OR (v.event_type='goals-publication.completed' AND c.command_type='goals-publication.complete'))`).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // CheckAcquisition does not install, approve, or verify a package signature. It
 // connects this exact local publication to the bytes about to be passed to the
 // existing verifier. Inspection is read-only; event recording is separate.

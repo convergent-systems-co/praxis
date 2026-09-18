@@ -1,9 +1,27 @@
-# ADR-077: Built-in Authority Model v2 Routing Issuance
+# ADR-092: Authority Model v6 Routing Issuance
 
-- Status: Accepted
+- Status: Accepted, reconciled
+- Reconciliation (2026-09-18): this document was authored on the
+  `redesign/praxis2` lineage as ADR-077 defining `praxis.authority-model/v2`
+  and a v1-to-v2 root migration record. On the canonical lineage v2 is
+  package publication and v3, v4, v5 already exist, so by architecture
+  decision the routing issuance model is **authority model v6**, adopted only
+  through the canonical authority-model adoption ceremony from an active v5
+  state (`AuthorityModelRoutingDigest` binds the exact v5 digest by value and
+  adds exactly `routing.target-contribution.issue` and
+  `routing.surface-eligibility.issue` with their closed delegation profiles).
+  The parallel root/model migration record is superseded: installation-root
+  succession is governed solely by ADR-089 and ADR-090, and delegated
+  routing lineage is proven to the exact current root by
+  `ValidateAuthorityGenerationLineage`. Persistent exact-dispatch grants are
+  migration `0019_exact_dispatch_grants.sql` (schema 18 -> 19) under the
+  governed migration ceremony. Where the original text below says "v2" or
+  "migration", read "v6" and "adoption" respectively; the original text is
+  retained as the design rationale.
+
 - Date: 2026-09-17
 - Supersedes for new routing authority: ADR-074
-- Related: ADR-069, ADR-071, ADR-072, ADR-073, ADR-076
+- Related: ADR-069, ADR-071, ADR-072, ADR-073, ADR-091
 
 ## Decision
 

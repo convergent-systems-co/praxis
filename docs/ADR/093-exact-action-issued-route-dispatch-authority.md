@@ -1,13 +1,13 @@
-# ADR-078: Exact-Action Issued-Route Dispatch Authority
+# ADR-093: Exact-Action Issued-Route Dispatch Authority
 
-- Status: Accepted
+- Status: Accepted, reconciled (renumbered from the redesign/praxis2 lineage on 2026-09-18; "Authority Model v2" there means canonical authority model v6, ADR-092)
 - Date: 2026-09-17
-- Related: ADR-042, ADR-058, ADR-076, ADR-077
+- Related: ADR-042, ADR-058, ADR-091, ADR-092
 
 ## Decision
 
 Executor dispatch through governed surface routing uses a separate exact-action
-authority boundary. Authority Model v2 and ADR-077 remain unchanged: routing
+authority boundary. Authority Model v2 and ADR-092 remain unchanged: routing
 issuance selects and verifies a route but grants no dispatch authority.
 
 After an issued v2 route exists, the bounded workflow freezes a canonical

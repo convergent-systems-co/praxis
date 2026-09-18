@@ -1,8 +1,18 @@
-# SPEC-040: Built-in Authority Model v2 Routing Issuance
+# SPEC-052: Authority Model v6 Routing Issuance
 
-Status: Accepted
+Status: Accepted, reconciled
 
-Authority: ADR-077
+Authority: ADR-092 (reconciled); ADR-089; ADR-090
+
+Reconciliation (2026-09-18): the routing issuance model is `praxis.authority-model`
+version `v6` with digest `AuthorityModelRoutingDigest()`, reached only by the
+canonical v5-to-v6 adoption ceremony. The "Root migration" section below
+describes the superseded redesign mechanism and is retained as history; the
+canonical implementation uses `ValidateBuiltinRoutingDelegation`,
+`Repository.SaveRoutingIssuance` (requires adopted v6 and a v6-labelled
+delegated child), and `ValidateAuthorityGenerationLineage` to the exact
+current installation root. Exact-dispatch grants persist through migration
+`0019_exact_dispatch_grants.sql`.
 
 ## Model identity
 

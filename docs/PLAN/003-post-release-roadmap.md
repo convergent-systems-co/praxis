@@ -55,7 +55,7 @@ Dependency: qualified PLAN-001 release; naming decision #95 should be resolved f
 
 Issue #102 is the execution-selection foundation for multi-agent first-party bundles.
 
-Architecture is governed by ADR-076 and SPEC-039.
+Architecture is governed by ADR-091 and SPEC-051.
 
 Deliverables:
 
@@ -181,7 +181,7 @@ The TUI/projection should expose #102 routing evidence where available, includin
 
 ### #37 — Epic: Universal AI Execution Fabric
 
-Treat as a **legacy/transition epic requiring reconciliation** against qualified Praxis 2 executor routing, client adapters, package lifecycle, deterministic authority, Go control plane, and ADR-076/SPEC-039 execution-target semantics.
+Treat as a **legacy/transition epic requiring reconciliation** against qualified Praxis 2 executor routing, client adapters, package lifecycle, deterministic authority, Go control plane, and ADR-091/SPEC-051 execution-target semantics.
 
 Do not implement remaining Python-era assumptions mechanically.
 
@@ -201,12 +201,12 @@ Reconciliation rules:
 
 1. Prefer qualified Praxis 2 Go/client/package mechanisms over duplicate Python control planes.
 2. Preserve the no-silent-metered-API / no-credential-extraction security intent where still applicable.
-3. Concrete adapters provide executor-surface capabilities/metadata; provider choice is governed through ADR-076/SPEC-039 rather than graph vendor coupling.
+3. Concrete adapters provide executor-surface capabilities/metadata; provider choice is governed through ADR-091/SPEC-051 rather than graph vendor coupling.
 4. Merge dashboard requirements into #100 when they are operational-projection concerns.
 5. Merge documentation requirements into #99 when they belong to release/public documentation.
 6. Integrate adapter configuration through qualified package/client contracts rather than parallel config systems.
 7. Close superseded issues explicitly with links to their replacement architecture/issues rather than leaving zombie backlog.
-8. Treat provider family, concrete model identity, transport/auth class, and metering/accounting class as distinct where required by SPEC-039.
+8. Treat provider family, concrete model identity, transport/auth class, and metering/accounting class as distinct where required by SPEC-051.
 
 ## Wave P5: Backlog reconciliation and closure
 

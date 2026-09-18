@@ -1,10 +1,10 @@
-# SPEC-039: Execution Targets, Affinity, and Budget-Aware Routing
+# SPEC-051: Execution Targets, Affinity, and Budget-Aware Routing
 
-- Status: Accepted
+- Status: Accepted, reconciled (renumbered from the redesign/praxis2 lineage on 2026-09-18; routing authority is canonical authority model v6, ADR-092)
 - Date: 2026-09-17
-- Governing ADR: ADR-076
+- Governing ADR: ADR-091
 - Issue: #102
-- Related: SPEC-003, SPEC-009, SPEC-010, SPEC-012, SPEC-013 (persistent agent identity), SPEC-016 (software-development proving package), SPEC-040
+- Related: SPEC-003, SPEC-009, SPEC-010, SPEC-012, SPEC-013 (persistent agent identity), SPEC-016 (software-development proving package), SPEC-052
 
 ## Purpose
 
@@ -169,7 +169,7 @@ A caller MUST NOT independently choose or implement the authoritative evaluator,
 
 Routing authority SHALL extend the existing durable `AuthorityRequest`, `AuthorityDecision`, and `AuthorityGeneration` lineage. It SHALL NOT create an independent routing trust root.
 
-SPEC-040 owns the v2 model identity, explicit v1-root migration, closed routing delegation table, recursive lineage validation, and typed issuance authority checks.
+SPEC-052 owns the v2 model identity, explicit v1-root migration, closed routing delegation table, recursive lineage validation, and typed issuance authority checks.
 
 Core SHALL atomically persist two typed issuance forms:
 

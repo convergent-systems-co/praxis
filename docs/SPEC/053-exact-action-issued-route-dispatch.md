@@ -1,6 +1,6 @@
-# SPEC-041: Exact-Action Issued-Route Dispatch
+# SPEC-053: Exact-Action Issued-Route Dispatch
 
-- Status: Accepted
+- Status: Accepted, reconciled (renumbered from the redesign/praxis2 lineage on 2026-09-18; routing authority is canonical authority model v6, ADR-092)
 - Governing ADRs: 042, 058, 076, 078
 
 ## Scope

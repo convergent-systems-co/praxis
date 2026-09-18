@@ -1,9 +1,9 @@
-# ADR-076: Governed Executor Affinity and Routing Targets
+# ADR-091: Governed Executor Affinity and Routing Targets
 
-- Status: Accepted for post-release implementation
+- Status: Accepted, reconciled (renumbered from the redesign/praxis2 lineage on 2026-09-18; "Authority Model v2" there means canonical authority model v6, ADR-092) for post-release implementation
 - Date: 2026-09-17
 - Issue: #102
-- Related: ADR-003, ADR-015, ADR-016, ADR-022, ADR-034, ADR-037, ADR-038, ADR-077
+- Related: ADR-003, ADR-015, ADR-016, ADR-022, ADR-034, ADR-037, ADR-038, ADR-092
 
 ## Context
 
@@ -32,7 +32,7 @@ An Execution Target may express semantic constraints and preferences including:
 - executor-specific concurrency/quota class;
 - security/evidence requirements.
 
-The executable contract is defined by SPEC-039.
+The executable contract is defined by SPEC-051.
 
 ### Capability remains the base eligibility rule
 
@@ -95,7 +95,7 @@ An independently caller-selectable evaluator implementation, caller-selected pri
 
 This is an extension of the existing durable `AuthorityRequest` / `AuthorityDecision` / `AuthorityGeneration` system, not a second authority system. Routing adds typed issuance records for (a) one exact canonical execution-target contribution and (b) one exact request/surface eligibility evaluation. Each issuance is stored atomically under an approved authority decision, binds the issuing generation and required routing authority, and is accepted only after core reloads it from the protected store and proves that its generation lineage terminates at the sole installation-governance root derived from the protected bootstrap record.
 
-ADR-077 defines the authority-model v2 transition and the two least-privilege routing issuance authorities. V1 roots and descendants are never reinterpreted as routing authority.
+ADR-092 defines the authority-model v2 transition and the two least-privilege routing issuance authorities. V1 roots and descendants are never reinterpreted as routing authority.
 
 The authoritative merge and selection APIs consume immutable issued-decision identities. They do not accept caller-provided evaluator, validator, principal, authority enum, or evidence object as authority. Live adapters may propose descriptive inputs, but only a typed persisted issuance loaded and revalidated by core can authorize a target contribution or eligibility result. Expiry and revocation are checked using core-owned current time at write, selection, persistence, and replay boundaries.
 
@@ -237,7 +237,7 @@ Rejected. A subscription/local target must never silently become metered API exe
 
 ## Required Follow-up
 
-1. Implement SPEC-039 execution-target contract and routing precedence.
+1. Implement SPEC-051 execution-target contract and routing precedence.
 2. Reconcile ADR-037 executor adapter semantics with surface identity/transport metadata.
 3. Reconcile SPEC-009 inference routing/budgets with target/fallback semantics.
 4. Reconcile SPEC-003 scheduler/resource governance with executor-specific quotas/concurrency.

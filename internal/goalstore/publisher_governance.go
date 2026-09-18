@@ -817,9 +817,14 @@ func validModelSuccessor(a contracts.AuthorityModelAdoption) bool {
 	case contracts.AuthorityModelSuccessorVersion:
 		return a.FromDigest == contracts.AuthorityModelSuccessorDigest() && a.ToVersion == contracts.AuthorityModelDeploymentVersion && a.ToDigest == contracts.AuthorityModelDeploymentDigest()
 	case contracts.AuthorityModelDeploymentVersion:
-		return a.FromDigest == contracts.AuthorityModelDeploymentDigest() && a.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && a.ToDigest == contracts.AuthorityModelGoalsPublicationDigest()
-	case contracts.AuthorityModelGoalsRecoveryVersion:
-		return a.FromDigest == contracts.AuthorityModelGoalsRecoveryDigest() && a.ToVersion == contracts.AuthorityModelRoutingVersion && a.ToDigest == contracts.AuthorityModelRoutingDigest()
+		// v3 has two successors in the succession graph (ADR-094): the
+		// installation-scoped Goals branch v4 (further limited to the exact
+		// Goals installation by AdoptAuthorityModel) and the global routing
+		// model v6. v5 is a terminal leaf of the Goals branch.
+		if a.FromDigest != contracts.AuthorityModelDeploymentDigest() {
+			return false
+		}
+		return (a.ToVersion == contracts.AuthorityModelGoalsPublicationVersion && a.ToDigest == contracts.AuthorityModelGoalsPublicationDigest()) || (a.ToVersion == contracts.AuthorityModelRoutingVersion && a.ToDigest == contracts.AuthorityModelRoutingDigest())
 	case contracts.AuthorityModelGoalsPublicationVersion:
 		return a.FromDigest == contracts.AuthorityModelGoalsPublicationDigest() && a.ToVersion == contracts.AuthorityModelGoalsRecoveryVersion && a.ToDigest == contracts.AuthorityModelGoalsRecoveryDigest()
 	}

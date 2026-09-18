@@ -41,13 +41,16 @@ const (
 	GovernedInstallationRepairStorageSchema = "installation.repair.storage_schema"
 	GovernedInstallationRepairRuntimeState  = "installation.repair.runtime_state"
 
-	// Authority model v6 (ADR-092) is the exact-dispatch and executor-surface
-	// routing issuance successor of v5. It is adopted only through the
-	// canonical authority-model adoption ceremony from an active v5 state
-	// and adds exactly the two routing issuance authorities and their
-	// closed delegation profiles. Nothing is inherited by version order:
-	// AuthorityModelRoutingDigest binds the immutable v5 digest by value and
-	// enumerates every addition, and TestAuthorityModelV6 proves the set.
+	// Authority model v6 (ADR-092, ADR-094) is the global exact-dispatch and
+	// executor-surface routing issuance successor of v3. Authority models
+	// form a succession graph, not a linear chain: v1 -> v2 -> v3 are the
+	// global installation models, v4 -> v5 are the installation-scoped Goals
+	// publication branch off v3, and v6 is the global branch off v3. v6 is
+	// adopted only through the canonical adoption ceremony from an active v3
+	// state and adds exactly the two routing issuance authorities and their
+	// closed delegation profiles. Nothing is inherited by version number:
+	// AuthorityModelRoutingDigest binds the immutable v3 digest by value and
+	// enumerates every addition, and the v6 tests prove the set.
 	AuthorityModelRoutingVersion               = "v6"
 	AuthorityRoutingTargetContributionIssue    = "routing.target-contribution.issue"
 	AuthorityRoutingSurfaceEligibilityIssue    = "routing.surface-eligibility.issue"
@@ -57,10 +60,11 @@ const (
 )
 
 // AuthorityModelRoutingDigest identifies the immutable v6 rule set: the exact
-// v5 identity retained by value plus the two routing issuance authorities,
-// their delegation profiles, and the single "issue" operation.
+// v3 identity retained by value plus the two routing issuance authorities,
+// their delegation profiles, and the single "issue" operation. It binds no
+// installation-scoped model (v4, v5) by design.
 func AuthorityModelRoutingDigest() string {
-	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelGoalsRecoveryDigest(), AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue, DelegationProfileRoutingTargetContribution, DelegationProfileRoutingSurfaceEligibility, RoutingIssuanceOperation})
+	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelDeploymentDigest(), AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue, DelegationProfileRoutingTargetContribution, DelegationProfileRoutingSurfaceEligibility, RoutingIssuanceOperation})
 	sum := sha256.Sum256(payload)
 	return "sha256:" + hex.EncodeToString(sum[:])
 }

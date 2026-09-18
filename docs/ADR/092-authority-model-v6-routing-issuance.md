@@ -5,11 +5,14 @@
   `redesign/praxis2` lineage as ADR-077 defining `praxis.authority-model/v2`
   and a v1-to-v2 root migration record. On the canonical lineage v2 is
   package publication and v3, v4, v5 already exist, so by architecture
-  decision the routing issuance model is **authority model v6**, adopted only
-  through the canonical authority-model adoption ceremony from an active v5
-  state (`AuthorityModelRoutingDigest` binds the exact v5 digest by value and
+  decision the routing issuance model is **authority model v6**, the global
+  successor of v3 in the succession graph defined by ADR-094, adopted only
+  through the canonical authority-model adoption ceremony from an active v3
+  state (`AuthorityModelRoutingDigest` binds the exact v3 digest by value and
   adds exactly `routing.target-contribution.issue` and
   `routing.surface-eligibility.issue` with their closed delegation profiles).
+  v4 and v5 are the installation-scoped Goals publication branch and are
+  neither ancestors nor predecessors of v6.
   The parallel root/model migration record is superseded: installation-root
   succession is governed solely by ADR-089 and ADR-090, and delegated
   routing lineage is proven to the exact current root by

@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-// TestAuthorityModelV6IsExplicitlyConstructedFromV5 proves that v6 is not
-// inherited by version order: its digest binds the exact v5 identity by
-// value and enumerates every addition, and no earlier authority appears in
-// v6 delegation merely because v6 follows v5.
-func TestAuthorityModelV6IsExplicitlyConstructedFromV5(t *testing.T) {
+// TestAuthorityModelV6IsExplicitlyConstructedFromV3 proves that v6 is not
+// inherited by version number: its digest binds the exact v3 identity by
+// value, binds neither installation-scoped Goals model, and enumerates every
+// addition, so no authority appears in v6 merely because 6 > 5.
+func TestAuthorityModelV6IsExplicitlyConstructedFromV3(t *testing.T) {
 	chain := []string{AuthorityModelDigest(), AuthorityModelSuccessorDigest(), AuthorityModelDeploymentDigest(), AuthorityModelGoalsPublicationDigest(), AuthorityModelGoalsRecoveryDigest(), AuthorityModelRoutingDigest()}
 	for i := range chain {
 		for j := range chain {
@@ -21,10 +21,27 @@ func TestAuthorityModelV6IsExplicitlyConstructedFromV5(t *testing.T) {
 		}
 	}
 	var members []string
-	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelGoalsRecoveryDigest(), AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue, DelegationProfileRoutingTargetContribution, DelegationProfileRoutingSurfaceEligibility, RoutingIssuanceOperation})
+	payload, _ := json.Marshal([]string{AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelDeploymentDigest(), AuthorityRoutingTargetContributionIssue, AuthorityRoutingSurfaceEligibilityIssue, DelegationProfileRoutingTargetContribution, DelegationProfileRoutingSurfaceEligibility, RoutingIssuanceOperation})
 	_ = json.Unmarshal(payload, &members)
-	if len(members) != 8 || members[2] != AuthorityModelGoalsRecoveryDigest() {
-		t.Fatalf("v6 must retain the exact v5 identity by value and add exactly the routing rule set: %v", members)
+	if len(members) != 8 || members[2] != AuthorityModelDeploymentDigest() {
+		t.Fatalf("v6 must retain the exact v3 identity by value and add exactly the routing rule set: %v", members)
+	}
+	// Pinned identities: v4 and v5 are unchanged by the topology decision and
+	// v6 binds v3 deterministically. Any drift here is a durable-identity change.
+	pinned := map[string]string{
+		"v4": "sha256:3f835c18b65cf1eeea06f58ac8c066698a067eb370c969e394de72f2bd61988d",
+		"v5": "sha256:fb63093de7b4f271d8b8ffb7229572d7887d5f6af7dd89191ef5283eb90fb53c",
+	}
+	if AuthorityModelGoalsPublicationDigest() != pinned["v4"] || AuthorityModelGoalsRecoveryDigest() != pinned["v5"] {
+		t.Fatal("installation-scoped Goals model digests must remain unchanged")
+	}
+	if AuthorityModelRoutingDigest() == "sha256:e3a8bb27da1247921dae7c8f887e91741b06d923d5aff059d9fe0d33e1a67ed3" {
+		t.Fatal("v6 must no longer bind the v5 identity")
+	}
+	for _, forbidden := range []string{AuthorityModelGoalsPublicationDigest(), AuthorityModelGoalsRecoveryDigest(), GoalsPublicationProfile, GoalsPublicationRecoveryProfile, GoalsPublicationOperation, GovernedInstallationRepairStorageSchema, GovernedInstallationRepairRuntimeState} {
+		if strings.Contains(string(payload), forbidden) {
+			t.Fatalf("unrelated authority %q appears in the v6 rule set", forbidden)
+		}
 	}
 	if err := ValidateAuthorityModel(AuthorityModelID, AuthorityModelRoutingVersion, AuthorityModelRoutingDigest()); err != nil {
 		t.Fatal(err)

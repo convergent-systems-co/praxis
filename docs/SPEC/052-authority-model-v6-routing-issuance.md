@@ -2,11 +2,11 @@
 
 Status: Accepted, reconciled
 
-Authority: ADR-092 (reconciled); ADR-089; ADR-090
+Authority: ADR-092 (reconciled); ADR-094; ADR-089; ADR-090
 
 Reconciliation (2026-09-18): the routing issuance model is `praxis.authority-model`
-version `v6` with digest `AuthorityModelRoutingDigest()`, reached only by the
-canonical v5-to-v6 adoption ceremony. The "Root migration" section below
+version `v6` with digest `AuthorityModelRoutingDigest()`, the global successor
+of v3, reached only by the canonical v3-to-v6 adoption ceremony (ADR-094). The "Root migration" section below
 describes the superseded redesign mechanism and is retained as history; the
 canonical implementation uses `ValidateBuiltinRoutingDelegation`,
 `Repository.SaveRoutingIssuance` (requires adopted v6 and a v6-labelled

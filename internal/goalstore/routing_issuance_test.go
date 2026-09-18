@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -90,9 +91,16 @@ func TestRoutingIssuanceRequiresAdoptedV6AndExactDelegatedAuthority(t *testing.T
 	if _, err := repo.SaveRoutingIssuance(ctx, draft); err == nil {
 		t.Fatal("routing issuance succeeded without an adopted v6 model")
 	}
-	activateAuthorityModelForTest(t, repo, contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest(), now)
-	if _, err := repo.SaveRoutingIssuance(ctx, draft); err == nil {
-		t.Fatal("routing issuance succeeded under v5: routing authority must not be inherited by version order")
+	for i, model := range []struct{ version, digest string }{
+		{contracts.AuthorityModelSuccessorVersion, contracts.AuthorityModelSuccessorDigest()},
+		{contracts.AuthorityModelDeploymentVersion, contracts.AuthorityModelDeploymentDigest()},
+		{contracts.AuthorityModelGoalsPublicationVersion, contracts.AuthorityModelGoalsPublicationDigest()},
+		{contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest()},
+	} {
+		activateAuthorityModelForTest(t, repo, model.version, model.digest, now.Add(time.Duration(i)*time.Millisecond))
+		if _, err := repo.SaveRoutingIssuance(ctx, draft); err == nil {
+			t.Fatalf("routing issuance succeeded under %s: routing authority exists only under adopted v6", model.version)
+		}
 	}
 	activateAuthorityModelForTest(t, repo, contracts.AuthorityModelRoutingVersion, contracts.AuthorityModelRoutingDigest(), now.Add(time.Second))
 	forgedAuthority := draft
@@ -132,29 +140,99 @@ func TestRoutingIssuanceRequiresAdoptedV6AndExactDelegatedAuthority(t *testing.T
 	}
 }
 
-func TestAdoptAuthorityModelV5ToV6IsTheOnlyRoutingAdoptionEdge(t *testing.T) {
-	now := time.Unix(1700000000, 0).UTC()
-	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+func v6AdoptionFixture(t *testing.T, repo Repository, now time.Time) (contracts.AuthorityModelAdoption, string, string) {
+	t.Helper()
 	adoption, bootstrapDigest := adoptionFixture(t, repo, now)
 	v6 := adoption
-	v6.ID, v6.FromVersion, v6.FromDigest, v6.ToVersion, v6.ToDigest = "authority-model-adoption:v5-to-v6:test", contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest(), contracts.AuthorityModelRoutingVersion, contracts.AuthorityModelRoutingDigest()
+	v6.ID, v6.FromVersion, v6.FromDigest, v6.ToVersion, v6.ToDigest = "authority-model-adoption:v3-to-v6:test", contracts.AuthorityModelDeploymentVersion, contracts.AuthorityModelDeploymentDigest(), contracts.AuthorityModelRoutingVersion, contracts.AuthorityModelRoutingDigest()
 	digest, err := v6.Digest()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.AdoptAuthorityModel(context.Background(), v6, bootstrapDigest, "test", "ADOPT "+digest, now); err == nil {
-		t.Fatal("v6 adopted from implicit v1")
+	return v6, digest, bootstrapDigest
+}
+
+// TestAdoptAuthorityModelV3ToV6IsTheOnlyRoutingAdoptionEdge proves the
+// succession graph of ADR-094: v6 is adoptable from active v3 only. The
+// installation-scoped Goals branch (v4, v5) is neither an ancestor nor a
+// predecessor of v6, and v1/v2 must still pass through v3.
+func TestAdoptAuthorityModelV3ToV6IsTheOnlyRoutingAdoptionEdge(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	ctx := context.Background()
+	for _, from := range []struct {
+		name, version, digest string
+	}{
+		{"v2", contracts.AuthorityModelSuccessorVersion, contracts.AuthorityModelSuccessorDigest()},
+		{"v4", contracts.AuthorityModelGoalsPublicationVersion, contracts.AuthorityModelGoalsPublicationDigest()},
+		{"v5", contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest()},
+	} {
+		repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+		v6, digest, bootstrapDigest := v6AdoptionFixture(t, repo, now)
+		if _, err := repo.AdoptAuthorityModel(ctx, v6, bootstrapDigest, "test", "ADOPT "+digest, now); err == nil {
+			t.Fatal("v6 adopted from implicit v1")
+		}
+		activateAuthorityModelForTest(t, repo, from.version, from.digest, now)
+		if _, err := repo.AdoptAuthorityModel(ctx, v6, bootstrapDigest, "test", "ADOPT "+digest, now.Add(time.Second)); err == nil {
+			t.Fatalf("v6 adopted from %s", from.name)
+		}
+		// A forged adoption record claiming the branch model as predecessor
+		// is refused by the successor predicate itself.
+		forged := v6
+		forged.FromVersion, forged.FromDigest = from.version, from.digest
+		forgedDigest, _ := forged.Digest()
+		if _, err := repo.AdoptAuthorityModel(ctx, forged, bootstrapDigest, "test", "ADOPT "+forgedDigest, now.Add(time.Second)); err == nil {
+			t.Fatalf("v6 adopted through a forged %s predecessor", from.name)
+		}
+		if state, err := repo.LoadAuthorityModelState(ctx, now.Add(2*time.Second)); err != nil || state.ActiveVersion != from.version {
+			t.Fatalf("refused adoption must leave %s active: %+v %v", from.name, state, err)
+		}
 	}
+
+	repo, _ := repoFixture(t, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	v6, digest, bootstrapDigest := v6AdoptionFixture(t, repo, now)
 	activateAuthorityModelForTest(t, repo, contracts.AuthorityModelDeploymentVersion, contracts.AuthorityModelDeploymentDigest(), now)
-	if _, err := repo.AdoptAuthorityModel(context.Background(), v6, bootstrapDigest, "test", "ADOPT "+digest, now); err == nil {
-		t.Fatal("v6 adopted from v3: v4 and v5 semantics must be explicitly established first")
+	// The Goals branch stays limited to its exact installation.
+	v4 := v6
+	v4.ID, v4.ToVersion, v4.ToDigest = "authority-model-adoption:v3-to-v4:test", contracts.AuthorityModelGoalsPublicationVersion, contracts.AuthorityModelGoalsPublicationDigest()
+	v4Digest, _ := v4.Digest()
+	if _, err := repo.AdoptAuthorityModel(ctx, v4, bootstrapDigest, "test", "ADOPT "+v4Digest, now.Add(time.Second)); err == nil {
+		t.Fatal("v4 adopted outside the exact Goals installation")
 	}
-	activateAuthorityModelForTest(t, repo, contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest(), now.Add(time.Second))
-	if _, err := repo.AdoptAuthorityModel(context.Background(), v6, bootstrapDigest, "test", "ADOPT "+digest, now.Add(2*time.Second)); err != nil {
+	if _, err := repo.AdoptAuthorityModel(ctx, v6, bootstrapDigest, "test", "ADOPT "+digest, now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	state, err := repo.LoadAuthorityModelState(context.Background(), now.Add(3*time.Second))
+	state, err := repo.LoadAuthorityModelState(ctx, now.Add(3*time.Second))
 	if err != nil || state.ActiveVersion != contracts.AuthorityModelRoutingVersion || state.ActiveDigest != contracts.AuthorityModelRoutingDigest() {
 		t.Fatalf("v6 not active: %+v %v", state, err)
+	}
+}
+
+// TestPersistedV5InstallationReopensUnchanged proves the topology decision
+// leaves an installation on the Goals branch exactly where it was.
+func TestPersistedV5InstallationReopensUnchanged(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "praxis.db")
+	repo, _ := repoFixtureAt(t, path, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	v6, digest, bootstrapDigest := v6AdoptionFixture(t, repo, now)
+	activateAuthorityModelForTest(t, repo, contracts.AuthorityModelGoalsRecoveryVersion, contracts.AuthorityModelGoalsRecoveryDigest(), now)
+	before, err := repo.LoadAuthorityModelState(ctx, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Store.DB().Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := repoFixtureAt(t, path, praxiscrypto.Capabilities{PQ: true}, contracts.CryptoPQRequired)
+	reopened.Crypto = repo.Crypto
+	after, err := reopened.LoadAuthorityModelState(ctx, now.Add(2*time.Second))
+	if err != nil || after != before || after.ActiveVersion != contracts.AuthorityModelGoalsRecoveryVersion || after.ActiveDigest != "sha256:fb63093de7b4f271d8b8ffb7229572d7887d5f6af7dd89191ef5283eb90fb53c" {
+		t.Fatalf("persisted v5 state changed on reopen: %+v %+v %v", before, after, err)
+	}
+	if err := contracts.ValidateAuthorityModel(after.ActiveModel, after.ActiveVersion, after.ActiveDigest); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.AdoptAuthorityModel(ctx, v6, bootstrapDigest, "test", "ADOPT "+digest, now.Add(3*time.Second)); err == nil {
+		t.Fatal("a v5 installation must not adopt v6 at this time")
 	}
 }

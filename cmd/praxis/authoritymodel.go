@@ -98,8 +98,12 @@ func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, reco
 	if model.ActiveVersion == contracts.AuthorityModelGoalsPublicationVersion && model.ActiveDigest == contracts.AuthorityModelGoalsPublicationDigest() && bootstrapDigest == contracts.GoalsPublicationBootstrap && g.Digest == contracts.GoalsPublicationRoot {
 		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v4-to-v5:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsPublicationVersion, FromDigest: contracts.AuthorityModelGoalsPublicationDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelGoalsRecoveryVersion, ToDigest: contracts.AuthorityModelGoalsRecoveryDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact Goals established-state successor edge", CreatedAt: now.UTC()}, nil
 	}
-	if model.ActiveVersion == contracts.AuthorityModelGoalsRecoveryVersion && model.ActiveDigest == contracts.AuthorityModelGoalsRecoveryDigest() {
-		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v5-to-v6:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelGoalsRecoveryVersion, FromDigest: contracts.AuthorityModelGoalsRecoveryDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelRoutingVersion, ToDigest: contracts.AuthorityModelRoutingDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted exact-dispatch and executor-surface routing issuance model (ADR-092)", CreatedAt: now.UTC()}, nil
+	if model.ActiveVersion == contracts.AuthorityModelDeploymentVersion && model.ActiveDigest == contracts.AuthorityModelDeploymentDigest() {
+		// ADR-094: v3 is the branch point of the succession graph. The Goals
+		// installation-scoped branch (v4) is previewed only for the exact Goals
+		// installation above; every other v3 installation's successor is the
+		// global routing model v6. v5 has no adoptable successor at this time.
+		return contracts.AuthorityModelAdoption{ID: "authority-model-adoption:v3-to-v6:" + now.UTC().Format(time.RFC3339Nano), Version: "1", FromModel: contracts.AuthorityModelID, FromVersion: contracts.AuthorityModelDeploymentVersion, FromDigest: contracts.AuthorityModelDeploymentDigest(), ToModel: contracts.AuthorityModelID, ToVersion: contracts.AuthorityModelRoutingVersion, ToDigest: contracts.AuthorityModelRoutingDigest(), RootRef: g.Ref, RootVersion: g.Version, RootDigest: g.Digest, Reason: "adopt accepted global exact-dispatch and executor-surface routing issuance model (ADR-092, ADR-094)", CreatedAt: now.UTC()}, nil
 	}
 	return contracts.AuthorityModelAdoption{}, errors.New("authority model has no adoptable successor")
 }
@@ -162,6 +166,10 @@ func authorityModelPreviewPayload(adoption contracts.AuthorityModelAdoption) ([]
 }
 
 func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {
+	return runAuthorityModelAdoptWithTerminal(args, getenv, input, out, isInteractiveTerminal())
+}
+
+func runAuthorityModelAdoptWithTerminal(args []string, getenv func(string) string, input io.Reader, out io.Writer, interactive bool) error {
 	f := flag.NewFlagSet("authority model-adopt", flag.ContinueOnError)
 	f.SetOutput(out)
 	previewPath := f.String("preview-file", "", "system-produced adoption preview JSON")
@@ -171,7 +179,7 @@ func runAuthorityModelAdopt(args []string, getenv func(string) string, input io.
 	if f.NArg() != 0 || *previewPath == "" {
 		return errors.New("usage: praxis authority model-adopt --preview-file <system-produced-preview.json> (interactive confirmation required)")
 	}
-	if !isInteractiveTerminal() {
+	if !interactive {
 		return errAuthorityBootstrapConfirmation
 	}
 	payload, err := os.ReadFile(*previewPath)

@@ -232,6 +232,48 @@ func (s *Store) putSecureBlobsWithLock(ctx context.Context, records []SecureBlob
 	return nil
 }
 
+func (s *Store) PutSecureBlobsUnlessRevoked(ctx context.Context, records []SecureBlobRecord, revocationNamespace, requestID, requestVersion, generationInvalidationNamespace, generationID, generationVersion, lockNamespace, lockID, lockVersion string) error {
+	if s == nil || s.db == nil || len(records) == 0 {
+		return errors.New("state store and secure blob records are required")
+	}
+	for _, record := range records {
+		if err := record.Validate(); err != nil {
+			return err
+		}
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=? AND object_version=?`, lockNamespace, lockID, lockVersion)
+	if err != nil {
+		return err
+	}
+	if n, _ := result.RowsAffected(); n != 1 {
+		return errors.New("secure blob lock source is missing")
+	}
+	for _, check := range []struct{ namespace, id, version string }{{revocationNamespace, requestID, requestVersion}, {generationInvalidationNamespace, generationID, generationVersion}} {
+		var count int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, check.namespace, check.id, check.version).Scan(&count); err != nil {
+			return err
+		}
+		if count != 0 {
+			return ErrAuthorityRevoked
+		}
+	}
+	for _, record := range records {
+		envelopeJSON, err := json.Marshal(record.Envelope)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // PutSecureBlobUnlessRevoked atomically locks the source authority record,
 // checks the immutable revocation namespace, and writes the new record. A
 // revoke and this operation therefore have one durable SQLite ordering. It

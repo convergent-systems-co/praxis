@@ -3,6 +3,8 @@ package routingauthority
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -23,7 +25,10 @@ type IssuedSurfaceEligibility struct {
 	SurfaceDigest string                        `json:"surface_digest"`
 	Evidence      inference.EligibilityEvidence `json:"evidence"`
 }
-type IssuedRoutingAuthority struct{ repository *goalstore.Repository }
+type issuanceLoader interface {
+	LoadRoutingIssuance(context.Context, contracts.RoutingIssuanceRef, time.Time) (contracts.RoutingIssuance, error)
+}
+type IssuedRoutingAuthority struct{ repository issuanceLoader }
 
 type IssuedRouteLedger struct {
 	ledger    *inference.RouteLedger
@@ -109,7 +114,11 @@ func (a *IssuedRoutingAuthority) mergeExecutionTargetsAt(ctx context.Context, re
 		if err := json.Unmarshal(issued.Payload, &payload); err != nil {
 			return contracts.EffectiveExecutionTarget{}, err
 		}
-		if payload.Target.Scope != issued.Scope {
+		targetBytes, _ := json.Marshal(payload.Target)
+		targetSum := sha256.Sum256(targetBytes)
+		targetDigest := "sha256:" + hex.EncodeToString(targetSum[:])
+		wantScope, scopeErr := contracts.RoutingTargetContributionScope(payload.Target.Scope, payload.Target.Version, targetDigest)
+		if scopeErr != nil || issued.Scope != wantScope {
 			return contracts.EffectiveExecutionTarget{}, errors.New("issued target scope mismatch")
 		}
 		contributions = append(contributions, contracts.ExecutionTargetContribution{Authority: payload.Authority, SourceRef: issued.ID, SourceDigest: issued.PayloadDigest, Target: payload.Target})
@@ -141,7 +150,7 @@ func selectIssuedExecutorSurfaceAt(ctx context.Context, request inference.Surfac
 		if err != nil {
 			return inference.SurfaceRoutingDecision{}, err
 		}
-		if issued.Kind != contracts.RoutingSurfaceEligibility || issued.Authority != contracts.AuthorityRoutingSurfaceEligibilityIssue || issued.Scope != request.ID {
+		if issued.Kind != contracts.RoutingSurfaceEligibility || issued.Authority != contracts.AuthorityRoutingSurfaceEligibilityIssue {
 			return inference.SurfaceRoutingDecision{}, errors.New("issuance is not scoped surface eligibility")
 		}
 		var payload IssuedSurfaceEligibility
@@ -150,6 +159,10 @@ func selectIssuedExecutorSurfaceAt(ctx context.Context, request inference.Surfac
 		}
 		if payload.RequestID != request.ID || payload.Evidence.SurfaceID != payload.SurfaceID || payload.Evidence.SurfaceDigest != payload.SurfaceDigest || payload.Evidence.AuthorityGenerationRef != issued.GenerationRef || payload.Evidence.AuthorityGenerationVersion != issued.GenerationVersion || payload.Evidence.AuthorityGenerationDigest != issued.GenerationDigest || payload.Evidence.AuthorityID != issued.IssuedBy.ID {
 			return inference.SurfaceRoutingDecision{}, errors.New("issued eligibility payload lineage mismatch")
+		}
+		wantScope, scopeErr := contracts.RoutingSurfaceEligibilityScope(request.ID, "1", request.ID, payload.SurfaceDigest)
+		if scopeErr != nil || issued.Scope != wantScope {
+			return inference.SurfaceRoutingDecision{}, errors.New("issued eligibility canonical scope mismatch")
 		}
 		evidence = append(evidence, payload.Evidence)
 	}

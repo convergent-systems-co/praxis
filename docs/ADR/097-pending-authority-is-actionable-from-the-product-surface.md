@@ -1,0 +1,89 @@
+# ADR-097: Pending Authority Is Actionable From the Product Surface
+
+- Status: Accepted
+- Date: 2026-09-18
+- Governs: how a human resolves an authority boundary that Praxis surfaces,
+  and which lifecycle inputs a human or agent may be asked to supply
+- Related: ADR-068, ADR-095, ADR-096, SPEC-031
+
+## Context
+
+Driving the first external workload exposed that the product could show a
+pending `workplan.accept` authority request (`goals-lifecycle
+--operation=inspect`) and name the `decide` operation, but the only way to
+resolve it was to hand-author Praxis's internal `AuthorityDecision`
+representation: request digest, decision reference, deciding principal,
+current root reference/version/digest, granted scope, model digest, and
+timestamp. The same was true of `request`, `accept`, and `attach`, whose
+inputs are entirely derivable from durable state, and of `review`, whose
+only human content is the reviewer's judgment. An ordinary operator could
+not progress the governed lifecycle without an external orchestration layer
+constructing governance artifacts.
+
+## Invariant
+
+If Praxis surfaces a human authority boundary through its public interface,
+the same interface provides a deterministic path for the authorized human to
+resolve it by supplying only the decision. Praxis derives and binds every
+identity itself.
+
+## Decision
+
+### Ownership
+
+An authority request is a generic object bound to the installation root; the
+Goals package only composes it. The decision therefore belongs to the kernel
+authority surface, next to `authority delegate` and
+`authority package-deploy-approve`, which already derive owner decisions
+internally:
+
+```
+praxis authority pending [--goal-id <id> --goal-version <version>] [--all]
+praxis authority decide --request <digest> --outcome approve|reject [--reason <text>]
+```
+
+`pending` lists durable requests with exact digests and truthful
+disposition; it never orders or selects by recency. `decide` loads the exact
+request by digest, refuses delegation requests (those remain `delegate`),
+returns the recorded decision on replay instead of writing a second one,
+requires the authenticated OS user to own the current root, requires the
+request scope to be the root scope, prompts with the request's identity and
+purpose, and accepts only the typed confirmation `DECIDE-APPROVE <digest>`
+or `DECIDE-REJECT <digest>`. It then binds the decision to the exact request
+digest, current root generation, root scope, and root model identity. A
+model or agent cannot use it: there is no non-interactive path, and the
+decider is always the installation owner.
+
+### Goals lifecycle inputs
+
+The Goals package keeps the separation proposal → review → request →
+decision → acceptance → attachment, but its operations accept a documented
+selector of exact durable identities instead of an internal document:
+
+| Operation | Public input | Praxis derives |
+|---|---|---|
+| review | `proposal_digest`, `status`, `reviewed_by`, `reviewer_generation`, optional `findings` | proposal, baseline digest, review ref and digest, requirement coverage |
+| request | `--goal-id`, `--goal-version`, `proposal_digest`, `review_digest` | baseline digest, proposal and review identity and versions, root scope, request id |
+| accept | `request_digest` | the approving decision, the proposal's candidates and relationships, acceptance ref |
+| attach | `--goal-id`, `--goal-version`, `acceptance_ref` | source digest, successor generation |
+
+`inspect` reports the full lineage for a generation (proposals, reviews,
+authority requests with disposition, acceptances, drivability) and names the
+exact next public command. The full-document forms remain accepted for
+compatibility. `propose` still takes the planner's decomposition: that is
+the planner's contribution, not a Praxis-internal artifact.
+
+The selector form fits the published `praxis.package.goals@0.1.1` invocation
+contract (`--operation`, `--input`, `--goal-id`, `--goal-version`), so no
+package republication is required; the registry refuses undeclared options,
+which is why selectors travel in `--input` rather than as new flags.
+
+## Consequences
+
+- A user with an installed Praxis, the installed Goals package, a Goal, and
+  legitimate ownership progresses from import to a drivable generation with
+  public commands and identities printed by those commands.
+- Exact identity is required at every step; several pending requests are
+  listed, never collapsed.
+- Package transitions (disable/uninstall) still lack a governed approval
+  ceremony (#151).

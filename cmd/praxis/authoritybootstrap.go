@@ -41,6 +41,10 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityModelAbandon(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "model-status":
 		return runAuthorityModelStatus(args[1:], os.Getenv, os.Stdout)
+	case "pending":
+		return runAuthorityPending(args[1:], os.Getenv, os.Stdout)
+	case "decide":
+		return runAuthorityDecide(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "request-inspect":
 		return runAuthorityRequestInspect(args[1:], os.Getenv, os.Stdout)
 	case "package-deploy-preview":

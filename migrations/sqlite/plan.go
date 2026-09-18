@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -57,6 +58,159 @@ type Journal struct {
 	SnapshotDigest   string    `json:"snapshot_digest,omitempty"`
 	AppliedMigration string    `json:"applied_migration,omitempty"`
 	UpdatedAt        time.Time `json:"updated_at"`
+	// Holder and LeaseExpiresAt form the installation-wide migration
+	// maintenance lease. Exactly one process may execute a governed
+	// migration at a time; the lease is claimed with a single immediate
+	// transaction before any snapshot or DDL, is bounded so a crashed holder
+	// cannot block forever, and is cleared on commit or recoverable failure.
+	Holder         string     `json:"holder,omitempty"`
+	LeaseExpiresAt *time.Time `json:"lease_expires_at,omitempty"`
+}
+
+// MigrationLeaseDuration bounds how long one process may hold the migration
+// maintenance lease without completing. A takeover after expiry only ever
+// resumes from the durable ledger, never from another process's memory.
+const MigrationLeaseDuration = 10 * time.Minute
+
+var ErrMigrationInProgress = errors.New("governed migration is in progress by another process")
+
+func migrationHolder() string {
+	host, _ := os.Hostname()
+	var nonce [8]byte
+	_, _ = rand.Read(nonce[:])
+	return fmt.Sprintf("%s:%d:%s", host, os.Getpid(), hex.EncodeToString(nonce[:]))
+}
+
+// MaintenanceLease is the single installation-wide migration maintenance
+// record. It is keyed by the installation, not by the plan digest: two
+// previews of the same pending migrations carry different plan digests
+// (CreatedAt is part of the plan), and both must still be excluded from
+// executing at once.
+type MaintenanceLease struct {
+	BootstrapDigest string     `json:"bootstrap_digest"`
+	PlanDigest      string     `json:"plan_digest,omitempty"`
+	Holder          string     `json:"holder,omitempty"`
+	LeaseExpiresAt  *time.Time `json:"lease_expires_at,omitempty"`
+	State           string     `json:"state"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+func maintenanceLeaseID(bootstrapDigest string) string {
+	return journalPrefix + "maintenance:" + bootstrapDigest
+}
+
+// ReadMaintenanceLease returns the installation-wide migration maintenance
+// record, or a released zero record when none was ever claimed.
+func ReadMaintenanceLease(ctx context.Context, db *sql.DB, bootstrapDigest string) (MaintenanceLease, error) {
+	var payload []byte
+	err := db.QueryRowContext(ctx, `SELECT payload FROM commands WHERE command_id=?`, maintenanceLeaseID(bootstrapDigest)).Scan(&payload)
+	if errors.Is(err, sql.ErrNoRows) {
+		return MaintenanceLease{BootstrapDigest: bootstrapDigest, State: "released"}, nil
+	}
+	if err != nil {
+		return MaintenanceLease{}, err
+	}
+	var lease MaintenanceLease
+	if err := json.Unmarshal(payload, &lease); err != nil {
+		return MaintenanceLease{}, err
+	}
+	return lease, nil
+}
+
+func writeMaintenanceLeaseTx(ctx context.Context, db sqlExecer, lease MaintenanceLease, actor string) error {
+	payload, err := json.Marshal(lease)
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO commands(command_id,command_type,command_version,actor_id,actor_kind,scope,correlation_id,payload,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(command_id) DO UPDATE SET payload=excluded.payload,status=excluded.status,created_at=excluded.created_at`, maintenanceLeaseID(lease.BootstrapDigest), "schema-migration-maintenance", "1", actor, "installation-owner", "installation:"+lease.BootstrapDigest, lease.PlanDigest, payload, lease.State, lease.UpdatedAt.Format(time.RFC3339Nano))
+	return err
+}
+
+// claimMigrationLease claims the installation-wide maintenance lease for
+// holder and reads or creates the per-plan journal inside one immediate
+// write transaction, so two migrators, even with different plan digests
+// for the same pending migrations, cannot both proceed. A committed journal
+// is returned as-is; an unexpired lease held by another process fails
+// closed with ErrMigrationInProgress before any snapshot or DDL.
+func claimMigrationLease(ctx context.Context, db *sql.DB, plan Plan, actor, holder string, expectedApplied int, now time.Time) (Journal, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return Journal{}, err
+	}
+	defer tx.Rollback()
+	// Revalidate the ledger inside the claim transaction: a migrator whose
+	// pre-claim status is stale (another holder completed and released the
+	// lease meanwhile) must fail closed here rather than re-apply.
+	applied := 0
+	for _, migration := range plan.Migrations {
+		var n int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM praxis_schema_migrations WHERE name=?`, migration.Name).Scan(&n); err != nil {
+			return Journal{}, err
+		}
+		applied += n
+	}
+	if applied != expectedApplied {
+		return Journal{}, fmt.Errorf("%w: migration ledger changed while claiming the maintenance lease; preview again", ErrMigrationInProgress)
+	}
+	journal := Journal{PlanDigest: plan.PlanDigest, State: "prepared"}
+	var payload []byte
+	switch err := tx.QueryRowContext(ctx, `SELECT payload FROM commands WHERE command_id=?`, journalPrefix+plan.PlanDigest).Scan(&payload); {
+	case err == nil:
+		if err := json.Unmarshal(payload, &journal); err != nil || journal.PlanDigest != plan.PlanDigest {
+			return Journal{}, errors.New("migration journal digest mismatch")
+		}
+		if journal.State == "committed" {
+			return journal, nil
+		}
+	case errors.Is(err, sql.ErrNoRows):
+	default:
+		return Journal{}, err
+	}
+	lease := MaintenanceLease{BootstrapDigest: plan.BootstrapDigest, State: "released"}
+	switch err := tx.QueryRowContext(ctx, `SELECT payload FROM commands WHERE command_id=?`, maintenanceLeaseID(plan.BootstrapDigest)).Scan(&payload); {
+	case err == nil:
+		if err := json.Unmarshal(payload, &lease); err != nil {
+			return Journal{}, err
+		}
+		if lease.State == "held" && lease.Holder != holder && lease.LeaseExpiresAt != nil && now.Before(*lease.LeaseExpiresAt) {
+			return Journal{}, fmt.Errorf("%w: holder %s executing plan %s until %s", ErrMigrationInProgress, lease.Holder, lease.PlanDigest, lease.LeaseExpiresAt.UTC().Format(time.RFC3339))
+		}
+	case errors.Is(err, sql.ErrNoRows):
+	default:
+		return Journal{}, err
+	}
+	expires := now.UTC().Add(MigrationLeaseDuration)
+	lease = MaintenanceLease{BootstrapDigest: plan.BootstrapDigest, PlanDigest: plan.PlanDigest, Holder: holder, LeaseExpiresAt: &expires, State: "held", UpdatedAt: now.UTC()}
+	if err := writeMaintenanceLeaseTx(ctx, tx, lease, actor); err != nil {
+		return Journal{}, err
+	}
+	journal.Holder, journal.LeaseExpiresAt, journal.UpdatedAt = holder, &expires, now.UTC()
+	if err := writeJournalTx(ctx, tx, journal, plan, actor); err != nil {
+		return Journal{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Journal{}, err
+	}
+	return journal, nil
+}
+
+// releaseMigrationLease clears the installation-wide maintenance lease and
+// the journal's holder fields together with the journal's terminal or
+// recoverable state, in one transaction.
+func releaseMigrationLease(ctx context.Context, db *sql.DB, journal Journal, plan Plan, actor string, now time.Time) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	journal.Holder, journal.LeaseExpiresAt, journal.UpdatedAt = "", nil, now.UTC()
+	if err := writeJournalTx(ctx, tx, journal, plan, actor); err != nil {
+		return err
+	}
+	if err := writeMaintenanceLeaseTx(ctx, tx, MaintenanceLease{BootstrapDigest: plan.BootstrapDigest, PlanDigest: plan.PlanDigest, State: "released", UpdatedAt: now.UTC()}, actor); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 const journalPrefix = "schema-migration:"
@@ -247,12 +401,12 @@ func ApplyPlan(ctx context.Context, db *sql.DB, plan Plan, snapshotPath, actor s
 			return Journal{}, errors.New("migration order or content does not match plan")
 		}
 	}
-	journal, journalErr := ReadJournal(ctx, db, plan.PlanDigest)
-	if journalErr != nil {
-		journal = Journal{PlanDigest: plan.PlanDigest, State: "prepared", UpdatedAt: now.UTC()}
-		if err := writeJournal(ctx, db, journal, plan, actor); err != nil {
-			return Journal{}, err
-		}
+	journal, err := claimMigrationLease(ctx, db, plan, actor, migrationHolder(), firstPending, now)
+	if err != nil {
+		return Journal{}, err
+	}
+	if journal.State == "committed" {
+		return Journal{}, errors.New("migration is complete but the ledger still reports pending migrations")
 	}
 	if journal.SnapshotPath != "" {
 		if journal.SnapshotPath != snapshotPath {
@@ -297,12 +451,14 @@ func ApplyPlan(ctx context.Context, db *sql.DB, plan Plan, snapshotPath, actor s
 		}
 		if _, err := tx.ExecContext(ctx, string(bodies[migration.Name])); err != nil {
 			_ = tx.Rollback()
-			journal.State, journal.UpdatedAt = "failed-recoverable", time.Now().UTC()
-			_ = writeJournal(ctx, db, journal, plan, actor)
+			journal.State = "failed-recoverable"
+			_ = releaseMigrationLease(ctx, db, journal, plan, actor, time.Now().UTC())
 			return Journal{}, fmt.Errorf("apply migration %s: %w", migration.Name, err)
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO praxis_schema_migrations(name,applied_at) VALUES(?,?)`, migration.Name, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			_ = tx.Rollback()
+			journal.State = "failed-recoverable"
+			_ = releaseMigrationLease(ctx, db, journal, plan, actor, time.Now().UTC())
 			return Journal{}, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -311,21 +467,30 @@ func ApplyPlan(ctx context.Context, db *sql.DB, plan Plan, snapshotPath, actor s
 	}
 	status, err = StatusOf(ctx, db)
 	if err != nil || status.CurrentSchema != plan.TargetSchema || len(status.Pending) != 0 {
-		journal.State, journal.UpdatedAt = "failed-recoverable", time.Now().UTC()
-		_ = writeJournal(ctx, db, journal, plan, actor)
+		journal.State = "failed-recoverable"
+		_ = releaseMigrationLease(ctx, db, journal, plan, actor, time.Now().UTC())
 		if err != nil {
 			return Journal{}, err
 		}
 		return Journal{}, errors.New("migration verification failed")
 	}
-	journal.State, journal.UpdatedAt = "committed", time.Now().UTC()
-	if err := writeJournal(ctx, db, journal, plan, actor); err != nil {
+	journal.State = "committed"
+	if err := releaseMigrationLease(ctx, db, journal, plan, actor, time.Now().UTC()); err != nil {
 		return Journal{}, err
 	}
+	journal.Holder, journal.LeaseExpiresAt = "", nil
 	return journal, nil
 }
 
 func writeJournal(ctx context.Context, db *sql.DB, journal Journal, plan Plan, actor string) error {
+	return writeJournalTx(ctx, db, journal, plan, actor)
+}
+
+type sqlExecer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func writeJournalTx(ctx context.Context, db sqlExecer, journal Journal, plan Plan, actor string) error {
 	payload, err := json.Marshal(journal)
 	if err != nil {
 		return err
@@ -358,4 +523,18 @@ func fileDigest(path string) (string, error) {
 	}
 	d := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(d[:]), nil
+}
+
+// ReadJournalLatest returns the most recently updated governed migration
+// journal, for inspection after the fact.
+func ReadJournalLatest(ctx context.Context, db *sql.DB) (Journal, error) {
+	var payload []byte
+	if err := db.QueryRowContext(ctx, `SELECT payload FROM commands WHERE command_type='schema-migration' ORDER BY created_at DESC LIMIT 1`).Scan(&payload); err != nil {
+		return Journal{}, err
+	}
+	var journal Journal
+	if err := json.Unmarshal(payload, &journal); err != nil {
+		return Journal{}, err
+	}
+	return journal, nil
 }

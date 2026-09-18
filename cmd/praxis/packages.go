@@ -74,7 +74,16 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		now := time.Now().UTC()
-		resolution, err := resolveReleasePackages(ctx, adapter, release, artifact, os.Getenv, allowFallback, now)
+		db, err := openPackageDB(ctx)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		at, err := approvedVerificationTime(ctx, db, os.Getenv, now)
+		if err != nil {
+			return err
+		}
+		resolution, err := resolveReleasePackages(ctx, adapter, release, artifact, os.Getenv, allowFallback, at)
 		if err != nil {
 			return err
 		}
@@ -82,12 +91,7 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		db, err := openPackageDB(ctx)
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, now, os.Getenv)
+		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, at, os.Getenv)
 		if err != nil {
 			return err
 		}
@@ -135,7 +139,11 @@ func runPackageCommand(command string, args []string) error {
 			return err
 		}
 		now := time.Now().UTC()
-		resolution, err := resolveReleasePackages(ctx, adapter, latest, artifact, os.Getenv, allowFallback, now)
+		at, err := approvedVerificationTime(ctx, db, os.Getenv, now)
+		if err != nil {
+			return err
+		}
+		resolution, err := resolveReleasePackages(ctx, adapter, latest, artifact, os.Getenv, allowFallback, at)
 		if err != nil {
 			return err
 		}
@@ -143,7 +151,7 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, now, os.Getenv)
+		evidenceDigest, err := persistDeploymentEvidence(ctx, db, deployment, at, os.Getenv)
 		if err != nil {
 			return err
 		}
@@ -342,6 +350,47 @@ func packageDeploymentRequest(resolution distribution.Resolution, getenv func(st
 	// PRAXIS_AUTHORITY_ID/KIND. Those variables remain selectors for legacy
 	// non-deployment transitions and cannot manufacture an installation actor.
 	return packagecatalog.NewDeploymentRequest(resolution.Root, resolution.Dependencies, contracts.PackageManagerPrincipal(), approvalID)
+}
+
+// approvedVerificationTime resolves the verification instant bound by the
+// governed deployment approval. Verification evidence identities include the
+// verification time, so a deployment re-verifies the exact bytes as of the
+// approved instant: identical bytes, keys, source, and installation reproduce
+// the approved evidence identity, and any difference still fails closed when
+// the approval is revalidated against the fresh closure.
+func approvedVerificationTime(ctx context.Context, db *sql.DB, getenv func(string) string, now time.Time) (time.Time, error) {
+	if getenv == nil {
+		return time.Time{}, errors.New("package deployment authority environment is required")
+	}
+	approvalID := getenv("PRAXIS_PACKAGE_APPROVAL_ID")
+	if approvalID == "" {
+		return time.Time{}, errors.New("PRAXIS_PACKAGE_APPROVAL_ID is required; package deployment authority is installation-bound and cannot be selected from the environment")
+	}
+	store := state.New(db)
+	requestID, requestVersion, err := store.PackageApprovalRequest(ctx, approvalID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	repo, authDB, _, err := openGovernedRepositoryReadOnly(ctx, getenv)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer authDB.Close()
+	request, err := repo.LoadAuthorityRequest(ctx, requestID, requestVersion, now)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if request.RequestedAuthority != contracts.GovernedPackageDeploy || request.VerificationEvidenceDigest == "" {
+		return time.Time{}, errors.New("package-deploy approval does not bind durable verification evidence")
+	}
+	evidence, err := store.LoadVerificationEvidence(ctx, request.VerificationEvidenceDigest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if evidence.VerifiedAt.IsZero() || evidence.VerifiedAt.After(now) {
+		return time.Time{}, errors.New("approved verification evidence time is invalid")
+	}
+	return evidence.VerifiedAt.UTC(), nil
 }
 
 func persistDeploymentEvidence(ctx context.Context, db *sql.DB, deployment packagecatalog.DeploymentRequest, now time.Time, getenv func(string) string) (string, error) {

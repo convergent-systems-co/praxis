@@ -60,7 +60,10 @@ records `capability.unsatisfiable` with the required, granted, and missing
 sets and the evidence class "checkpoint-required action unavailable to
 worker", and the turn ends without implementation. The first-party
 profiles declare `edit`, `validate`, `stage`, `commit`; the environment
-command worker declares the full contract unless configured otherwise.
+command worker asserts the full contract unless the operator declares its
+real authority with `PRAXIS_GOAL_WORKER_CAPABILITIES` (a JSON array of
+capability names; unknown names fail closed). `praxis providers` reports
+each provider's capabilities next to the set a repository turn requires.
 
 ### Launch contract of the Claude subscription profile
 

@@ -37,3 +37,38 @@ func TestRecoverableTurnsNameExactBlockedTurns(t *testing.T) {
 		t.Fatalf("operator intent is named, not invented: %v", supplies)
 	}
 }
+
+// TestEnvironmentWorkerDeclaredCapabilitiesGateDispatch proves the operator
+// can declare what the environment worker can actually do, that goal-drive
+// resolves the declaration exactly as the providers catalog reports it, and
+// that a malformed or unknown declaration fails closed instead of widening.
+func TestEnvironmentWorkerDeclaredCapabilitiesGateDispatch(t *testing.T) {
+	env := map[string]string{"PRAXIS_GOAL_WORKER_ARGV": `["/bin/true"]`, "PRAXIS_GOAL_WORKER_CAPABILITIES": `["edit"]`}
+	getenv := func(key string) string { return env[key] }
+	worker, err := configuredWorker(goaldrive.InvocationRequest{ProviderID: "local", RepositoryPath: t.TempDir()}, getenv, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := goaldrive.CheckCapabilities(worker, "local", goaldrive.RequiredRepositoryCapabilities()); err == nil || !strings.Contains(err.Error(), "stage") || !strings.Contains(err.Error(), "commit") {
+		t.Fatalf("edit-only worker must be refused before dispatch: %v", err)
+	}
+	catalog, err := goalDriveProviderCatalog(getenv)
+	if err != nil || len(catalog) == 0 || strings.Join(catalog[0].Capabilities, ",") != "edit" || strings.Join(catalog[0].Required, ",") != "edit,stage,commit" {
+		t.Fatalf("catalog must report the declaration and the requirement: %v %+v", err, catalog[0])
+	}
+	env["PRAXIS_GOAL_WORKER_CAPABILITIES"] = `["edit","push"]`
+	if _, err := configuredWorker(goaldrive.InvocationRequest{ProviderID: "local", RepositoryPath: t.TempDir()}, getenv, nil); err == nil || !strings.Contains(err.Error(), `unknown worker capability "push"`) {
+		t.Fatalf("unknown capability must fail closed: %v", err)
+	}
+	catalog, _ = goalDriveProviderCatalog(getenv)
+	for _, entry := range catalog {
+		if entry.ID == "<any identity>" && (entry.Available || !strings.Contains(entry.Reason, "PRAXIS_GOAL_WORKER_CAPABILITIES")) {
+			t.Fatalf("catalog must report the malformed declaration as unavailable: %+v", entry)
+		}
+	}
+	delete(env, "PRAXIS_GOAL_WORKER_CAPABILITIES")
+	worker, _ = configuredWorker(goaldrive.InvocationRequest{ProviderID: "local", RepositoryPath: t.TempDir()}, getenv, nil)
+	if err := goaldrive.CheckCapabilities(worker, "local", goaldrive.RequiredRepositoryCapabilities()); err != nil {
+		t.Fatalf("undeclared environment worker asserts the full contract: %v", err)
+	}
+}

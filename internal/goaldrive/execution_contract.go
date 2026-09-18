@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -26,6 +27,31 @@ const (
 	CapabilityStage    WorkerCapability = "stage"
 	CapabilityCommit   WorkerCapability = "commit"
 )
+
+// ParseCapabilities decodes an operator-declared capability list (a JSON
+// array of capability names). Unknown names are refused so a misspelled
+// declaration can never widen or silently narrow the worker's authority.
+func ParseCapabilities(encoded string) ([]WorkerCapability, error) {
+	var names []string
+	if err := json.Unmarshal([]byte(encoded), &names); err != nil {
+		return nil, fmt.Errorf("capability declaration must be a JSON array of capability names: %w", err)
+	}
+	known := map[string]WorkerCapability{string(CapabilityEdit): CapabilityEdit, string(CapabilityValidate): CapabilityValidate, string(CapabilityStage): CapabilityStage, string(CapabilityCommit): CapabilityCommit}
+	out := make([]WorkerCapability, 0, len(names))
+	seen := map[WorkerCapability]struct{}{}
+	for _, name := range names {
+		capability, ok := known[name]
+		if !ok {
+			return nil, fmt.Errorf("unknown worker capability %q (known: edit, validate, stage, commit)", name)
+		}
+		if _, dup := seen[capability]; dup {
+			continue
+		}
+		seen[capability] = struct{}{}
+		out = append(out, capability)
+	}
+	return out, nil
+}
 
 // CapabilityDeclaringWorker reports the capabilities its launch contract
 // actually grants. The controller refuses to dispatch a turn whose required

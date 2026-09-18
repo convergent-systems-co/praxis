@@ -104,7 +104,13 @@ func runDoctor(args []string) error {
 		if bootstrapErr == nil {
 			topology, err := inspectAuthorityTopology(context.Background(), db, doctorRecord)
 			if err != nil {
-				result["governance_root"] = map[string]any{"status": "invalid", "error": err.Error()}
+				root := map[string]any{"status": "invalid", "error": err.Error()}
+				if topology.Status == "historical-root-pending-succession" {
+					root = topology.Root
+					root["error"] = err.Error()
+					result["authority_topology"] = topology.Status
+				}
+				result["governance_root"] = root
 			} else {
 				result["governance_root"] = topology.Root
 				result["authority_topology"] = topology.Status
@@ -147,6 +153,10 @@ func inspectAuthorityTopology(ctx context.Context, db *sql.DB, record *praxiscry
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
 	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: digest}
+	return inspectAuthorityTopologyWithRepository(ctx, repo, digest)
+}
+
+func inspectAuthorityTopologyWithRepository(ctx context.Context, repo goalstore.Repository, digest string) (authorityTopologyInspection, error) {
 	generations, err := repo.ListAuthorityGenerations(ctx, time.Now().UTC())
 	if err != nil {
 		return authorityTopologyInspection{Status: "unqualified"}, err
@@ -161,6 +171,12 @@ func inspectAuthorityTopology(ctx context.Context, db *sql.DB, record *praxiscry
 	}
 	root, err := repo.LoadCurrentInstallationRoot(ctx, digest, time.Now().UTC())
 	if err != nil {
+		// A migrated historical installation truthfully has no current root
+		// until ADR-090 modernization succession establishes one. Report the
+		// historical root as evidence, never as current authority.
+		if historical, historicalErr := repo.LoadHistoricalInstallationRoot(ctx, digest, time.Now().UTC()); historicalErr == nil {
+			return authorityTopologyInspection{Status: "historical-root-pending-succession", Root: map[string]any{"status": "historical", "generation_ref": historical.Ref, "generation_version": historical.Version, "generation_digest": historical.Digest, "scope": historical.Scope, "historical_schema": contracts.LegacyRootEnrollmentSchema, "retained_root_generations": len(generations), "required_ceremony": "praxis authority root-successor-preview --from-historical-root"}}, fmt.Errorf("current installation root is not established: %w", err)
+		}
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
 	if root.Ref != rootScope || root.Digest == "" || root.Principal != principal || root.Scope != rootScope || root.AuthorityModel != contracts.AuthorityModelID || root.AuthorityModelVersion != contracts.AuthorityModelVersion || root.AuthorityModelDigest != contracts.AuthorityModelDigest() || !authorityContainsCapability(root.Capabilities, contracts.AuthorityDelegateCapability) || root.ParentRef != "" {

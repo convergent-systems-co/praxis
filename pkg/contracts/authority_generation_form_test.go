@@ -90,9 +90,9 @@ func TestAuthorityGenerationCurrentRepresentationIsUnchanged(t *testing.T) {
 	}
 }
 
-func TestRootSuccessionFromPreDelegationPredecessorProducesCurrentRepresentation(t *testing.T) {
-	d := "sha256:" + strings.Repeat("a", 64)
-	legacy := AuthorityGeneration{Ref: "installation-governance:" + d, Version: "1", Principal: PrincipalRef{ID: "installation-owner:" + d, Kind: "human"}, Scope: "installation-governance:" + d, ProvenanceRef: "bootstrap-record:" + d + ":os-user:test", ProvenanceDigest: d, State: AuthorityGenerationActive, EffectiveAt: time.Unix(1_800_000_000, 0).UTC()}
+func legacyLeastScopeRoot(t *testing.T, d string) AuthorityGeneration {
+	t.Helper()
+	legacy := AuthorityGeneration{Ref: "installation-governance:" + d, Version: "1", Principal: PrincipalRef{ID: "installation-owner:" + d, Kind: "human"}, Scope: "goal:dogfood/baseline/1/proposal/wp-proposal-v1", ProvenanceRef: "bootstrap-record:" + d + ":os-user:test", ProvenanceDigest: d, State: AuthorityGenerationActive, EffectiveAt: time.Unix(1_800_000_000, 0).UTC()}
 	legacy.preDelegationForm = true
 	digest, err := legacy.ComputeDigest()
 	if err != nil {
@@ -107,21 +107,89 @@ func TestRootSuccessionFromPreDelegationPredecessorProducesCurrentRepresentation
 	if err := json.Unmarshal(payload, &predecessor); err != nil {
 		t.Fatal(err)
 	}
-	proposal, err := BuildRootAuthoritySuccession(predecessor, d, time.Unix(1_800_000_100, 0).UTC())
+	return predecessor
+}
+
+func TestHistoricalRootModernizationDerivesClosedCurrentRoot(t *testing.T) {
+	d := "sha256:" + strings.Repeat("a", 64)
+	predecessor := legacyLeastScopeRoot(t, d)
+	at := time.Unix(1_800_000_100, 0).UTC()
+
+	if _, err := BuildRootAuthoritySuccession(predecessor, d, at); err == nil {
+		t.Fatal("ADR-089 repair succession must refuse a historical enrollment predecessor")
+	}
+	proposal, err := BuildHistoricalRootModernization(predecessor, d, at)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if proposal.Successor.PreDelegationForm() {
-		t.Fatal("a successor created by this binary must use the current representation")
+	successor := proposal.Successor
+	if proposal.Kind != HistoricalRootModernizationProposalKind || proposal.HistoricalSchema != LegacyRootEnrollmentSchema || proposal.ID != "historical-root-modernization:"+predecessor.Digest || len(proposal.AddedAuthorities) != 0 {
+		t.Fatalf("unexpected proposal identity: %+v", proposal)
 	}
-	successorPayload, _ := json.Marshal(proposal.Successor)
-	if !bytes.Contains(successorPayload, []byte(`"delegated_by":{"id":"","kind":""}`)) {
-		t.Fatalf("successor must serialize the current representation: %s", successorPayload)
+	if successor.PreDelegationForm() || successor.Version != "2" || successor.Scope != "installation-governance:"+d || successor.Ref != successor.Scope || successor.Principal != predecessor.Principal || successor.ProvenanceRef != predecessor.ProvenanceRef || successor.ProvenanceDigest != d {
+		t.Fatalf("successor is not the current canonical root: %+v", successor)
 	}
-	if err := proposal.Successor.VerifyDigest(); err != nil {
+	if successor.PredecessorRef != predecessor.Ref || successor.PredecessorVersion != predecessor.Version || successor.PredecessorDigest != predecessor.Digest {
+		t.Fatalf("successor lacks exact predecessor provenance: %+v", successor)
+	}
+	if successor.AuthorityModel != AuthorityModelID || successor.AuthorityModelVersion != AuthorityModelVersion || successor.AuthorityModelDigest != AuthorityModelDigest() || !containsString(successor.Capabilities, AuthorityDelegateCapability) || len(successor.Authorities) != 0 || successor.ParentRef != "" || successor.DelegatedBy != (PrincipalRef{}) {
+		t.Fatalf("successor semantics are not current delegation semantics: %+v", successor)
+	}
+	if err := successor.VerifyDigest(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := proposal.Digest(); err != nil {
+	payload, _ := json.Marshal(successor)
+	if !bytes.Contains(payload, []byte(`"delegated_by":{"id":"","kind":""}`)) {
+		t.Fatalf("successor must serialize the current representation: %s", payload)
+	}
+	if err := predecessor.VerifyDigest(); err != nil || predecessor.Digest != proposal.Predecessor.Digest {
+		t.Fatal("predecessor must remain unchanged inside the proposal")
+	}
+	digest, err := proposal.Digest()
+	if err != nil || digest == "" {
 		t.Fatal(err)
+	}
+
+	// Round trip through JSON must preserve both representations and digest.
+	encoded, _ := json.Marshal(proposal)
+	var decoded RootAuthoritySuccessionProposal
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if again, err := decoded.Digest(); err != nil || again != digest || !decoded.Predecessor.PreDelegationForm() || decoded.Successor.PreDelegationForm() {
+		t.Fatalf("proposal did not round-trip: %v %s", err, again)
+	}
+
+	// The closure is bound: any successor drift, schema drift, kind swap, or
+	// added authority invalidates the proposal.
+	drift := proposal
+	drift.Successor.Authorities = []string{GovernedInstallationRepairStorageSchema}
+	if _, err := drift.Digest(); err == nil {
+		t.Fatal("modernization proposal accepted a repair-bearing successor")
+	}
+	drift = proposal
+	drift.Successor.Scope = predecessor.Scope
+	drift.Successor.Digest, _ = drift.Successor.ComputeDigest()
+	if _, err := drift.Digest(); err == nil {
+		t.Fatal("modernization proposal accepted a successor keeping the least scope")
+	}
+	drift = proposal
+	drift.HistoricalSchema = 12
+	if _, err := drift.Digest(); err == nil {
+		t.Fatal("modernization proposal accepted a wrong historical schema")
+	}
+	drift = proposal
+	drift.Kind = RootAuthoritySuccessionProposalKind
+	if _, err := drift.Digest(); err == nil {
+		t.Fatal("kinds must not be interchangeable")
+	}
+
+	current := successor
+	if _, err := BuildHistoricalRootModernization(current, d, at); err == nil {
+		t.Fatal("modernization must refuse a current-representation predecessor")
+	}
+	repair, err := BuildRootAuthoritySuccession(current, d, at.Add(time.Second))
+	if err != nil || !containsString(repair.Successor.Authorities, GovernedInstallationRepairStorageSchema) || repair.Successor.PredecessorDigest != current.Digest {
+		t.Fatalf("ADR-089 succession must continue from the modernized root: %v", err)
 	}
 }

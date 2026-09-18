@@ -13,19 +13,6 @@ import (
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
-// legacyRootEnrollmentSchema is the last storage schema at which an
-// installation root may have been enrolled by the original
-// `praxis authority bootstrap --scope <least-scope>` boundary (commit
-// 5850f27): ref and principal bound to the bootstrap digest, provenance bound
-// to the bootstrap record and OS user, and an owner-declared least scope.
-// Commit ae6fd0f replaced that boundary with the installation-governance
-// scope while the latest schema was still 11; migration 0012 was added
-// afterwards, so every root first enrolled at schema 12 or later carries the
-// governance scope. Governed migration (commit c6d6ae7) also post-dates
-// ae6fd0f and must still authorize from a root enrolled under the original
-// boundary.
-const legacyRootEnrollmentSchema = 11
-
 // LoadCurrentInstallationRoot resolves the sole active installation root
 // under the current root semantics: governance scope bound to the bootstrap
 // digest.
@@ -46,7 +33,7 @@ func (r Repository) LoadInstallationRootForSchema(ctx context.Context, bootstrap
 	if sourceSchema < 1 {
 		return contracts.AuthorityGeneration{}, errors.New("installation root source schema is required")
 	}
-	return r.loadInstallationRoot(ctx, bootstrapDigest, sourceSchema > legacyRootEnrollmentSchema, now)
+	return r.loadInstallationRoot(ctx, bootstrapDigest, sourceSchema > contracts.LegacyRootEnrollmentSchema, now)
 }
 
 func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest string, requireGovernanceScope bool, now time.Time) (contracts.AuthorityGeneration, error) {
@@ -86,6 +73,49 @@ func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest st
 	return active[0], nil
 }
 
+// LoadHistoricalInstallationRoot resolves the sole historically valid
+// enrollment root of an installation that has no current canonical root: the
+// exact pre-delegation record enrolled at schema 11 (ADR-090). It is the
+// predecessor discovery for historical-root modernization only; it never
+// classifies that root as current authority, and it fails closed once a
+// current root exists or the historical root has been superseded.
+func (r Repository) LoadHistoricalInstallationRoot(ctx context.Context, bootstrapDigest string, now time.Time) (contracts.AuthorityGeneration, error) {
+	if _, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now); err == nil {
+		return contracts.AuthorityGeneration{}, errors.New("current installation root is already established; historical-root modernization is not applicable")
+	}
+	root, err := r.LoadInstallationRootForSchema(ctx, bootstrapDigest, contracts.LegacyRootEnrollmentSchema, now)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("historical installation root: %w", err)
+	}
+	if !root.PreDelegationForm() || root.PredecessorRef != "" {
+		return contracts.AuthorityGeneration{}, errors.New("installation root is not a historical schema-11 enrollment root")
+	}
+	return root, nil
+}
+
+// closedRootSuccession rebuilds the exact closed proposal for a predecessor
+// under the succession kind its representation admits.
+func closedRootSuccession(predecessor contracts.AuthorityGeneration, bootstrapDigest string, at time.Time) (contracts.RootAuthoritySuccessionProposal, error) {
+	if predecessor.PreDelegationForm() {
+		return contracts.BuildHistoricalRootModernization(predecessor, bootstrapDigest, at)
+	}
+	return contracts.BuildRootAuthoritySuccession(predecessor, bootstrapDigest, at)
+}
+
+// SuccessionPredecessor resolves the live predecessor a proposal must still
+// bind: the current canonical root for ADR-089 repair succession, or the
+// historical enrollment root for ADR-090 modernization. Kinds never cross.
+func (r Repository) SuccessionPredecessor(ctx context.Context, proposal contracts.RootAuthoritySuccessionProposal, now time.Time) (contracts.AuthorityGeneration, error) {
+	switch proposal.Kind {
+	case contracts.HistoricalRootModernizationProposalKind:
+		return r.LoadHistoricalInstallationRoot(ctx, proposal.BootstrapDigest, now)
+	case contracts.RootAuthoritySuccessionProposalKind:
+		return r.LoadCurrentInstallationRoot(ctx, proposal.BootstrapDigest, now)
+	default:
+		return contracts.AuthorityGeneration{}, fmt.Errorf("unknown root-authority succession proposal kind %q", proposal.Kind)
+	}
+}
+
 func (r Repository) validateRootAuthorityLineage(ctx context.Context, root contracts.AuthorityGeneration, bootstrapDigest string, now time.Time) error {
 	if root.PredecessorRef == "" {
 		return nil
@@ -94,7 +124,7 @@ func (r Repository) validateRootAuthorityLineage(ctx context.Context, root contr
 	if err != nil || predecessor.Digest != root.PredecessorDigest {
 		return errors.New("root successor predecessor is unavailable or mismatched")
 	}
-	proposal, err := contracts.BuildRootAuthoritySuccession(predecessor, bootstrapDigest, root.EffectiveAt)
+	proposal, err := closedRootSuccession(predecessor, bootstrapDigest, root.EffectiveAt)
 	if err != nil || proposal.Successor.Digest != root.Digest {
 		return errors.New("root successor cannot be reconstructed from predecessor")
 	}
@@ -183,7 +213,7 @@ func (r Repository) SaveRootAuthoritySuccessionReview(ctx context.Context, propo
 	if reviewer != proposal.ProposedBy || reviewer.Kind != "human" || osUser == "" || !strings.HasSuffix(proposal.Predecessor.ProvenanceRef, ":os-user:"+osUser) || confirmation != "REVIEW-ROOT-SUCCESSOR "+proposalDigest {
 		return contracts.RootAuthoritySuccessionReview{}, "", errors.New("root-authority succession review requires exact authenticated owner confirmation")
 	}
-	current, err := r.LoadCurrentInstallationRoot(ctx, proposal.BootstrapDigest, now)
+	current, err := r.SuccessionPredecessor(ctx, proposal, now)
 	if err != nil || current.Digest != proposal.Predecessor.Digest {
 		return contracts.RootAuthoritySuccessionReview{}, "", errors.New("root-authority succession predecessor is stale")
 	}
@@ -236,7 +266,8 @@ func (r Repository) AcceptRootAuthoritySuccession(ctx context.Context, proposalD
 		}
 		return current, existing, nil
 	}
-	if err != nil || current.Digest != proposal.Predecessor.Digest {
+	predecessor, err := r.SuccessionPredecessor(ctx, proposal, now)
+	if err != nil || predecessor.Digest != proposal.Predecessor.Digest {
 		return contracts.AuthorityGeneration{}, contracts.RootAuthoritySuccessionDecision{}, errors.New("root-authority succession predecessor is stale")
 	}
 	decision := contracts.RootAuthoritySuccessionDecision{ID: "root-authority-succession-decision:" + proposalDigest, Version: "1", Kind: contracts.RootAuthoritySuccessionDecisionKind, BootstrapDigest: bootstrapDigest, ProposalID: proposal.ID, ProposalVersion: proposal.Version, ProposalDigest: proposalDigest, ReviewID: review.ID, ReviewVersion: review.Version, ReviewDigest: reviewDigest, PredecessorRef: proposal.Predecessor.Ref, PredecessorVersion: proposal.Predecessor.Version, PredecessorDigest: proposal.Predecessor.Digest, SuccessorRef: proposal.Successor.Ref, SuccessorVersion: proposal.Successor.Version, SuccessorDigest: proposal.Successor.Digest, DecidedBy: proposal.ProposedBy, Decision: "approve", Confirmation: confirmation, DecidedAt: now.UTC()}

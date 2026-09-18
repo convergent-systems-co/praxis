@@ -2,7 +2,7 @@
 
 - Status: Active
 - Date: 2026-09-17
-- Authority: ADR-089; ADR-088; issue #142
+- Authority: ADR-089; ADR-088; ADR-090; issue #142
 
 ## Production protocol
 
@@ -25,6 +25,20 @@
 6. `praxis authority installation-repair-approve --request <digest>` requires
    exact interactive confirmation `APPROVE-INSTALLATION-REPAIR
    <request-digest>` and persists the exact decision.
+
+### Historical-root modernization (ADR-090)
+
+An installation whose only root is a historically valid schema-11 enrollment
+root runs the same protocol with one difference in step 1:
+`praxis authority root-successor-preview --from-historical-root` discovers
+the historical root through `LoadHistoricalInstallationRoot` and derives the
+closed modernization successor (`historical-root-modernization-proposal`,
+`historical_schema = 11`). Steps 2 to 4 are unchanged; the proposal kind is
+bound into every digest, and the state transition enforces the
+modernization closure instead of the repair closure. `praxis doctor` reports
+`authority_topology: historical-root-pending-succession` with the historical
+root identity until acceptance. Repair authority (steps 5 and 6) is acquired
+afterwards by ordinary ADR-089 succession from the modernized root.
 
 Every command reopens durable installation state. Caller-supplied bootstrap,
 root, successor, authority-generation bytes, or decision fields are not

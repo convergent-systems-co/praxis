@@ -19,24 +19,37 @@ import (
 func runRootAuthoritySuccessionPreview(args []string, getenv func(string) string, out io.Writer) error {
 	f := flag.NewFlagSet("authority root-successor-preview", flag.ContinueOnError)
 	output := f.String("output", "", "optional system-produced preview JSON path")
+	historical := f.Bool("from-historical-root", false, "derive the ADR-090 modernization successor of a historical schema-11 enrollment root instead of the ADR-089 repair successor of the current root")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 0 {
-		return errors.New("usage: praxis authority root-successor-preview [--output <file>]")
+		return errors.New("usage: praxis authority root-successor-preview [--from-historical-root] [--output <file>]")
 	}
 	repo, db, record, err := openGovernedRepositoryReadOnly(context.Background(), getenv)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	root, err := repo.LoadCurrentInstallationRoot(context.Background(), repo.InstallationDigest, time.Now().UTC())
-	if err != nil {
-		return err
-	}
-	proposal, err := contracts.BuildRootAuthoritySuccession(root, repo.InstallationDigest, time.Now().UTC())
-	if err != nil {
-		return err
+	var proposal contracts.RootAuthoritySuccessionProposal
+	if *historical {
+		root, err := repo.LoadHistoricalInstallationRoot(context.Background(), repo.InstallationDigest, time.Now().UTC())
+		if err != nil {
+			return err
+		}
+		proposal, err = contracts.BuildHistoricalRootModernization(root, repo.InstallationDigest, time.Now().UTC())
+		if err != nil {
+			return err
+		}
+	} else {
+		root, err := repo.LoadCurrentInstallationRoot(context.Background(), repo.InstallationDigest, time.Now().UTC())
+		if err != nil {
+			return err
+		}
+		proposal, err = contracts.BuildRootAuthoritySuccession(root, repo.InstallationDigest, time.Now().UTC())
+		if err != nil {
+			return err
+		}
 	}
 	digest, err := proposal.Digest()
 	if err != nil {
@@ -96,7 +109,7 @@ func runRootAuthoritySuccessionProposal(args []string, getenv func(string) strin
 	if proposal.BootstrapDigest != repo.InstallationDigest {
 		return errors.New("root-successor preview belongs to a different installation")
 	}
-	current, err := repo.LoadCurrentInstallationRoot(context.Background(), repo.InstallationDigest, time.Now().UTC())
+	current, err := repo.SuccessionPredecessor(context.Background(), proposal, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -114,12 +127,16 @@ func runRootAuthoritySuccessionProposal(args []string, getenv func(string) strin
 }
 
 func runRootAuthoritySuccessionReview(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {
+	return runRootAuthoritySuccessionReviewWithTerminal(args, getenv, input, out, isInteractiveTerminal())
+}
+
+func runRootAuthoritySuccessionReviewWithTerminal(args []string, getenv func(string) string, input io.Reader, out io.Writer, interactive bool) error {
 	f := flag.NewFlagSet("authority root-successor-review", flag.ContinueOnError)
 	digest := f.String("proposal", "", "exact durable succession proposal digest")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
-	if f.NArg() != 0 || *digest == "" || !isInteractiveTerminal() {
+	if f.NArg() != 0 || *digest == "" || !interactive {
 		return errors.New("usage: praxis authority root-successor-review --proposal <digest> (interactive confirmation required)")
 	}
 	repo, db, err := openGovernedRepository(context.Background(), getenv)
@@ -153,13 +170,17 @@ func runRootAuthoritySuccessionReview(args []string, getenv func(string) string,
 }
 
 func runRootAuthoritySuccessionAccept(args []string, getenv func(string) string, input io.Reader, out io.Writer) error {
+	return runRootAuthoritySuccessionAcceptWithTerminal(args, getenv, input, out, isInteractiveTerminal())
+}
+
+func runRootAuthoritySuccessionAcceptWithTerminal(args []string, getenv func(string) string, input io.Reader, out io.Writer, interactive bool) error {
 	f := flag.NewFlagSet("authority root-successor-accept", flag.ContinueOnError)
 	proposalDigest := f.String("proposal", "", "exact durable succession proposal digest")
 	reviewDigest := f.String("review", "", "exact durable succession review digest")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
-	if f.NArg() != 0 || *proposalDigest == "" || *reviewDigest == "" || !isInteractiveTerminal() {
+	if f.NArg() != 0 || *proposalDigest == "" || *reviewDigest == "" || !interactive {
 		return errors.New("usage: praxis authority root-successor-accept --proposal <digest> --review <digest> (interactive confirmation required)")
 	}
 	repo, db, err := openGovernedRepository(context.Background(), getenv)

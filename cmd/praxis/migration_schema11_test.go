@@ -120,6 +120,8 @@ type schema11Installation struct {
 	rootDigest      string
 	getenv          func(string) string
 	service         praxiscrypto.EnvelopeService
+	record          praxiscrypto.BootstrapRecord
+	osUser          string
 }
 
 func schema11InstallationFixture(t *testing.T, ctx context.Context, schema int) schema11Installation {
@@ -149,8 +151,17 @@ func schema11InstallationFixture(t *testing.T, ctx context.Context, schema int) 
 		return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: keyRef, Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential, InstallationDigest: bootstrapDigest}, db, record, nil
 	}
 	t.Cleanup(func() { openGovernedRepositoryReadOnly = original })
+	originalWrite := openGovernedRepository
+	openGovernedRepository = func(ctx context.Context, getenv func(string) string) (goalstore.Repository, *sql.DB, error) {
+		db, err := state.OpenSQLite(ctx, getenv("PRAXIS_DB"))
+		if err != nil {
+			return goalstore.Repository{}, nil, err
+		}
+		return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: keyRef, Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential, InstallationDigest: bootstrapDigest}, db, nil
+	}
+	t.Cleanup(func() { openGovernedRepository = originalWrite })
 	env := map[string]string{"PRAXIS_DB": dbPath, "PRAXIS_BOOTSTRAP_RECORD": filepath.Join(dir, "bootstrap.json")}
-	return schema11Installation{dbPath: dbPath, bootstrapDigest: bootstrapDigest, rootDigest: rootDigest, getenv: func(key string) string { return env[key] }, service: service}
+	return schema11Installation{dbPath: dbPath, bootstrapDigest: bootstrapDigest, rootDigest: rootDigest, getenv: func(key string) string { return env[key] }, service: service, record: record, osUser: current.Username}
 }
 
 func TestGovernedMigrationFromRealSchema11RootReaches18(t *testing.T) {

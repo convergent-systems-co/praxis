@@ -135,7 +135,11 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	}
 }
 
-func openGovernedRepository(ctx context.Context, getenv func(string) string) (goalstore.Repository, *sql.DB, error) {
+// openGovernedRepository is a variable so governed CLI qualification can open
+// fixture installations without the platform bootstrap backend.
+var openGovernedRepository = openGovernedRepositoryFromBootstrap
+
+func openGovernedRepositoryFromBootstrap(ctx context.Context, getenv func(string) string) (goalstore.Repository, *sql.DB, error) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}

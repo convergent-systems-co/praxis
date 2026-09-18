@@ -327,6 +327,9 @@ func (s *Store) PutAuthorityGeneration(ctx context.Context, write AuthorityGener
 	if write.Generation.PreDelegationForm() {
 		return errors.New("authority generation must be persisted in the current representation")
 	}
+	if write.Generation.PredecessorRef != "" {
+		return ErrRootSuccessorRequiresSuccession
+	}
 	if authorityGenerationHasInstallationRepair(write.Generation) {
 		return ErrRepairAuthorityRequiresRootSuccession
 	}
@@ -392,6 +395,21 @@ func (s *Store) PutAuthorityGeneration(ctx context.Context, write AuthorityGener
 	return s.putSecureBlobsWithLock(ctx, records, write.LockNamespace, write.LockID, write.LockVersion)
 }
 
+// ErrRootSuccessorRequiresSuccession closes the generic typed writer to any
+// root successor: a generation binding a predecessor is admitted only by
+// PutRootAuthoritySuccessor together with its durable proposal, review,
+// decision, and predecessor supersession (ADR-089, ADR-090).
+var ErrRootSuccessorRequiresSuccession = errors.New("root successor generations are admitted only through governed root succession")
+
+func containsAuthority(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func authorityGenerationHasInstallationRepair(generation contracts.AuthorityGeneration) bool {
 	for _, authority := range generation.Authorities {
 		if authority == contracts.GovernedInstallationRepairStorageSchema || authority == contracts.GovernedInstallationRepairRuntimeState {
@@ -439,8 +457,27 @@ func (s *Store) PutRootAuthoritySuccessor(ctx context.Context, write RootAuthori
 		write.Decision.BootstrapDigest != write.Proposal.BootstrapDigest || write.Review.ReviewedBy != write.Proposal.ProposedBy || write.Decision.DecidedBy != write.Proposal.ProposedBy {
 		return errors.New("root-authority succession records do not bind one exact transition")
 	}
-	if !authorityGenerationHasInstallationRepair(write.Proposal.Successor) || write.Proposal.Successor.ParentRef != "" || write.Proposal.Successor.DelegatedBy != (contracts.PrincipalRef{}) {
-		return errors.New("root-authority successor is not a nondelegable repair-bearing root")
+	if write.Proposal.Successor.ParentRef != "" || write.Proposal.Successor.DelegatedBy != (contracts.PrincipalRef{}) || write.Proposal.Successor.PreDelegationForm() {
+		return errors.New("root-authority successor must be a nondelegable current-representation root")
+	}
+	switch write.Proposal.Kind {
+	case contracts.RootAuthoritySuccessionProposalKind:
+		if !authorityGenerationHasInstallationRepair(write.Proposal.Successor) || write.Proposal.Predecessor.PreDelegationForm() {
+			return errors.New("root-authority successor is not a nondelegable repair-bearing root")
+		}
+	case contracts.HistoricalRootModernizationProposalKind:
+		// ADR-090: the successor establishes current authority only. It must
+		// descend from the exact historical enrollment record and must not
+		// acquire repair authority; that remains ADR-089's separate ceremony.
+		governanceScope, err := contracts.InstallationGovernanceScope(write.Proposal.BootstrapDigest)
+		if err != nil {
+			return err
+		}
+		if !write.Proposal.Predecessor.PreDelegationForm() || authorityGenerationHasInstallationRepair(write.Proposal.Successor) || write.Proposal.Successor.Scope != governanceScope || write.Proposal.Successor.Ref != governanceScope || write.Proposal.Successor.AuthorityModel != contracts.AuthorityModelID || write.Proposal.Successor.AuthorityModelVersion != contracts.AuthorityModelVersion || write.Proposal.Successor.AuthorityModelDigest != contracts.AuthorityModelDigest() || !containsAuthority(write.Proposal.Successor.Capabilities, contracts.AuthorityDelegateCapability) {
+			return errors.New("historical-root modernization successor is not the closed current canonical root")
+		}
+	default:
+		return fmt.Errorf("unknown root-authority succession proposal kind %q", write.Proposal.Kind)
 	}
 	if write.KeyRef == "" || write.CreatedAt.IsZero() {
 		return errors.New("root-authority succession persistence metadata is incomplete")

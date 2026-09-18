@@ -50,7 +50,7 @@ func runPublisherAuthorityProposalPreview(args []string, out io.Writer) error {
 	}
 	model, err := repo.LoadAuthorityModelState(context.Background(), now)
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
-		return errors.New("package.publish proposal requires authority-model v2")
+		return errors.New("package.publish proposal requires an adopted authority model that retains v2 publish semantics")
 	}
 	publisherRecord, err := state.New(db).PublisherGeneration(context.Background(), *generationDigest)
 	if err != nil {
@@ -67,7 +67,7 @@ func runPublisherAuthorityProposalPreview(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	proposal := contracts.PublisherAuthorityProposal{ID: "publisher-authority-proposal:" + *generationDigest + ":" + *namespace, Version: "1", Kind: contracts.PublisherAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: model.ActiveVersion, AuthorityModelDigest: model.ActiveDigest, PublisherGenerationDigest: publisherRecord.Digest, PublisherPrincipal: publisherRecord.Generation.Principal.ID, PublicKeyDigest: publisherRecord.Generation.PublicKeyDigest, Namespace: *namespace, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Capability: contracts.GovernedPackagePublish, Scope: scope, Reason: "first-party package publishing", ExpiresAt: expires.UTC(), CreatedAt: now}
+	proposal := contracts.PublisherAuthorityProposal{ID: "publisher-authority-proposal:" + *generationDigest + ":" + *namespace, Version: "1", Kind: contracts.PublisherAuthorityProposalKind, BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelSuccessorVersion, AuthorityModelDigest: contracts.AuthorityModelSuccessorDigest(), PublisherGenerationDigest: publisherRecord.Digest, PublisherPrincipal: publisherRecord.Generation.Principal.ID, PublicKeyDigest: publisherRecord.Generation.PublicKeyDigest, Namespace: *namespace, ParentRef: root.Ref, ParentVersion: root.Version, ParentDigest: root.Digest, Capability: contracts.GovernedPackagePublish, Scope: scope, Reason: "first-party package publishing", ExpiresAt: expires.UTC(), CreatedAt: now}
 	digest, err := proposal.Digest()
 	if err != nil {
 		return err

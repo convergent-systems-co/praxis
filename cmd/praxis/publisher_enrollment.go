@@ -59,7 +59,7 @@ func publisherEnrollmentPreview(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	preview := contracts.PublisherEnrollmentPreview{ID: "publisher-enrollment-preview:" + generationDigest, Version: "1", BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: model.ActiveVersion, AuthorityModelDigest: model.ActiveDigest, PublisherPrincipal: generationRecord.Principal.ID, KeyID: generationRecord.KeyID, Algorithm: generationRecord.Algorithm, KeyPurpose: "publisher-signing", PublicKeyDigest: generationRecord.PublicKeyDigest, Generation: generationRecord.Generation, Predecessor: generationRecord.Predecessor, Namespace: generationRecord.PackageNamespace, GenerationDigest: generationDigest, GenerationRecord: generationRecord, CreatedAt: now}
+	preview := contracts.PublisherEnrollmentPreview{ID: "publisher-enrollment-preview:" + generationDigest, Version: "1", BootstrapDigest: bootstrapDigest, OwnerID: owner.ID, OwnerKind: owner.Kind, AuthorityModel: contracts.AuthorityModelID, AuthorityModelVersion: contracts.AuthorityModelSuccessorVersion, AuthorityModelDigest: contracts.AuthorityModelSuccessorDigest(), PublisherPrincipal: generationRecord.Principal.ID, KeyID: generationRecord.KeyID, Algorithm: generationRecord.Algorithm, KeyPurpose: "publisher-signing", PublicKeyDigest: generationRecord.PublicKeyDigest, Generation: generationRecord.Generation, Predecessor: generationRecord.Predecessor, Namespace: generationRecord.PackageNamespace, GenerationDigest: generationDigest, GenerationRecord: generationRecord, CreatedAt: now}
 	digest, err := preview.Digest()
 	if err != nil {
 		return err

@@ -58,6 +58,16 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	now := time.Now().UTC()
 
 	switch operation {
+	case "import":
+		path, err := filepath.Abs(inputPath)
+		if err != nil {
+			return err
+		}
+		imported, err := importGoalBaseline(ctx, repo, path, input, now)
+		if err != nil {
+			return err
+		}
+		return printJSON(map[string]any{"operation": operation, "goal_id": imported.ID, "goal_version": imported.Version, "baseline_digest": imported.Digest, "status": "authoritative"})
 	case "propose":
 		var req struct {
 			BaselineID, BaselineVersion, ProposalVersion string

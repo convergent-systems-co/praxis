@@ -1,0 +1,5 @@
+# SPEC-044: Goals chained recovery successor
+
+Status: Proposed successor to SPEC-043.
+
+`goals-publication-recovery-chain-prepare` constructs the sole supported chained form: one abandoned recovery successor following the original abandoned publication. The canonical ActionIntent uses `goals-established-state-publication/2` and includes deterministic fixed fields for the prior recovery request, intent, authority generation, execution, manifest effect (UNKNOWN, one attempt), reconciliation evidence, and abandonment event. Original predecessor fields remain present and are validated by the existing contract. The request store accepts this contract only after both abandonment lineages and current repository/release state validate. Permitted effects remain only the missing signed assets and release verification/publication effects; refs and draft are never recreated. No authority decision, delegation, generation, or provider mutation occurs during preparation. Omitted, substituted, reordered, stale, or mismatched chain fields fail closed. The contract intentionally stops at two generations.

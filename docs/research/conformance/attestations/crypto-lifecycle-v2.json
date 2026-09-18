@@ -1,0 +1,40 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-crypto-successor-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/crypto",
+    "./internal/packagecatalog"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T16:07:50.606669Z",
+  "finished_at": "2026-09-15T16:07:56.038152Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/crypto-lifecycle-v2.log",
+  "output_digest": "sha256:bd78fa2557e3bd77f89973ef27e4f7ef556c8f288d9bb47268fe6050c22576b4",
+  "source_digests": {
+    "internal/crypto": "sha256:341bd20fd466179ae5c4352fa6534fb410c3480770cb127485f58756eedebfc6",
+    "internal/crypto/key_lifecycle_test.go": "sha256:29a28febfde662b34cbfd1bbc15152607874d5aa5d5edea487846748da953334",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535"
+  },
+  "observations": [
+    "TestEnvelopePQPreferredFallbackRequiresExplicitPolicy",
+    "TestEnvelopePQRequiredFailsBeforeClassicalFallback",
+    "TestEnvelopeRejectsWrapperLyingAboutSelectedProfile",
+    "TestEnvelopeRoundTripWithPQRequired",
+    "TestHybridRequiresBothFamilies",
+    "TestKeyLifecycleRotationRevocationAndHistoricalVerification",
+    "TestKeyReferenceContainsNoSecretMaterialAndAuthorizationIsSeparate",
+    "TestOpenRejectsPersistedPQDowngradeMetadata",
+    "TestPQPreferredFallbackRequiresPolicy",
+    "TestPQRequiredNeverFallsBack",
+    "TestVerifySignaturePQAndHybridCanBeSatisfiedByProvider",
+    "TestVerifySignaturePQPreferredRequiresExplicitFallback",
+    "TestVerifySignaturePQRequiredFailsClosedWithoutPQVerifier"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:4e9fe10188ae85379a341759f6fc3e12cb290b8fa11b08937a8c7ec31f088833"
+}

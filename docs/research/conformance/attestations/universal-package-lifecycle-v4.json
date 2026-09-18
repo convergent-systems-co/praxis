@@ -1,0 +1,33 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-universal-package-successor-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T01:14:18.258807Z",
+  "finished_at": "2026-09-17T01:14:25.940798Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/universal-package-lifecycle-v4.log",
+  "output_digest": "sha256:963ff4435b34479c88801c4e84dea41a38ed7073808d129c32fa3c333cb84675",
+  "source_digests": {
+    "internal/state": "sha256:9e0fedcdcf822098183fd23c0af8074de354a661cc659cb577d423fe556b7502",
+    "internal/state/package_registry_test.go": "sha256:628259b441c72aa15c0c9ac1ef4b5837dd91f40581bde9357315f28dc12bedb2"
+  },
+  "observations": [
+    "TestAgentOnlyAndMixedPackagesAreFirstClassContents",
+    "TestDependencyDeploymentFailureRollsBackClosureAndAuthority",
+    "TestGovernedDisableAndRemovePreserveHistoryAcrossRestart",
+    "TestGovernedPackageRollbackRestoresExactClosureAcrossRestart",
+    "TestInstalledDefinitionsInstantiateIndependentDomainAgentsAcrossRestart",
+    "TestPackagePluginDefinitionBindsExecutableAcrossRestartAndRejectsOrphans",
+    "TestPackageUpdateAtomicallyReplacesAliasAndContentSurface",
+    "TestVerifiedGraphArtifactSurvivesActivationAndRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:c284600a0fedbf28cea4286cfc800ff251e5c64401e4ddc793ea64a89e01b582"
+}

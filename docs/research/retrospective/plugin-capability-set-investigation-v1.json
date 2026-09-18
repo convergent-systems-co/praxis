@@ -1,0 +1,32 @@
+{
+  "version": "v1",
+  "episode_id": "plugin-capability-set-investigation",
+  "learner_input": {
+    "before_behavior": [
+      "handshake rejected every runtime capability absent from the signed manifest",
+      "handshake also rejected every signed manifest capability absent from the runtime advertisement",
+      "provider routing read capability identities from the manifest"
+    ],
+    "suspicion": "two independently sourced capability collections were required to contain the same semantic identities",
+    "authority_sources": [
+      "docs/ADR/016-demonstrated-capabilities-and-routing.md",
+      "docs/ADR/029-grpc-protobuf-plugin-transport.md",
+      "docs/ADR/041-plugin-isolation-least-privilege-and-capability-leases.md",
+      "docs/ADR/053-package-plugin-definition-and-executable-binding.md",
+      "docs/SPEC/007-plugin-capability-and-isolation-runtime.md"
+    ],
+    "questions": [
+      "what does each capability collection represent",
+      "which actor supplies each collection",
+      "which collection controls routing eligibility",
+      "which authority creates executable permission",
+      "what should happen when platform availability changes"
+    ]
+  },
+  "exclusions": [
+    "no target generalized principle",
+    "no expected mathematical relationship",
+    "no expected implementation patch",
+    "no finding identifier or qualification oracle"
+  ]
+}

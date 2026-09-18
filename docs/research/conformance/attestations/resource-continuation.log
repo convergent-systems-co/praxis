@@ -1,0 +1,176 @@
+=== RUN   TestCheckpointRunningResumesWaiting
+--- PASS: TestCheckpointRunningResumesWaiting (0.00s)
+=== RUN   TestCheckpointCancellingWithEffectReconciles
+--- PASS: TestCheckpointCancellingWithEffectReconciles (0.00s)
+=== RUN   TestCheckpointRejectsVersionMismatch
+--- PASS: TestCheckpointRejectsVersionMismatch (0.00s)
+=== RUN   TestDeriveChildAuthorityCanOnlyNarrow
+--- PASS: TestDeriveChildAuthorityCanOnlyNarrow (0.00s)
+=== RUN   TestDeriveChildAuthorityRejectsExpansion
+--- PASS: TestDeriveChildAuthorityRejectsExpansion (0.00s)
+=== RUN   TestDeriveChildAuthorityEnforcesDepth
+--- PASS: TestDeriveChildAuthorityEnforcesDepth (0.00s)
+=== RUN   TestRunTreeParentCancellationPropagatesToDescendants
+--- PASS: TestRunTreeParentCancellationPropagatesToDescendants (0.00s)
+=== RUN   TestRunTreeCannotRegisterChildUnderUnknownParent
+--- PASS: TestRunTreeCannotRegisterChildUnderUnknownParent (0.00s)
+=== RUN   TestPreflightRequiresExactApprovalAndLease
+--- PASS: TestPreflightRequiresExactApprovalAndLease (0.00s)
+=== RUN   TestPreflightRejectsMutationAfterApproval
+--- PASS: TestPreflightRejectsMutationAfterApproval (0.00s)
+=== RUN   TestGraphRejectsUnboundedCycle
+--- PASS: TestGraphRejectsUnboundedCycle (0.00s)
+=== RUN   TestGraphAllowsBoundedCycle
+--- PASS: TestGraphAllowsBoundedCycle (0.00s)
+=== RUN   TestGraphRejectsDuplicateOutcome
+--- PASS: TestGraphRejectsDuplicateOutcome (0.00s)
+=== RUN   TestSubgraphNodeRequiresExplicitGraphIdentity
+--- PASS: TestSubgraphNodeRequiresExplicitGraphIdentity (0.00s)
+=== RUN   TestSubgraphReferenceValidates
+--- PASS: TestSubgraphReferenceValidates (0.00s)
+=== RUN   TestNonSubgraphCannotDeclareSubgraphReference
+--- PASS: TestNonSubgraphCannotDeclareSubgraphReference (0.00s)
+=== RUN   TestLocalSubgraphRuntimeExecutesExactRegisteredGraph
+--- PASS: TestLocalSubgraphRuntimeExecutesExactRegisteredGraph (0.00s)
+=== RUN   TestLocalSubgraphRuntimeRejectsUnregisteredVersion
+--- PASS: TestLocalSubgraphRuntimeRejectsUnregisteredVersion (0.00s)
+=== RUN   TestLocalSubgraphRuntimePropagatesExactChildWait
+--- PASS: TestLocalSubgraphRuntimePropagatesExactChildWait (0.00s)
+=== RUN   TestGraphRegistryRejectsDuplicateIdentityVersion
+--- PASS: TestGraphRegistryRejectsDuplicateIdentityVersion (0.00s)
+=== RUN   TestPolicyDenyOverridesApprovalAndLease
+--- PASS: TestPolicyDenyOverridesApprovalAndLease (0.00s)
+=== RUN   TestPolicyRequireApprovalUsesExactBinding
+--- PASS: TestPolicyRequireApprovalUsesExactBinding (0.00s)
+=== RUN   TestUnknownExternalEffectPersistsReconcilingState
+--- PASS: TestUnknownExternalEffectPersistsReconcilingState (0.00s)
+=== RUN   TestCancelledContextPersistsCancelledTerminalState
+--- PASS: TestCancelledContextPersistsCancelledTerminalState (0.00s)
+=== RUN   TestRetryBudgetDoesNotResetAfterCrashBetweenAttempts
+--- PASS: TestRetryBudgetDoesNotResetAfterCrashBetweenAttempts (0.00s)
+=== RUN   TestRunRetriesDeclaredFailureClass
+--- PASS: TestRunRetriesDeclaredFailureClass (0.00s)
+=== RUN   TestRunDoesNotRetryPolicyFailure
+--- PASS: TestRunDoesNotRetryPolicyFailure (0.00s)
+=== RUN   TestRetryAttemptsPersistAndRemainExhaustedAfterReplay
+--- PASS: TestRetryAttemptsPersistAndRemainExhaustedAfterReplay (0.00s)
+=== RUN   TestGraphRejectsAutomaticRetryOfUnknownExternalEffect
+--- PASS: TestGraphRejectsAutomaticRetryOfUnknownExternalEffect (0.00s)
+=== RUN   TestLeaseRunControlAuthorizerRequiresExactOperationAndScope
+--- PASS: TestLeaseRunControlAuthorizerRequiresExactOperationAndScope (0.00s)
+=== RUN   TestLeaseRunControlAuthorizerSupportsExplicitHierarchicalScope
+--- PASS: TestLeaseRunControlAuthorizerSupportsExplicitHierarchicalScope (0.00s)
+=== RUN   TestLeaseRunControlAuthorizerRejectsFiniteUseLeaseWithoutAtomicConsumption
+--- PASS: TestLeaseRunControlAuthorizerRejectsFiniteUseLeaseWithoutAtomicConsumption (0.00s)
+=== RUN   TestResumeSignalClearsExactWaitAndLeavesRunRunnable
+--- PASS: TestResumeSignalClearsExactWaitAndLeavesRunRunnable (0.00s)
+=== RUN   TestRunControlStatusAndCancelReplayAuthoritativeState
+--- PASS: TestRunControlStatusAndCancelReplayAuthoritativeState (0.00s)
+=== RUN   TestRunControlMutationFailsClosedWithoutAuthorization
+--- PASS: TestRunControlMutationFailsClosedWithoutAuthorization (0.00s)
+=== RUN   TestRunControlResumeRequiresExactPersistedWaitAndContinues
+--- PASS: TestRunControlResumeRequiresExactPersistedWaitAndContinues (0.00s)
+=== RUN   TestRunObservedPersistsAuthoritativeSequence
+--- PASS: TestRunObservedPersistsAuthoritativeSequence (0.00s)
+=== RUN   TestRunObservedFailsClosedOnJournalVersionConflict
+--- PASS: TestRunObservedFailsClosedOnJournalVersionConflict (0.00s)
+=== RUN   TestReplayRunReconstructsTerminalExecution
+--- PASS: TestReplayRunReconstructsTerminalExecution (0.00s)
+=== RUN   TestReplayThenResumeDoesNotReexecuteCompletedNode
+--- PASS: TestReplayThenResumeDoesNotReexecuteCompletedNode (0.00s)
+=== RUN   TestReplayRunResumeClearsPersistedWait
+--- PASS: TestReplayRunResumeClearsPersistedWait (0.00s)
+=== RUN   TestTerminalRunCannotTransition
+--- PASS: TestTerminalRunCannotTransition (0.00s)
+=== RUN   TestCancellingCanEnterReconciliation
+--- PASS: TestCancellingCanEnterReconciliation (0.00s)
+=== RUN   TestRunningCanSucceed
+--- PASS: TestRunningCanSucceed (0.00s)
+=== RUN   TestRunExecutesDeterministicFixture
+--- PASS: TestRunExecutesDeterministicFixture (0.00s)
+=== RUN   TestRunStopsBoundedLoop
+--- PASS: TestRunStopsBoundedLoop (0.00s)
+=== RUN   TestComposingExecutorMapsChildTerminalStateThroughExplicitContract
+--- PASS: TestComposingExecutorMapsChildTerminalStateThroughExplicitContract (0.00s)
+=== RUN   TestComposingExecutorNeverInfersOutcomeWithoutContract
+--- PASS: TestComposingExecutorNeverInfersOutcomeWithoutContract (0.00s)
+=== RUN   TestComposingExecutorPropagatesChildSuspension
+--- PASS: TestComposingExecutorPropagatesChildSuspension (0.00s)
+=== RUN   TestComposingExecutorDelegatesOrdinaryNodes
+--- PASS: TestComposingExecutorDelegatesOrdinaryNodes (0.00s)
+=== RUN   TestHumanNodeSuspendsDurablyAcrossDisconnectAndResume
+--- PASS: TestHumanNodeSuspendsDurablyAcrossDisconnectAndResume (0.00s)
+=== RUN   TestSatisfyWaitRejectsWrongReference
+--- PASS: TestSatisfyWaitRejectsWrongReference (0.00s)
+=== RUN   TestResolveTransition
+--- PASS: TestResolveTransition (0.00s)
+=== RUN   TestResolveTransitionRejectsUnknownOutcome
+--- PASS: TestResolveTransitionRejectsUnknownOutcome (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/kernel	0.339s
+=== RUN   TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically
+--- PASS: TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything
+--- PASS: TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseRejectsRevokedLease
+--- PASS: TestCommitTransitionAuthorizedLeaseRejectsRevokedLease (0.01s)
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package
+--- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.02s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package (0.01s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package (0.01s)
+=== RUN   TestResourceHandoffDenialDoesNotMutateRun
+--- PASS: TestResourceHandoffDenialDoesNotMutateRun (0.00s)
+=== RUN   TestSQLiteEventStoreAppendLoadAndConflict
+--- PASS: TestSQLiteEventStoreAppendLoadAndConflict (0.00s)
+=== RUN   TestSQLiteEventStoreRejectsCommandIDMetadataHijack
+--- PASS: TestSQLiteEventStoreRejectsCommandIDMetadataHijack (0.00s)
+=== RUN   TestPackageActivationPublishesAndRemovesAliasesAndContents
+--- PASS: TestPackageActivationPublishesAndRemovesAliasesAndContents (0.01s)
+=== RUN   TestAgentOnlyAndMixedPackagesAreFirstClassContents
+--- PASS: TestAgentOnlyAndMixedPackagesAreFirstClassContents (0.01s)
+=== RUN   TestPackageCannotShadowCoreCommand
+--- PASS: TestPackageCannotShadowCoreCommand (0.00s)
+=== RUN   TestPackageAliasCollisionFailsWithoutChangingExistingOwner
+--- PASS: TestPackageAliasCollisionFailsWithoutChangingExistingOwner (0.00s)
+=== RUN   TestPackageUpdateAtomicallyReplacesAliasAndContentSurface
+--- PASS: TestPackageUpdateAtomicallyReplacesAliasAndContentSurface (0.00s)
+=== RUN   TestConsumePluginLeaseBindsInstanceAndConsumesUse
+--- PASS: TestConsumePluginLeaseBindsInstanceAndConsumesUse (0.00s)
+=== RUN   TestConsumePluginLeaseRejectsDifferentRuntimeInstance
+--- PASS: TestConsumePluginLeaseRejectsDifferentRuntimeInstance (0.00s)
+=== RUN   TestSQLiteCheckpointStorePersistsMonotonically
+--- PASS: TestSQLiteCheckpointStorePersistsMonotonically (0.00s)
+=== RUN   TestAmbiguousEffectFailsClosedWithoutReconciliation
+--- PASS: TestAmbiguousEffectFailsClosedWithoutReconciliation (0.00s)
+=== RUN   TestAmbiguousEffectReconcilesWhenSupported
+--- PASS: TestAmbiguousEffectReconcilesWhenSupported (0.00s)
+=== RUN   TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency
+--- PASS: TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency (0.00s)
+=== RUN   TestQualificationRunControlSurvivesSQLiteRestart
+--- PASS: TestQualificationRunControlSurvivesSQLiteRestart (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease
+--- PASS: TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease (0.00s)
+=== RUN   TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics
+--- PASS: TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics (0.00s)
+=== RUN   TestSecureBlobRoundTripStoresNoPlaintextColumn
+--- PASS: TestSecureBlobRoundTripStoresNoPlaintextColumn (0.00s)
+=== RUN   TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity
+--- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.00s)
+=== RUN   TestSecureBlobIsImmutableByVersion
+--- PASS: TestSecureBlobIsImmutableByVersion (0.00s)
+=== RUN   TestSecureBlobExpiryFailsClosed
+--- PASS: TestSecureBlobExpiryFailsClosed (0.00s)
+=== RUN   TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState
+--- PASS: TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState (0.00s)
+=== RUN   TestOpenSQLiteAppliesMigrationsAndPragmas
+--- PASS: TestOpenSQLiteAppliesMigrationsAndPragmas (0.00s)
+=== RUN   TestOpenSQLiteDoesNotReapplyLedgeredMigrations
+--- PASS: TestOpenSQLiteDoesNotReapplyLedgeredMigrations (0.01s)
+=== RUN   TestCommitTransitionIsAtomic
+--- PASS: TestCommitTransitionIsAtomic (0.01s)
+=== RUN   TestCommitTransitionRollsBackAuthorityOnVersionConflict
+--- PASS: TestCommitTransitionRollsBackAuthorityOnVersionConflict (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/state	0.821s

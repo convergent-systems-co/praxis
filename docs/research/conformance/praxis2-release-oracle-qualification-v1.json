@@ -1,0 +1,246 @@
+{
+  "frozen_result_digest": "sha256:cb4706439bf2bde07d3c0c2c00204208df1a9016cf9ac3b3d5b8418a1d5aaf03",
+  "oracle_path": "docs/research/conformance/oracles/praxis2-release-v1.json",
+  "oracle_digest": "sha256:0b8bf347f11e842bbc5e667396c830b7f6512e5b0555f4a650a6998271a51d27",
+  "oracle_id": "praxis2-release-v1",
+  "oracle_generation": 1,
+  "scope": "current_release",
+  "claim_set_digest": "sha256:cc06b98af05518d4a10bfa25d69e5b1a2d0004c0a3e4867d1ff468cbfe0239a0",
+  "goal_digest": "sha256:24c8a52a67fa00cfe64a31de793ce4889a64deb2c0a7cb09bc4b1257b3fac3e9",
+  "score": {
+    "true_positives": 0,
+    "true_negatives": 38,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "matches": [
+      {
+        "expectation_id": "release-OI-001",
+        "claim_id": "OI-001",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-002",
+        "claim_id": "OI-002",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-003",
+        "claim_id": "OI-003",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-004",
+        "claim_id": "OI-004",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-005",
+        "claim_id": "OI-005",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-006",
+        "claim_id": "OI-006",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-007",
+        "claim_id": "OI-007",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-008",
+        "claim_id": "OI-008",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-009",
+        "claim_id": "OI-009",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-010",
+        "claim_id": "OI-010",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-011",
+        "claim_id": "OI-011",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-012",
+        "claim_id": "OI-012",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-013",
+        "claim_id": "OI-013",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-014",
+        "claim_id": "OI-014",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-015",
+        "claim_id": "OI-015",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-016",
+        "claim_id": "OI-016",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-017",
+        "claim_id": "OI-017",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-018",
+        "claim_id": "OI-018",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-019",
+        "claim_id": "OI-019",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-020",
+        "claim_id": "OI-020",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-021",
+        "claim_id": "OI-021",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-022",
+        "claim_id": "OI-022",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-023",
+        "claim_id": "OI-023",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-024",
+        "claim_id": "OI-024",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-025",
+        "claim_id": "OI-025",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-026",
+        "claim_id": "OI-026",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-027",
+        "claim_id": "OI-027",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-028",
+        "claim_id": "OI-028",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-029",
+        "claim_id": "OI-029",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-030",
+        "claim_id": "OI-030",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-031",
+        "claim_id": "OI-031",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-032",
+        "claim_id": "OI-032",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-033",
+        "claim_id": "OI-033",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-034",
+        "claim_id": "OI-034",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-035",
+        "claim_id": "OI-035",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-036",
+        "claim_id": "OI-036",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-037",
+        "claim_id": "OI-037",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      },
+      {
+        "expectation_id": "release-OI-038",
+        "claim_id": "OI-038",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=satisfied"
+      }
+    ]
+  }
+}

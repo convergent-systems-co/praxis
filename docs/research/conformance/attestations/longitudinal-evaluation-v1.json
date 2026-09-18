@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T22:02:04.732256Z",
+  "finished_at": "2026-09-13T22:02:05.8479Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/longitudinal-evaluation-v1.log",
+  "output_digest": "sha256:e62c6b9b5478f2480bb9617a3726c13320b5046ef1e4fab3e021a9e9de6e84c7",
+  "source_digests": {
+    "internal/adaptation": "sha256:784dac87d17bc471500b727770113556585773844515ed3c624a6d7dcc4f85ec",
+    "internal/state": "sha256:2620d3e0a7f0b0711da662a24b186851cb693af09fcb56f7c270fa820b9feca0",
+    "internal/state/longitudinal_evaluation_integration_test.go": "sha256:378968c1740fe753188959f5b7e7f904971de3554f8fb817bd523481278f827e",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:ba358b52c25ad2ed143f76ddb7ba36fa96a5474fe5dc1adbd5a58f53e88e7496"
+}

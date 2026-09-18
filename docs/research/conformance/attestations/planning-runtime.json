@@ -1,0 +1,23 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./packages/develop"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T19:27:57.700934Z",
+  "finished_at": "2026-09-13T19:27:59.050127Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/planning-runtime.log",
+  "output_digest": "sha256:4968b8aef6387bf9b0ea5ef8d32507a5635940073873e6fcf51f2972445b3bf9",
+  "source_digests": {
+    "packages/develop/runtime_test.go": "sha256:008a8183eca9709f10abc6298ae6c4a10315a6bff9c5aa7711ef21d5ab803088"
+  },
+  "observations": [
+    "TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:8041cc56c8d10e53586e11c8b1acdfc3816191550900ea61007ef5e297ff8224"
+}

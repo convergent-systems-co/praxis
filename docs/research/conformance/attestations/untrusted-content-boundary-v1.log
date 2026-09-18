@@ -1,0 +1,4 @@
+=== RUN   TestUntrustedContentRemainsDataThroughMemoryAndAuthorityBoundary
+--- PASS: TestUntrustedContentRemainsDataThroughMemoryAndAuthorityBoundary (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/trustboundary	0.288s

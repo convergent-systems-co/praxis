@@ -1,0 +1,39 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-goals-successor-cache",
+    "go",
+    "test",
+    "-v",
+    "./packages/goals",
+    "./internal/goalstore",
+    "./packages/research",
+    "./packages/develop",
+    "./internal/processresolver"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T16:09:23.401874Z",
+  "finished_at": "2026-09-15T16:09:35.385424Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/goals-session-v7.log",
+  "output_digest": "sha256:ac3aa9286706bef98a504930500f53ebdea0ffa9804f1ca69523361b6336b6b3",
+  "source_digests": {
+    "internal/goalstore": "sha256:d133104c23c6ef79d15c0ddc1a2932ed16d074230f622563cb5edcbb8424c14e",
+    "internal/processresolver": "sha256:a0cc14626fb77b07ef5bea45e815450b7e38f09c1afbb71ff39c370a1e852b6f",
+    "packages/develop": "sha256:e7cee0199e3206bda64c359c5ace4513ae684efd65b5230c8eb92a1704fb4b49",
+    "packages/goals": "sha256:535ab6de52dc6722c3aa924a560af9d2c8112f3244eaaf38b692a3424713a7f7",
+    "packages/research": "sha256:7ecd1be42420c7ed44686b4dbeb45ecabc582cc4b100769055b23c9772040c92"
+  },
+  "observations": [
+    "TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd",
+    "TestGoalProcessDiscoveryResolvesAndExecutesAllModes",
+    "TestGoalSessionCompilesFourMateriallyDifferentDomainBaselines",
+    "TestGoalSessionSnapshotsAndResumesInteractiveProgress",
+    "TestRepositorySessionCheckpointSurvivesRestartAndResumes",
+    "TestRepositorySessionCheckpointVersionsAreImmutable",
+    "TestResearchExecutesGoalsAndResearchEvidenceFlow"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:a7ad4f472cafb3c6b7c15fe266c191206234087196e60b7e55cdb00ec9e89d47"
+}

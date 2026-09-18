@@ -1,0 +1,12 @@
+=== RUN   TestAuthorizeRequiresDeterministicClientMediation
+--- PASS: TestAuthorizeRequiresDeterministicClientMediation (0.00s)
+=== RUN   TestAuthorizeFailsClosedForUnknownOrBypassableMediation
+=== RUN   TestAuthorizeFailsClosedForUnknownOrBypassableMediation/unknown
+=== RUN   TestAuthorizeFailsClosedForUnknownOrBypassableMediation/bypass
+--- PASS: TestAuthorizeFailsClosedForUnknownOrBypassableMediation (0.00s)
+    --- PASS: TestAuthorizeFailsClosedForUnknownOrBypassableMediation/unknown (0.00s)
+    --- PASS: TestAuthorizeFailsClosedForUnknownOrBypassableMediation/bypass (0.00s)
+=== RUN   TestModelProposalCannotReplaceMediationDecision
+--- PASS: TestModelProposalCannotReplaceMediationDecision (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/mediation	0.226s

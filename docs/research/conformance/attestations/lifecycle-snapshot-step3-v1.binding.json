@@ -1,0 +1,11 @@
+{
+  "version": "v1",
+  "binding_id": "lifecycle-snapshot-step3-v1.binding.json",
+  "subject_type": "plan-phase",
+  "subject_id": "PLAN-005/step-3",
+  "subject_digest": "sha256:a794d52a3bd1c660c6f73977b0c9d7903da6928c4c2e9d8fef2964b07961a12a",
+  "attestation_ref": "docs/research/conformance/attestations/lifecycle-snapshot-step3-v1.json",
+  "attestation_digest": "sha256:fbc1947829cf909cfcf5dd4d24b7916ccea5b233340f5cd8edd1866bc6f23089",
+  "recorded_at": "2026-09-15T13:19:04.75276Z",
+  "digest": "sha256:3d39f2908a6c81375c911f0d3a42174c9bf95185cd3f0c46f0d310c26d8585d6"
+}

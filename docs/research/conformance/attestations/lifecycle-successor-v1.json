@@ -1,0 +1,30 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "./pkg/contracts",
+    "./internal/lifecycle",
+    "./internal/eventstore"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T17:48:44.180127Z",
+  "finished_at": "2026-09-15T17:48:44.280278Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/lifecycle-successor-v1.log",
+  "output_digest": "sha256:145c67a7a104822b44dded91319195b58d9b9afeda7b7f614d0bd5ecc04d7d74",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/lifecycle": "sha256:938edb40cf7807f5416d1cf4fb40ebee65257c0e2e18b74023e56b1920c99649",
+    "pkg/contracts": "sha256:df596a5c6e9bbb0979af627fe3e0b6f2d8971a983559547fa299b2f56fc37467"
+  },
+  "observations": [
+    "TestLifecycleMigration",
+    "TestLifecyclePreview",
+    "TestLifecycleSnapshot",
+    "TestLifecycleStaging",
+    "TestLifecycleSuccessorContracts"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:b657d930ff3e226044fd08262f5dc2e98f12d0a722c942ffdbf636fca1a302d8"
+}

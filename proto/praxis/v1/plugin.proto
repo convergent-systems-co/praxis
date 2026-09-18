@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "praxis/v1/common.proto";
+import "praxis/v1/capability.proto";
+
+message PluginIdentity {
+  string plugin_id = 1;
+  string plugin_version = 2;
+  string instance_id = 3;
+  string artifact_digest = 4;
+  reserved 5;
+  reserved "protocol_version";
+  string runtime_session = 6;
+}
+
+message CapabilityAdvertisement {
+  string capability = 1;
+  repeated string operations = 2;
+  map<string,string> properties = 3;
+}
+
+message HandshakeRequest {
+  reserved 1, 2;
+  reserved "identity", "advertised_capabilities";
+  PluginIdentity expected_identity = 3;
+  string core_protocol_min = 4;
+  string core_protocol_max = 5;
+  string correlation_id = 6;
+}
+
+message HandshakeResponse {
+  reserved 1, 2;
+  reserved "accepted", "negotiated_protocol_version";
+  repeated string reasons = 3;
+  PluginIdentity identity = 4;
+  repeated CapabilityAdvertisement advertised_capabilities = 5;
+  string plugin_protocol_min = 6;
+  string plugin_protocol_max = 7;
+  bool ready = 8;
+}
+
+message ExecuteRequest {
+  PluginIdentity identity = 1;
+  CapabilityLease lease = 2;
+  string operation = 3;
+  bytes payload = 4;
+  repeated ProvenanceRef provenance = 5;
+  string correlation_id = 6;
+  string causation_id = 7;
+}
+
+message ExecuteResponse {
+  bytes payload = 1;
+  repeated ProvenanceRef provenance = 2;
+  string evidence_class = 3;
+}
+
+message HealthRequest { PluginIdentity identity = 1; }
+message HealthResponse { string status = 1; repeated string details = 2; }
+
+service PraxisPlugin {
+  rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+  rpc ExecuteStream(stream ExecuteRequest) returns (stream ExecuteResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}

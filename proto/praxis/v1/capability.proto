@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "google/protobuf/timestamp.proto";
+import "praxis/v1/common.proto";
+
+message CapabilityLease {
+  string id = 1;
+  PrincipalRef principal = 2;
+  string capability = 3;
+  repeated string operations = 4;
+  string scope = 5;
+  map<string,string> constraints = 6;
+  repeated string required_enforcement = 7;
+  google.protobuf.Timestamp issued_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  google.protobuf.Timestamp revoked_at = 10;
+  optional uint64 remaining_uses = 11;
+}

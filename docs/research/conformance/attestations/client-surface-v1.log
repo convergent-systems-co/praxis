@@ -1,0 +1,4 @@
+=== RUN   TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances
+--- PASS: TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/clientadapt	0.262s

@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "command": [
+    "go",
+    "test",
+    "-v",
+    "./plugins/workspace"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T15:00:34.736803Z",
+  "finished_at": "2026-09-14T15:00:35.220234Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/workspace-intelligence-v1.log",
+  "output_digest": "sha256:1a1f4e8f3a6329ae9ff2cfcb63977cc56a93947bc4915756c21bb8b6bc04b775",
+  "source_digests": {
+    "plugins/workspace": "sha256:453add8029fa47a33bedfb151e2108e7a2ad9366e1da1ba1045cecf570bd5d57"
+  },
+  "observations": [
+    "TestAuthorizeReleaseRejectsSensitiveDestinationMismatch",
+    "TestAuthorizeReleaseRequiresPQWhenPolicyDemands",
+    "TestContextPackRespectsAllBudgets",
+    "TestIndexDetectsContentChange",
+    "TestResolveAuthorizedPathRejectsSymlinkEscape"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:6d43783c374323de8a64da0f591045835073cbf9e93cbd7ef3007d928c37b210"
+}

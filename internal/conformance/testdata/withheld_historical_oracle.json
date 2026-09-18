@@ -1,0 +1,8 @@
+[
+  {
+    "id": "historical-positive-control",
+    "statement": "A persistent agent has an executable versioned internal operational graph, rather than only graph and agent contracts existing separately.",
+    "required_terms": ["persistent agents", "operational graphs"],
+    "expected": "unsupported"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/agent"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T21:54:58.299604Z",
+  "finished_at": "2026-09-13T21:55:01.089914Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/adaptive-routing-runtime-v2.log",
+  "output_digest": "sha256:eddaf3fb73b391313bcf716807a1261b33fc406155c2750a22589eb71c56be89",
+  "source_digests": {
+    "internal/adaptation": "sha256:d27bb9abc444950949c82294dad0b455a8c4793cd015d08815c1c1ab478cbf72",
+    "internal/agent": "sha256:edf346092a4727330bc5a38e34bc4ca4e552e3c17b2772d702289cd97c0ef998",
+    "internal/inference": "sha256:b8c52e88de818294968b7c0cfdfe9ae20392beedf9c7ae738e45ed83af4eb53a",
+    "internal/kernel": "sha256:c65e6b6a68689db1ea38e203a40864da95112b2b7b811d8aa9aa3a350e0b576a",
+    "internal/state": "sha256:35cfdbb216b58c7b55ac07692aa9fa8ae311e5cb77580480a7cf9ed01ea39115",
+    "internal/stateprovider": "sha256:e524c6d72011494264267e311d7a56ba54ce368d013dbdab3197effbeb621229",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart",
+    "TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains",
+    "TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement",
+    "TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware",
+    "TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:80eeaa2a7a5963162d04487f5707c8fbb76c2697e918a5f5e31807e960784294"
+}

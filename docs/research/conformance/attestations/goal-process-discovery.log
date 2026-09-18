@@ -1,0 +1,6 @@
+=== RUN   TestGoalProcessDiscoveryResolvesAndExecutesAllModes
+--- PASS: TestGoalProcessDiscoveryResolvesAndExecutesAllModes (0.00s)
+=== RUN   TestGoalProcessDiscoveryFailsClosedBeforeAdvisoryExecution
+--- PASS: TestGoalProcessDiscoveryFailsClosedBeforeAdvisoryExecution (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/processresolver	(cached)

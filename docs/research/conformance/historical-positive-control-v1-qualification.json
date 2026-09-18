@@ -1,0 +1,26 @@
+{
+  "frozen_result_digest": "sha256:03f7c9a8f07bd222989720f063fa0f354b4e087e578989fac322ab3f8f2f119c",
+  "oracle_path": "internal/conformance/testdata/withheld_historical_oracle.json",
+  "authority_path": "docs/research/conformance/oracles/historical-positive-control-v1-authority.json",
+  "oracle_digest": "sha256:125a988424736597e5544061b595ecfda60a41557e469567846e47cd351c2b50",
+  "authority_digest": "sha256:eb957ada6bb29a2550e4d9b801249b74830e528f2202cb3dbfb7d61133f81b4d",
+  "oracle_id": "historical-positive-control-v1",
+  "oracle_generation": 1,
+  "scope": "historical_replay",
+  "claim_set_digest": "sha256:40162f681aa56bc3091ab4dd188d6857330bc8d495b11eea20e701c49bef2717",
+  "goal_digest": "sha256:ec813f71fe19f7e546d53774132bbb7133ca9195004e7a8496f4079fa7249353",
+  "score": {
+    "true_positives": 1,
+    "true_negatives": 0,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "matches": [
+      {
+        "expectation_id": "historical-positive-control",
+        "claim_id": "OI-002",
+        "matched": true,
+        "rationale": "frozen claim statement contains every withheld semantic term; status=unsupported"
+      }
+    ]
+  }
+}

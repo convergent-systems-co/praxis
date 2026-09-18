@@ -1,0 +1,5 @@
+# SPEC-045: Goals ordered recovery lineage
+
+Status: Proposed successor to SPEC-044.
+
+`goals-publication-recovery-ordered-prepare` walks backward from the latest abandoned recovery request, validates each exact recovery abandonment and manifest evidence, follows the explicit predecessor link, reverses the result into chronological order, and constructs a fresh `goals-established-state-publication/3` ActionIntent. The ActionIntent stores a canonical fixed-field chain encoding, count, and chain digest. Missing, reordered, duplicated, substituted, active, or incomplete generations fail closed. Root publication fields remain bound to the original abandonment contract, and every chain element preserves its UNKNOWN manifest, attempts, provider evidence, reconciliation digest, authority digest, execution, and abandonment identity. Preparation performs no authority decision or provider effect; request persistence revalidates the complete chain and current established release state. Existing `/1` and `/2` intents are not rewritten or reinterpreted.

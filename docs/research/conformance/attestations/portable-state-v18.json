@@ -1,0 +1,35 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/sync",
+    "./internal/stateprovider"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T02:45:50.694775Z",
+  "finished_at": "2026-09-14T02:45:51.995212Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/portable-state-v18.log",
+  "output_digest": "sha256:53920bd3ec052e1319367398a8f403e7bc90ab07858f35294f2b6fd435238b92",
+  "source_digests": {
+    "internal/eventstore": "sha256:3de2bc2f953658c6562c6e1ce6e85728c1875f6dd4d90c9257c725729c976253",
+    "internal/packagecatalog": "sha256:573f323d657b72a7b0d365e7ebfd08b8f4908a5bb9ce93fe2a3ceed8e4a99535",
+    "internal/plugin": "sha256:8d30eb51b4cf272e94b0071fdaa6d4d180440e7121986559df9eaa9fad563d7d",
+    "internal/state": "sha256:9d9202101a1d376c3e5c0a74488bc3c52e6d698e087ecedd964c8022906b1fa3",
+    "internal/stateprovider": "sha256:7e73f689a388ddfd36757400d133d3fd38a2b762d661fea444597e33193b277d",
+    "internal/sync": "sha256:65c89409deffbca8818b4e3cacb0b6cc15b770f1cb878b8608044f3c4f65c439",
+    "pkg/contracts": "sha256:e8e18702a1880a26dcd8a971cb1baec031a193b73204ddcd56c51b8320155fcd"
+  },
+  "observations": [
+    "TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart",
+    "TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed",
+    "TestPortableImportReplayRejectsAuthorityActorMismatch",
+    "TestRuntimeAuthorityIsNotReusableOnImport"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:b255586ce30d2719cde8a6a8f2c74c95acbd489f5ac0acfe536687fb021a5ffc"
+}

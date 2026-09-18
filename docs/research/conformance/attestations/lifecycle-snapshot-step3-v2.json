@@ -1,0 +1,47 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-lifecycle-attest-gocache",
+    "go",
+    "test",
+    "-v",
+    "./pkg/contracts",
+    "./internal/lifecycle",
+    "./internal/conformance",
+    "-run",
+    "Test(Lifecycle|Preview|Snapshot|QualificationEvidenceBinding|ExecutionAttestation)"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T13:20:20.541599Z",
+  "finished_at": "2026-09-15T13:20:21.037969Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/lifecycle-snapshot-step3-v2.log",
+  "output_digest": "sha256:76d879029c8b6daa424e4c8cc432cafa739391f4a32e0ee2de2bf4d62bf16731",
+  "source_digests": {
+    "cmd/praxis-conformance/main.go": "sha256:b612f571499cbe11f34160f775d1e449d0abd90f160bcea5afaa4c2d2d3ac199",
+    "internal/conformance/attestation.go": "sha256:8332a6816d2eed0811b1b24c5ff939505b759932ce4da4bfd8358e9b52eb58f4",
+    "internal/conformance/attestation_binding_test.go": "sha256:946a10ac77602c156e2104157bff8f1dcf7cfb087c86d04a72d18390e23a60e1",
+    "internal/conformance/attestation_test.go": "sha256:0fa700ecd6e37c69899d49166ac86c23d7266c33bd90cf4bcf85282521ffa627",
+    "internal/lifecycle/preview.go": "sha256:9147543fa7cf754495fb24f64a93cd87ab833c8d8a75fe0a854bf423ea67b5f3",
+    "internal/lifecycle/preview_test.go": "sha256:72f12feabf9792232b77c29b7769fd430192ab56b3d72b21ac36803666037852",
+    "internal/lifecycle/snapshot.go": "sha256:60dcc49bc45b1916f7094dd55ea504caa0ced7bcc73cbf7c559d69b2732b3033",
+    "internal/lifecycle/snapshot_test.go": "sha256:05b0924587e3049ef0444e2f7843ddafd5e2318407a6e207f785ca857210d2c3",
+    "pkg/contracts/lifecycle.go": "sha256:931177c5a5c0a60f60d4553a8f65d87f65660ff3c997d6dcf8c15e31f9f67e76",
+    "pkg/contracts/lifecycle_test.go": "sha256:f9cc843bbe24e50d5ee4e1b3f8ba12a9fc348ede7f4631db0d0a5df272fbab3d"
+  },
+  "observations": [
+    "TestExecutionAttestationMustPassAndRemainImmutable",
+    "TestPreviewDoesNotTreatHistoricalEvidenceAsAuthority",
+    "TestPreviewIsReadOnlyAndReadyForCompatibleAutomaticPlan",
+    "TestPreviewRejectsStaleCurrentManifestAndInvalidPlanDigest",
+    "TestPreviewReportsAuthorityAndSnapshotSeparately",
+    "TestQualificationEvidenceBindingRejectsSubjectAndDigestSubstitution",
+    "TestQualificationEvidenceBindingRequiresVerifiedExactAttestation",
+    "TestSnapshotExportIsCanonicalAndImportIsFenced",
+    "TestSnapshotRejectsEmbeddedMismatchAndTampering",
+    "TestSnapshotRejectsMissingOrForgedExternalArtifact"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:71b861365a89aa1ef5882dfaa274475659b917f164039ba530bc4228ea9cd3f9"
+}

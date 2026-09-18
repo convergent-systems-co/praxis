@@ -1,0 +1,45 @@
+name: Praxis 2 Go
+
+on:
+  push:
+    branches:
+      - redesign/praxis2
+  pull_request:
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'proto/**'
+      - 'migrations/sqlite/**'
+      - '.github/workflows/praxis2-go.yml'
+
+concurrency:
+  group: praxis2-go-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify module lock
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Format working copy
+        run: |
+          gofmt -w $(find . -type f -name '*.go' -not -path './.git/*')
+          git diff --stat -- '*.go'
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Smoke - weather dashboard full trace
+        run: go test -v ./packages/develop -run '^TestSmokeWeatherDashboardFullTrace$' -count=1

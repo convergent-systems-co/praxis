@@ -1,0 +1,45 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-lifecycle-gocache",
+    "go",
+    "test",
+    "-v",
+    "./pkg/contracts",
+    "./internal/lifecycle",
+    "./internal/conformance",
+    "-run",
+    "Test(Lifecycle|Preview|Snapshot|RunStep|StagedArtifact|QualificationEvidenceBinding|ExecutionAttestation)",
+    "-count=1"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-15T13:49:52.865231Z",
+  "finished_at": "2026-09-15T13:49:53.891812Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/lifecycle-migration-step4-v1.log",
+  "output_digest": "sha256:28eb2bff130d561652d6b6e2308c6ac68467c274b43282ec155801ed64ae1acd",
+  "source_digests": {
+    "internal/conformance/attestation.go": "sha256:8332a6816d2eed0811b1b24c5ff939505b759932ce4da4bfd8358e9b52eb58f4",
+    "internal/conformance/attestation_binding_test.go": "sha256:946a10ac77602c156e2104157bff8f1dcf7cfb087c86d04a72d18390e23a60e1",
+    "internal/lifecycle/authority.go": "sha256:79125f67e2720ea7837d27f16a9099d8ebf191a05d19132301a8252c3d906b5a",
+    "internal/lifecycle/migration.go": "sha256:bba535bde4ccb8c3a98e49572db97d0317c232a60625bf6e2c7574caf8b20abc",
+    "internal/lifecycle/migration_test.go": "sha256:0c5f82463ac4f14671d823d65a0d2a958ba6f9cf5d8ac5ae9d39c0af575b1c10",
+    "internal/lifecycle/staged.go": "sha256:797665e8a93e12126f245443d258e52e86f9b06360da6d25d0cd34c394e2aa65",
+    "internal/lifecycle/staged_test.go": "sha256:3ed49c06b9bba086c72ffaa6c1d6a5bcb0cfc4873e854efb7277b2da29d366b6",
+    "pkg/contracts/lifecycle.go": "sha256:b0afbe7f6f08524102d8eacfc663d0a8179448c4301654ccd4faf04f3ee24355",
+    "pkg/contracts/lifecycle_test.go": "sha256:f9cc843bbe24e50d5ee4e1b3f8ba12a9fc348ede7f4631db0d0a5df272fbab3d"
+  },
+  "observations": [
+    "TestRunStepCommitsAndSurvivesJournalReload",
+    "TestRunStepFencesUnsafeRollbackAndUnknownOutcome",
+    "TestRunStepRefusesAmbiguousRetryAndRecordsReconciliation",
+    "TestRunStepRequiresAndJournalsExactAuthorityProof",
+    "TestRunStepRequiresSnapshotAndRefusesDowngrade",
+    "TestRunStepRetriesRecoverableIdempotentFailure",
+    "TestStagedArtifactActivationAndRestartRecovery",
+    "TestStagedArtifactRejectsSubstitutionAndIncompleteActivation"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:40921bae1313fc8614087171ad29f2e76fb7e82ad6deff2d4e6f1980ee02091f"
+}

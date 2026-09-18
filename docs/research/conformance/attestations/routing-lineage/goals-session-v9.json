@@ -1,0 +1,41 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-goals-successor-v8-cache",
+    "go",
+    "test",
+    "-count=1",
+    "-v",
+    "./packages/goals",
+    "./internal/goalstore",
+    "./packages/research",
+    "./packages/develop",
+    "./internal/processresolver"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T22:54:22.513616Z",
+  "finished_at": "2026-09-17T22:54:25.756817Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/goals-session-v9.log",
+  "output_digest": "sha256:8d55fce1a39240d5a62b18af7149a4eb2ffea77701b84ca2f75a8b2e59a34aff",
+  "source_digests": {
+    "internal/goalstore": "sha256:51455e5c61f847c9e182745f13c81ccc4bf01bff7403fa09a34727f3a33faaf4",
+    "internal/processresolver": "sha256:a0cc14626fb77b07ef5bea45e815450b7e38f09c1afbb71ff39c370a1e852b6f",
+    "packages/develop": "sha256:b88914b3bd377ba3caea89f67e8b8159700c1c363c69f52266e528e1f0e3924c",
+    "packages/goals": "sha256:bdebe28f759f2a042489166052c3835d2799e9d32bd5544b7467acc20ae16377",
+    "packages/research": "sha256:b6698dc39679cc212c11a3d74a61cecae374720fd70c769e7c42e63cddc795c6"
+  },
+  "observations": [
+    "TestDevelopArchitectedPathExecutesGoalsSubgraphEndToEnd",
+    "TestFinalizeDurableRequiresReceiptAndStore",
+    "TestGoalSessionFirstRunOrdersSpecifyPlanCandidateThenReview",
+    "TestGoalSessionRejectsAbsentStaleAndPostReviewMutation",
+    "TestGoalSessionReviewRequiredResolutionSurvivesRestart",
+    "TestGoalSessionSuccessorReviewSurvivesRestart",
+    "TestRepositorySessionCheckpointSurvivesRestartAndResumes",
+    "TestResearchExecutesGoalsAndResearchEvidenceFlow"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:2fc9da7426173f9781c47941cc50639983aac2f3b8926adf28eaf4e3c34f7ef5"
+}

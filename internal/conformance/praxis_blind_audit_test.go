@@ -1,0 +1,96 @@
+package conformance
+
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestPraxisBlindGoalAuditHasIndependentComprehensiveDenominator(t *testing.T) {
+	claims := PraxisOriginalIntentClaims()
+	if len(claims) != 38 {
+		t.Fatalf("unexpected original-intent denominator version: %d claims", len(claims))
+	}
+	resourceContinuation := claims[len(claims)-1]
+	if resourceContinuation.ID != "OI-038" || strings.Contains(resourceContinuation.SourceRef, "ADR-050") {
+		t.Fatalf("resource-continuation denominator transition is remediation-derived: %#v", resourceContinuation)
+	}
+	wantSources := map[string]bool{"ADR-003": false, "ADR-009": false, "ADR-024": false, "ADR-038": false, "ADR-043": false, "ADR-045": false, "ADR-048": false}
+	for _, c := range claims {
+		for source := range wantSources {
+			if strings.Contains(c.SourceRef, source) {
+				wantSources[source] = true
+			}
+		}
+		if strings.Contains(c.SourceRef, "ADR-049") || strings.Contains(c.SourceRef, "PLAN-") {
+			t.Fatalf("remediation/plan contaminated denominator: %s", c.SourceRef)
+		}
+	}
+	for source, found := range wantSources {
+		if !found {
+			t.Errorf("original-intent dimension absent: %s", source)
+		}
+	}
+}
+
+func TestPraxisBlindGoalAuditFreezesMachineReadableFailure(t *testing.T) {
+	root := "../.."
+	evidence, err := LoadEvidence(root, PraxisEvidenceInventory())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Exercise the discovery/failure path with an intentionally incomplete
+	// evidence view. The live repository may be fully conformant; this test
+	// proves the evaluator still freezes a machine-readable gap when evidence
+	// is absent rather than encoding a permanent expectation that release state
+	// must remain incomplete.
+	evidence = nil
+	goalDigest, err := SourceSetDigest(root, OriginalIntentSources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Evaluate(goalDigest, PraxisOriginalIntentClaims(), evidence, time.Date(2026, 9, 13, 18, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Digest == "" || r.SourceSetDigest == "" || r.ClaimSetDigest == "" || r.EvidenceDigest == "" {
+		t.Fatalf("audit was not fully frozen: %#v", r)
+	}
+	if r.Conformant {
+		t.Fatal("discovery audit must be capable of reporting current critical gaps")
+	}
+	unsupported := 0
+	for _, f := range r.Findings {
+		if f.Status == Unsupported || f.Status == Indeterminate {
+			unsupported++
+		}
+	}
+	if unsupported == 0 {
+		t.Fatal("expected discovery findings, not a conformance assertion")
+	}
+}
+
+func TestEvidenceInventoryDoesNotTreatTestSourceAsExecutedBehavior(t *testing.T) {
+	evidence, err := LoadEvidence("../..", []InventoryArtifact{{ID: "test-source", Kind: "integration_test", Stage: StageIntegration, Ref: "packages/develop/runtime_test.go", ClaimIDs: []string{"OI-033"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence[0].Stage != StageContract {
+		t.Fatalf("test source self-attested behavior: %#v", evidence[0])
+	}
+}
+
+func TestExecutedObservationRequiresBoundPassingOutput(t *testing.T) {
+	if !goTestObservationPassed("=== RUN   TestExact\n--- PASS: TestExact (0.01s)\n", "TestExact") {
+		t.Fatal("passing observation was not recognized")
+	}
+	for _, output := range []string{
+		"=== RUN   TestExact\n--- SKIP: TestExact (0.01s)\n",
+		"=== RUN   TestExact\n--- FAIL: TestExact (0.01s)\n",
+		"--- PASS: TestExactSuffix (0.01s)\n",
+	} {
+		if goTestObservationPassed(output, "TestExact") {
+			t.Fatalf("non-passing output established behavior: %q", output)
+		}
+	}
+}

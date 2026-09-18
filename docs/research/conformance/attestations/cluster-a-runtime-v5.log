@@ -1,0 +1,191 @@
+=== RUN   TestInstantiateDefinitionCreatesIndependentLocalAgents
+--- PASS: TestInstantiateDefinitionCreatesIndependentLocalAgents (0.00s)
+=== RUN   TestInstantiateDefinitionRejectsNonAgentContent
+--- PASS: TestInstantiateDefinitionRejectsNonAgentContent (0.00s)
+=== RUN   TestLaterGenerationRequiresParent
+--- PASS: TestLaterGenerationRequiresParent (0.00s)
+=== RUN   TestFirstGenerationCannotClaimParent
+--- PASS: TestFirstGenerationCannotClaimParent (0.00s)
+=== RUN   TestHighConfidenceUntrustedMemoryStaysUntrusted
+--- PASS: TestHighConfidenceUntrustedMemoryStaysUntrusted (0.00s)
+=== RUN   TestSupersededMemoryIsNotActive
+--- PASS: TestSupersededMemoryIsNotActive (0.00s)
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery
+=== RUN   TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research
+--- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart (0.05s)
+    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/software-delivery (0.03s)
+    --- PASS: TestAgentGraphConsumesGovernedPreferenceDriftAndExplicitCorrectionAcrossRestart/research (0.02s)
+=== RUN   TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection
+--- PASS: TestRoutedInferenceDoesNotRedispatchPersistedPendingSelection (0.00s)
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery
+=== RUN   TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research
+--- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains (0.04s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/software-delivery (0.02s)
+    --- PASS: TestOperationalGraphRoutesDispatchesObservesAndReplaysAcrossDomains/research (0.02s)
+=== RUN   TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement
+--- PASS: TestPersistentAgentExecutesOperationalGraphAcrossRestartAndProviderReplacement (0.01s)
+=== RUN   TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart
+--- PASS: TestAgentGenerationIntrospectionAndRollbackPreserveHistoryAcrossRestart (0.01s)
+=== RUN   TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware
+--- PASS: TestPersistentMemoryRetrievalIsScopedBoundedAndSupersessionAware (0.01s)
+=== RUN   TestOperationalGraphFailsClosedWhenAgentRoleIsMissing
+--- PASS: TestOperationalGraphFailsClosedWhenAgentRoleIsMissing (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/agent	0.398s
+=== RUN   TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart
+--- PASS: TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart (0.00s)
+=== RUN   TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle
+--- PASS: TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle (0.00s)
+=== RUN   TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate
+--- PASS: TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate (0.00s)
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/software-delivery
+=== RUN   TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/research
+--- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart (0.00s)
+    --- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/software-delivery (0.00s)
+    --- PASS: TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart/research (0.00s)
+=== RUN   TestCandidateCannotSkipEvaluationToStabilized
+--- PASS: TestCandidateCannotSkipEvaluationToStabilized (0.00s)
+=== RUN   TestPromotedCandidateCanDemote
+--- PASS: TestPromotedCandidateCanDemote (0.00s)
+=== RUN   TestCandidateRequiresRollbackPlan
+--- PASS: TestCandidateRequiresRollbackPlan (0.00s)
+=== RUN   TestCandidateFromConformanceRequiresFrozenCriticalFailure
+--- PASS: TestCandidateFromConformanceRequiresFrozenCriticalFailure (0.00s)
+=== RUN   TestDuplicateDerivedEvidenceCountsOnce
+--- PASS: TestDuplicateDerivedEvidenceCountsOnce (0.00s)
+=== RUN   TestDistinctRootsMeetThreshold
+--- PASS: TestDistinctRootsMeetThreshold (0.00s)
+=== RUN   TestPolicyViolationBlocksPromotionDespitePerformanceGain
+--- PASS: TestPolicyViolationBlocksPromotionDespitePerformanceGain (0.00s)
+=== RUN   TestPromotionRequiresIndependentEvidence
+--- PASS: TestPromotionRequiresIndependentEvidence (0.00s)
+=== RUN   TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport
+--- PASS: TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport (0.00s)
+=== RUN   TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer
+--- PASS: TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer (0.00s)
+=== RUN   TestFailedCandidateRemainsRegisteredEvidence
+--- PASS: TestFailedCandidateRemainsRegisteredEvidence (0.00s)
+=== RUN   TestGenerationPromotionAndRollbackSurviveRestart
+--- PASS: TestGenerationPromotionAndRollbackSurviveRestart (0.00s)
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery
+=== RUN   TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research
+--- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains (0.02s)
+    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains/research (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/learning	(cached)
+=== RUN   TestPreferenceReplayRejectsAuthorityActorMismatch
+--- PASS: TestPreferenceReplayRejectsAuthorityActorMismatch (0.00s)
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/software-delivery
+=== RUN   TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/research
+--- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains (0.03s)
+    --- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestPreferenceContractCorrectionMigrationAndRestartAcrossDomains/research (0.01s)
+=== RUN   TestProfileDistancePrefersCloserBehavior
+--- PASS: TestProfileDistancePrefersCloserBehavior (0.00s)
+=== RUN   TestProfileEvidenceClassMustBeKnown
+--- PASS: TestProfileEvidenceClassMustBeKnown (0.00s)
+=== RUN   TestExplicitUserOutranksHighConfidenceLearned
+--- PASS: TestExplicitUserOutranksHighConfidenceLearned (0.00s)
+=== RUN   TestNarrowerScopeWinsWithinSameAuthority
+--- PASS: TestNarrowerScopeWinsWithinSameAuthority (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/preference	0.521s
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research
+--- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart (0.03s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery (0.02s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically
+--- PASS: TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything
+--- PASS: TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything (0.00s)
+=== RUN   TestCommitTransitionAuthorizedLeaseRejectsRevokedLease
+--- PASS: TestCommitTransitionAuthorizedLeaseRejectsRevokedLease (0.00s)
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package
+--- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.01s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package (0.01s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package (0.01s)
+=== RUN   TestResourceHandoffDenialDoesNotMutateRun
+--- PASS: TestResourceHandoffDenialDoesNotMutateRun (0.00s)
+=== RUN   TestSQLiteEventStoreAppendLoadAndConflict
+--- PASS: TestSQLiteEventStoreAppendLoadAndConflict (0.01s)
+=== RUN   TestSQLiteEventStoreRejectsCommandIDMetadataHijack
+--- PASS: TestSQLiteEventStoreRejectsCommandIDMetadataHijack (0.00s)
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research
+--- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart (0.03s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery (0.01s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research (0.02s)
+=== RUN   TestPackageActivationPublishesAndRemovesAliasesAndContents
+--- PASS: TestPackageActivationPublishesAndRemovesAliasesAndContents (0.01s)
+=== RUN   TestAgentOnlyAndMixedPackagesAreFirstClassContents
+--- PASS: TestAgentOnlyAndMixedPackagesAreFirstClassContents (0.01s)
+=== RUN   TestPackageCannotShadowCoreCommand
+--- PASS: TestPackageCannotShadowCoreCommand (0.01s)
+=== RUN   TestPackageAliasCollisionFailsWithoutChangingExistingOwner
+--- PASS: TestPackageAliasCollisionFailsWithoutChangingExistingOwner (0.00s)
+=== RUN   TestPackageUpdateAtomicallyReplacesAliasAndContentSurface
+--- PASS: TestPackageUpdateAtomicallyReplacesAliasAndContentSurface (0.00s)
+=== RUN   TestConsumePluginLeaseBindsInstanceAndConsumesUse
+--- PASS: TestConsumePluginLeaseBindsInstanceAndConsumesUse (0.00s)
+=== RUN   TestConsumePluginLeaseRejectsDifferentRuntimeInstance
+--- PASS: TestConsumePluginLeaseRejectsDifferentRuntimeInstance (0.00s)
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research
+--- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains (0.02s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research (0.01s)
+=== RUN   TestSQLiteCheckpointStorePersistsMonotonically
+--- PASS: TestSQLiteCheckpointStorePersistsMonotonically (0.01s)
+=== RUN   TestAmbiguousEffectFailsClosedWithoutReconciliation
+--- PASS: TestAmbiguousEffectFailsClosedWithoutReconciliation (0.00s)
+=== RUN   TestAmbiguousEffectReconcilesWhenSupported
+--- PASS: TestAmbiguousEffectReconcilesWhenSupported (0.00s)
+=== RUN   TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency
+--- PASS: TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency (0.00s)
+=== RUN   TestQualificationRunControlSurvivesSQLiteRestart
+--- PASS: TestQualificationRunControlSurvivesSQLiteRestart (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease
+--- PASS: TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics
+--- PASS: TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics (0.00s)
+=== RUN   TestSecureBlobRoundTripStoresNoPlaintextColumn
+--- PASS: TestSecureBlobRoundTripStoresNoPlaintextColumn (0.00s)
+=== RUN   TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity
+--- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.01s)
+=== RUN   TestSecureBlobIsImmutableByVersion
+--- PASS: TestSecureBlobIsImmutableByVersion (0.00s)
+=== RUN   TestSecureBlobExpiryFailsClosed
+--- PASS: TestSecureBlobExpiryFailsClosed (0.00s)
+=== RUN   TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState
+--- PASS: TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState (0.01s)
+=== RUN   TestOpenSQLiteAppliesMigrationsAndPragmas
+--- PASS: TestOpenSQLiteAppliesMigrationsAndPragmas (0.00s)
+=== RUN   TestOpenSQLiteDoesNotReapplyLedgeredMigrations
+--- PASS: TestOpenSQLiteDoesNotReapplyLedgeredMigrations (0.01s)
+=== RUN   TestCommitTransitionIsAtomic
+--- PASS: TestCommitTransitionIsAtomic (0.01s)
+=== RUN   TestCommitTransitionRollsBackAuthorityOnVersionConflict
+--- PASS: TestCommitTransitionRollsBackAuthorityOnVersionConflict (0.01s)
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research
+--- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains (0.02s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research (0.01s)
+=== RUN   TestCrossAgentTransferRetainsRejectedPrivacyCandidate
+--- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/state	(cached)
+?   	github.com/convergent-systems-co/praxis/internal/transfer	[no test files]

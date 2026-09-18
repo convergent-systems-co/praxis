@@ -13,7 +13,7 @@ from pathlib import Path
 from praxis_runtime.transitions import NodeStatus, _TRANSITIONS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ADR_PATH = REPO_ROOT / "docs" / "adr" / "0001-capacity-tiering-boundary.md"
+ADR_PATH = REPO_ROOT / "docs" / "legacy-adr" / "0001-capacity-tiering-boundary.md"
 POLICY_PATH = REPO_ROOT / "docs" / "policy.md"
 BUDGETS_PATH = REPO_ROOT / "src" / "praxis_policy" / "budgets.py"
 

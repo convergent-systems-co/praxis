@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-plan016-attest-mutation-v10",
+    "go",
+    "test",
+    "-v",
+    "./internal/state"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T18:20:55.958029Z",
+  "finished_at": "2026-09-17T18:21:00.32725Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/mutation-boundary-v11.log",
+  "output_digest": "sha256:c18ff6e34194662e63ab2f8b2382250fa2bf13b0e37afcfa67099420bf16e590",
+  "source_digests": {
+    "internal/state": "sha256:f57181f43132bdeefa96713f2b135576fad9b0db51ffff7659be8bce187cc7e7",
+    "internal/state/effect_lifecycle_test.go": "sha256:dcc8bea88bc1062047095bf600198c3dbad1b790128db599488f42cebccade5e",
+    "internal/state/store_integration_test.go": "sha256:0b8bf446fcfedd550347d0f2f311f565e2a0743436199981dd8cb39369d3bf0d"
+  },
+  "observations": [
+    "TestCommitTransitionIsAtomic",
+    "TestCommitTransitionRollsBackAuthorityOnVersionConflict",
+    "TestEffectLifecyclePersistsDispatchAndUnknownOutcomeAcrossRestart"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:1513c28b3d4461af26ea1a0c912b5ea8244e45ba46c6b724a266a0e3123d6512"
+}

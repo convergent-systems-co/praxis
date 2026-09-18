@@ -1,13 +1,8 @@
-"""Target resolution for `praxis run <target>`.
+"""Graph target resolution for ``praxis run <target>``.
 
-`resolve_target` accepts either a path to a graph document or one of a fixed
-set of known overlay ids, and returns a `Graph` either way. Every failure --
-an unparseable or invalid document, a path that is a directory, an id that is
-neither -- surfaces as `TargetError` carrying a message the CLI can print, so
-a caller never has to catch loader-specific or OS-level exceptions.
-
-Resolution itself writes nothing: no run directory, no file in the working
-directory.
+Targets are either graph document paths or named ``graph/<id>`` services
+exported by plugins. The CLI no longer imports or enumerates concrete domain
+graphs directly.
 """
 
 from __future__ import annotations
@@ -18,58 +13,48 @@ from typing import Callable
 
 from praxis_runtime.graph import Graph, load_graph
 
-KNOWN_OVERLAY_IDS: tuple[str, ...] = ("trivial", "development")
+from .composition import build_plugin_registry
+
+GRAPH_SERVICE_PREFIX = "graph/"
 
 
 class TargetError(Exception):
-    """Raised when a `praxis run` target is neither a loadable graph document
-    nor a known overlay id."""
+    """Raised when a target is neither a loadable graph document nor a graph plugin id."""
 
 
-def _build_trivial() -> Graph:
-    # `overlays.trivial.overlay.build_trivial_graph()` takes no arguments and
-    # returns a `praxis_runtime.graph.Graph` (src/overlays/trivial/overlay.py).
-    from overlays.trivial.overlay import build_trivial_graph
-
-    return build_trivial_graph()
-
-
-def _build_development() -> Graph:
-    # `overlays.development.graph.build_development_graph()` takes no arguments
-    # and returns a `praxis_runtime.graph.Graph`
-    # (src/overlays/development/graph.py).
-    from overlays.development.graph import build_development_graph
-
-    return build_development_graph()
-
-
-# Explicit id -> factory mapping, mirroring `adapters.py`'s `_ADAPTER_FACTORIES`
-# precedent: the set of targets is fixed and spelled out here, with no plugin
-# discovery and no module scanning. Each factory imports its overlay lazily, so
-# importing this module costs only what a target actually needs.
-_OVERLAY_BUILDERS: dict[str, Callable[[], Graph]] = {
-    "trivial": _build_trivial,
-    "development": _build_development,
-}
+def available_graph_targets() -> tuple[str, ...]:
+    registry = build_plugin_registry()
+    return tuple(
+        service_name[len(GRAPH_SERVICE_PREFIX) :]
+        for service_name in registry.services(prefix=GRAPH_SERVICE_PREFIX)
+    )
 
 
 def resolve_target(target: str) -> Graph:
-    """Return the `Graph` named by `target`, a graph document path or overlay id.
+    """Return the graph named by ``target``, either a document path or plugin id."""
 
-    Raises `TargetError` if the path cannot be loaded or the id is unknown.
-    """
     if os.path.exists(target):
         try:
             return load_graph(Path(target))
         except Exception as exc:
             raise TargetError(f"could not load graph document {target!r}: {exc}") from exc
 
-    builder = _OVERLAY_BUILDERS.get(target)
+    registry = build_plugin_registry()
+    service_name = f"{GRAPH_SERVICE_PREFIX}{target}"
+    builder = registry.service(service_name)
     if builder is None:
-        known = ", ".join(KNOWN_OVERLAY_IDS)
-        raise TargetError(
-            f"unknown target {target!r}: not an existing path, and not one of "
-            f"the known overlay ids ({known})"
+        known = ", ".join(
+            name[len(GRAPH_SERVICE_PREFIX) :]
+            for name in registry.services(prefix=GRAPH_SERVICE_PREFIX)
         )
+        raise TargetError(
+            f"unknown target {target!r}: not an existing path and not an installed "
+            f"graph plugin ({known})"
+        )
+    if not callable(builder):
+        raise TargetError(f"graph plugin service {service_name!r} is not callable")
 
-    return builder()
+    graph = builder()
+    if not isinstance(graph, Graph):
+        raise TargetError(f"graph plugin service {service_name!r} did not return Graph")
+    return graph

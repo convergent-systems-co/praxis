@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/inference"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T21:35:26.247729Z",
+  "finished_at": "2026-09-13T21:35:26.818103Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/evidence-routing-v1.log",
+  "output_digest": "sha256:0cb33b369986f4cb8665565a2724f4ff890ec4d48a52c6de6cb4f08214a65fc8",
+  "source_digests": {
+    "internal/adaptation": "sha256:d27bb9abc444950949c82294dad0b455a8c4793cd015d08815c1c1ab478cbf72",
+    "internal/inference": "sha256:3df4e4032a63b30185dc5b5cd22e532ee32c765f05a75428204db4dcad9369ce",
+    "internal/state": "sha256:cc059cd09f224f8ba47684b5417fd92c17bcbbe4b78d00ca3b41e099ee6e952b",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestEvidenceRoutingIsPolicyDrivenGovernedAndDurableAcrossDomains",
+    "TestRouteReplayRejectsAuthorityMetadataMismatch"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:efb5d0a44e878b2e47a9e6ee2b6b9446786cc698be14d3c842d1fbef66b70135"
+}

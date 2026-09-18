@@ -1,0 +1,10 @@
+=== RUN   TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart
+--- PASS: TestCanonicalPortableStateReconcilesConcurrentMachinesAndSurvivesRestart (0.03s)
+=== RUN   TestRuntimeAuthorityIsNotReusableOnImport
+--- PASS: TestRuntimeAuthorityIsNotReusableOnImport (0.00s)
+=== RUN   TestAgentGenerationIsPortableVersioned
+--- PASS: TestAgentGenerationIsPortableVersioned (0.00s)
+=== RUN   TestPortableImportReplayRejectsAuthorityActorMismatch
+--- PASS: TestPortableImportReplayRejectsAuthorityActorMismatch (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/sync	0.321s

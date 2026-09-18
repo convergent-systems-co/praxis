@@ -17,3 +17,7 @@ events.jsonl.lock
 
 # Local finish checklist
 FINISH.md
+
+### START: ignored/graphify-out
+graphify-out
+### END: ignored/graphify-out

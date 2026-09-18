@@ -1,0 +1,6 @@
+=== RUN   TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart
+--- PASS: TestOutOfProcessPluginHandshakeStreamingCancellationAndRestart (0.15s)
+=== RUN   TestSupervisorPersistsUnexpectedExitFromLocalProcess
+--- PASS: TestSupervisorPersistsUnexpectedExitFromLocalProcess (0.24s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/plugin	0.783s

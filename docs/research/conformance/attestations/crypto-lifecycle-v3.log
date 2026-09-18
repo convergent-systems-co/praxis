@@ -1,0 +1,102 @@
+=== RUN   TestBootstrapRecordStoreIsDigestBoundAndDoesNotReplace
+--- PASS: TestBootstrapRecordStoreIsDigestBoundAndDoesNotReplace (0.02s)
+=== RUN   TestBootstrapRegistryRequiresExplicitProviderAndDoesNotFallback
+--- PASS: TestBootstrapRegistryRequiresExplicitProviderAndDoesNotFallback (0.00s)
+=== RUN   TestBootstrapRecordContainsOnlyNonSecretBindingAndOpensExactProvider
+--- PASS: TestBootstrapRecordContainsOnlyNonSecretBindingAndOpensExactProvider (0.00s)
+=== RUN   TestEnvelopeRoundTripWithPQRequired
+--- PASS: TestEnvelopeRoundTripWithPQRequired (0.00s)
+=== RUN   TestEnvelopePQRequiredFailsBeforeClassicalFallback
+--- PASS: TestEnvelopePQRequiredFailsBeforeClassicalFallback (0.00s)
+=== RUN   TestEnvelopePQPreferredFallbackRequiresExplicitPolicy
+--- PASS: TestEnvelopePQPreferredFallbackRequiresExplicitPolicy (0.00s)
+=== RUN   TestEnvelopeRejectsWrapperLyingAboutSelectedProfile
+--- PASS: TestEnvelopeRejectsWrapperLyingAboutSelectedProfile (0.00s)
+=== RUN   TestEnvelopeAADBindsCiphertextToRecordIdentity
+--- PASS: TestEnvelopeAADBindsCiphertextToRecordIdentity (0.00s)
+=== RUN   TestOpenRejectsPersistedPQDowngradeMetadata
+--- PASS: TestOpenRejectsPersistedPQDowngradeMetadata (0.00s)
+=== RUN   TestEnvelopeAuthenticatesRequestedProfileMetadata
+--- PASS: TestEnvelopeAuthenticatesRequestedProfileMetadata (0.00s)
+=== RUN   TestEnvelopeAuthenticatesKeyAndSuiteMetadata
+--- PASS: TestEnvelopeAuthenticatesKeyAndSuiteMetadata (0.00s)
+=== RUN   TestKeyLifecycleRotationRevocationAndHistoricalVerification
+--- PASS: TestKeyLifecycleRotationRevocationAndHistoricalVerification (0.00s)
+=== RUN   TestKeyReferenceContainsNoSecretMaterialAndAuthorizationIsSeparate
+--- PASS: TestKeyReferenceContainsNoSecretMaterialAndAuthorizationIsSeparate (0.00s)
+=== RUN   TestMacOSKeychainBootstrapUnlockRestartAndMissingKeyFailClosed
+    keychain_darwin_test.go:20: native Keychain unavailable in this execution environment: macOS Keychain is unavailable: add operation failed (status 100001)
+--- SKIP: TestMacOSKeychainBootstrapUnlockRestartAndMissingKeyFailClosed (0.01s)
+=== RUN   TestMacOSKeychainRejectsSubstitutionAndImplicitFallback
+    keychain_darwin_test.go:62: native Keychain unavailable in this execution environment: macOS Keychain is unavailable: add operation failed (status 100001)
+--- SKIP: TestMacOSKeychainRejectsSubstitutionAndImplicitFallback (0.00s)
+=== RUN   TestProviderRegistryRequiresExplicitUniqueProvider
+--- PASS: TestProviderRegistryRequiresExplicitUniqueProvider (0.00s)
+=== RUN   TestProviderRegistryReturnsEnvelopeServiceWithoutKeyMaterial
+--- PASS: TestProviderRegistryReturnsEnvelopeServiceWithoutKeyMaterial (0.00s)
+=== RUN   TestPQRequiredNeverFallsBack
+--- PASS: TestPQRequiredNeverFallsBack (0.00s)
+=== RUN   TestPQPreferredFallbackRequiresPolicy
+--- PASS: TestPQPreferredFallbackRequiresPolicy (0.00s)
+=== RUN   TestHybridRequiresBothFamilies
+--- PASS: TestHybridRequiresBothFamilies (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	0.495s
+=== RUN   TestBuildPackageIsDeterministicAndBindsArchive
+--- PASS: TestBuildPackageIsDeterministicAndBindsArchive (0.00s)
+=== RUN   TestBuildPackageRejectsUnmanifestedAndNoncanonicalFiles
+--- PASS: TestBuildPackageRejectsUnmanifestedAndNoncanonicalFiles (0.00s)
+=== RUN   TestCatalogContributionRequiresGovernedGeneralizedPublication
+--- PASS: TestCatalogContributionRequiresGovernedGeneralizedPublication (0.00s)
+=== RUN   TestCatalogContributionPreservesTwoDomainPackagePolicyMappings
+=== RUN   TestCatalogContributionPreservesTwoDomainPackagePolicyMappings/software-delivery
+=== RUN   TestCatalogContributionPreservesTwoDomainPackagePolicyMappings/research
+--- PASS: TestCatalogContributionPreservesTwoDomainPackagePolicyMappings (0.00s)
+    --- PASS: TestCatalogContributionPreservesTwoDomainPackagePolicyMappings/software-delivery (0.00s)
+    --- PASS: TestCatalogContributionPreservesTwoDomainPackagePolicyMappings/research (0.00s)
+=== RUN   TestDeploymentRequestBindsExactDependencyFirstClosure
+--- PASS: TestDeploymentRequestBindsExactDependencyFirstClosure (0.00s)
+=== RUN   TestDeploymentRequestRejectsMissingAndUnreachablePackages
+--- PASS: TestDeploymentRequestRejectsMissingAndUnreachablePackages (0.00s)
+=== RUN   TestVerifiedPackageCannotSkipInspectionAuthorization
+--- PASS: TestVerifiedPackageCannotSkipInspectionAuthorization (0.00s)
+=== RUN   TestUpdateCapabilityExpansionRequiresReauthorization
+--- PASS: TestUpdateCapabilityExpansionRequiresReauthorization (0.00s)
+=== RUN   TestRemovingCapabilityAloneDoesNotRequireReauthorization
+--- PASS: TestRemovingCapabilityAloneDoesNotRequireReauthorization (0.00s)
+=== RUN   TestEffectiveCapabilitiesIncludesDependencies
+--- PASS: TestEffectiveCapabilitiesIncludesDependencies (0.00s)
+=== RUN   TestEffectiveCapabilitiesRejectsLockMismatch
+--- PASS: TestEffectiveCapabilitiesRejectsLockMismatch (0.00s)
+=== RUN   TestEffectiveCapabilitiesRejectsCycle
+--- PASS: TestEffectiveCapabilitiesRejectsCycle (0.00s)
+=== RUN   TestRollbackRequestBindsCurrentAndTargetGenerationClosures
+--- PASS: TestRollbackRequestBindsCurrentAndTargetGenerationClosures (0.00s)
+=== RUN   TestVerifySignatureEd25519
+--- PASS: TestVerifySignatureEd25519 (0.00s)
+=== RUN   TestVerifySignaturePQRequiredFailsClosedWithoutPQVerifier
+--- PASS: TestVerifySignaturePQRequiredFailsClosedWithoutPQVerifier (0.00s)
+=== RUN   TestVerifySignaturePQPreferredRequiresExplicitFallback
+--- PASS: TestVerifySignaturePQPreferredRequiresExplicitFallback (0.00s)
+=== RUN   TestVerifySignaturePQAndHybridCanBeSatisfiedByProvider
+--- PASS: TestVerifySignaturePQAndHybridCanBeSatisfiedByProvider (0.00s)
+=== RUN   TestParseUnsignedPackageRequiresCanonicalManifestAndArchive
+--- PASS: TestParseUnsignedPackageRequiresCanonicalManifestAndArchive (0.00s)
+=== RUN   TestVerificationEvidenceRecordBindsClosureAndInstallation
+--- PASS: TestVerificationEvidenceRecordBindsClosureAndInstallation (0.00s)
+=== RUN   TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities
+--- PASS: TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities (0.00s)
+=== RUN   TestBarePackageCannotMintVerificationAndTamperingFails
+--- PASS: TestBarePackageCannotMintVerificationAndTamperingFails (0.00s)
+=== RUN   TestVerifiedPackageAccessorsCannotMutateSealedEvidence
+--- PASS: TestVerifiedPackageAccessorsCannotMutateSealedEvidence (0.00s)
+=== RUN   TestVerifyPackageBindsTypedContentToExactArchiveBytes
+--- PASS: TestVerifyPackageBindsTypedContentToExactArchiveBytes (0.00s)
+=== RUN   TestUnverifiedDependencyCannotSatisfyImmutableLock
+--- PASS: TestUnverifiedDependencyCannotSatisfyImmutableLock (0.00s)
+=== RUN   TestPackageContractVersionsAreRegistryGovernedAndFailClosed
+--- PASS: TestPackageContractVersionsAreRegistryGovernedAndFailClosed (0.00s)
+=== RUN   TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity
+--- PASS: TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/packagecatalog	0.799s

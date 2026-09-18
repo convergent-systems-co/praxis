@@ -1,0 +1,208 @@
+=== RUN   TestControlArgsRequireExplicitActorAndDatabase
+--- PASS: TestControlArgsRequireExplicitActorAndDatabase (0.00s)
+=== RUN   TestResumeArgsRequireExactWaitReference
+--- PASS: TestResumeArgsRequireExactWaitReference (0.00s)
+=== RUN   TestVersionRejectsArguments
+--- PASS: TestVersionRejectsArguments (0.00s)
+=== RUN   TestVerifyReleasePackageRequiresLocallyTrustedSignature
+--- PASS: TestVerifyReleasePackageRequiresLocallyTrustedSignature (0.00s)
+=== RUN   TestVerifyReleasePackagePQPreferredFallbackIsExplicit
+--- PASS: TestVerifyReleasePackagePQPreferredFallbackIsExplicit (0.00s)
+=== RUN   TestVerificationCannotMintActivationAuthority
+--- PASS: TestVerificationCannotMintActivationAuthority (0.00s)
+=== RUN   TestInstallArgsRequireExplicitFallbackFlag
+--- PASS: TestInstallArgsRequireExplicitFallbackFlag (0.00s)
+=== RUN   TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration
+--- PASS: TestPackageTransitionRequestBindsExternalAuthorityAndExactGeneration (0.00s)
+=== RUN   TestStatusCommandReadsDurableRunFromExplicitDatabase
+--- PASS: TestStatusCommandReadsDurableRunFromExplicitDatabase (0.01s)
+=== RUN   TestStatusCommandRequiresExplicitDatabaseTarget
+--- PASS: TestStatusCommandRequiresExplicitDatabaseTarget (0.00s)
+=== RUN   TestStatusCommandAcceptsPraxisDBEnvironment
+--- PASS: TestStatusCommandAcceptsPraxisDBEnvironment (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.330s
+=== RUN   TestGitHubReleasesDiscoverUsesUniversalPackageTopic
+--- PASS: TestGitHubReleasesDiscoverUsesUniversalPackageTopic (0.00s)
+=== RUN   TestGitHubReleasesResolveLoadsCanonicalSignedAssets
+--- PASS: TestGitHubReleasesResolveLoadsCanonicalSignedAssets (0.00s)
+=== RUN   TestGitHubReleasesRejectsMissingRequiredSignatureAsset
+--- PASS: TestGitHubReleasesRejectsMissingRequiredSignatureAsset (0.00s)
+=== RUN   TestGitHubReleasesRejectsOversizedArtifact
+--- PASS: TestGitHubReleasesRejectsOversizedArtifact (0.00s)
+=== RUN   TestReadBoundedRejectsOversizedManifest
+--- PASS: TestReadBoundedRejectsOversizedManifest (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/distribution	0.817s
+=== RUN   TestVerifiedPackageCannotSkipInspectionAuthorization
+--- PASS: TestVerifiedPackageCannotSkipInspectionAuthorization (0.00s)
+=== RUN   TestUpdateCapabilityExpansionRequiresReauthorization
+--- PASS: TestUpdateCapabilityExpansionRequiresReauthorization (0.00s)
+=== RUN   TestRemovingCapabilityAloneDoesNotRequireReauthorization
+--- PASS: TestRemovingCapabilityAloneDoesNotRequireReauthorization (0.00s)
+=== RUN   TestEffectiveCapabilitiesIncludesDependencies
+--- PASS: TestEffectiveCapabilitiesIncludesDependencies (0.00s)
+=== RUN   TestEffectiveCapabilitiesRejectsLockMismatch
+--- PASS: TestEffectiveCapabilitiesRejectsLockMismatch (0.00s)
+=== RUN   TestEffectiveCapabilitiesRejectsCycle
+--- PASS: TestEffectiveCapabilitiesRejectsCycle (0.00s)
+=== RUN   TestVerifySignatureEd25519
+--- PASS: TestVerifySignatureEd25519 (0.00s)
+=== RUN   TestVerifySignaturePQRequiredFailsClosedWithoutPQVerifier
+--- PASS: TestVerifySignaturePQRequiredFailsClosedWithoutPQVerifier (0.00s)
+=== RUN   TestVerifySignaturePQPreferredRequiresExplicitFallback
+--- PASS: TestVerifySignaturePQPreferredRequiresExplicitFallback (0.00s)
+=== RUN   TestVerifySignaturePQAndHybridCanBeSatisfiedByProvider
+--- PASS: TestVerifySignaturePQAndHybridCanBeSatisfiedByProvider (0.00s)
+=== RUN   TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities
+--- PASS: TestVerifyPackageBindsBytesSignatureDependencyAndCapabilities (0.00s)
+=== RUN   TestBarePackageCannotMintVerificationAndTamperingFails
+--- PASS: TestBarePackageCannotMintVerificationAndTamperingFails (0.00s)
+=== RUN   TestVerifiedPackageAccessorsCannotMutateSealedEvidence
+--- PASS: TestVerifiedPackageAccessorsCannotMutateSealedEvidence (0.00s)
+=== RUN   TestVerifyPackageBindsTypedContentToExactArchiveBytes
+--- PASS: TestVerifyPackageBindsTypedContentToExactArchiveBytes (0.00s)
+=== RUN   TestUnverifiedDependencyCannotSatisfyImmutableLock
+--- PASS: TestUnverifiedDependencyCannotSatisfyImmutableLock (0.00s)
+=== RUN   TestPackageContractVersionsAreRegistryGovernedAndFailClosed
+--- PASS: TestPackageContractVersionsAreRegistryGovernedAndFailClosed (0.00s)
+=== RUN   TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity
+--- PASS: TestPackageContractFamilyHasOneCanonicalOwnerPerIdentity (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/packagecatalog	0.537s
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery
+=== RUN   TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research
+--- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart (0.03s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/software-delivery (0.02s)
+    --- PASS: TestAdaptiveMeasurementProvenanceIsDomainNeutralAndSurvivesRestart/research (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically
+--- PASS: TestCommitTransitionAuthorizedLeaseConsumesOneShotAuthorityAtomically (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything
+--- PASS: TestCommitTransitionAuthorizedLeaseDeniedRequestRollsBackEverything (0.01s)
+=== RUN   TestCommitTransitionAuthorizedLeaseRejectsRevokedLease
+--- PASS: TestCommitTransitionAuthorizedLeaseRejectsRevokedLease (0.01s)
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package
+=== RUN   TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package
+--- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart (0.02s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/software-delivery-package (0.01s)
+    --- PASS: TestDomainNeutralResourceHandoffPreservesTwoDomainRunsAcrossSQLiteRestart/research-package (0.01s)
+=== RUN   TestResourceHandoffDenialDoesNotMutateRun
+--- PASS: TestResourceHandoffDenialDoesNotMutateRun (0.00s)
+=== RUN   TestSQLiteEventStoreAppendLoadAndConflict
+--- PASS: TestSQLiteEventStoreAppendLoadAndConflict (0.01s)
+=== RUN   TestSQLiteEventStoreRejectsCommandIDMetadataHijack
+--- PASS: TestSQLiteEventStoreRejectsCommandIDMetadataHijack (0.01s)
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery
+=== RUN   TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research
+--- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart (0.02s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/software-delivery (0.01s)
+    --- PASS: TestVersionedPackageEvaluatorsDiagnoseLongitudinalFailuresAcrossDomainsAndRestart/research (0.01s)
+=== RUN   TestPackageActivationPublishesAndRemovesAliasesAndContents
+--- PASS: TestPackageActivationPublishesAndRemovesAliasesAndContents (0.01s)
+=== RUN   TestVerifiedGraphArtifactSurvivesActivationAndRestart
+--- PASS: TestVerifiedGraphArtifactSurvivesActivationAndRestart (0.01s)
+=== RUN   TestAgentOnlyAndMixedPackagesAreFirstClassContents
+--- PASS: TestAgentOnlyAndMixedPackagesAreFirstClassContents (0.01s)
+=== RUN   TestPackageCannotShadowCoreCommand
+--- PASS: TestPackageCannotShadowCoreCommand (0.01s)
+=== RUN   TestPackageAliasCollisionFailsWithoutChangingExistingOwner
+--- PASS: TestPackageAliasCollisionFailsWithoutChangingExistingOwner (0.01s)
+=== RUN   TestPackageUpdateAtomicallyReplacesAliasAndContentSurface
+--- PASS: TestPackageUpdateAtomicallyReplacesAliasAndContentSurface (0.01s)
+=== RUN   TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic
+--- PASS: TestPackageActivationRequiresExactPersistedAuthorityAndIsAtomic (0.01s)
+=== RUN   TestPackageVerificationAuthorityAndRegistrationsSurviveRestart
+--- PASS: TestPackageVerificationAuthorityAndRegistrationsSurviveRestart (0.01s)
+=== RUN   TestGovernedDisableAndRemovePreserveHistoryAcrossRestart
+--- PASS: TestGovernedDisableAndRemovePreserveHistoryAcrossRestart (0.01s)
+=== RUN   TestPackageTransitionCannotChangeOperationAfterApproval
+--- PASS: TestPackageTransitionCannotChangeOperationAfterApproval (0.01s)
+=== RUN   TestConsumePluginLeaseBindsInstanceAndConsumesUse
+--- PASS: TestConsumePluginLeaseBindsInstanceAndConsumesUse (0.01s)
+=== RUN   TestConsumePluginLeaseRejectsDifferentRuntimeInstance
+--- PASS: TestConsumePluginLeaseRejectsDifferentRuntimeInstance (0.01s)
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery
+=== RUN   TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research
+--- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains (0.02s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestBehavioralProfileDerivationAndDivergenceSurviveRestartAcrossDomains/research (0.01s)
+=== RUN   TestSQLiteCheckpointStorePersistsMonotonically
+--- PASS: TestSQLiteCheckpointStorePersistsMonotonically (0.01s)
+=== RUN   TestAmbiguousEffectFailsClosedWithoutReconciliation
+--- PASS: TestAmbiguousEffectFailsClosedWithoutReconciliation (0.00s)
+=== RUN   TestAmbiguousEffectReconcilesWhenSupported
+--- PASS: TestAmbiguousEffectReconcilesWhenSupported (0.00s)
+=== RUN   TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency
+--- PASS: TestAmbiguousEffectCanRedispatchOnlyWithVerifiedIdempotency (0.00s)
+=== RUN   TestQualificationRunControlSurvivesSQLiteRestart
+--- PASS: TestQualificationRunControlSurvivesSQLiteRestart (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease
+--- PASS: TestSQLiteRunControlLeaseSourceLoadsAndAuthorizesPersistedLease (0.01s)
+=== RUN   TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics
+--- PASS: TestSQLiteRunControlLeaseSourcePreservesFiniteUseSemantics (0.00s)
+=== RUN   TestSecureBlobRoundTripStoresNoPlaintextColumn
+--- PASS: TestSecureBlobRoundTripStoresNoPlaintextColumn (0.01s)
+=== RUN   TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity
+--- PASS: TestSecureBlobRejectsEnvelopeBoundToDifferentIdentity (0.00s)
+=== RUN   TestSecureBlobIsImmutableByVersion
+--- PASS: TestSecureBlobIsImmutableByVersion (0.00s)
+=== RUN   TestSecureBlobExpiryFailsClosed
+--- PASS: TestSecureBlobExpiryFailsClosed (0.01s)
+=== RUN   TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState
+--- PASS: TestOpenSQLiteReadOnlyCannotMutateAuthoritativeState (0.01s)
+=== RUN   TestOpenSQLiteAppliesMigrationsAndPragmas
+--- PASS: TestOpenSQLiteAppliesMigrationsAndPragmas (0.00s)
+=== RUN   TestOpenSQLiteDoesNotReapplyLedgeredMigrations
+--- PASS: TestOpenSQLiteDoesNotReapplyLedgeredMigrations (0.01s)
+=== RUN   TestCommitTransitionIsAtomic
+--- PASS: TestCommitTransitionIsAtomic (0.01s)
+=== RUN   TestCommitTransitionRollsBackAuthorityOnVersionConflict
+--- PASS: TestCommitTransitionRollsBackAuthorityOnVersionConflict (0.01s)
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery
+=== RUN   TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research
+--- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains (0.01s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/software-delivery (0.01s)
+    --- PASS: TestCrossAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research (0.01s)
+=== RUN   TestCrossAgentTransferRetainsRejectedPrivacyCandidate
+--- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/state	(cached)
+=== RUN   TestSQLiteProviderAdvertisesRequiredLocalSemantics
+--- PASS: TestSQLiteProviderAdvertisesRequiredLocalSemantics (0.01s)
+=== RUN   TestUnknownProviderCapabilityFailsClosed
+--- PASS: TestUnknownProviderCapabilityFailsClosed (0.00s)
+=== RUN   TestSQLiteProviderEventSemanticsMatchCanonicalStore
+--- PASS: TestSQLiteProviderEventSemanticsMatchCanonicalStore (0.01s)
+=== RUN   TestSQLiteProviderPackageRegistryIsProviderNeutral
+--- PASS: TestSQLiteProviderPackageRegistryIsProviderNeutral (0.01s)
+=== RUN   TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed
+--- PASS: TestEventRuntimeSemanticsSurviveProviderSubstitutionAndMismatchFailsClosed (0.01s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/stateprovider	(cached)
+=== RUN   TestActionIntentDigestDeterministicAcrossMapOrder
+--- PASS: TestActionIntentDigestDeterministicAcrossMapOrder (0.00s)
+=== RUN   TestApprovalRejectsMutatedIntent
+--- PASS: TestApprovalRejectsMutatedIntent (0.00s)
+=== RUN   TestInvocationContractUsesOwningCompatibilityPolicy
+--- PASS: TestInvocationContractUsesOwningCompatibilityPolicy (0.00s)
+=== RUN   TestCryptoProfileValidation
+--- PASS: TestCryptoProfileValidation (0.00s)
+=== RUN   TestCapabilityLeaseFailClosed
+--- PASS: TestCapabilityLeaseFailClosed (0.00s)
+=== RUN   TestApprovalRequiresExactBindingMode
+--- PASS: TestApprovalRequiresExactBindingMode (0.00s)
+=== RUN   TestActionIntentRequiresActorAndTarget
+--- PASS: TestActionIntentRequiresActorAndTarget (0.00s)
+=== RUN   TestVersionRegistryOwnsCompatibilityAndMigrationSemantics
+--- PASS: TestVersionRegistryOwnsCompatibilityAndMigrationSemantics (0.00s)
+=== RUN   TestVersionCatalogRejectsDuplicateSemanticOwnership
+--- PASS: TestVersionCatalogRejectsDuplicateSemanticOwnership (0.00s)
+=== RUN   TestContractUpgradeChangesOwningDefinitionAndMigrationOnly
+--- PASS: TestContractUpgradeChangesOwningDefinitionAndMigrationOnly (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	(cached)

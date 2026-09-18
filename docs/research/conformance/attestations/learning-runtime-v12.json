@@ -1,0 +1,36 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/tmp/praxis-go-cache",
+    "go",
+    "test",
+    "-v",
+    "./internal/learning"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-13T22:29:26.639521Z",
+  "finished_at": "2026-09-13T22:29:27.277706Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/learning-runtime-v12.log",
+  "output_digest": "sha256:57e8bb4b4ac7248b256e3f712526efc6d75f95e4f4c1bb1b6bb9bc88647c2663",
+  "source_digests": {
+    "internal/adaptation": "sha256:784dac87d17bc471500b727770113556585773844515ed3c624a6d7dcc4f85ec",
+    "internal/learning": "sha256:4e3da48df45caf0fb56225ee3b00ad8fb38316885a9e1adda23388b6ae553045",
+    "internal/state": "sha256:fffa679e70b040baa11c98814caf0e6d7fb68082b986ccc4cfa29ace299d0973",
+    "pkg/contracts": "sha256:ccb801a63656adbfed3424928e113de4d63210f10254467ef6ea50bd46972c62"
+  },
+  "observations": [
+    "TestBehaviorRegistryRejectsTamperedEvaluationAfterRestart",
+    "TestContradictionDrivenDemotionIsGovernedAcrossDomainsAndRestart",
+    "TestDurableContradictionEvidenceForksBehaviorTowardInferenceAcrossDomains",
+    "TestExecutionLearningCompilesBehaviorAndRetiresPromptThroughGovernedLifecycle",
+    "TestExecutionLearningRejectsCorrelatedOrUnsafeEvidenceAndRetainsFailedCandidate",
+    "TestFailedCandidateRemainsRegisteredEvidence",
+    "TestGenerationPromotionAndRollbackSurviveRestart",
+    "TestPlanningProcessLearnsFromFrozenConformanceWithoutKnownAnswer",
+    "TestPraxisPlanningSelfImprovementConsumesFrozenBlindReport"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:60074eaa8ed6089de7d4dce96e0cb0291470635108ebc92d39c1f983e549e1f4"
+}

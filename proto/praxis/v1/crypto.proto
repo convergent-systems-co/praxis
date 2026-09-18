@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package praxis.v1;
+
+option go_package = "github.com/convergent-systems-co/praxis/gen/praxis/v1;praxisv1";
+
+import "praxis/v1/common.proto";
+
+// Profiles express minimum cryptographic properties; suite resolution is deterministic policy.
+enum CryptoProfile {
+  CRYPTO_PROFILE_UNSPECIFIED = 0;
+  CRYPTO_PROFILE_CLASSICAL_COMPATIBLE = 1;
+  CRYPTO_PROFILE_PQ_PREFERRED = 2;
+  CRYPTO_PROFILE_PQ_REQUIRED = 3;
+  CRYPTO_PROFILE_HYBRID_HIGH_ASSURANCE = 4;
+}
+
+message CryptoSuiteRef {
+  string suite_id = 1;
+  string operation_class = 2;
+  string standard_id = 3;
+  string standard_version = 4;
+  string algorithm_family = 5;
+  string parameter_set = 6;
+  string security_category = 7;
+  string provider_id = 8;
+  string provider_version = 9;
+}
+
+message KeyReference {
+  string key_id = 1;
+  uint64 key_version = 2;
+  PrincipalRef owner = 3;
+  string purpose = 4;
+  string provider_ref = 5;
+  string lifecycle_state = 6;
+  bool exportable = 7;
+}

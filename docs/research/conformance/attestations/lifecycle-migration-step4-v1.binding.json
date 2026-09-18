@@ -1,0 +1,11 @@
+{
+  "version": "v1",
+  "binding_id": "lifecycle-migration-step4-v1.binding.json",
+  "subject_type": "plan-phase",
+  "subject_id": "PLAN-005/step-4",
+  "subject_digest": "sha256:a794d52a3bd1c660c6f73977b0c9d7903da6928c4c2e9d8fef2964b07961a12a",
+  "attestation_ref": "docs/research/conformance/attestations/lifecycle-migration-step4-v1.json",
+  "attestation_digest": "sha256:40921bae1313fc8614087171ad29f2e76fb7e82ad6deff2d4e6f1980ee02091f",
+  "recorded_at": "2026-09-15T13:49:53.891812Z",
+  "digest": "sha256:ef255a5b25a5b1825eea16d30463b7431f174cbe8a84099f55101e1c014353cf"
+}

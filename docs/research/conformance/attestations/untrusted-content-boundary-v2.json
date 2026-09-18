@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-trust-attest-cache-turn12",
+    "GOMODCACHE=/private/tmp/praxis-trust-attest-modcache-turn12",
+    "GOPATH=/private/tmp/praxis-trust-attest-gopath-turn12",
+    "go",
+    "test",
+    "-v",
+    "./internal/trustboundary"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T01:14:26.027063Z",
+  "finished_at": "2026-09-17T01:14:28.277923Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/untrusted-content-boundary-v2.log",
+  "output_digest": "sha256:00045e37f5bca2eb719c56bf6ff0cae4004fdcb1971f67dc2068086ff4387e86",
+  "source_digests": {
+    "internal/trustboundary": "sha256:85710a5d9bb4c76d5cc277b662ae06bc5843c7219c0183db898a9588a8ca627f",
+    "internal/trustboundary/content_test.go": "sha256:c2d76a9a0b1deaf5779d90d454ea40dab99e19aaba21ce9948f7a5496b448fb9"
+  },
+  "observations": [
+    "TestUntrustedContentRemainsDataThroughMemoryAndAuthorityBoundary"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:ccde7350ee939cf15513ec07e13996ee6223faf59e1b40361f3dbfe822e67dc7"
+}

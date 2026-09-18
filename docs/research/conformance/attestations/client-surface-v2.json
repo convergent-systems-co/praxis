@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-clientadapt-attest-cache-turn12",
+    "GOMODCACHE=/private/tmp/praxis-clientadapt-attest-modcache-turn12",
+    "GOPATH=/private/tmp/praxis-clientadapt-attest-gopath-turn12",
+    "go",
+    "test",
+    "-v",
+    "./internal/clientadapt"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-17T01:12:44.197038Z",
+  "finished_at": "2026-09-17T01:12:45.053363Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/client-surface-v2.log",
+  "output_digest": "sha256:104faf9eaca00a4d27d870c502cb04b1edb02f03a3b979f33fbf78545ad33f94",
+  "source_digests": {
+    "internal/clientadapt": "sha256:5680bcde426bffad1b309fcf48586e4f8839d217c8525b6f3aaf70935af5e9ed",
+    "internal/clientadapt/surface_test.go": "sha256:0aea250fdf52858d4e8d3904a44ceae736c8f1e4c6be648fb9f63f48b125ff8c"
+  },
+  "observations": [
+    "TestAdaptersPreserveInvocationSemanticsAndDegradeOptionalAffordances"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:6869c226b3f56ef2da0e409f49e7d0222d32070f6dcf6b19f28eeb7cc48975ab"
+}

@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "command": [
+    "env",
+    "GOCACHE=/private/tmp/praxis-attest-cache-turn12",
+    "GOMODCACHE=/private/tmp/praxis-attest-modcache-turn12",
+    "GOPATH=/private/tmp/praxis-attest-gopath-turn12",
+    "go",
+    "test",
+    "-v",
+    "./packages/develop"
+  ],
+  "working_directory": ".",
+  "started_at": "2026-09-14T14:33:30.466707Z",
+  "finished_at": "2026-09-14T14:33:31.006639Z",
+  "exit_code": 0,
+  "output_ref": "docs/research/conformance/attestations/planning-lifecycle-v1.log",
+  "output_digest": "sha256:930cdad86a2709fac36232d8bdc20fb80ee4823a1bc6306b083b8c8051212790",
+  "source_digests": {
+    "packages/develop": "sha256:e0d914cb4512dd3cce9188722d6ab70a629899d2405b5859793ddfba9a64ac2f"
+  },
+  "observations": [
+    "TestPlanningLifecycleReusesBaselineAndSelectivelyReplansSlices"
+  ],
+  "platform": "darwin/arm64",
+  "digest": "sha256:132bbec3c671d85ed1aa8db882eb00e683bc3897d345d0f24b54bf453e9de15d"
+}

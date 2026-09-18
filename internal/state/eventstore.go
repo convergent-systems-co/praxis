@@ -223,3 +223,26 @@ func scanEvents(rows *sql.Rows) ([]eventstore.Event, error) {
 }
 
 var _ eventstore.Store = (*SQLiteEventStore)(nil)
+
+// ListAggregates enumerates aggregate identities of one type sharing a
+// prefix, in order of first appearance. It is read-only and reads through
+// the pool like LoadAggregate.
+func (s *SQLiteEventStore) ListAggregates(ctx context.Context, aggregateType, prefix string) ([]string, error) {
+	if s == nil || s.db == nil || aggregateType == "" || prefix == "" {
+		return nil, errors.New("sqlite event store, aggregate type, and prefix are required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT aggregate_id FROM events WHERE aggregate_type=? AND substr(aggregate_id,1,?)=? GROUP BY aggregate_id ORDER BY MIN(sequence)`, aggregateType, len(prefix), prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

@@ -172,6 +172,30 @@ func (l ActivityLog) Load(ctx context.Context, invocationID, turnID string, afte
 	return result, nil
 }
 
+// ListTurns discovers the turn identities that have durable supervision
+// activity under one invocation, oldest first. An operator who started an
+// invocation holds its identity; this is how they learn the turns it
+// allocated without being told each child identity in advance.
+func (l ActivityLog) ListTurns(ctx context.Context, invocationID string) ([]string, error) {
+	if l.Store == nil || invocationID == "" {
+		return nil, errors.New("supervision store and exact invocation identity are required")
+	}
+	lister, ok := l.Store.(eventstore.AggregateLister)
+	if !ok {
+		return nil, errors.New("supervision store cannot enumerate invocation turns")
+	}
+	prefix := activityAggregate(invocationID, "")
+	aggregates, err := lister.ListAggregates(ctx, supervisionAggregateType, prefix)
+	if err != nil {
+		return nil, err
+	}
+	turns := make([]string, 0, len(aggregates))
+	for _, aggregate := range aggregates {
+		turns = append(turns, strings.TrimPrefix(aggregate, prefix))
+	}
+	return turns, nil
+}
+
 func (l ActivityLog) Emit(ctx context.Context, typ ActivityType, request WorkerRequest, actor contracts.PrincipalRef, trust contracts.TrustClass, source string, data map[string]string) (ActivityRecord, error) {
 	return l.AppendNext(ctx, ActivityRecord{Type: typ, GoalID: request.GoalID, GoalVersion: request.GoalVersion, InvocationID: request.InvocationID, TurnID: request.TurnID, ProviderID: request.ProviderID, Actor: actor, Source: source, Trust: trust, Data: sanitizeActivityData(data)})
 }

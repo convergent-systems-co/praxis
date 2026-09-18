@@ -36,6 +36,10 @@ type Runtime struct {
 	GraphID      string
 	GraphVersion string
 	Activity     *ActivityLog
+	// OnTurnAllocated is called with the exact turn identity the moment it
+	// is allocated, before any provider execution, so the caller can make
+	// the turn observable by identity before control blocks on the worker.
+	OnTurnAllocated func(turnID string)
 }
 
 func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (TurnRecord, error) {
@@ -114,6 +118,9 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		}
 	}
 	turnID := invocation.InvocationID + ":turn:" + strconv.Itoa(len(turns)+1)
+	if r.OnTurnAllocated != nil {
+		r.OnTurnAllocated(turnID)
+	}
 	turnCtx := ctx
 	if invocation.TurnTimeout > 0 {
 		var cancel context.CancelFunc

@@ -32,6 +32,9 @@ func runSuperviseCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	if args[0] != "observe" && parsed.turnID == "" {
+		return errors.New("interventions require the exact --turn-id; discover it with `praxis supervise observe --goal-id=<id> --goal-version=<version> --invocation-id=<invocation>`")
+	}
 	switch args[0] {
 	case "observe":
 		return observeSupervision(parsed, os.Stdout)
@@ -104,8 +107,8 @@ func parseSupervisionArgs(args []string, getenv func(string) string) (supervisio
 	if out.db == "" {
 		return supervisionArgs{}, errors.New("Praxis database must be explicit: use --db or PRAXIS_DB")
 	}
-	if out.goalID == "" || out.goalVersion == "" || out.invocationID == "" || out.turnID == "" {
-		return supervisionArgs{}, errors.New("exact --goal-id, --goal-version, --invocation-id, and --turn-id are required")
+	if out.goalID == "" || out.goalVersion == "" || out.invocationID == "" {
+		return supervisionArgs{}, errors.New("exact --goal-id, --goal-version, and --invocation-id are required")
 	}
 	return out, nil
 }
@@ -142,6 +145,9 @@ func observeSupervision(args supervisionArgs, out io.Writer) error {
 	}
 	defer db.Close()
 	log := goaldrive.ActivityLog{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-supervision-observer", Kind: "cli"}}
+	if args.turnID == "" {
+		return observeInvocation(ctx, log, args, out)
+	}
 	cursor := args.after
 	for {
 		events, err := log.Load(ctx, args.invocationID, args.turnID, cursor)
@@ -199,4 +205,77 @@ func appendHumanIntervention(args supervisionArgs, typ goaldrive.ActivityType) e
 		return err
 	}
 	return printJSON(map[string]any{"type": typ, "invocation_id": args.invocationID, "turn_id": args.turnID, "accepted": true})
+}
+
+// observeInvocation composes observation from an identity the operator
+// already holds: it discovers the invocation's durable turns, streams each
+// turn's events in order, and with --follow keeps discovering turns that
+// start later (continuous mode) until the newest turn reaches a terminal
+// activity and no newer turn appears.
+func observeInvocation(ctx context.Context, log goaldrive.ActivityLog, args supervisionArgs, out io.Writer) error {
+	encoder := json.NewEncoder(out)
+	cursors := map[string]int64{}
+	known := []string{}
+	announce := func(turns []string) error {
+		for _, turn := range turns {
+			if _, ok := cursors[turn]; ok {
+				continue
+			}
+			cursors[turn] = 0
+			known = append(known, turn)
+			if err := encoder.Encode(map[string]any{"type": "invocation.turn_discovered", "invocation_id": args.invocationID, "turn_id": turn, "observe_with": "praxis supervise observe --goal-id=" + args.goalID + " --goal-version=" + args.goalVersion + " --invocation-id=" + args.invocationID + " --turn-id=" + turn + " --follow"}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	terminal := map[string]bool{}
+	idleAfterTerminal := 0
+	for {
+		turns, err := log.ListTurns(ctx, args.invocationID)
+		if err != nil {
+			return err
+		}
+		knownBefore := len(known)
+		if err := announce(turns); err != nil {
+			return err
+		}
+		if len(known) == 0 && !args.follow {
+			return encoder.Encode(map[string]any{"type": "invocation.no_turns", "invocation_id": args.invocationID})
+		}
+		progressed := len(known) != knownBefore
+		for _, turn := range known {
+			events, err := log.Load(ctx, args.invocationID, turn, cursors[turn])
+			if err != nil {
+				return err
+			}
+			for _, event := range events {
+				if err := encoder.Encode(event); err != nil {
+					return err
+				}
+				cursors[turn] = event.StreamVersion
+			}
+			if len(events) > 0 {
+				progressed = true
+			}
+			if terminalActivity(events) {
+				terminal[turn] = true
+			}
+		}
+		if !args.follow {
+			return nil
+		}
+		// Stop once the newest turn has reached a terminal activity and no
+		// further events or turns appear for a short grace period; a
+		// continuous invocation starts its next turn well within it.
+		if len(known) > 0 && terminal[known[len(known)-1]] && !progressed {
+			idleAfterTerminal++
+			if idleAfterTerminal > 10 {
+				return nil
+			}
+		} else {
+			idleAfterTerminal = 0
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
 }

@@ -237,11 +237,20 @@ func providerPrompt(request WorkerRequest) (string, error) {
 		writeList(&b, "Units that depend on this one", c.Unit.Dependents)
 		fmt.Fprintf(&b, "\n## Repository authority\nPath: %s\nBranch: %s\nStart HEAD: %s\nWork only inside this path.\n", c.Repository.Path, c.Repository.Branch, c.Repository.StartHead)
 		if c.Recovery != nil {
-			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe working tree already contains uncommitted work from that turn (fingerprint %s):\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint)
-			for _, file := range c.Recovery.Files {
-				fmt.Fprintf(&b, "  - %s\n", file)
+			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe checkout already carries that turn's work (consequence fingerprint %s).\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint)
+			if len(c.Recovery.Files) > 0 {
+				fmt.Fprintf(&b, "Uncommitted paths:\n")
+				for _, file := range c.Recovery.Files {
+					fmt.Fprintf(&b, "  - %s\n", file)
+				}
 			}
-			fmt.Fprintf(&b, "Inspect it against this unit. Validate and commit what is correct, fix what is not, and remove what should not exist. Nothing may remain uncommitted.\n")
+			if len(c.Recovery.Commits) > 0 {
+				fmt.Fprintf(&b, "Unpublished local commits retained as evidence (oldest first):\n")
+				for _, commit := range c.Recovery.Commits {
+					fmt.Fprintf(&b, "  - %s\n", commit)
+				}
+			}
+			fmt.Fprintf(&b, "Inspect it against this unit. Validate and commit what is correct, fix what is not with a further commit, and remove what should not exist. Nothing may remain uncommitted.\n")
 		}
 		writeList(&b, "\n## Checkpoint contract (Praxis verifies every item after you finish)", c.Checkpoint.Predicates)
 		fmt.Fprintf(&b, "\n## Authority\nGranted capabilities: %s\n", joinCapabilities(c.Authority.Granted))

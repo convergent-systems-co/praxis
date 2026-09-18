@@ -26,6 +26,14 @@ type RepositoryAdapter interface {
 
 type DirtyStartRepository interface{ DirtyStartAllowed() bool }
 
+// RecoveryStartRepository admits a checkout that carries a bound recovery
+// consequence: uncommitted changes or unpublished local commits whose
+// fingerprint matches the recovered turn.
+type RecoveryStartRepository interface {
+	RecoveryStartAllowed() bool
+	VerifyRecoveryConsequence(ctx context.Context) error
+}
+
 // DeclaredValidator is implemented by repository adapters that can run the
 // repository's own declared validation (an executable ./.praxis/validate).
 // Validation is controller-owned: it runs after the provider's local commit
@@ -57,11 +65,20 @@ func PrepareRepository(ctx context.Context, repo RepositoryAdapter) (RepositoryS
 		}
 		state = contracts.ClassifyRepositoryState(snapshot.Clean, snapshot.Relation)
 	}
-	if state == contracts.RepositoryDirty {
-		if allowed, ok := repo.(DirtyStartRepository); !ok || !allowed.DirtyStartAllowed() {
-			return RepositorySnapshot{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, state)
+	if state == contracts.RepositoryDirty || state == contracts.RepositoryLocalAhead {
+		// Uncommitted changes and unpublished local commits are admitted only
+		// as the exact bound recovery consequence, or (dirty only) as a
+		// persisted provider-workspace migration input.
+		if recovery, ok := repo.(RecoveryStartRepository); ok && recovery.RecoveryStartAllowed() {
+			if err := recovery.VerifyRecoveryConsequence(ctx); err != nil {
+				return RepositorySnapshot{}, fmt.Errorf("%w: %s: %v", ErrUnsafeRepository, state, err)
+			}
+			return snapshot, nil
 		}
-		return snapshot, nil
+		if allowed, ok := repo.(DirtyStartRepository); state == contracts.RepositoryDirty && ok && allowed.DirtyStartAllowed() {
+			return snapshot, nil
+		}
+		return RepositorySnapshot{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, state)
 	}
 	if state != contracts.RepositorySynced {
 		return RepositorySnapshot{}, fmt.Errorf("%w: %s", ErrUnsafeRepository, state)
@@ -115,7 +132,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, err
 	}
 	if req.Recovery != nil {
-		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "blocker": req.Recovery.Blocker}); err != nil {
+		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "commits": strings.Join(req.Recovery.Commits, ","), "blocker": req.Recovery.Blocker}); err != nil {
 			return TurnRecord{}, err
 		}
 	}

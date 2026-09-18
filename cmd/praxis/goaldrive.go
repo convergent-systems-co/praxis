@@ -328,10 +328,12 @@ func announceGoalDriveTurn(w io.Writer, out normalizedOutput, invocation goaldri
 
 // bindRecoveredTurn binds the checkout's uncommitted consequence to the
 // exact BLOCKED turn named by --recover-turn. The turn must belong to this
-// Goal generation, must have ended BLOCKED with uncommitted changes, its
-// end HEAD must be the checkout's current HEAD, and the checkout must be
-// dirty. The consequence fingerprint (status, tracked diff, untracked file
-// contents) is recorded on the new turn and enforced by the repository
+// Goal generation, must have ended BLOCKED without a checkpoint, its end
+// HEAD must be the checkout's current HEAD, and the checkout must carry a
+// consequence: uncommitted changes, unpublished local commits (the evidence
+// retained after a failed declared validation), or both. The consequence
+// fingerprint (status, tracked diff, untracked file contents, unpublished
+// commits) is recorded on the new turn and enforced by the repository
 // adapter, so only that exact consequence can be recovered.
 func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository goaldrive.GitRepository, invocation goaldrive.InvocationRequest) (*goaldrive.WorkerRecoveryContext, string, error) {
 	turns, err := ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
@@ -362,14 +364,14 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	if head != recovered.EndHead {
 		return nil, "", fmt.Errorf("checkout HEAD %s is not the blocked turn's HEAD %s; the consequence is not the one recorded", head, recovered.EndHead)
 	}
-	fingerprint, files, err := repository.Fingerprint(ctx)
+	fingerprint, files, commits, err := repository.Fingerprint(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf("fingerprint recovery consequence: %w", err)
 	}
-	if len(files) == 0 {
-		return nil, "", errors.New("checkout is clean; there is no uncommitted consequence to recover")
+	if len(files) == 0 && len(commits) == 0 {
+		return nil, "", errors.New("checkout is clean and published; there is no consequence to recover")
 	}
-	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files}, fingerprint, nil
+	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files, Commits: commits}, fingerprint, nil
 }
 
 func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
@@ -383,21 +385,22 @@ func gitOutput(ctx context.Context, dir string, args ...string) (string, error) 
 }
 
 // announceBlockedConsequence tells the operator, when a turn ends BLOCKED
-// with uncommitted work in the checkout, that the consequence is retained
+// with uncommitted work or unpublished commits in the checkout, that the
+// consequence is retained
 // and names the exact public recovery command. The new invocation identity
 // is operator intent and is the only value left to supply.
 func announceBlockedConsequence(ctx context.Context, w io.Writer, repository goaldrive.GitRepository, invocation goaldrive.InvocationRequest, record goaldrive.TurnRecord) {
 	if record.Outcome != goaldrive.OutcomeBlocked || record.Progress {
 		return
 	}
-	fingerprint, files, err := repository.Fingerprint(ctx)
-	if err != nil || len(files) == 0 {
+	fingerprint, files, commits, err := repository.Fingerprint(ctx)
+	if err != nil || (len(files) == 0 && len(commits) == 0) {
 		return
 	}
 	announcement := map[string]any{
 		"type": "goal-drive.turn_blocked_with_consequence", "goal_id": invocation.Input.GoalID, "goal_version": invocation.GoalVersion,
 		"invocation_id": invocation.InvocationID, "turn_id": record.TurnID, "child_objective": record.ChildObjective, "end_head": record.EndHead,
-		"consequence_fingerprint": fingerprint, "consequence_files": files,
+		"consequence_fingerprint": fingerprint, "consequence_files": files, "consequence_commits": commits,
 		"recover_with":      "praxis goal-drive --goal-id=" + invocation.Input.GoalID + " --goal-version=" + invocation.GoalVersion + " --mode=supervised --provider=" + invocation.ProviderID + " --repo=" + invocation.RepositoryPath + " --branch=" + invocation.Branch + " --recover-turn=" + record.TurnID,
 		"operator_supplies": []string{"--invocation-id=<new durable invocation identity>"},
 	}

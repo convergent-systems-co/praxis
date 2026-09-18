@@ -34,10 +34,15 @@ type GitRepository struct {
 
 func (r GitRepository) Location() (string, string) { return r.Dir, r.Branch }
 
-// Fingerprint binds the exact uncommitted consequence of the checkout.
-func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, error) {
-	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) })
+// Fingerprint binds the exact consequence of the checkout: uncommitted
+// changes and local commits not yet published to the remote branch.
+func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []string, error) {
+	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
 }
+
+// RecoveryStartAllowed reports whether a bound recovery may start from a
+// checkout that is dirty or ahead of the remote.
+func (r GitRepository) RecoveryStartAllowed() bool { return r.AllowRecoveryStart }
 
 const declaredValidationPath = ".praxis/validate"
 
@@ -71,7 +76,18 @@ func (r GitRepository) RunDeclaredValidation(ctx context.Context) (string, error
 	return string(output), nil
 }
 
-func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart || r.AllowRecoveryStart }
+// VerifyRecoveryConsequence admits the checkout only when its consequence
+// fingerprint is exactly the one bound to the recovered turn. It is applied
+// at turn start; the post-worker inspection sees the worker's result.
+func (r GitRepository) VerifyRecoveryConsequence(ctx context.Context) error {
+	fingerprint, _, _, err := r.Fingerprint(ctx)
+	if err != nil || r.RecoveryDigest == "" || fingerprint != r.RecoveryDigest {
+		return errors.New("checkout does not match the consequence fingerprint bound to the recovered turn")
+	}
+	return nil
+}
+
+func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart }
 
 func (r GitRepository) validate() error {
 	if r.Dir == "" || r.Remote == "" || r.Branch == "" {
@@ -111,12 +127,7 @@ func (r GitRepository) Snapshot(ctx context.Context) (RepositorySnapshot, error)
 	}
 	if local == remote {
 		isClean := strings.TrimSpace(clean) == ""
-		if !isClean && r.AllowRecoveryStart {
-			fingerprint, _, fpErr := r.Fingerprint(ctx)
-			if fpErr != nil || r.RecoveryDigest == "" || fingerprint != r.RecoveryDigest {
-				return RepositorySnapshot{}, fmt.Errorf("dirty checkout does not match the consequence fingerprint bound to the recovered turn")
-			}
-		} else if !isClean && r.AllowDirtyStart {
+		if !isClean && r.AllowDirtyStart {
 			diff, diffErr := r.run(ctx, "diff", "--binary")
 			if diffErr != nil || r.DirtyStartDigest == "" || digestBytes([]byte(diff)) != r.DirtyStartDigest {
 				return RepositorySnapshot{}, fmt.Errorf("dirty provider workspace migration input does not match its persisted digest")

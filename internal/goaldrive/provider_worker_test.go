@@ -3,6 +3,7 @@ package goaldrive
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,6 +34,65 @@ type delayedAppendStore struct {
 func (s delayedAppendStore) Append(ctx context.Context, aggregateID string, expectedVersion int64, events []eventstore.Event) ([]eventstore.Event, error) {
 	time.Sleep(s.delay)
 	return s.Store.Append(ctx, aggregateID, expectedVersion, events)
+}
+
+type cancelAwareAppendStore struct {
+	eventstore.Store
+	firstAppend chan struct{}
+	release     chan struct{}
+	once        sync.Once
+}
+
+func (s *cancelAwareAppendStore) Append(ctx context.Context, aggregateID string, expectedVersion int64, events []eventstore.Event) ([]eventstore.Event, error) {
+	first := false
+	s.once.Do(func() {
+		first = true
+		close(s.firstAppend)
+	})
+	if first {
+		<-s.release
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return s.Store.Append(ctx, aggregateID, expectedVersion, events)
+}
+
+func TestProviderMessageWriterPersistsQueuedTranscriptAfterTurnCancellation(t *testing.T) {
+	store := &cancelAwareAppendStore{Store: eventstore.NewMemoryStore(), firstAppend: make(chan struct{}), release: make(chan struct{})}
+	activity := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	request := providerWorkerRequest()
+	request.InvocationID = "expired-transcript-1"
+	request.ProviderID = "codex-subscription"
+	request.Activity = activity
+	turnCtx, cancel := context.WithCancel(context.Background())
+	writer := newProviderMessageWriter(turnCtx, request, request.ProviderID)
+
+	_, _ = writer.Write([]byte("api_key=secret-value\nprovider completed\n"))
+	<-store.firstAppend
+	cancel()
+	<-turnCtx.Done()
+	close(store.release)
+	writer.Flush()
+
+	if writer.err != nil {
+		t.Fatalf("already-received provider transcript must outlive the turn context: %v", writer.err)
+	}
+	events, err := activity.Load(context.Background(), request.InvocationID, request.TurnID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("queued provider transcript must persist completely: %+v", events)
+	}
+	if events[0].Data["message"] != "api_key=[REDACTED]" || events[1].Data["message"] != "provider completed" {
+		t.Fatalf("queued provider transcript must remain ordered and redacted: %+v", events)
+	}
+	for _, event := range events {
+		if event.Type != ActivityProviderMessage || event.Trust != contracts.TrustUntrustedContent || event.Source != "provider:"+request.ProviderID {
+			t.Fatalf("provider transcript evidence contract changed: %+v", event)
+		}
+	}
 }
 
 func TestProviderCLIWorkerDoesNotApplyPipeWaitDelayToDurableTranscriptPersistence(t *testing.T) {

@@ -25,9 +25,9 @@ type GitRepository struct {
 	AllowDetached    bool
 	AllowDirtyStart  bool
 	DirtyStartDigest string
-	// AllowRecoveryStart admits a dirty authoritative checkout only when its
-	// consequence fingerprint equals RecoveryDigest, the fingerprint bound to
-	// the BLOCKED turn being recovered.
+	// AllowRecoveryStart admits a dirty, local-ahead, or provably divergent
+	// authoritative checkout only when its consequence fingerprint equals
+	// RecoveryDigest, the fingerprint bound to the recovered turn.
 	AllowRecoveryStart bool
 	RecoveryDigest     string
 }
@@ -70,7 +70,7 @@ func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead 
 }
 
 // RecoveryStartAllowed reports whether a bound recovery may start from a
-// checkout that is dirty or ahead of the remote.
+// checkout that is dirty, ahead of, or provably diverged from the remote.
 func (r GitRepository) RecoveryStartAllowed() bool { return r.AllowRecoveryStart }
 
 const declaredValidationPath = ".praxis/validate"
@@ -131,6 +131,58 @@ func (r GitRepository) VerifyRecoveryConsequence(ctx context.Context) error {
 	fingerprint, _, _, err := r.Fingerprint(ctx)
 	if err != nil || r.RecoveryDigest == "" || fingerprint != r.RecoveryDigest {
 		return errors.New("checkout does not match the consequence fingerprint bound to the recovered turn")
+	}
+	return nil
+}
+
+// VerifyDivergedRecovery proves the two lineages share a base and that the
+// fetched authority advanced beyond it. The exact local consequence is
+// independently fenced by VerifyRecoveryConsequence.
+func (r GitRepository) VerifyDivergedRecovery(ctx context.Context) (string, string, error) {
+	local, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	remote, err := r.run(ctx, "rev-parse", "--verify", remoteRef+"^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	base, err := r.run(ctx, "merge-base", strings.TrimSpace(local), strings.TrimSpace(remote))
+	if err != nil {
+		return "", "", fmt.Errorf("find divergent recovery base: %w", err)
+	}
+	local, remote, base = strings.TrimSpace(local), strings.TrimSpace(remote), strings.TrimSpace(base)
+	if base == "" || base == local || base == remote {
+		return "", "", errors.New("authoritative remote did not advance from the retained consequence base")
+	}
+	return remote, base, nil
+}
+
+// VerifyCheckpointLineage fences publication to the exact authority observed
+// at recovery preflight. A concurrent remote advance requires a fresh turn;
+// the controller never asks the worker to guess or overwrite it.
+func (r GitRepository) VerifyCheckpointLineage(ctx context.Context, remoteHead, checkpointHead string) error {
+	if remoteHead == "" || checkpointHead == "" {
+		return errors.New("remote and checkpoint HEADs are required for lineage verification")
+	}
+	if _, err := r.run(ctx, "fetch", "--quiet", r.Remote, r.Branch); err != nil {
+		return fmt.Errorf("fetch checkpoint authority: %w", err)
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	current, err := r.run(ctx, "rev-parse", "--verify", remoteRef+"^{commit}")
+	if err != nil {
+		return err
+	}
+	if current = strings.TrimSpace(current); current != remoteHead {
+		return fmt.Errorf("authoritative remote advanced from %s to %s during recovery", remoteHead, current)
+	}
+	spans, err := r.isAncestor(ctx, remoteHead, checkpointHead)
+	if err != nil {
+		return err
+	}
+	if !spans {
+		return fmt.Errorf("recovered checkpoint %s does not contain authoritative remote %s", checkpointHead, remoteHead)
 	}
 	return nil
 }

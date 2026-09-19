@@ -278,7 +278,7 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 			return TurnRecord{}, err
 		}
 	}
-	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence, RetryOf: recoveredTurn(req.Recovery)}
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 		return base, workerErr
@@ -301,6 +301,13 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 	}
 	base.Outcome = result.Outcome
 	return base, nil
+}
+
+func recoveredTurn(recovery *WorkerRecoveryContext) string {
+	if recovery == nil {
+		return ""
+	}
+	return recovery.RecoveredTurnID
 }
 
 func (c Controller) workerRequest(req TurnRequest) WorkerRequest {

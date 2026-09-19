@@ -416,6 +416,12 @@ func providerPrompt(request WorkerRequest) (string, error) {
 		fmt.Fprintf(&b, "\n## Repository authority\nPath: %s\nBranch: %s\nStart HEAD: %s\nWork only inside this path.\n", c.Repository.Path, c.Repository.Branch, c.Repository.StartHead)
 		if c.Recovery != nil {
 			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe checkout already carries that turn's work (consequence fingerprint %s, %s).\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint, c.Recovery.Provenance)
+			if c.Recovery.BaseHead != "" {
+				fmt.Fprintf(&b, "Recovery base HEAD: %s\n", c.Recovery.BaseHead)
+			}
+			if c.Recovery.RemoteHead != "" {
+				fmt.Fprintf(&b, "Authoritative remote HEAD: %s\n", c.Recovery.RemoteHead)
+			}
 			if len(c.Recovery.Files) > 0 {
 				fmt.Fprintf(&b, "Uncommitted paths:\n")
 				for _, file := range c.Recovery.Files {

@@ -12,9 +12,11 @@ import (
 )
 
 type RepositorySnapshot struct {
-	Clean    bool
-	Relation contracts.RepositoryRelation
-	Head     string
+	Clean      bool
+	Relation   contracts.RepositoryRelation
+	Head       string
+	RemoteHead string
+	BaseHead   string
 }
 
 // RepositoryAdapter is the controller-owned VCS boundary. A worker never
@@ -54,10 +56,24 @@ func recordConsequence(ctx context.Context, repo RepositoryAdapter, record *Turn
 
 // RecoveryStartRepository admits a checkout that carries a bound recovery
 // consequence: uncommitted changes or unpublished local commits whose
-// fingerprint matches the recovered turn.
+// fingerprint matches the recovered turn. Divergence additionally requires
+// DivergedRecoveryRepository's ancestry proof.
 type RecoveryStartRepository interface {
 	RecoveryStartAllowed() bool
 	VerifyRecoveryConsequence(ctx context.Context) error
+}
+
+// DivergedRecoveryRepository proves that a fetched authoritative remote
+// advanced from a common base while the exact bound consequence remained on
+// the local lineage. Ordinary repositories never receive this authority.
+type DivergedRecoveryRepository interface {
+	VerifyDivergedRecovery(ctx context.Context) (remoteHead, baseHead string, err error)
+}
+
+// CheckpointLineageVerifier is the controller-owned publication fence for a
+// reconciled recovery checkpoint. The worker cannot satisfy or bypass it.
+type CheckpointLineageVerifier interface {
+	VerifyCheckpointLineage(ctx context.Context, remoteHead, checkpointHead string) error
 }
 
 // DeclaredValidator is implemented by repository adapters that can run the
@@ -91,13 +107,24 @@ func PrepareRepository(ctx context.Context, repo RepositoryAdapter) (RepositoryS
 		}
 		state = contracts.ClassifyRepositoryState(snapshot.Clean, snapshot.Relation)
 	}
-	if state == contracts.RepositoryDirty || state == contracts.RepositoryLocalAhead {
+	if state == contracts.RepositoryDirty || state == contracts.RepositoryLocalAhead || state == contracts.RepositoryDiverged {
 		// Uncommitted changes and unpublished local commits are admitted only
 		// as the exact bound recovery consequence, or (dirty only) as a
 		// persisted provider-workspace migration input.
 		if recovery, ok := repo.(RecoveryStartRepository); ok && recovery.RecoveryStartAllowed() {
 			if err := recovery.VerifyRecoveryConsequence(ctx); err != nil {
 				return RepositorySnapshot{}, fmt.Errorf("%w: %s: %v", ErrUnsafeRepository, state, err)
+			}
+			if snapshot.Relation == contracts.RelationDiverged {
+				diverged, ok := repo.(DivergedRecoveryRepository)
+				if !ok {
+					return RepositorySnapshot{}, fmt.Errorf("%w: %s: repository cannot prove divergent recovery lineage", ErrUnsafeRepository, state)
+				}
+				remoteHead, baseHead, err := diverged.VerifyDivergedRecovery(ctx)
+				if err != nil {
+					return RepositorySnapshot{}, fmt.Errorf("%w: %s: %v", ErrUnsafeRepository, state, err)
+				}
+				snapshot.RemoteHead, snapshot.BaseHead = remoteHead, baseHead
 			}
 			return snapshot, nil
 		}
@@ -143,6 +170,15 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, fmt.Errorf("requested start HEAD %q differs from synchronized HEAD %q", req.StartHead, snapshot.Head)
 	}
 	req.StartHead = snapshot.Head
+	if req.Recovery != nil && snapshot.Relation == contracts.RelationDiverged {
+		if snapshot.RemoteHead == "" || snapshot.BaseHead == "" || req.Recovery.BaseHead == "" || snapshot.BaseHead != req.Recovery.BaseHead {
+			return TurnRecord{}, fmt.Errorf("%w: divergent recovery base %q does not match the blocked turn base %q", ErrUnsafeRepository, snapshot.BaseHead, req.Recovery.BaseHead)
+		}
+		if len(req.Recovery.Commits) == 0 || req.Recovery.Commits[len(req.Recovery.Commits)-1] != snapshot.Head {
+			return TurnRecord{}, fmt.Errorf("%w: divergent recovery HEAD %q is not the retained consequence HEAD", ErrUnsafeRepository, snapshot.Head)
+		}
+		req.Recovery.RemoteHead = snapshot.RemoteHead
+	}
 	req.Repository = contracts.RepositorySynced
 	if located, ok := repo.(LocatedRepository); ok && req.RepositoryPath == "" {
 		req.RepositoryPath, req.RepositoryBranch = located.Location()
@@ -201,7 +237,21 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		if req.Lease != nil && !req.Lease.Held(ctx) {
 			return record, fmt.Errorf("%w: turn %s; checkpoint %s not published", ErrLeaseLost, req.TurnID, record.EndHead)
 		}
-		if err := PublishCheckpoint(ctx, repo, record); err != nil {
+		if req.Recovery != nil && req.Recovery.RemoteHead != "" {
+			verifier, ok := repo.(CheckpointLineageVerifier)
+			if !ok {
+				err = errors.New("repository cannot verify recovered checkpoint lineage")
+			} else {
+				err = verifier.VerifyCheckpointLineage(ctx, req.Recovery.RemoteHead, record.EndHead)
+			}
+			if err == nil {
+				record.CheckpointEvidence = append(record.CheckpointEvidence, "repository:verified-recovery-lineage")
+			}
+		}
+		if err == nil {
+			err = PublishCheckpoint(ctx, repo, record)
+		}
+		if err != nil {
 			blocked := record
 			blocked.Outcome = OutcomeBlocked
 			blocked.Progress = false
@@ -253,7 +303,7 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 				return TurnRecord{}, err
 			}
 		}
-		base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+		base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence, RetryOf: recoveredTurn(req.Recovery)}
 		if workerErr != nil {
 			base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 			base.EndHead = c.observedHead(ctx, repo)

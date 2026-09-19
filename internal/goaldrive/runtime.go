@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/packages/goals"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -173,7 +174,7 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		defer cancel()
 	}
 	mode := invocation.Mode
-	record, execErr := r.Controller.ExecuteTurnWithRepository(turnCtx, TurnRequest{
+	turnRequest := TurnRequest{
 		GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion,
 		InvocationID: invocation.InvocationID, TurnID: turnID,
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
@@ -181,7 +182,13 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		NoPush: invocation.NoPush, GoalBaseline: &baseline,
 		Recovery: r.Recovery, ChildObjective: recoveryObjective(r.Recovery),
 		Lease: lease,
-	}, r.Repository)
+	}
+	record, execErr := r.Controller.ExecuteTurnWithRepository(turnCtx, turnRequest, r.Repository)
+	if execErr != nil && record.Outcome == "" {
+		if durableErr := r.recordPreflightFailure(context.WithoutCancel(ctx), turnRequest, execErr); durableErr != nil {
+			execErr = fmt.Errorf("record durable preflight failure: %w (preflight: %v)", durableErr, execErr)
+		}
+	}
 	disposition := string(record.Outcome)
 	if errors.Is(execErr, ErrLeaseLost) {
 		return record, execErr
@@ -196,6 +203,42 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		return record, fmt.Errorf("release turn lease: %w", releaseErr)
 	}
 	return record, execErr
+}
+
+// recordPreflightFailure closes an allocated turn whose worker never ran.
+// The blocker and terminal disposition are one atomic append, so restart can
+// never observe only the allocation or only a non-terminal blocker.
+func (r Runtime) recordPreflightFailure(ctx context.Context, req TurnRequest, preflightErr error) error {
+	if r.Activity == nil {
+		return nil
+	}
+	stage := "turn-preflight"
+	if errors.Is(preflightErr, ErrUnsafeRepository) || strings.Contains(preflightErr.Error(), "repository") || strings.Contains(preflightErr.Error(), "HEAD") {
+		stage = "repository-preflight"
+	}
+	retryOf := recoveredTurn(req.Recovery)
+	for attempt := 0; attempt < 5; attempt++ {
+		existing, err := r.Activity.Load(ctx, req.InvocationID, req.TurnID, 0)
+		if err != nil {
+			return err
+		}
+		for _, event := range existing {
+			if event.Type == ActivityExecutionStateChanged {
+				return nil
+			}
+		}
+		base := ActivityRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ProviderID: req.ProviderID, Actor: r.Controller.Ledger.Actor, Source: "praxis.controller", Trust: contracts.TrustObserved}
+		blocker := base
+		blocker.Type = ActivityBlockerDetected
+		blocker.Data = map[string]string{"stage": stage, "blocker": preflightErr.Error(), "retry_of": retryOf}
+		terminal := base
+		terminal.Type = ActivityExecutionStateChanged
+		terminal.Data = map[string]string{"state": "blocked", "stage": stage, "retry_of": retryOf}
+		if _, err := r.Activity.AppendBatch(ctx, int64(len(existing)), []ActivityRecord{blocker, terminal}); !errors.Is(err, eventstore.ErrVersionConflict) {
+			return err
+		}
+	}
+	return eventstore.ErrVersionConflict
 }
 
 // recoveryObjective pins a recovery turn to the objective of the turn it

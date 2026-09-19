@@ -164,7 +164,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
 	if workerErr != nil {
 		recordConsequence(ctx, repo, &record)
-		if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), record); appendErr != nil {
+		if _, appendErr := c.Ledger.Record(ctx, int64(len(turns)), &record); appendErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", appendErr, workerErr)
 		}
 		if emitErr := c.emitTurnOutcome(ctx, req, record, workerErr); emitErr != nil {
@@ -179,7 +179,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 			blocked.Progress = false
 			blocked.Blocker = err.Error()
 			recordConsequence(ctx, repo, &blocked)
-			if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), blocked); appendErr != nil {
+			if _, appendErr := c.Ledger.Record(ctx, int64(len(turns)), &blocked); appendErr != nil {
 				return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
 			}
 			if emitErr := c.emitTurnOutcome(ctx, req, blocked, err); emitErr != nil {
@@ -189,7 +189,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 	}
 	record.CheckpointPublished = record.Progress && !req.NoPush
-	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
+	if _, err := c.Ledger.Record(ctx, int64(len(turns)), &record); err != nil {
 		return TurnRecord{}, err
 	}
 	if err := c.emitTurnOutcome(ctx, req, record, nil); err != nil {

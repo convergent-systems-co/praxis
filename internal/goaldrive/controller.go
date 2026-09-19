@@ -91,7 +91,7 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 		return TurnRecord{}, fmt.Errorf("record work selection: %w", err)
 	}
 	record, workerErr := c.invoke(ctx, req)
-	if _, err := c.Ledger.Append(ctx, int64(len(turns)), record); err != nil {
+	if _, err := c.Ledger.Record(ctx, int64(len(turns)), &record); err != nil {
 		if workerErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", err, workerErr)
 		}

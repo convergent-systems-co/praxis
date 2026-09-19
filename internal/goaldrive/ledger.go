@@ -65,6 +65,22 @@ type TurnRecord struct {
 	CreatedAt              time.Time `json:"created_at"`
 }
 
+// MarshalJSON renders an unknown (zero) CreatedAt as absent rather than as
+// the year-0001 instant, so a record never claims a time it does not have
+// (#156).
+func (r TurnRecord) MarshalJSON() ([]byte, error) {
+	type plain TurnRecord
+	out := struct {
+		plain
+		CreatedAt *time.Time `json:"created_at,omitempty"`
+	}{plain: plain(r)}
+	if !r.CreatedAt.IsZero() {
+		created := r.CreatedAt
+		out.CreatedAt = &created
+	}
+	return json.Marshal(out)
+}
+
 func (r TurnRecord) validate() error {
 	if r.GoalID == "" || r.GoalVersion == "" || r.InvocationID == "" || r.TurnID == "" || r.ChildObjective == "" || r.GraphID == "" || r.GraphVersion == "" {
 		return errors.New("Goal turn identity, objective, graph, and versions are required")
@@ -92,6 +108,19 @@ func (r TurnRecord) validate() error {
 type Ledger struct {
 	Store eventstore.Store
 	Actor contracts.PrincipalRef
+}
+
+// Record stamps the turn's creation instant on the caller's record and
+// persists exactly that record, so the value the caller goes on to return
+// or render carries the same timestamp the ledger holds (#156).
+func (l Ledger) Record(ctx context.Context, expectedVersion int64, record *TurnRecord) (eventstore.Event, error) {
+	if record == nil {
+		return eventstore.Event{}, errors.New("Goal turn record is required")
+	}
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = time.Now().UTC()
+	}
+	return l.Append(ctx, expectedVersion, *record)
 }
 
 func (l Ledger) Append(ctx context.Context, expectedVersion int64, record TurnRecord) (eventstore.Event, error) {

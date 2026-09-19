@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -74,6 +75,101 @@ func TestRuntimeContinuousModeRepeatsBoundedTransitionsAndStopsAtCompletion(t *t
 
 func supervisionLog() *ActivityLog {
 	return &ActivityLog{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+}
+
+var errConcurrentProviderAppend = errors.New("concurrent provider supervision append")
+
+// overlapDetectingStore makes concurrent attempts to append one provider
+// transcript observable without relying on scheduler timing. The first append
+// remains in flight until the test either observes a second append or proves
+// that the writer serialized it.
+type overlapDetectingStore struct {
+	base           *eventstore.MemoryStore
+	mu             sync.Mutex
+	active         int
+	firstEntered   chan struct{}
+	concurrent     chan struct{}
+	release        chan struct{}
+	firstOnce      sync.Once
+	concurrentOnce sync.Once
+}
+
+func newOverlapDetectingStore() *overlapDetectingStore {
+	return &overlapDetectingStore{
+		base:         eventstore.NewMemoryStore(),
+		firstEntered: make(chan struct{}),
+		concurrent:   make(chan struct{}),
+		release:      make(chan struct{}),
+	}
+}
+
+func (s *overlapDetectingStore) Append(ctx context.Context, aggregateID string, expectedVersion int64, events []eventstore.Event) ([]eventstore.Event, error) {
+	s.mu.Lock()
+	s.active++
+	active := s.active
+	if active == 1 {
+		s.firstOnce.Do(func() { close(s.firstEntered) })
+	} else {
+		s.concurrentOnce.Do(func() { close(s.concurrent) })
+	}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.active--
+		s.mu.Unlock()
+	}()
+	if active > 1 {
+		return nil, errConcurrentProviderAppend
+	}
+	<-s.release
+	return s.base.Append(ctx, aggregateID, expectedVersion, events)
+}
+
+func (s *overlapDetectingStore) LoadAggregate(ctx context.Context, aggregateID string, afterVersion int64) ([]eventstore.Event, error) {
+	return s.base.LoadAggregate(ctx, aggregateID, afterVersion)
+}
+
+func (s *overlapDetectingStore) ReadFrom(ctx context.Context, afterSequence int64, limit int) ([]eventstore.Event, error) {
+	return s.base.ReadFrom(ctx, afterSequence, limit)
+}
+
+func TestProviderMessageWriterSerializesConcurrentStdoutAndStderr(t *testing.T) {
+	store := newOverlapDetectingStore()
+	log := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	request := supervisionRequest()
+	request.Activity = log
+	writer := newProviderMessageWriter(context.Background(), request, request.ProviderID)
+	done := make(chan struct{}, 2)
+
+	go func() {
+		_, _ = writer.Write([]byte("stdout line\n"))
+		done <- struct{}{}
+	}()
+	<-store.firstEntered
+	go func() {
+		_, _ = writer.Write([]byte("stderr line\n"))
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-store.concurrent:
+		close(store.release)
+	case <-time.After(100 * time.Millisecond):
+		close(store.release)
+	}
+	<-done
+	<-done
+	writer.Flush()
+	if writer.err != nil {
+		t.Fatalf("concurrent provider streams must be serialized before persistence: %v", writer.err)
+	}
+	events, err := log.Load(context.Background(), request.InvocationID, request.TurnID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 || events[0].Data["message"] != "stdout line" || events[1].Data["message"] != "stderr line" {
+		t.Fatalf("provider lines must persist exactly once in serialized order: %+v", events)
+	}
 }
 
 func TestActivityVocabularyTrustAndRecovery(t *testing.T) {

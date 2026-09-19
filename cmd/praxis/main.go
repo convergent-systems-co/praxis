@@ -72,7 +72,7 @@ func run(args []string) error {
 // package registry first would require opening a database that does not yet
 // exist. Other dynamic/package commands retain registry resolution.
 func runNativeGoalDriveInvocation(ctx context.Context, args []string, getenv func(string) string) error {
-	parsed, err := client.ParseSlashInvocation("praxis goal-drive " + strings.Join(args, " "))
+	parsed, err := client.ParseInvocationFields(append([]string{"praxis", "goal-drive"}, args...))
 	if err != nil {
 		return err
 	}
@@ -128,8 +128,7 @@ func resolveDynamicInvocation(ctx context.Context, args []string, getenv func(st
 	if err != nil {
 		return normalizedOutput{}, err
 	}
-	input := "praxis " + strings.Join(args, " ")
-	inv, err := client.ParseSlashInvocation(input)
+	inv, err := client.ParseInvocationFields(append([]string{"praxis"}, args...))
 	if err != nil {
 		return normalizedOutput{}, err
 	}

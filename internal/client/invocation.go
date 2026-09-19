@@ -16,7 +16,13 @@ type Invocation struct {
 // ParseSlashInvocation normalizes the discoverable client UX into a canonical
 // structure. It deliberately does not authorize any resulting operation.
 func ParseSlashInvocation(input string) (Invocation, error) {
-	fields := strings.Fields(strings.TrimSpace(input))
+	return ParseInvocationFields(strings.Fields(strings.TrimSpace(input)))
+}
+
+// ParseInvocationFields normalizes an already-split invocation, such as a
+// process argv, without re-splitting any element: an option value is the
+// whole element after "=", whitespace included (#159).
+func ParseInvocationFields(fields []string) (Invocation, error) {
 	if len(fields) < 2 {
 		return Invocation{}, errors.New("expected /praxis <entry-point>")
 	}

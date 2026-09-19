@@ -195,15 +195,25 @@ the judgment requirement stated ("requires judgment: the Goal contract
 binds no verifier to …"). UNKNOWN stays UNKNOWN until an evaluator
 supplies evidence: `goals-lifecycle --operation=evaluate --input
 <evaluation.json>` composes a human or agent evaluator's findings over the
-latest evaluation. A finding must name a contract element, carry a
+evaluation the document names in `based_on` (#169). The evaluations of a
+generation form one lineage rooted at the deterministic verifier's
+evaluation: the verifier's is recorded once and is based on nothing; every
+composed evaluation must be based on exactly the current latest, so a
+document without `based_on`, or based on a superseded evaluation, is
+refused naming the current latest (the first Weather II T9 evaluation had
+composed over the blind evaluation only because nothing else had been
+recorded in between). A finding must name a contract element, carry a
 judgment, carry evidence when it claims satisfaction, and may not override
 a deterministic UNSATISFIED at that checkpoint. A document that binds
 another generation, candidate, or checkpoint is refused. Evaluations are
-append-only and digest-addressed.
+append-only and digest-addressed; `inspect` renders the chain
+(`evaluation_chain`) and `evaluate_with` names the base to compose over.
 
 **Settlement.** `goals-lifecycle --operation=complete [--status=incomplete
 --reason]` binds the exact latest evaluation digest, candidate turn, final
-checkpoint, and generation digest. `complete` is admitted only when that
+checkpoint, and generation digest, verifies that the evaluations form an
+unbroken lineage from the deterministic root to that digest (fail closed
+otherwise), and shows the settler the whole chain. `complete` is admitted only when that
 evaluation's outcome is `satisfied`; settlement cannot turn `unsatisfied`
 or `unknown` into satisfaction, and a human keystroke never substitutes
 for missing evidence. `incomplete` records the gap (the unresolved

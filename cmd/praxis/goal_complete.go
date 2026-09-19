@@ -38,6 +38,7 @@ import (
 type evaluationDocument struct {
 	Evaluator       contracts.PrincipalRef `json:"evaluator"`
 	EvaluatorKind   string                 `json:"evaluator_kind"`
+	BasedOn         string                 `json:"based_on"`
 	GoalDigest      string                 `json:"goal_digest"`
 	CandidateTurnID string                 `json:"candidate_turn_id"`
 	FinalHead       string                 `json:"final_head"`
@@ -84,6 +85,19 @@ func runGoalEvaluate(ctx context.Context, options map[string]string, input []byt
 	// Fail closed on stale or foreign evidence before composing anything.
 	if doc.GoalDigest != baseline.Digest || doc.GoalDigest != goalState.Candidate.GoalDigest || doc.CandidateTurnID != goalState.Candidate.TurnID || doc.FinalHead != goalState.Candidate.FinalHead {
 		return fmt.Errorf("evaluation document binds generation %s, candidate %s, checkpoint %s; the candidate is generation %s, turn %s, checkpoint %s", doc.GoalDigest, doc.CandidateTurnID, doc.FinalHead, goalState.Candidate.GoalDigest, goalState.Candidate.TurnID, goalState.Candidate.FinalHead)
+	}
+	latestDigest, err := latest.Digest()
+	if err != nil {
+		return err
+	}
+	// Explicit lineage (#169): the evaluator states which evaluation it
+	// composes over; a missing or superseded base is refused naming the
+	// current latest so the evaluator re-reads what it is judging.
+	if doc.BasedOn == "" {
+		return fmt.Errorf("evaluation document must declare based_on, the exact evaluation it composes over; the current latest evaluation is %s", latestDigest)
+	}
+	if doc.BasedOn != latestDigest {
+		return fmt.Errorf("evaluation document is based on %s; the current latest evaluation is %s; compose over the current latest", doc.BasedOn, latestDigest)
 	}
 	composed, err := goaldrive.ComposeEvaluation(*latest, doc.Evaluator, doc.EvaluatorKind, doc.Findings)
 	if err != nil {
@@ -185,6 +199,17 @@ func runGoalCompleteWithTerminal(ctx context.Context, options map[string]string,
 	if status == goaldrive.GoalComplete && latest.Outcome != goaldrive.ResultSatisfied {
 		return fmt.Errorf("Goal %s/%s cannot be settled complete: the latest evaluation (%s) is %s, unresolved: %s; supply evidence with --operation=evaluate or settle --status=incomplete", goalID, version, latestDigest, latest.Outcome, strings.Join(goaldrive.UnresolvedRefs(*latest), ", "))
 	}
+	if err := goaldrive.VerifyEvaluationChain(goalState.Evaluations); err != nil {
+		return fmt.Errorf("Goal %s/%s cannot be settled: %w", goalID, version, err)
+	}
+	chain := make([]string, 0, len(goalState.Evaluations))
+	for _, evaluation := range goalState.Evaluations {
+		d, err := evaluation.Digest()
+		if err != nil {
+			return err
+		}
+		chain = append(chain, d)
+	}
 	owner, root, err := ownerAndRootForSettlement(ctx, repo, getenv, now)
 	if err != nil {
 		return err
@@ -192,6 +217,7 @@ func runGoalCompleteWithTerminal(ctx context.Context, options map[string]string,
 	var b strings.Builder
 	fmt.Fprintf(&b, "Goal %s/%s (generation %s): completion candidate from turn %s at final checkpoint %s.\n", goalID, version, baseline.Digest, goalState.Candidate.TurnID, goalState.Candidate.FinalHead)
 	fmt.Fprintf(&b, "Original Goal contract:\n  intent: %s\n  refined outcome: %s\n  scope: %s\n", baseline.OriginalIntent, baseline.RefinedOutcome, baseline.Scope)
+	fmt.Fprintf(&b, "Evaluation chain (deterministic -> latest, %d evaluations): %s\n", len(chain), strings.Join(chain, " -> "))
 	fmt.Fprintf(&b, "Latest evaluation %s by %s (%s), outcome %s:\n", latestDigest, latest.Evaluator.ID, latest.EvaluatorKind, latest.Outcome)
 	for _, item := range latest.Items {
 		fmt.Fprintf(&b, "  %s [%s]: %s\n    predicate: %s\n", item.Ref, strings.ToUpper(string(item.Result)), item.Text, item.Predicate)

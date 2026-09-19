@@ -64,7 +64,8 @@ func satisfyAndSettle(t *testing.T, ctx context.Context, governed func(string) s
 	t.Helper()
 	options := map[string]string{"goal-id": goalID, "goal-version": "2"}
 	var out bytes.Buffer
-	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
+	base := latestEvaluationDigest(t, inspectGoal(t, ctx, governed, goalID, "2"))
+	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","based_on":"` + base + `","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
 	if err := runGoalEvaluate(ctx, options, doc, governed, &out); err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}
@@ -127,7 +128,7 @@ func TestInspectGoverningStateAcrossTheLifecycle(t *testing.T) {
 	}
 	options := map[string]string{"goal-id": goalID, "goal-version": "2"}
 	var out bytes.Buffer
-	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
+	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","based_on":"` + latestEvaluationDigest(t, st) + `","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
 	if err := runGoalEvaluate(ctx, options, doc, governed, &out); err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}

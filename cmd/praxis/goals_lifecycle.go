@@ -446,8 +446,17 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		if latest := goalState.Latest(); latest != nil {
 			digest, _ := latest.Digest()
 			workSet["goal_evaluation"] = map[string]any{"evaluation_digest": digest, "evaluator": latest.Evaluator, "evaluator_kind": latest.EvaluatorKind, "outcome": latest.Outcome, "unresolved": goaldrive.UnresolvedRefs(*latest), "items": latest.Items, "evaluations": len(goalState.Evaluations)}
+			chain := make([]map[string]any, 0, len(goalState.Evaluations))
+			for _, evaluation := range goalState.Evaluations {
+				d, _ := evaluation.Digest()
+				chain = append(chain, map[string]any{"digest": d, "evaluator": evaluation.Evaluator, "evaluator_kind": evaluation.EvaluatorKind, "outcome": evaluation.Outcome, "based_on": evaluation.BasedOn, "evaluated_at": evaluation.EvaluatedAt})
+			}
+			workSet["evaluation_chain"] = chain
+			if err := goaldrive.VerifyEvaluationChain(goalState.Evaluations); err != nil {
+				workSet["evaluation_chain_error"] = err.Error()
+			}
 			if goalState.Decision == nil {
-				workSet["evaluate_with"] = "praxis goals-lifecycle --operation=evaluate --goal-id=" + goalID + " --goal-version=" + version + " --input=<evaluation.json binding candidate_turn_id " + goalState.Candidate.TurnID + ", final_head " + goalState.Candidate.FinalHead + ", goal_digest " + baseline.Digest + ">"
+				workSet["evaluate_with"] = "praxis goals-lifecycle --operation=evaluate --goal-id=" + goalID + " --goal-version=" + version + " --input=<evaluation.json binding based_on " + digest + ", candidate_turn_id " + goalState.Candidate.TurnID + ", final_head " + goalState.Candidate.FinalHead + ", goal_digest " + baseline.Digest + ">"
 				if latest.Outcome == goaldrive.ResultSatisfied {
 					workSet["complete_with"] = completeCommand(goalID, version)
 				}

@@ -346,5 +346,9 @@ func TestCompletionRecordsAreUniquePerGeneration(t *testing.T) {
 		if _, err := ledger.RecordGoalEvaluation(ctx, evaluation); err != nil {
 			t.Fatalf("%s evaluation: %v", goal, err)
 		}
+		record := TurnRecord{GoalID: goal, GoalVersion: "2", InvocationID: "q-1", Mode: ModeSupervised, TurnID: "q-1:turn:1", ChildObjective: "unit:a", GraphID: "g", GraphVersion: "1", Outcome: OutcomeContinue, Progress: true}
+		if err := (Controller{Ledger: ledger}).recordTurn(ctx, &record); err != nil {
+			t.Fatalf("%s turn record with a turn id another generation also uses: %v", goal, err)
+		}
 	}
 }

@@ -264,6 +264,7 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 	// reported EndHead must be what the checkout shows. A claimed
 	// NO_PROGRESS is inspected too, so uncommitted work is never dropped.
 	record, workerErr := c.invoke(ctx, req)
+	ctx = context.WithoutCancel(ctx)
 	if workerErr != nil {
 		if record.EndHead == "" {
 			record.EndHead = c.observedHead(ctx, repo)

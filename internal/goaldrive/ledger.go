@@ -153,7 +153,7 @@ func (l Ledger) Append(ctx context.Context, expectedVersion int64, record TurnRe
 	aggregateID := aggregateID(record.GoalID, record.GoalVersion)
 	appended, err := l.Store.Append(ctx, aggregateID, expectedVersion, []eventstore.Event{{
 		ID: aggregateID + ":turn:" + record.TurnID, AggregateType: aggregateType, Type: eventType, Version: eventVersion,
-		Actor: l.Actor, CommandID: "goal-drive:turn:" + record.TurnID, CorrelationID: aggregateID, Trust: contracts.TrustObserved,
+		Actor: l.Actor, CommandID: aggregateID + ":turn:" + record.TurnID, CorrelationID: aggregateID, Trust: contracts.TrustObserved,
 		Payload: payload, CreatedAt: record.CreatedAt,
 	}})
 	if err != nil {

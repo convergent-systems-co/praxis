@@ -266,7 +266,7 @@ func TestRED_B1_GracefulInterruptionRecordsDisposition(t *testing.T) {
 	runtime.OnTurnAllocated = func(string) { go func() { time.Sleep(1500 * time.Millisecond); cancel() }() }
 	record, err := runtime.Execute(ctx, InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: "goal:race"}, GoalVersion: "2", Mode: ModeSupervised, InvocationID: "int-1", ProviderID: "local"})
 	turns, loadErr := runtime.Controller.Ledger.Load(context.Background(), "goal:race", "2")
-	if loadErr != nil || len(turns) != 1 || turns[0].Outcome != OutcomeBlocked || !strings.Contains(turns[0].Blocker, "interrupt") || turns[0].ConsequenceFingerprint == "" {
+	if loadErr != nil || len(turns) != 1 || turns[0].Outcome != OutcomeBlocked || !strings.Contains(turns[0].Blocker, "interrupt") || turns[0].ConsequenceFingerprint == "" || turns[0].EndHead == "" {
 		t.Fatalf("B1 RED: interruption must leave a durable BLOCKED record naming the interruption with the consequence fingerprinted; turns=%+v exec err=%v record=%+v", turns, err, record)
 	}
 	types := strings.Join(activityTypesFor(t, activity, "int-1", turns[0].TurnID), ",")

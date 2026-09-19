@@ -30,6 +30,43 @@ func TestProviderCLIWorkerKeepsTranscriptOutsideWorkerResult(t *testing.T) {
 	}
 }
 
+func TestProviderCLIWorkerSuccessfulDurableTranscriptMayExceedDiagnosticBuffer(t *testing.T) {
+	activity := &ActivityLog{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	request := providerWorkerRequest()
+	request.InvocationID = "successful-large-stream-1"
+	request.ProviderID = "codex-subscription"
+	request.Activity = activity
+	worker := ProviderCLIWorker{
+		ProviderID:  request.ProviderID,
+		Command:     []string{"/bin/sh", "-c", "printf 'stdout-one\\nstdout-two\\n'; printf 'stderr-one\\nstderr-two\\n' >&2"},
+		OutputLimit: 8,
+	}
+
+	result, err := worker.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatalf("complete durable supervision must not be failed by diagnostic-buffer truncation: %v", err)
+	}
+	if result.Outcome != OutcomeContinue || result.ExecutorID != request.ProviderID {
+		t.Fatalf("successful provider outcome changed: %+v", result)
+	}
+	events, err := activity.Load(context.Background(), request.InvocationID, request.TurnID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 4 {
+		t.Fatalf("durable provider transcript is incomplete: %+v", events)
+	}
+	got := map[string]bool{}
+	for _, event := range events {
+		got[event.Data["message"]] = true
+	}
+	for _, want := range []string{"stdout-one", "stdout-two", "stderr-one", "stderr-two"} {
+		if !got[want] {
+			t.Fatalf("durable provider transcript omitted %q: %+v", want, events)
+		}
+	}
+}
+
 func TestProviderTranscriptHelperProcess(t *testing.T) {
 	if os.Getenv("LC_PRAXIS_PROVIDER_HELPER") != "1" {
 		return

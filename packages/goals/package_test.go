@@ -18,8 +18,8 @@ func TestPackageBuildInputBindsGoalsExecutableAndInvocation(t *testing.T) {
 	if len(built.Manifest.Invocations) != 2 || built.Manifest.Invocations[0].EntryPointID != "goals-lifecycle" || built.Manifest.Invocations[1].EntryPointID != "goal-drive" {
 		t.Fatalf("unexpected invocation set: %#v", built.Manifest.Invocations)
 	}
-	if built.Manifest.Version != PackageVersion || PackageVersion != "0.1.3" {
-		t.Fatalf("successor package version must be 0.1.3, got %q", built.Manifest.Version)
+	if built.Manifest.Version != PackageVersion || PackageVersion != "0.1.4" {
+		t.Fatalf("successor package version must be 0.1.4, got %q", built.Manifest.Version)
 	}
 	for _, inv := range built.Manifest.Invocations {
 		if inv.PackageVersion != PackageVersion {

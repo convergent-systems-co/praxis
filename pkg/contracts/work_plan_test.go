@@ -1,6 +1,9 @@
 package contracts
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func acceptedPlan() WorkPlan {
 	return WorkPlan{
@@ -96,5 +99,31 @@ func TestWorkPlanProposalReviewRequiresIndependentGenerationAndExactBinding(t *t
 	review.ProposalDigest = "sha256:stale"
 	if err := review.Validate(proposal); err == nil {
 		t.Fatal("stale proposal review was accepted")
+	}
+}
+
+func TestMaterializeAcceptedPlanCandidatePromotesOnlyAdvisoryProvenance(t *testing.T) {
+	proposal := WorkPlanProposal{
+		ID: "proposal-1", GoalID: "goal", GoalVersion: "1", BaselineDigest: "sha256:baseline",
+		ProposedBy: PrincipalRef{ID: "planner", Kind: "model"}, ProposerGeneration: "planner-generation-1",
+		Candidates: []WorkCandidate{
+			{ID: "model-unit", SourceRef: "model:proposal", SourceDigest: "sha256:model", Provenance: ProvenanceModelProposal, Requirements: []RequirementRef{{ID: "req-1", SourceRef: "goal:requirement/1", SourceDigest: "sha256:req"}}},
+			{ID: "issue-unit", SourceRef: "issue:42", SourceDigest: "sha256:issue", Provenance: ProvenanceIssue, Requirements: []RequirementRef{{ID: "req-2", SourceRef: "goal:requirement/2", SourceDigest: "sha256:req"}}},
+		},
+		Relationships: []WorkRelationship{{Dependent: "issue-unit", Prerequisite: "model-unit", Kind: RelationshipHardDependency, SourceRef: "model:proposal", SourceDigest: "sha256:model", Provenance: ProvenanceModelProposal}},
+	}
+	requestDigest := "sha256:" + strings.Repeat("a", 64)
+	plan, err := MaterializeAcceptedPlanCandidate(proposal, "authority-request:plan", requestDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Candidates[0].Provenance != ProvenancePLAN || plan.Candidates[0].SourceDigest != requestDigest || plan.Candidates[1].Provenance != ProvenanceIssue {
+		t.Fatalf("advisory provenance was not promoted exactly: %+v", plan.Candidates)
+	}
+	if plan.Relationships[0].Provenance != ProvenancePLAN || plan.Relationships[0].SourceDigest != requestDigest {
+		t.Fatalf("advisory relationship was not promoted: %+v", plan.Relationships[0])
+	}
+	if proposal.Candidates[0].Provenance != ProvenanceModelProposal || proposal.Relationships[0].Provenance != ProvenanceModelProposal {
+		t.Fatal("materialization mutated the durable proposal")
 	}
 }

@@ -51,6 +51,9 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	if operation == "inspect" {
 		return inspectGoalsLifecycle(ctx, in.Options, getenv)
 	}
+	if operation == "continue" {
+		return continueGoalsLifecycle(ctx, in.Options, getenv)
+	}
 	switch operation {
 	case "evaluate":
 		return runGoalEvaluate(ctx, in.Options, input, getenv, os.Stdout)
@@ -233,10 +236,13 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			if err != nil {
 				return err
 			}
-			plan := contracts.WorkPlan{Candidates: append([]contracts.WorkCandidate(nil), proposal.Candidates...), Relationships: append([]contracts.WorkRelationship(nil), proposal.Relationships...)}
 			acceptanceRef := selector.AcceptanceRef
 			if acceptanceRef == "" {
 				acceptanceRef = "acceptance:" + request.ID
+			}
+			plan, err := contracts.MaterializeAcceptedPlanCandidate(proposal, acceptanceRef, selector.RequestDigest)
+			if err != nil {
+				return err
 			}
 			accepted, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, request.ID, request.Version, plan, acceptanceRef, "1", now, nil)
 			if err != nil {
@@ -498,8 +504,11 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		workSet["active_turns"] = activeEntries
 		workSet["lost_turns"] = lostEntries
 		result["work_set"] = workSet
-	} else if len(proposalEntries) == 0 {
-		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
+	} else {
+		result["continue_with"] = continueCommand(baseline.ID, baseline.Version)
+		if len(proposalEntries) == 0 {
+			result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
+		}
 	}
 	if baseline.PredecessorDigest != "" {
 		predecessor, err := predecessorCompletion(ctx, goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, baseline)
@@ -551,6 +560,10 @@ func acceptCommand(requestDigest string) string {
 
 func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 	return "praxis goals-lifecycle --operation=attach --goal-id=" + goalID + " --goal-version=" + goalVersion + " --acceptance-ref=" + acceptanceRef
+}
+
+func continueCommand(goalID, goalVersion string) string {
+	return "praxis goals-lifecycle --operation=continue --goal-id=" + goalID + " --goal-version=" + goalVersion
 }
 
 // workSetState renders the durable completion state of the generation's

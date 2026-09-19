@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/packages/goals"
@@ -43,9 +43,20 @@ type Runtime struct {
 	// Recovery binds this invocation to the uncommitted consequence of an
 	// earlier BLOCKED turn of the same objective (see --recover-turn).
 	Recovery *WorkerRecoveryContext
+	// Leases is the durable liveness store for turn admission (#162, #163);
+	// nil disables liveness tracking (single-process use only). LeaseTTL is
+	// the heartbeat expiry (DefaultLeaseTTL when zero).
+	Leases   LeaseStore
+	LeaseTTL time.Duration
+	// admitted names the invocations this process admitted, so continuous
+	// mode may run several turns under one single-use invocation identity.
+	admitted map[string]bool
 }
 
 func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (TurnRecord, error) {
+	// One process, one invocation: continuous mode reuses the identity across
+	// its own turns; any other process is refused (single-use).
+	r.admitted = map[string]bool{}
 	if invocation.Input.Kind != contracts.GoalInputID || invocation.Input.GoalID == "" {
 		return TurnRecord{}, ErrGoalExecutionInput
 	}
@@ -120,7 +131,30 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 			return TurnRecord{}, ErrExecutionCancelled
 		}
 	}
-	turnID := invocation.InvocationID + ":turn:" + strconv.Itoa(len(turns)+1)
+	// Atomic durable admission (#162): unique turn number, single-use
+	// invocation identity, exclusive lease on the checkout scope.
+	scope, admittedHead := "", ""
+	if located, ok := r.Repository.(LocatedRepository); ok {
+		path, branch := located.Location()
+		scope = ScopeKey(path, branch)
+		if git, ok := r.Repository.(GitRepository); ok {
+			if head, err := git.run(ctx, "rev-parse", "--verify", "HEAD^{commit}"); err == nil {
+				admittedHead = strings.TrimSpace(head)
+			}
+		}
+	}
+	if r.admitted == nil {
+		return TurnRecord{}, errors.New("executeOne requires Execute to own the admitted-invocation set")
+	}
+	lease, err := Admit(ctx, r.Controller.Ledger, r.Leases, invocation.Input.GoalID, invocation.GoalVersion, invocation.InvocationID, invocation.Mode, scope, admittedHead, r.LeaseTTL, r.admitted)
+	if err != nil {
+		return TurnRecord{}, err
+	}
+	r.admitted[invocation.InvocationID] = true
+	turnID := lease.Admission.TurnID
+	turnCtx, cancelTurn := context.WithCancel(ctx)
+	defer cancelTurn()
+	go lease.heartbeat(cancelTurn)
 	if r.Activity != nil {
 		// Durable before the announcement: the announced observe command
 		// must always find at least this event (#155).
@@ -132,21 +166,35 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 	if r.OnTurnAllocated != nil {
 		r.OnTurnAllocated(turnID)
 	}
-	turnCtx := ctx
 	if invocation.TurnTimeout > 0 {
 		var cancel context.CancelFunc
-		turnCtx, cancel = context.WithTimeout(ctx, invocation.TurnTimeout)
+		turnCtx, cancel = context.WithTimeout(turnCtx, invocation.TurnTimeout)
 		defer cancel()
 	}
 	mode := invocation.Mode
-	return r.Controller.ExecuteTurnWithRepository(turnCtx, TurnRequest{
+	record, execErr := r.Controller.ExecuteTurnWithRepository(turnCtx, TurnRequest{
 		GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion,
 		InvocationID: invocation.InvocationID, TurnID: turnID,
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
 		ProviderID: invocation.ProviderID, Mode: mode,
 		NoPush: invocation.NoPush, GoalBaseline: &baseline,
 		Recovery: r.Recovery, ChildObjective: recoveryObjective(r.Recovery),
+		Lease: lease,
 	}, r.Repository)
+	disposition := string(record.Outcome)
+	if errors.Is(execErr, ErrLeaseLost) {
+		return record, execErr
+	}
+	if disposition == "" {
+		disposition = "failed"
+	}
+	if execErr != nil && ctx.Err() != nil {
+		disposition = "interrupted"
+	}
+	if releaseErr := lease.Release(context.WithoutCancel(ctx), disposition); releaseErr != nil && execErr == nil {
+		return record, fmt.Errorf("release turn lease: %w", releaseErr)
+	}
+	return record, execErr
 }
 
 // recoveryObjective pins a recovery turn to the objective of the turn it

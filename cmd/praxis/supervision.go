@@ -26,7 +26,7 @@ type supervisionArgs struct {
 
 func runSuperviseCommand(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: praxis supervise {observe|comment|correction|constraint|suspend|cancel|resume} ...")
+		return errors.New("usage: praxis supervise {observe|comment|correction|constraint|suspend|cancel|resume|reconcile} ...")
 	}
 	parsed, err := parseSupervisionArgs(args[1:], os.Getenv)
 	if err != nil {
@@ -46,6 +46,8 @@ func runSuperviseCommand(args []string) error {
 		return appendHumanIntervention(parsed, goaldrive.ActivityCancelRequested)
 	case "resume":
 		return appendHumanIntervention(parsed, goaldrive.ActivityHumanCorrection)
+	case "reconcile":
+		return reconcileLostTurn(parsed, os.Stdout)
 	default:
 		return fmt.Errorf("unknown supervision operation %q", args[0])
 	}
@@ -179,8 +181,65 @@ func observeSupervision(args supervisionArgs, out io.Writer) error {
 		if terminalActivity(events) {
 			return nil
 		}
+		// A turn whose process stopped renewing its lease is not running.
+		// The observer says so explicitly and terminates (#163); the durable
+		// disposition is recorded by reconciliation, never inferred here.
+		if lost, err := lostTurnNotice(ctx, db, args); err != nil {
+			return err
+		} else if lost != nil {
+			return json.NewEncoder(out).Encode(lost)
+		}
 		time.Sleep(150 * time.Millisecond)
 	}
+}
+
+// lostTurnNotice reports an observer-side (non-durable) notice when the
+// observed turn's admission is unreleased and its lease is no longer live.
+func lostTurnNotice(ctx context.Context, db *sql.DB, args supervisionArgs) (map[string]any, error) {
+	ledger := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-supervision-observer", Kind: "cli"}}
+	lost, _, err := goaldrive.LostTurns(ctx, ledger, state.New(db), args.goalID, args.goalVersion, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	for _, admission := range lost {
+		if admission.TurnID == args.turnID && admission.InvocationID == args.invocationID {
+			return map[string]any{"type": "observer.execution_lost", "goal_id": args.goalID, "goal_version": args.goalVersion, "invocation_id": args.invocationID, "turn_id": args.turnID, "pid": admission.PID, "host": admission.Host, "consequence": "unknown", "durable": false, "reconcile_with": reconcileCommand(args.goalID, args.goalVersion, args.invocationID, args.turnID)}, nil
+		}
+	}
+	return nil, nil
+}
+
+func reconcileCommand(goalID, version, invocationID, turnID string) string {
+	return "praxis supervise reconcile --goal-id=" + goalID + " --goal-version=" + version + " --invocation-id=" + invocationID + " --turn-id=" + turnID
+}
+
+// reconcileLostTurn is `praxis supervise reconcile`: the explicit path that
+// closes an execution whose process disappeared (#163). It refuses a turn
+// whose lease is still live, a turn already released, and a turn that
+// predates admission (historical evidence needs an explicit migration).
+func reconcileLostTurn(args supervisionArgs, out io.Writer) error {
+	ctx := context.Background()
+	db, err := openSupervisionDB(ctx, args.db, false)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	store := state.NewSQLiteEventStore(db)
+	actor := contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}
+	controller := goaldrive.Controller{Ledger: goaldrive.Ledger{Store: store, Actor: actor}, Activity: &goaldrive.ActivityLog{Store: store, Actor: actor}}
+	by := args.actor
+	if by.ID == "" {
+		by = contracts.PrincipalRef{ID: "operator", Kind: "human"}
+	}
+	record, err := controller.ReconcileLostTurn(ctx, state.New(db), args.goalID, args.goalVersion, args.turnID, os.Getenv("PRAXIS_GIT_REMOTE"), by)
+	if err != nil {
+		return err
+	}
+	result := map[string]any{"operation": "supervise.reconcile", "turn": record, "consequence": "unknown", "note": "the provider's external consequence is unknown; the checkout was observed at reconciliation and nothing was retried"}
+	if record.EndHead != "" && (len(record.ConsequenceFiles) > 0 || len(record.ConsequenceCommits) > 0) {
+		result["recover_with"] = "praxis goal-drive --goal-id=" + args.goalID + " --goal-version=" + args.goalVersion + " --mode=supervised --recover-turn=" + record.TurnID + " --provider=<registered provider> --invocation-id=<new durable invocation identity> --repo=<repository path> --branch=<exact branch>"
+	}
+	return json.NewEncoder(out).Encode(result)
 }
 
 // verifyLineage fails closed when a durable event under the selected

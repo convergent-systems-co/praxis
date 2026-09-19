@@ -9,8 +9,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
@@ -62,6 +64,11 @@ func dispatchGoalDrive(ctx context.Context, out normalizedOutput, getenv func(st
 	if reconcileOnly && getenv("PRAXIS_PROVIDER_WORKSPACE_ID") == "" {
 		return errors.New("workspace reconciliation requires a provider workspace")
 	}
+	// Graceful interruption (#163): SIGINT/SIGTERM cancel the turn context;
+	// the provider is stopped and the controller records the BLOCKED
+	// disposition (consequence unknown) before exit. A second signal kills.
+	ctx, stopSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 	runtime, db, err := buildGoalDriveRuntime(ctx, out, invocation, getenv)
 	if err != nil {
 		return fmt.Errorf("construct native Goal-drive runtime: %w", err)
@@ -199,7 +206,15 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 		repository.AllowRecoveryStart, repository.RecoveryDigest = true, fingerprint
 		recovery = bound
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: ledger, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: repository, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity, Recovery: recovery}
+	leaseTTL := goaldrive.DefaultLeaseTTL
+	if raw := getenv("PRAXIS_GOAL_DRIVE_LEASE_TTL"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 {
+			return goaldrive.Runtime{}, nil, fmt.Errorf("PRAXIS_GOAL_DRIVE_LEASE_TTL must be a positive duration: %q", raw)
+		}
+		leaseTTL = parsed
+	}
+	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: ledger, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: repository, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity, Recovery: recovery, Leases: state.New(db), LeaseTTL: leaseTTL}
 	closeOnError = false
 	return runtime, db, nil
 }

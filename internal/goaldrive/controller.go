@@ -61,15 +61,18 @@ type TurnRequest struct {
 	Repository                                                                                  contracts.RepositoryState
 	NoPush                                                                                      bool
 	ProviderID                                                                                  string
-	Mode                                                                                        ExecutionMode
-	WorkCandidates                                                                              []contracts.WorkCandidate
-	WorkRelationships                                                                           []contracts.WorkRelationship
-	GoalBaseline                                                                                *goals.GoalBaseline
-	RepositoryPath, RepositoryBranch                                                            string
-	ValidationDeclared                                                                          bool
-	DeclaredValidation                                                                          string
-	Recovery                                                                                    *WorkerRecoveryContext
-	Context                                                                                     *WorkerContext
+	// Lease is the admitted turn's lease handle; publication and recording
+	// require it to still be held (#162, #163).
+	Lease                            *TurnLease
+	Mode                             ExecutionMode
+	WorkCandidates                   []contracts.WorkCandidate
+	WorkRelationships                []contracts.WorkRelationship
+	GoalBaseline                     *goals.GoalBaseline
+	RepositoryPath, RepositoryBranch string
+	ValidationDeclared               bool
+	DeclaredValidation               string
+	Recovery                         *WorkerRecoveryContext
+	Context                          *WorkerContext
 }
 
 type Controller struct {
@@ -82,7 +85,7 @@ type Controller struct {
 }
 
 func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecord, error) {
-	turns, req, err := c.prepare(ctx, req)
+	_, req, err := c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, err
 	}
@@ -93,7 +96,7 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 		return TurnRecord{}, fmt.Errorf("record work selection: %w", err)
 	}
 	record, workerErr := c.invoke(ctx, req)
-	if _, err := c.Ledger.Record(ctx, int64(len(turns)), &record); err != nil {
+	if err := c.recordTurn(ctx, &record); err != nil {
 		if workerErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", err, workerErr)
 		}
@@ -255,6 +258,9 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 		return TurnRecord{}, err
 	}
 	result, workerErr := worker.Execute(ctx, workerReq)
+	// Durable writes after the worker returns must survive the cancellation
+	// that may have interrupted it (#163).
+	ctx = context.WithoutCancel(ctx)
 	if workerErr != nil {
 		if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
 			return TurnRecord{}, err

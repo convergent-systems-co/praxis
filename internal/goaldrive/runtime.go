@@ -81,6 +81,7 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 		return TurnRecord{}, fmt.Errorf("recover exact Goal Baseline: %w", err)
 	}
 	if invocation.Mode == ModeSupervised {
+		r.Recovery = cloneRecoveryContext(r.Recovery)
 		return r.executeOne(ctx, invocation, baseline)
 	}
 	limit := invocation.MaxTurns
@@ -88,12 +89,17 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 		limit = 8
 	}
 	var last TurnRecord
+	recovery := cloneRecoveryContext(r.Recovery)
 	for i := 0; i < limit; i++ {
+		r.Recovery = recovery
 		var err error
 		last, err = r.executeOne(ctx, invocation, baseline)
 		if err != nil || last.Outcome == OutcomeComplete || last.Outcome == OutcomeBlocked || last.Outcome == OutcomeNoProgress || last.Outcome == OutcomeUserDecisionRequired {
 			return last, err
 		}
+		// Recovery authority binds exactly one turn. A subsequent continuous
+		// turn starts from the published checkpoint as an ordinary turn.
+		recovery = nil
 	}
 	return last, fmt.Errorf("%w: %d", ErrContinuousTurnLimit, limit)
 }
@@ -174,18 +180,20 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		defer cancel()
 	}
 	mode := invocation.Mode
+	turnRecovery := cloneRecoveryContext(r.Recovery)
 	turnRequest := TurnRequest{
 		GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion,
 		InvocationID: invocation.InvocationID, TurnID: turnID,
 		GraphID: r.GraphID, GraphVersion: r.GraphVersion,
 		ProviderID: invocation.ProviderID, Mode: mode,
 		NoPush: invocation.NoPush, GoalBaseline: &baseline,
-		Recovery: r.Recovery, ChildObjective: recoveryObjective(r.Recovery),
+		Recovery: turnRecovery, ChildObjective: recoveryObjective(turnRecovery),
 		Lease: lease,
 	}
 	record, execErr := r.Controller.ExecuteTurnWithRepository(turnCtx, turnRequest, r.Repository)
-	if execErr != nil && record.Outcome == "" {
-		if durableErr := r.recordPreflightFailure(context.WithoutCancel(ctx), turnRequest, execErr); durableErr != nil {
+	var preflightErr *preflightFailure
+	if execErr != nil && errors.As(execErr, &preflightErr) && !errors.Is(execErr, ErrLeaseLost) {
+		if durableErr := r.recordPreflightFailure(context.WithoutCancel(ctx), turnRequest, preflightErr.stage, execErr); durableErr != nil {
 			execErr = fmt.Errorf("record durable preflight failure: %w (preflight: %v)", durableErr, execErr)
 		}
 	}
@@ -208,13 +216,9 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 // recordPreflightFailure closes an allocated turn whose worker never ran.
 // The blocker and terminal disposition are one atomic append, so restart can
 // never observe only the allocation or only a non-terminal blocker.
-func (r Runtime) recordPreflightFailure(ctx context.Context, req TurnRequest, preflightErr error) error {
+func (r Runtime) recordPreflightFailure(ctx context.Context, req TurnRequest, stage string, preflightErr error) error {
 	if r.Activity == nil {
 		return nil
-	}
-	stage := "turn-preflight"
-	if errors.Is(preflightErr, ErrUnsafeRepository) || strings.Contains(preflightErr.Error(), "repository") || strings.Contains(preflightErr.Error(), "HEAD") {
-		stage = "repository-preflight"
 	}
 	retryOf := recoveredTurn(req.Recovery)
 	for attempt := 0; attempt < 5; attempt++ {
@@ -230,15 +234,25 @@ func (r Runtime) recordPreflightFailure(ctx context.Context, req TurnRequest, pr
 		base := ActivityRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ProviderID: req.ProviderID, Actor: r.Controller.Ledger.Actor, Source: "praxis.controller", Trust: contracts.TrustObserved}
 		blocker := base
 		blocker.Type = ActivityBlockerDetected
-		blocker.Data = map[string]string{"stage": stage, "blocker": preflightErr.Error(), "retry_of": retryOf}
+		blocker.Data = sanitizeActivityData(map[string]string{"stage": stage, "blocker": preflightErr.Error(), "retry_of": retryOf})
 		terminal := base
 		terminal.Type = ActivityExecutionStateChanged
-		terminal.Data = map[string]string{"state": "blocked", "stage": stage, "retry_of": retryOf}
+		terminal.Data = sanitizeActivityData(map[string]string{"state": "blocked", "stage": stage, "retry_of": retryOf})
 		if _, err := r.Activity.AppendBatch(ctx, int64(len(existing)), []ActivityRecord{blocker, terminal}); !errors.Is(err, eventstore.ErrVersionConflict) {
 			return err
 		}
 	}
 	return eventstore.ErrVersionConflict
+}
+
+func cloneRecoveryContext(recovery *WorkerRecoveryContext) *WorkerRecoveryContext {
+	if recovery == nil {
+		return nil
+	}
+	cloned := *recovery
+	cloned.Files = append([]string(nil), recovery.Files...)
+	cloned.Commits = append([]string(nil), recovery.Commits...)
+	return &cloned
 }
 
 // recoveryObjective pins a recovery turn to the objective of the turn it

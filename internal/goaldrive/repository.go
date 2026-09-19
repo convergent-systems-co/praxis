@@ -36,6 +36,12 @@ type ConsequenceRepository interface {
 	Fingerprint(ctx context.Context) (fingerprint string, files []string, commits []string, err error)
 }
 
+// ConsequenceLineageRepository reports both the common recovery base and the
+// authoritative upstream identity used by Fingerprint.
+type ConsequenceLineageRepository interface {
+	ConsequenceLineage(ctx context.Context) (baseHead, remoteHead string, err error)
+}
+
 // recordConsequence binds the checkout's current consequence to a record
 // that leaves work unpublished (a BLOCKED turn, or a progressing turn whose
 // checkpoint was retained locally with --no-push) so recovery can later
@@ -52,6 +58,16 @@ func recordConsequence(ctx context.Context, repo RepositoryAdapter, record *Turn
 		return
 	}
 	record.ConsequenceFingerprint, record.ConsequenceFiles, record.ConsequenceCommits = fingerprint, files, commits
+	if len(commits) > 0 {
+		if based, ok := repo.(ConsequenceLineageRepository); ok {
+			if baseHead, remoteHead, baseErr := based.ConsequenceLineage(ctx); baseErr == nil {
+				record.ConsequenceBaseHead, record.ConsequenceRemoteHead = baseHead, remoteHead
+			}
+		}
+		if record.ConsequenceBaseHead == "" {
+			record.ConsequenceBaseHead = record.StartHead
+		}
+	}
 }
 
 // RecoveryStartRepository admits a checkout that carries a bound recovery
@@ -73,7 +89,22 @@ type DivergedRecoveryRepository interface {
 // CheckpointLineageVerifier is the controller-owned publication fence for a
 // reconciled recovery checkpoint. The worker cannot satisfy or bypass it.
 type CheckpointLineageVerifier interface {
-	VerifyCheckpointLineage(ctx context.Context, remoteHead, checkpointHead string) error
+	VerifyCheckpointLineage(ctx context.Context, remoteHead, retainedHead, checkpointHead string) (disposition string, err error)
+}
+
+type preflightFailure struct {
+	stage string
+	err   error
+}
+
+func (e *preflightFailure) Error() string { return e.err.Error() }
+func (e *preflightFailure) Unwrap() error { return e.err }
+
+func preflight(stage string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &preflightFailure{stage: stage, err: err}
 }
 
 // DeclaredValidator is implemented by repository adapters that can run the
@@ -164,18 +195,18 @@ func PublishCheckpoint(ctx context.Context, repo RepositoryAdapter, record TurnR
 func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnRequest, repo RepositoryAdapter) (TurnRecord, error) {
 	snapshot, err := PrepareRepository(ctx, repo)
 	if err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, preflight("repository-preflight", err)
 	}
 	if req.StartHead != "" && req.StartHead != snapshot.Head {
-		return TurnRecord{}, fmt.Errorf("requested start HEAD %q differs from synchronized HEAD %q", req.StartHead, snapshot.Head)
+		return TurnRecord{}, preflight("repository-preflight", fmt.Errorf("requested start HEAD %q differs from synchronized HEAD %q", req.StartHead, snapshot.Head))
 	}
 	req.StartHead = snapshot.Head
 	if req.Recovery != nil && snapshot.Relation == contracts.RelationDiverged {
 		if snapshot.RemoteHead == "" || snapshot.BaseHead == "" || req.Recovery.BaseHead == "" || snapshot.BaseHead != req.Recovery.BaseHead {
-			return TurnRecord{}, fmt.Errorf("%w: divergent recovery base %q does not match the blocked turn base %q", ErrUnsafeRepository, snapshot.BaseHead, req.Recovery.BaseHead)
+			return TurnRecord{}, preflight("repository-preflight", fmt.Errorf("%w: divergent recovery base %q does not match the blocked turn base %q", ErrUnsafeRepository, snapshot.BaseHead, req.Recovery.BaseHead))
 		}
 		if len(req.Recovery.Commits) == 0 || req.Recovery.Commits[len(req.Recovery.Commits)-1] != snapshot.Head {
-			return TurnRecord{}, fmt.Errorf("%w: divergent recovery HEAD %q is not the retained consequence HEAD", ErrUnsafeRepository, snapshot.Head)
+			return TurnRecord{}, preflight("repository-preflight", fmt.Errorf("%w: divergent recovery HEAD %q is not the retained consequence HEAD", ErrUnsafeRepository, snapshot.Head))
 		}
 		req.Recovery.RemoteHead = snapshot.RemoteHead
 	}
@@ -188,23 +219,26 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	}
 	_, req, err = c.prepare(ctx, req)
 	if err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, preflight("turn-preflight", err)
 	}
 	if err := c.emit(ctx, ActivityExecutionStarted, req, map[string]string{"mode": string(req.Mode)}); err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, preflight("dispatch-preflight", err)
 	}
 	if req.Recovery != nil {
-		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "base_head": req.Recovery.BaseHead, "commits": strings.Join(req.Recovery.Commits, ","), "provenance": req.Recovery.Provenance, "blocker": req.Recovery.Blocker}); err != nil {
-			return TurnRecord{}, err
+		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "base_head": req.Recovery.BaseHead, "remote_head": req.Recovery.RemoteHead, "commits": strings.Join(req.Recovery.Commits, ","), "provenance": req.Recovery.Provenance, "blocker": req.Recovery.Blocker}); err != nil {
+			return TurnRecord{}, preflight("dispatch-preflight", err)
 		}
 	}
 	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, preflight("dispatch-preflight", err)
 	}
 	if err := c.emitEnvelope(ctx, req); err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, preflight("dispatch-preflight", err)
 	}
-	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
+	record, workerErr, workerInvoked := c.invokeRepositoryTurn(ctx, req, repo)
+	if workerErr != nil && !workerInvoked {
+		return TurnRecord{}, preflight("dispatch-preflight", workerErr)
+	}
 	interrupted := ctx.Err() != nil
 	// Everything durable after the worker returns runs on a context that
 	// survives the interruption that may have stopped the worker (#163).
@@ -242,7 +276,8 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 			if !ok {
 				err = errors.New("repository cannot verify recovered checkpoint lineage")
 			} else {
-				err = verifier.VerifyCheckpointLineage(ctx, req.Recovery.RemoteHead, record.EndHead)
+				retainedHead := req.StartHead
+				record.RecoveryDisposition, err = verifier.VerifyCheckpointLineage(ctx, req.Recovery.RemoteHead, retainedHead, record.EndHead)
 			}
 			if err == nil {
 				record.CheckpointEvidence = append(record.CheckpointEvidence, "repository:verified-recovery-lineage")
@@ -283,46 +318,48 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	return record, nil
 }
 
-func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, repo RepositoryAdapter) (TurnRecord, error) {
+func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, repo RepositoryAdapter) (TurnRecord, error, bool) {
 	worker, err := c.worker(req)
 	if err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, err, false
 	}
 	if derived, ok := worker.(RepositoryDerivedWorker); ok && derived.RepositoryResultIsControllerOwned() {
 		if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
-			return TurnRecord{}, err
+			return TurnRecord{}, err, false
 		}
 		result, workerErr := worker.Execute(ctx, c.workerRequest(req))
 		ctx = context.WithoutCancel(ctx)
 		if workerErr != nil {
 			if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
-				return TurnRecord{}, err
+				return TurnRecord{}, err, true
 			}
 		} else {
 			if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
-				return TurnRecord{}, err
+				return TurnRecord{}, err, true
 			}
 		}
 		base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence, RetryOf: recoveredTurn(req.Recovery)}
+		bindRecoveryLineage(&base, req.Recovery)
 		if workerErr != nil {
 			base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
 			base.EndHead = c.observedHead(ctx, repo)
-			return base, workerErr
+			return base, workerErr, true
 		}
-		return c.deriveRepositoryOutcome(ctx, req, repo, base)
+		derived, err := c.deriveRepositoryOutcome(ctx, req, repo, base)
+		return derived, err, true
 	}
 	// A worker that reports its own outcome (the environment command worker)
 	// is still not the authority on the repository: the same inspection
 	// decides clean tree, progress, and declared validation, and its
 	// reported EndHead must be what the checkout shows. A claimed
 	// NO_PROGRESS is inspected too, so uncommitted work is never dropped.
-	record, workerErr := c.invoke(ctx, req)
+	record, workerErr, workerInvoked := c.invoke(ctx, req)
 	ctx = context.WithoutCancel(ctx)
 	if workerErr != nil {
 		if record.EndHead == "" {
 			record.EndHead = c.observedHead(ctx, repo)
 		}
-		return record, workerErr
+		return record, workerErr, workerInvoked
 	}
 	if record.Outcome == OutcomeBlocked || record.Outcome == OutcomeUserDecisionRequired {
 		// The worker stopped on its own account; the checkout must still not
@@ -332,23 +369,23 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 			if !snapshot.Clean {
 				record.Outcome = OutcomeBlocked
 				record.Blocker = "provider left repository with uncommitted changes; no checkpoint is valid"
-				return record, errors.New(record.Blocker)
+				return record, errors.New(record.Blocker), workerInvoked
 			}
 		}
-		return record, nil
+		return record, nil, workerInvoked
 	}
 	claimed := record.EndHead
 	record.Progress = false
 	derived, err := c.deriveRepositoryOutcome(ctx, req, repo, record)
 	if err != nil {
-		return derived, err
+		return derived, err, workerInvoked
 	}
 	if claimed != "" && derived.EndHead != claimed {
 		derived.Outcome, derived.Progress = OutcomeBlocked, false
 		derived.Blocker = fmt.Sprintf("worker reported end head %s but the checkout is at %s; no checkpoint is valid", claimed, derived.EndHead)
-		return derived, errors.New(derived.Blocker)
+		return derived, errors.New(derived.Blocker), workerInvoked
 	}
-	return derived, nil
+	return derived, nil, workerInvoked
 }
 
 // observedHead reads the checkout HEAD after a failed worker so the BLOCKED
@@ -388,6 +425,9 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 		return base, errors.New(base.Blocker)
 	}
 	claimStart := req.StartHead
+	if req.Recovery != nil && req.Recovery.BaseHead != "" && len(req.Recovery.Commits) > 0 {
+		claimStart = req.Recovery.BaseHead
+	}
 	recoveredUnchanged := snapshot.Head == req.StartHead && req.Recovery != nil && len(req.Recovery.Commits) > 0
 	if snapshot.Head == req.StartHead && !recoveredUnchanged {
 		base.Outcome = OutcomeNoProgress
@@ -432,7 +472,18 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 	base.Progress = true
 	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
 	if claims, ok := repo.(CompletionClaimRepository); ok {
-		units, err := claims.CompletionClaims(ctx, claimStart, snapshot.Head)
+		var units []string
+		var err error
+		if req.Recovery != nil && req.Recovery.RemoteHead != "" {
+			recoveryClaims, recoveryOK := repo.(RecoveryCompletionClaimRepository)
+			if !recoveryOK {
+				err = errors.New("repository cannot isolate recovery completion claims")
+			} else {
+				units, err = recoveryClaims.RecoveryCompletionClaims(ctx, req.Recovery.RemoteHead, snapshot.Head)
+			}
+		} else {
+			units, err = claims.CompletionClaims(ctx, claimStart, snapshot.Head)
+		}
 		if err != nil {
 			base.Outcome, base.Progress, base.Blocker = OutcomeBlocked, false, fmt.Sprintf("read unit completion claims: %v", err)
 			return base, errors.New(base.Blocker)
@@ -447,6 +498,17 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 		}
 	}
 	return base, nil
+}
+
+func bindRecoveryLineage(record *TurnRecord, recovery *WorkerRecoveryContext) {
+	if record == nil || recovery == nil {
+		return
+	}
+	record.RecoveryBaseHead = recovery.BaseHead
+	record.RecoveryRemoteHead = recovery.RemoteHead
+	if len(recovery.Commits) > 0 {
+		record.RecoveryRetainedHead = recovery.Commits[len(recovery.Commits)-1]
+	}
 }
 
 // unitCompletionPredicates are the controller-owned conditions under which a

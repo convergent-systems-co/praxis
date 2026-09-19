@@ -58,6 +58,12 @@ type CompletionClaimRepository interface {
 	CompletionClaims(ctx context.Context, startHead, endHead string) ([]string, error)
 }
 
+// RecoveryCompletionClaimRepository isolates worker-authored proposals from
+// commits already present on the authoritative remote and from merge commits.
+type RecoveryCompletionClaimRepository interface {
+	RecoveryCompletionClaims(ctx context.Context, remoteHead, endHead string) ([]string, error)
+}
+
 // ErrAmbiguousCompletionClaim reports a claim line that starts with the
 // completion key but does not carry exactly one unit identity. Praxis fails
 // closed: it neither guesses the unit nor treats the line as prose (#164).

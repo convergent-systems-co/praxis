@@ -40,6 +40,23 @@ func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []str
 	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
 }
 
+func (r GitRepository) ConsequenceLineage(ctx context.Context) (string, string, error) {
+	remote, err := r.run(ctx, "rev-parse", "--verify", "refs/remotes/"+r.Remote+"/"+r.Branch+"^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	local, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	remote, local = strings.TrimSpace(remote), strings.TrimSpace(local)
+	base, err := r.run(ctx, "merge-base", local, remote)
+	if err != nil {
+		return "", "", err
+	}
+	return strings.TrimSpace(base), remote, nil
+}
+
 // CompletionClaims returns the units proposed complete by the commits the
 // worker added between the two checkpoints. It reads every full commit
 // message of the span and applies the worker-facing contract
@@ -65,6 +82,27 @@ func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead 
 	units, err := ParseCompletionClaims(messages)
 	if err != nil {
 		return nil, fmt.Errorf("read completion proposals in %s: %w", span, err)
+	}
+	return units, nil
+}
+
+func (r GitRepository) RecoveryCompletionClaims(ctx context.Context, remoteHead, endHead string) ([]string, error) {
+	if remoteHead == "" || endHead == "" {
+		return nil, errors.New("recovery completion claims require remote and checkpoint HEADs")
+	}
+	output, err := r.run(ctx, "log", "-z", "--no-merges", "--format=%B", remoteHead+".."+endHead)
+	if err != nil {
+		return nil, fmt.Errorf("read recovery commit messages: %w", err)
+	}
+	var messages []string
+	for _, message := range strings.Split(output, "\x00") {
+		if strings.TrimSpace(message) != "" {
+			messages = append(messages, message)
+		}
+	}
+	units, err := ParseCompletionClaims(messages)
+	if err != nil {
+		return nil, fmt.Errorf("read recovery completion proposals in %s..%s: %w", remoteHead, endHead, err)
 	}
 	return units, nil
 }
@@ -162,29 +200,46 @@ func (r GitRepository) VerifyDivergedRecovery(ctx context.Context) (string, stri
 // VerifyCheckpointLineage fences publication to the exact authority observed
 // at recovery preflight. A concurrent remote advance requires a fresh turn;
 // the controller never asks the worker to guess or overwrite it.
-func (r GitRepository) VerifyCheckpointLineage(ctx context.Context, remoteHead, checkpointHead string) error {
-	if remoteHead == "" || checkpointHead == "" {
-		return errors.New("remote and checkpoint HEADs are required for lineage verification")
+func (r GitRepository) VerifyCheckpointLineage(ctx context.Context, remoteHead, retainedHead, checkpointHead string) (string, error) {
+	if remoteHead == "" || retainedHead == "" || checkpointHead == "" {
+		return "", errors.New("remote, retained, and checkpoint HEADs are required for lineage verification")
 	}
 	if _, err := r.run(ctx, "fetch", "--quiet", r.Remote, r.Branch); err != nil {
-		return fmt.Errorf("fetch checkpoint authority: %w", err)
+		return "", fmt.Errorf("fetch checkpoint authority: %w", err)
 	}
 	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
 	current, err := r.run(ctx, "rev-parse", "--verify", remoteRef+"^{commit}")
 	if err != nil {
-		return err
+		return "", err
 	}
 	if current = strings.TrimSpace(current); current != remoteHead {
-		return fmt.Errorf("authoritative remote advanced from %s to %s during recovery", remoteHead, current)
+		return "", fmt.Errorf("authoritative remote advanced from %s to %s during recovery", remoteHead, current)
 	}
 	spans, err := r.isAncestor(ctx, remoteHead, checkpointHead)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !spans {
-		return fmt.Errorf("recovered checkpoint %s does not contain authoritative remote %s", checkpointHead, remoteHead)
+		return "", fmt.Errorf("recovered checkpoint %s does not contain authoritative remote %s", checkpointHead, remoteHead)
 	}
-	return nil
+	retained, err := r.isAncestor(ctx, retainedHead, checkpointHead)
+	if err != nil {
+		return "", err
+	}
+	if retained {
+		return "merged", nil
+	}
+	if checkpointHead == remoteHead {
+		return "", errors.New("recovered checkpoint silently drops the retained consequence without a worker-authored replacement")
+	}
+	replacements, err := r.run(ctx, "rev-list", "--no-merges", remoteHead+".."+checkpointHead)
+	if err != nil {
+		return "", fmt.Errorf("inspect recovery replacement lineage: %w", err)
+	}
+	if strings.TrimSpace(replacements) == "" {
+		return "", errors.New("recovered checkpoint neither contains the retained consequence nor records a worker-authored replacement")
+	}
+	return "replaced", nil
 }
 
 func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart }

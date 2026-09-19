@@ -402,7 +402,10 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	}
 	baseHead := ""
 	if len(commits) > 0 {
-		baseHead = recovered.StartHead
+		baseHead = recovered.ConsequenceBaseHead
+		if baseHead == "" {
+			baseHead = recovered.StartHead
+		}
 		if baseHead == "" {
 			return nil, "", errors.New("recorded recovery commit span has no starting base HEAD")
 		}

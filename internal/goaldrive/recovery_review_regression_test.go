@@ -302,8 +302,33 @@ func TestDivergentRecoveryRejectsConcurrentRemoteAdvanceAndRecordsFence(t *testi
 		t.Fatalf("concurrent remote advance must fence publication: record=%+v err=%v", record, err)
 	}
 	encoded, _ := json.Marshal(record)
-	if !strings.Contains(string(encoded), `"recovery_remote_head":"`+fixture.remoteHead+`"`) || !strings.Contains(string(encoded), `"consequence_base_head":`) {
+	if !strings.Contains(string(encoded), `"recovery_remote_head":"`+fixture.remoteHead+`"`) || !strings.Contains(string(encoded), `"consequence_base_head":`) || !strings.Contains(string(encoded), `"consequence_remote_head":`) {
 		t.Fatalf("remote fence and new consequence base must be durable: %s", encoded)
+	}
+	if record.ConsequenceBaseHead == "" || record.ConsequenceRemoteHead == "" || record.ConsequenceBaseHead == record.ConsequenceRemoteHead {
+		t.Fatalf("fenced consequence must distinguish its common base from the advanced authority: %+v", record)
+	}
+
+	controller.Worker = ProviderCLIWorker{ProviderID: "local", Dir: fixture.work, Command: []string{"git", "merge", "-q", "--no-edit", "origin/main"}}
+	retry := contractRequest("unit:one")
+	retry.InvocationID, retry.TurnID = "inv-contract-retry", "inv-contract-retry:turn:1"
+	retry.Recovery = &WorkerRecoveryContext{
+		RecoveredTurnID: record.TurnID,
+		Objective:       record.ChildObjective,
+		Blocker:         record.Blocker,
+		Fingerprint:     record.ConsequenceFingerprint,
+		Files:           append([]string(nil), record.ConsequenceFiles...),
+		BaseHead:        record.ConsequenceBaseHead,
+		RemoteHead:      record.ConsequenceRemoteHead,
+		Commits:         append([]string(nil), record.ConsequenceCommits...),
+		Provenance:      RecoveryProvenanceRecorded,
+	}
+	retryRepo := fixture.repository()
+	retryRepo.AllowRecoveryStart = true
+	retryRepo.RecoveryDigest = record.ConsequenceFingerprint
+	retried, retryErr := controller.ExecuteTurnWithRepository(ctx, retry, retryRepo)
+	if retryErr != nil || !retried.CheckpointPublished || retried.RecoveryDisposition != "merged" {
+		t.Fatalf("fenced consequence must remain exactly recoverable on retry: record=%+v err=%v", retried, retryErr)
 	}
 }
 

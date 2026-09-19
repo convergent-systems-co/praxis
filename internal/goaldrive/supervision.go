@@ -113,37 +113,78 @@ type ActivityLog struct {
 }
 
 func (l ActivityLog) Append(ctx context.Context, expectedVersion int64, record ActivityRecord) (ActivityRecord, error) {
-	if l.Store == nil {
-		return ActivityRecord{}, errors.New("supervision event store is required")
-	}
-	if err := validateActivity(record); err != nil {
+	appended, err := l.AppendBatch(ctx, expectedVersion, []ActivityRecord{record})
+	if err != nil {
 		return ActivityRecord{}, err
+	}
+	return appended[0], nil
+}
+
+// AppendBatch atomically appends ordered records for one exact turn stream.
+func (l ActivityLog) AppendBatch(ctx context.Context, expectedVersion int64, records []ActivityRecord) ([]ActivityRecord, error) {
+	if l.Store == nil {
+		return nil, errors.New("supervision event store is required")
+	}
+	if len(records) == 0 {
+		return nil, errors.New("supervision activity batch is required")
 	}
 	if err := l.Actor.Validate(); err != nil {
-		return ActivityRecord{}, fmt.Errorf("supervision actor: %w", err)
+		return nil, fmt.Errorf("supervision actor: %w", err)
 	}
-	if record.CreatedAt.IsZero() {
-		record.CreatedAt = time.Now().UTC()
+	aggregateID := activityAggregate(records[0].InvocationID, records[0].TurnID)
+	proposed := make([]eventstore.Event, len(records))
+	prepared := make([]ActivityRecord, len(records))
+	for i, record := range records {
+		if err := validateActivity(record); err != nil {
+			return nil, err
+		}
+		if activityAggregate(record.InvocationID, record.TurnID) != aggregateID {
+			return nil, errors.New("supervision activity batch requires one exact turn stream")
+		}
+		if record.CreatedAt.IsZero() {
+			record.CreatedAt = time.Now().UTC()
+		}
+		if record.ID == "" {
+			record.ID = activityID()
+		}
+		payload, err := json.Marshal(record)
+		if err != nil {
+			return nil, fmt.Errorf("encode supervision activity: %w", err)
+		}
+		prepared[i] = record
+		proposed[i] = eventstore.Event{
+			ID: aggregateID + ":" + record.ID, AggregateType: supervisionAggregateType, Type: string(record.Type), Version: supervisionEventVersion,
+			Actor: record.Actor, CommandID: "supervision:" + record.ID, CorrelationID: aggregateID, CausationID: record.CausationID,
+			Trust: record.Trust, Payload: payload, CreatedAt: record.CreatedAt,
+		}
 	}
-	if record.ID == "" {
-		record.ID = activityID()
-	}
-	payload, err := json.Marshal(record)
+	appended, err := l.Store.Append(ctx, aggregateID, expectedVersion, proposed)
 	if err != nil {
-		return ActivityRecord{}, fmt.Errorf("encode supervision activity: %w", err)
+		return nil, err
 	}
-	aggregateID := activityAggregate(record.InvocationID, record.TurnID)
-	eventActor := record.Actor
-	appended, err := l.Store.Append(ctx, aggregateID, expectedVersion, []eventstore.Event{{
-		ID: aggregateID + ":" + record.ID, AggregateType: supervisionAggregateType, Type: string(record.Type), Version: supervisionEventVersion,
-		Actor: eventActor, CommandID: "supervision:" + record.ID, CorrelationID: aggregateID, CausationID: record.CausationID,
-		Trust: record.Trust, Payload: payload, CreatedAt: record.CreatedAt,
-	}})
+	if len(appended) != len(prepared) {
+		return nil, errors.New("supervision event store returned an incomplete append result")
+	}
+	for i := range prepared {
+		prepared[i].StreamVersion = appended[i].AggregateVersion
+	}
+	return prepared, nil
+}
+
+// StreamVersion reads only event metadata so a serialized writer can cache the
+// optimistic version without repeatedly decoding the whole supervision stream.
+func (l ActivityLog) StreamVersion(ctx context.Context, invocationID, turnID string) (int64, error) {
+	if l.Store == nil || invocationID == "" || turnID == "" {
+		return 0, errors.New("supervision store and exact execution identity are required")
+	}
+	events, err := l.Store.LoadAggregate(ctx, activityAggregate(invocationID, turnID), 0)
 	if err != nil {
-		return ActivityRecord{}, err
+		return 0, err
 	}
-	record.StreamVersion = appended[0].AggregateVersion
-	return record, nil
+	if len(events) == 0 {
+		return 0, nil
+	}
+	return events[len(events)-1].AggregateVersion, nil
 }
 
 // AppendNext is safe for concurrent controller/CLI writers and retries only

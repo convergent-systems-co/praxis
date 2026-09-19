@@ -85,24 +85,31 @@ func (w CommandWorker) Execute(ctx context.Context, request WorkerRequest) (Work
 	cmd.Stderr = io.MultiWriter(stderr, messageWriter)
 	control := watchInterventions(processCtx, cancel, request)
 	if err := cmd.Run(); err != nil {
-		messageWriter.Flush()
+		signal := stopIntervention(control)
+		messageWriter.Flush(signal != "" || ctx.Err() != nil)
+		if signal == "" {
+			signal = stopIntervention(control)
+		}
+		if signal == ActivitySuspendRequested {
+			return WorkerResult{}, providerControlError(ErrExecutionSuspended, messageWriter.err)
+		}
+		if signal == ActivityCancelRequested {
+			return WorkerResult{}, providerControlError(ErrExecutionCancelled, messageWriter.err)
+		}
 		if messageWriter.err != nil {
 			return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 		}
-		signal := stopIntervention(control)
-		if signal == ActivitySuspendRequested {
-			return WorkerResult{}, ErrExecutionSuspended
-		}
-		if signal == ActivityCancelRequested {
-			return WorkerResult{}, ErrExecutionCancelled
-		}
 		return WorkerResult{}, fmt.Errorf("worker %s failed: %w: %s", w.ProviderID, err, redactProcessOutput(stderr.String(), os.Environ()))
 	}
-	messageWriter.Flush()
+	messageWriter.Flush(false)
+	if signal := stopIntervention(control); signal == ActivitySuspendRequested {
+		return WorkerResult{}, providerControlError(ErrExecutionSuspended, messageWriter.err)
+	} else if signal == ActivityCancelRequested {
+		return WorkerResult{}, providerControlError(ErrExecutionCancelled, messageWriter.err)
+	}
 	if messageWriter.err != nil {
 		return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 	}
-	stopIntervention(control)
 	if stdout.truncated {
 		return WorkerResult{}, errors.New("worker result exceeds configured output limit")
 	}

@@ -9,8 +9,10 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -93,32 +95,46 @@ func (w ProviderCLIWorker) Execute(ctx context.Context, request WorkerRequest) (
 	cmd.Stderr = io.MultiWriter(stderr, messageWriter)
 	control := watchInterventions(processCtx, cancel, request)
 	if err := cmd.Run(); err != nil {
-		messageWriter.Flush()
+		signal := stopIntervention(control)
+		messageWriter.Flush(signal != "" || ctx.Err() != nil)
+		if signal == "" {
+			signal = stopIntervention(control)
+		}
+		if signal == ActivitySuspendRequested {
+			return WorkerResult{}, providerControlError(ErrExecutionSuspended, messageWriter.err)
+		}
+		if signal == ActivityCancelRequested {
+			return WorkerResult{}, providerControlError(ErrExecutionCancelled, messageWriter.err)
+		}
+		if ctx.Err() != nil {
+			return WorkerResult{}, providerControlError(fmt.Errorf("provider %s interrupted: %w", w.ProviderID, ctx.Err()), messageWriter.err)
+		}
 		if messageWriter.err != nil {
 			return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 		}
-		signal := stopIntervention(control)
-		if signal == ActivitySuspendRequested {
-			return WorkerResult{}, ErrExecutionSuspended
-		}
-		if signal == ActivityCancelRequested {
-			return WorkerResult{}, ErrExecutionCancelled
-		}
-		if ctx.Err() != nil {
-			return WorkerResult{}, fmt.Errorf("provider %s interrupted: %w", w.ProviderID, ctx.Err())
-		}
 		return WorkerResult{}, fmt.Errorf("provider %s failed: %w: %s", w.ProviderID, err, redactProcessOutput(stderr.String(), os.Environ()))
 	}
-	messageWriter.Flush()
+	messageWriter.Flush(false)
+	if signal := stopIntervention(control); signal == ActivitySuspendRequested {
+		return WorkerResult{}, providerControlError(ErrExecutionSuspended, messageWriter.err)
+	} else if signal == ActivityCancelRequested {
+		return WorkerResult{}, providerControlError(ErrExecutionCancelled, messageWriter.err)
+	}
 	if messageWriter.err != nil {
 		return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 	}
-	stopIntervention(control)
 	if stdout.truncated || stderr.truncated {
 		return WorkerResult{}, errors.New("provider transcript exceeds configured output limit")
 	}
 	// The transcript is intentionally not returned, persisted, or interpreted.
 	return WorkerResult{Outcome: OutcomeContinue, ExecutorID: w.ProviderID, CheckpointEvidence: []string{"provider-process:completed"}}, nil
+}
+
+func providerControlError(primary, transcriptErr error) error {
+	if transcriptErr == nil {
+		return primary
+	}
+	return fmt.Errorf("%w: %v", primary, transcriptErr)
 }
 
 type interventionControl struct {
@@ -176,27 +192,51 @@ func stopIntervention(control interventionControl) ActivityType {
 }
 
 type providerMessageWriter struct {
-	mu       sync.Mutex
-	cond     *sync.Cond
-	ctx      context.Context
-	cancel   context.CancelFunc
-	request  WorkerRequest
-	provider string
-	buffer   strings.Builder
-	queue    []string
-	closed   bool
-	done     chan struct{}
-	err      error
+	mu                         sync.Mutex
+	cond                       *sync.Cond
+	turnCtx                    context.Context
+	ctx                        context.Context
+	cancel                     context.CancelFunc
+	request                    WorkerRequest
+	provider                   string
+	buffer                     strings.Builder
+	queue                      []string
+	accepted                   int
+	confirmed                  atomic.Int64
+	closed                     bool
+	done                       chan providerMessagePersistResult
+	shutdownTimeout            time.Duration
+	interruptedShutdownTimeout time.Duration
+	err                        error
 }
 
-const providerMessageShutdownTimeout = 30 * time.Second
+type providerMessagePersistResult struct {
+	confirmed int
+	err       error
+}
+
+const (
+	providerMessageBatchSize                  = 512
+	providerMessageShutdownTimeout            = 2 * time.Minute
+	providerMessageInterruptedShutdownTimeout = 30 * time.Second
+	providerMessageDeadlineGrace              = 30 * time.Second
+)
 
 func newProviderMessageWriter(ctx context.Context, request WorkerRequest, provider string) *providerMessageWriter {
-	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	w := &providerMessageWriter{ctx: ctx, cancel: cancel, request: request, provider: provider, done: make(chan struct{})}
+	persistCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	w := &providerMessageWriter{
+		turnCtx: ctx, ctx: persistCtx, cancel: cancel, request: request, provider: provider,
+		done: make(chan providerMessagePersistResult, 1), shutdownTimeout: providerMessageShutdownTimeout,
+		interruptedShutdownTimeout: providerMessageInterruptedShutdownTimeout,
+	}
 	w.cond = sync.NewCond(&w.mu)
 	go w.persist()
 	return w
+}
+
+func (w *providerMessageWriter) setProviderMessageShutdownTimeout(timeout time.Duration) {
+	w.shutdownTimeout = timeout
+	w.interruptedShutdownTimeout = timeout
 }
 
 func (w *providerMessageWriter) Write(p []byte) (int, error) {
@@ -217,7 +257,7 @@ func (w *providerMessageWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (w *providerMessageWriter) Flush() {
+func (w *providerMessageWriter) Flush(interrupted ...bool) {
 	w.mu.Lock()
 	if strings.TrimSpace(w.buffer.String()) != "" {
 		w.enqueue(strings.TrimSpace(w.buffer.String()))
@@ -225,11 +265,52 @@ func (w *providerMessageWriter) Flush() {
 	w.buffer.Reset()
 	w.closed = true
 	w.cond.Broadcast()
+	total := w.accepted
 	w.mu.Unlock()
-	timer := time.AfterFunc(providerMessageShutdownTimeout, w.cancel)
-	<-w.done
-	timer.Stop()
-	w.cancel()
+	timeout := w.flushTimeout(len(interrupted) > 0 && interrupted[0])
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case result := <-w.done:
+		w.cancel()
+		w.err = providerMessagePersistenceError(result.err, result.confirmed, total)
+	case <-timer.C:
+		w.cancel()
+		confirmed := int(w.confirmed.Load())
+		w.err = providerMessagePersistenceError(errors.New("shutdown timeout"), confirmed, total)
+	}
+}
+
+func (w *providerMessageWriter) flushTimeout(interrupted bool) time.Duration {
+	timeout := w.shutdownTimeout
+	if interrupted || w.turnCtx.Err() != nil {
+		timeout = w.interruptedShutdownTimeout
+	} else if deadline, ok := w.turnCtx.Deadline(); ok {
+		if remaining := time.Until(deadline) + providerMessageDeadlineGrace; remaining > timeout {
+			timeout = remaining
+		}
+	}
+	if timeout <= 0 {
+		return time.Nanosecond
+	}
+	return timeout
+}
+
+func providerMessagePersistenceError(cause error, confirmed, total int) error {
+	if cause == nil {
+		return nil
+	}
+	if confirmed < 0 {
+		confirmed = 0
+	}
+	if confirmed > total {
+		confirmed = total
+	}
+	unconfirmed := total - confirmed
+	if unconfirmed == 0 {
+		return cause
+	}
+	return fmt.Errorf("provider transcript persistence incomplete: confirmed=%d total=%d unconfirmed=%d ordinals=%d-%d: %w", confirmed, total, unconfirmed, confirmed+1, total, cause)
 }
 
 func (w *providerMessageWriter) enqueue(message string) {
@@ -237,11 +318,14 @@ func (w *providerMessageWriter) enqueue(message string) {
 		return
 	}
 	w.queue = append(w.queue, message)
+	w.accepted++
 	w.cond.Signal()
 }
 
 func (w *providerMessageWriter) persist() {
-	defer close(w.done)
+	result := providerMessagePersistResult{}
+	defer func() { w.done <- result }()
+	version, versionKnown := int64(0), false
 	for {
 		w.mu.Lock()
 		for len(w.queue) == 0 && !w.closed {
@@ -251,22 +335,59 @@ func (w *providerMessageWriter) persist() {
 			w.mu.Unlock()
 			return
 		}
-		message := w.queue[0]
-		w.queue[0] = ""
-		w.queue = w.queue[1:]
+		batchSize := len(w.queue)
+		if batchSize > providerMessageBatchSize {
+			batchSize = providerMessageBatchSize
+		}
+		messages := append([]string(nil), w.queue[:batchSize]...)
+		for i := range w.queue[:batchSize] {
+			w.queue[i] = ""
+		}
+		w.queue = w.queue[batchSize:]
 		w.mu.Unlock()
-		w.emit(message)
+		if err := w.emitBatch(messages, &version, &versionKnown); err != nil {
+			result.err = err
+			return
+		}
+		result.confirmed += len(messages)
+		w.confirmed.Store(int64(result.confirmed))
 	}
 }
 
-func (w *providerMessageWriter) emit(message string) {
-	if w.request.Activity == nil || message == "" {
-		return
+func (w *providerMessageWriter) emitBatch(messages []string, version *int64, versionKnown *bool) error {
+	if w.request.Activity == nil || len(messages) == 0 {
+		return nil
 	}
-	message = redactProcessOutput(sanitizeActivityText(message), os.Environ())
-	if _, err := w.request.Activity.Emit(w.ctx, ActivityProviderMessage, w.request, contracts.PrincipalRef{ID: w.provider, Kind: "provider"}, contracts.TrustUntrustedContent, "provider:"+w.provider, map[string]string{"message": message, "stream": "user-facing"}); err != nil && w.err == nil {
-		w.err = err
+	records := make([]ActivityRecord, len(messages))
+	for i, message := range messages {
+		message = redactProcessOutput(sanitizeActivityText(message), os.Environ())
+		records[i] = ActivityRecord{
+			Type: ActivityProviderMessage, GoalID: w.request.GoalID, GoalVersion: w.request.GoalVersion,
+			InvocationID: w.request.InvocationID, TurnID: w.request.TurnID, ProviderID: w.request.ProviderID,
+			Actor: contracts.PrincipalRef{ID: w.provider, Kind: "provider"}, Source: "provider:" + w.provider,
+			Trust: contracts.TrustUntrustedContent, Data: sanitizeActivityData(map[string]string{"message": message, "stream": "user-facing"}),
+		}
 	}
+	for attempt := 0; attempt < 5; attempt++ {
+		if !*versionKnown {
+			current, err := w.request.Activity.StreamVersion(w.ctx, w.request.InvocationID, w.request.TurnID)
+			if err != nil {
+				return err
+			}
+			*version = current
+			*versionKnown = true
+		}
+		appended, err := w.request.Activity.AppendBatch(w.ctx, *version, records)
+		if err == nil {
+			*version = appended[len(appended)-1].StreamVersion
+			return nil
+		}
+		if !errors.Is(err, eventstore.ErrVersionConflict) {
+			return err
+		}
+		*versionKnown = false
+	}
+	return eventstore.ErrVersionConflict
 }
 
 func providerPrompt(request WorkerRequest) (string, error) {

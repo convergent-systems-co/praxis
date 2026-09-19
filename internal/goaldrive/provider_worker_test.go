@@ -36,9 +36,10 @@ func TestProviderTranscriptHelperProcess(t *testing.T) {
 	}
 	w := bufio.NewWriter(os.Stdout)
 	_, _ = fmt.Fprintln(w, "api_key=secret-value")
-	for i := 1; i < 30565; i++ {
-		_, _ = fmt.Fprintf(w, "provider-line-%05d\n", i)
+	for i := 1; i < 30564; i++ {
+		_, _ = fmt.Fprintln(w, "provider-line")
 	}
+	_, _ = fmt.Fprintln(w, "provider-finished")
 	_ = w.Flush()
 	os.Exit(0)
 }
@@ -105,7 +106,7 @@ func TestProviderCLIWorkerPersistsLargeQueuedTranscriptWithoutQuadraticReload(t 
 	if len(events) != 30565 {
 		t.Fatalf("large provider transcript is incomplete: got %d events", len(events))
 	}
-	if events[0].Data["message"] != "api_key=[REDACTED]" || events[len(events)-1].Data["message"] != "provider-line-30564" {
+	if events[0].Data["message"] != "api_key=[REDACTED]" || events[len(events)-1].Data["message"] != "provider-finished" {
 		t.Fatalf("large provider transcript lost order or redaction: first=%q last=%q", events[0].Data["message"], events[len(events)-1].Data["message"])
 	}
 	for _, event := range events {

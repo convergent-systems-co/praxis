@@ -180,9 +180,17 @@ the deterministic verifier's evaluation immediately: an element the
 contract binds with a validity predicate of the exact form
 `verify success_criteria/<n> with declared-validation` (or
 `verify constraint/<n> with …`) is run through `./.praxis/validate <ref>`
-at the final checkpoint; the integrated consequence is always checked with
-`./.praxis/validate integrated`; the checkout must be at the final
-checkpoint or the verifier fails closed; everything else is UNKNOWN with
+at the final checkpoint and counts as verified only when the validator
+acknowledges that exact element by printing `praxis-verify: <ref>` (the
+exit status then decides satisfied or unsatisfied); a run that prints no
+acknowledgement, acknowledges another element, or prints
+`praxis-verify: <ref> unhandled` leaves the element UNKNOWN with the reason
+as evidence (#168: the first Weather II validator ignored its argument and
+five bound elements were reported satisfied by one undifferentiated suite
+run); the integrated consequence is always checked with
+`./.praxis/validate integrated` and needs no acknowledgement; the checkout
+must be at the final checkpoint or the verifier fails closed; everything
+else is UNKNOWN with
 the judgment requirement stated ("requires judgment: the Goal contract
 binds no verifier to …"). UNKNOWN stays UNKNOWN until an evaluator
 supplies evidence: `goals-lifecycle --operation=evaluate --input

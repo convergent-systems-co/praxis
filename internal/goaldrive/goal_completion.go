@@ -404,6 +404,39 @@ func ContractBindings(baseline goals.GoalBaseline) map[string]struct{} {
 	return bound
 }
 
+// ValidationAcknowledgement is the line a declared validator prints when
+// it is invoked with a contract reference: `praxis-verify: <ref>` states
+// that the run verified exactly that element (the exit status then decides
+// satisfied or unsatisfied); `praxis-verify: <ref> unhandled` states that
+// the validator does not verify that element. A bound reference the
+// validator does not acknowledge is UNKNOWN, never SATISFIED: the first
+// Weather II validator ran its whole suite whatever argument it received,
+// and five bound references were reported satisfied by one undifferentiated
+// run (#168).
+const ValidationAcknowledgement = "praxis-verify:"
+
+// validationAcknowledgements parses the acknowledgement lines of a
+// validator run: the references it verified and those it declared
+// unhandled.
+func validationAcknowledgements(output string) (verified []string, unhandled []string) {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, ValidationAcknowledgement) {
+			continue
+		}
+		fields := strings.Fields(strings.TrimPrefix(line, ValidationAcknowledgement))
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) >= 2 && fields[1] == "unhandled" {
+			unhandled = append(unhandled, fields[0])
+			continue
+		}
+		verified = append(verified, fields[0])
+	}
+	return verified, unhandled
+}
+
 // EvaluateDeterministically produces the verifier's evaluation of the
 // candidate against the original Goal contract: bound criteria and
 // constraints run through the declared validator at the final checkpoint,
@@ -444,6 +477,30 @@ func EvaluateDeterministically(ctx context.Context, baseline goals.GoalBaseline,
 		output, err := repo.RunDeclaredValidationWith(ctx, ref)
 		item.Predicate = command + " " + ref + " at " + candidate.FinalHead
 		item.Evidence = []string{"checkpoint:" + candidate.FinalHead, "output:" + truncateForActivity(output)}
+		verified, unhandled := validationAcknowledgements(output)
+		acknowledged := false
+		for _, got := range verified {
+			if got == ref {
+				acknowledged = true
+			}
+		}
+		for _, got := range unhandled {
+			if got == ref {
+				item.Result = ResultUnknown
+				item.Evidence = append(item.Evidence, "validator acknowledged "+ref+" unhandled; requires judgment or another verifier")
+				return item
+			}
+		}
+		if !acknowledged {
+			item.Result = ResultUnknown
+			if len(verified) > 0 {
+				item.Evidence = append(item.Evidence, "validator acknowledged "+strings.Join(verified, ",")+", not "+ref+"; the run verifies another element")
+			} else {
+				item.Evidence = append(item.Evidence, "validator did not acknowledge "+ref+": a declared validator invoked with a contract reference must print `"+ValidationAcknowledgement+" "+ref+"` (or `"+ValidationAcknowledgement+" "+ref+" unhandled`); an unacknowledged run cannot verify a bound element")
+			}
+			return item
+		}
+		item.Evidence = append(item.Evidence, "acknowledged:"+ref)
 		if err != nil {
 			item.Result = ResultUnsatisfied
 			item.Evidence = append(item.Evidence, "error:"+err.Error())

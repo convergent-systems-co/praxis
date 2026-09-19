@@ -441,6 +441,14 @@ func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, repo 
 	if err := c.emit(ctx, ActivityUnitCompleted, req, map[string]string{"unit": completion.UnitID, "end_head": completion.EndHead, "requirements": strings.Join(requirements, ",")}); err != nil {
 		return record, err
 	}
+	return c.deriveGoalCandidate(ctx, req, repo, record)
+}
+
+// deriveGoalCandidate records the GOAL_COMPLETION_CANDIDATE and its
+// deterministic evaluation when the generation's units are all complete.
+// It is shared by turn-time settlement and by later materialization of a
+// completion the turn earned (#164), so both derive exactly the same state.
+func (c Controller) deriveGoalCandidate(ctx context.Context, req TurnRequest, repo RepositoryAdapter, record TurnRecord) (TurnRecord, error) {
 	if req.GoalBaseline == nil {
 		return record, nil
 	}

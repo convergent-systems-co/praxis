@@ -115,6 +115,10 @@ func ScopeKey(repositoryPath, branch string) string {
 	return abs + "|" + branch
 }
 
+// ScopeLocation splits an admission scope (ScopeKey) back into the
+// repository path and branch it was built from.
+func ScopeLocation(scope string) (dir, branch string) { return scopeRepository(scope) }
+
 func scopeRepository(scope string) (string, string) {
 	if at := strings.LastIndex(scope, "|"); at >= 0 {
 		return scope[:at], scope[at+1:]

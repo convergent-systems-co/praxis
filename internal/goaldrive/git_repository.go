@@ -40,8 +40,10 @@ func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []str
 	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
 }
 
-// CompletionClaims returns the units named by Praxis-Unit-Complete trailers
-// in the commits the worker added between the two checkpoints.
+// CompletionClaims returns the units proposed complete by the commits the
+// worker added between the two checkpoints. It reads every full commit
+// message of the span and applies the worker-facing contract
+// (ParseCompletionProposals), never Git's trailer-block heuristic (#164).
 func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead string) ([]string, error) {
 	if endHead == "" {
 		return nil, errors.New("completion claims require the checkpoint HEAD")
@@ -50,11 +52,21 @@ func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead 
 	if startHead != "" {
 		span = startHead + ".." + endHead
 	}
-	output, err := r.run(ctx, "log", "--format=%(trailers:key="+CompletionTrailer+",valueonly)", span)
+	output, err := r.run(ctx, "log", "-z", "--format=%B", span)
 	if err != nil {
-		return nil, fmt.Errorf("read completion trailers: %w", err)
+		return nil, fmt.Errorf("read commit messages: %w", err)
 	}
-	return ParseCompletionTrailers(output), nil
+	var messages []string
+	for _, message := range strings.Split(output, "\x00") {
+		if strings.TrimSpace(message) != "" {
+			messages = append(messages, message)
+		}
+	}
+	units, err := ParseCompletionClaims(messages)
+	if err != nil {
+		return nil, fmt.Errorf("read completion proposals in %s: %w", span, err)
+	}
+	return units, nil
 }
 
 // RecoveryStartAllowed reports whether a bound recovery may start from a
@@ -220,6 +232,39 @@ func (r GitRepository) PushAndVerify(ctx context.Context, head string) error {
 	fields := strings.Fields(remote)
 	if len(fields) < 1 || fields[0] != head {
 		return fmt.Errorf("remote checkpoint is %q, want %q", strings.TrimSpace(remote), head)
+	}
+	return nil
+}
+
+// CheckpointPublished verifies that the exact consequence of a turn is
+// still what the remote branch publishes: endHead is contained in the
+// fetched remote branch and startHead (when known) is an ancestor of it.
+func (r GitRepository) CheckpointPublished(ctx context.Context, startHead, endHead string) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	if endHead == "" {
+		return errors.New("checkpoint HEAD is required")
+	}
+	if _, err := r.run(ctx, "fetch", "--quiet", r.Remote, r.Branch); err != nil {
+		return fmt.Errorf("fetch published branch: %w", err)
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	contained, err := r.isAncestor(ctx, endHead, remoteRef)
+	if err != nil {
+		return err
+	}
+	if !contained {
+		return fmt.Errorf("checkpoint %s is not contained in %s/%s", endHead, r.Remote, r.Branch)
+	}
+	if startHead != "" {
+		spans, err := r.isAncestor(ctx, startHead, endHead)
+		if err != nil {
+			return err
+		}
+		if !spans {
+			return fmt.Errorf("start head %s is not an ancestor of checkpoint %s", startHead, endHead)
+		}
 	}
 	return nil
 }

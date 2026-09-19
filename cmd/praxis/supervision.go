@@ -26,7 +26,7 @@ type supervisionArgs struct {
 
 func runSuperviseCommand(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: praxis supervise {observe|comment|correction|constraint|suspend|cancel|resume|reconcile} ...")
+		return errors.New("usage: praxis supervise {observe|comment|correction|constraint|suspend|cancel|resume|reconcile|materialize} ...")
 	}
 	parsed, err := parseSupervisionArgs(args[1:], os.Getenv)
 	if err != nil {
@@ -48,6 +48,8 @@ func runSuperviseCommand(args []string) error {
 		return appendHumanIntervention(parsed, goaldrive.ActivityHumanCorrection)
 	case "reconcile":
 		return reconcileLostTurn(parsed, os.Stdout)
+	case "materialize":
+		return materializeTurnCompletion(parsed, os.Stdout)
 	default:
 		return fmt.Errorf("unknown supervision operation %q", args[0])
 	}
@@ -371,4 +373,64 @@ func observeInvocation(ctx context.Context, log goaldrive.ActivityLog, args supe
 		}
 		time.Sleep(150 * time.Millisecond)
 	}
+}
+
+// materializeTurnCompletion is `praxis supervise materialize`: deterministic
+// re-materialization of the UnitCompletion a qualified, published historical
+// turn earned but never recorded (#164). It is not settlement: no judgment
+// is exercised and no new evidence is created. The repository scope comes
+// from the turn's own admission, never from the operator.
+func materializeTurnCompletion(args supervisionArgs, out io.Writer) error {
+	ctx := context.Background()
+	store, db, err := openGovernedRepository(ctx, os.Getenv)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	baseline, err := store.Load(ctx, args.goalID, args.goalVersion, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("load exact Goal generation: %w", err)
+	}
+	events := state.NewSQLiteEventStore(db)
+	actor := contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}
+	controller := goaldrive.Controller{Ledger: goaldrive.Ledger{Store: events, Actor: actor}, Activity: &goaldrive.ActivityLog{Store: events, Actor: actor}}
+	admissions, err := controller.Ledger.LoadAdmissions(ctx, args.goalID, args.goalVersion)
+	if err != nil {
+		return err
+	}
+	var admission *goaldrive.TurnAdmission
+	for i := range admissions.Admissions {
+		if admissions.Admissions[i].TurnID == args.turnID {
+			admission = &admissions.Admissions[i]
+		}
+	}
+	if admission == nil {
+		return fmt.Errorf("turn %s predates admission for Goal %s/%s; its repository scope is unknown and nothing is materialized", args.turnID, args.goalID, args.goalVersion)
+	}
+	if admission.InvocationID != args.invocationID {
+		return fmt.Errorf("turn %s belongs to invocation %s, not %s", args.turnID, admission.InvocationID, args.invocationID)
+	}
+	dir, branch := goaldrive.ScopeLocation(admission.Scope)
+	remote := os.Getenv("PRAXIS_GIT_REMOTE")
+	if remote == "" {
+		remote = "origin"
+	}
+	by := args.actor
+	if by.ID == "" {
+		by = contracts.PrincipalRef{ID: "operator", Kind: "human"}
+	}
+	result, err := controller.MaterializeTurnCompletion(ctx, args.goalID, args.goalVersion, args.turnID, baseline, goaldrive.GitRepository{Dir: dir, Remote: remote, Branch: branch}, by)
+	if err != nil {
+		return err
+	}
+	output := map[string]any{
+		"operation":       "supervise.materialize",
+		"semantics":       "deterministic re-materialization of controller state from the exact published consequence of the turn; no judgment exercised, no new evidence created, historical turn unchanged",
+		"turn":            result.Turn,
+		"completion":      result.Completion,
+		"goal_candidate":  result.GoalCandidate,
+		"goal_evaluation": result.GoalEvaluation,
+		"inspect_with":    "praxis goals-lifecycle --operation=inspect --goal-id=" + args.goalID + " --goal-version=" + args.goalVersion,
+	}
+	return json.NewEncoder(out).Encode(output)
 }

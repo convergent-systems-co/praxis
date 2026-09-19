@@ -565,7 +565,7 @@ func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompl
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"state": assessment.State, "units": units, "goal_completion_assessment": goalAssessment, "completion_proposal": "a worker proposes completion of the selected unit with the commit trailer `" + goaldrive.CompletionTrailer + ": <unit id>`; Praxis records completion only after the checkpoint is published and validated"}
+	out := map[string]any{"state": assessment.State, "units": units, "goal_completion_assessment": goalAssessment, "completion_proposal": "a worker proposes completion of the selected unit with the line `" + goaldrive.CompletionTrailer + ": <unit id>` standing alone on a line of the final commit message (any paragraph after the subject); Praxis records completion only after the checkpoint is published and validated"}
 	if assessment.Selected != nil {
 		out["next_unit"] = assessment.Selected.ID
 	}

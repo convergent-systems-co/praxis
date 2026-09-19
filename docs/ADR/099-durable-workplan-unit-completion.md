@@ -92,6 +92,45 @@ turn is BLOCKED. A proposal on a checkpoint that is not published
 a later turn can validate, publish, and complete it. Recovery turns settle
 exactly like any other turn.
 
+### Proposal recognition and late materialization (#164)
+
+The proposal contract is exactly what the worker is told: a line of the
+form `Praxis-Unit-Complete: <unit>` standing alone on a line anywhere after
+the subject line of a commit in the turn's span (key compared
+case-insensitively, as Git compares trailer keys). Git's own trailer-block
+heuristic (final paragraph only) is not the contract: the first Weather II
+turn 6 checkpoint carried the claim one paragraph above the Co-Authored-By
+trailer, `%(trailers:key=...)` returned nothing, the qualified and published
+checkpoint never became a completion, and continuous mode reselected the
+unit until the worker truthfully reported NO_PROGRESS. The recognizer now
+reads every full commit message of the span. A key-led line that is not
+exactly `key: <one token>` is ambiguous and fails closed (the turn is
+BLOCKED without a checkpoint, the commit retained as evidence); the key
+inside prose is not a proposal; the subject line is never a proposal;
+duplicates collapse; distinct units across the span are a conflicting set
+and block the turn as before.
+
+A completion the turn earned but never recorded is re-derived by
+`praxis supervise materialize --goal-id --goal-version --invocation-id
+--turn-id`. This is deterministic re-materialization, not settlement: no
+judgment is exercised and no new evidence is created. It binds the exact
+generation, turn, and start/end checkpoint from the durable turn record;
+requires that record's own completion predicates (validated progress,
+published checkpoint, declared validation passed); requires the published
+branch to still contain the exact checkpoint with the start head as its
+ancestor; re-runs the recognizer over exactly that consequence; requires
+the proposal to name the turn's selected unit; refuses ambiguity,
+conflict, absence, a changed consequence, and a unit already complete; and
+records the completion with `materialization` provenance (by, at, the
+turn's own recorded instant, reason) at the instant it happens, never at
+the turn's. It then derives the Goal completion candidate and its
+deterministic evaluation exactly as the turn would have, bound to the
+historical turn and checkpoint. The historical turn record and its events
+are never rewritten; the materialization activities are appended after the
+turn's terminal disposition. The general boundary this exposed (derived
+state persisted through several non-atomic appends after an irreversible
+consequence; null observations never recorded) is #165.
+
 ### Unit completion versus Goal completion (#160)
 
 A turn's outcome is `CONTINUE` whenever the checkpoint is valid, whether or

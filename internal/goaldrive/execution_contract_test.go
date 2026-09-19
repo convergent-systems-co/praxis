@@ -192,6 +192,47 @@ func TestDeclaredValidationGatesTheCheckpoint(t *testing.T) {
 	}
 }
 
+// TestRecoveryPublishesAnUnchangedValidatedConsequence proves that recovery
+// does not require a worker to manufacture a correction commit. When the
+// exact bound consequence is already correct, a successful worker and the
+// repository's declared validation qualify that retained commit for the
+// controller-owned checkpoint and publication.
+func TestRecoveryPublishesAnUnchangedValidatedConsequence(t *testing.T) {
+	ctx := context.Background()
+	root, workDir := contractRepo(t)
+	if err := os.MkdirAll(filepath.Join(workDir, ".praxis"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(workDir, ".praxis", "validate"), "#!/bin/sh\nexit 0\n")
+	if err := os.Chmod(filepath.Join(workDir, ".praxis", "validate"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(workDir, "selection.txt"), "already correct\n")
+	runGitTest(t, workDir, "add", ".praxis", "selection.txt")
+	runGitTest(t, workDir, "commit", "-m", "select MVP", "-m", "Praxis-Unit-Complete: unit:one")
+
+	repo := GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}
+	baseHead := strings.TrimSpace(runGitOutput(t, workDir, "rev-parse", "origin/main"))
+	fingerprint, files, commits, err := repo.Fingerprint(ctx)
+	if err != nil || len(files) != 0 || len(commits) != 1 {
+		t.Fatalf("fingerprint retained commit: %s %v %v %v", fingerprint, files, commits, err)
+	}
+	bound := repo
+	bound.AllowRecoveryStart, bound.RecoveryDigest = true, fingerprint
+	worker := ProviderCLIWorker{ProviderID: "local", Dir: workDir, Command: []string{"/bin/sh", "-c", "cat >/dev/null"}}
+	controller, _ := contractController(t, root, worker)
+	req := contractRequest("unit:one")
+	req.GoalBaseline.WorkPlan = &contracts.WorkPlan{BaselineDigest: req.GoalBaseline.Digest, AuthorityRef: "authority:test", AuthorityDigest: "sha256:" + strings.Repeat("3", 64), AcceptanceRef: "acceptance:test", AcceptanceDigest: "sha256:" + strings.Repeat("4", 64), AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:" + strings.Repeat("5", 64), Candidates: req.WorkCandidates}
+	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: "inv-blocked:turn:1", Objective: "unit:one", Blocker: "provider supervision failed after the commit", Fingerprint: fingerprint, BaseHead: baseHead, Commits: commits, Provenance: RecoveryProvenanceRecorded}
+	record, err := controller.ExecuteTurnWithRepository(ctx, req, bound)
+	if err != nil || !record.Progress || !record.CheckpointPublished || record.CompletionClaim != "unit:one" || !containsString(record.CheckpointEvidence, "repository:declared-validation-passed") {
+		t.Fatalf("unchanged valid recovery consequence must publish and carry its completion claim: %+v %v", record, err)
+	}
+	if remote := strings.TrimSpace(runGitOutput(t, workDir, "rev-parse", "origin/main")); remote != record.EndHead {
+		t.Fatalf("qualified retained commit was not published: remote=%s record=%+v", remote, record)
+	}
+}
+
 // TestRecoveryBindsExactConsequence proves that a dirty checkout is admitted
 // only when its consequence fingerprint matches the bound recovery, that the
 // worker is told what it recovers, and that a committing worker turns the

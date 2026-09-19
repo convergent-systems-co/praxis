@@ -158,7 +158,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, err
 	}
 	if req.Recovery != nil {
-		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "commits": strings.Join(req.Recovery.Commits, ","), "provenance": req.Recovery.Provenance, "blocker": req.Recovery.Blocker}); err != nil {
+		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "base_head": req.Recovery.BaseHead, "commits": strings.Join(req.Recovery.Commits, ","), "provenance": req.Recovery.Provenance, "blocker": req.Recovery.Blocker}); err != nil {
 			return TurnRecord{}, err
 		}
 	}
@@ -313,10 +313,12 @@ func (c Controller) observedHead(ctx context.Context, repo RepositoryAdapter) st
 }
 
 // deriveRepositoryOutcome is the controller-owned checkpoint inspection:
-// the tree must be clean, HEAD must have moved from the turn's start, and
-// the repository's declared validation, if any, must pass. A worker's
-// completion proposal (commit trailer) is read here and settled after
-// publication.
+// the tree must be clean, and the repository's declared validation, if any,
+// must pass. Ordinarily HEAD must move from the turn's start. A bound recovery
+// may instead qualify its unchanged unpublished commit span: the provider has
+// reviewed the exact consequence and no corrective commit is required. A
+// worker's completion proposal (commit trailer) is read here and settled
+// after publication.
 func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest, repo RepositoryAdapter, base TurnRecord) (TurnRecord, error) {
 	if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "repository-checkpoint"}); err != nil {
 		return TurnRecord{}, err
@@ -335,10 +337,22 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 		base.Blocker = "provider left repository with uncommitted changes; no checkpoint is valid"
 		return base, errors.New(base.Blocker)
 	}
-	if snapshot.Head == req.StartHead {
+	claimStart := req.StartHead
+	recoveredUnchanged := snapshot.Head == req.StartHead && req.Recovery != nil && len(req.Recovery.Commits) > 0
+	if snapshot.Head == req.StartHead && !recoveredUnchanged {
 		base.Outcome = OutcomeNoProgress
 		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:head-unchanged")
 		return base, nil
+	}
+	if recoveredUnchanged {
+		last := req.Recovery.Commits[len(req.Recovery.Commits)-1]
+		if req.Recovery.BaseHead == "" || req.Recovery.BaseHead == snapshot.Head || last != snapshot.Head {
+			base.Outcome = OutcomeBlocked
+			base.Blocker = "unchanged recovery does not name the exact unpublished commit span; no checkpoint is valid"
+			return base, errors.New(base.Blocker)
+		}
+		claimStart = req.Recovery.BaseHead
+		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-recovery-consequence")
 	}
 	if validator, ok := repo.(DeclaredValidator); ok {
 		if command, declared := validator.DeclaredValidation(); declared {
@@ -368,7 +382,7 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 	base.Progress = true
 	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
 	if claims, ok := repo.(CompletionClaimRepository); ok {
-		units, err := claims.CompletionClaims(ctx, req.StartHead, snapshot.Head)
+		units, err := claims.CompletionClaims(ctx, claimStart, snapshot.Head)
 		if err != nil {
 			base.Outcome, base.Progress, base.Blocker = OutcomeBlocked, false, fmt.Sprintf("read unit completion claims: %v", err)
 			return base, errors.New(base.Blocker)

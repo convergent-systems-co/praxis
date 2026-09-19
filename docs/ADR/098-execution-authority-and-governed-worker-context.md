@@ -117,17 +117,25 @@ from the ledger and requires: it ended BLOCKED with no checkpoint; no later
 turn progressed the same objective; the checkout HEAD is the turn's end
 HEAD; the checkout carries a consequence, meaning uncommitted changes, local
 commits not yet published to the remote branch (the evidence retained after
-a failed declared validation), or both. It fingerprints the consequence
-(status, tracked diff, untracked file contents, unpublished commit
-identities) and binds it: at turn start the repository adapter admits the
-dirty or local-ahead checkout only when the fingerprint matches, the turn is
+a failed declared validation), or both. When a repository turn blocks, the
+controller records the consequence fingerprint (status, tracked diff,
+untracked file contents, unpublished commit identities) with the paths and
+commits on the BLOCKED record. Recovery requires the checkout's fingerprint
+to equal the recorded one; an altered or extended checkout is refused with
+both fingerprints named. A blocked turn that predates recording (the first
+live weather turn) binds the checkout as found, and the recovery turn
+records that provenance (`observed-at-recovery`) durably instead of
+claiming exactness. At turn start the repository adapter admits the dirty
+or local-ahead checkout only when the bound fingerprint matches, the turn is
 pinned to the blocked turn's objective, `workspace.recovery_bound` is
 durable before work, and the worker is told what it recovers (turn,
-objective, blocker, fingerprint, files, commits) and that it validates,
-corrects with a further commit, or removes that work under the same
-contract. Publication then carries the evidence commit and the correction
-together. Recovery of an altered, foreign, or clean published checkout is
-refused; without a binding, a local-ahead checkout remains unsafe. `goals-lifecycle inspect` lists
+objective, blocker, fingerprint, provenance, files, commits) and that it
+validates, corrects with a further commit, or removes that work under the
+same contract. Publication then carries the evidence commit and the
+correction together. Only turns recorded after the blocked turn can
+supersede it. Recovery of an altered, foreign, superseded, or clean
+published checkout is refused; without a binding, a local-ahead checkout
+remains unsafe. `goals-lifecycle inspect` lists
 `blocked_turns` with the exact `recover_template` for each recoverable one, and goal-drive
 announces `goal-drive.turn_blocked_with_consequence` on stderr with the
 exact recovery command when a turn ends BLOCKED and the checkout is dirty;

@@ -234,11 +234,14 @@ func (w rawMessageWorker) Execute(_ context.Context, request WorkerRequest) (Wor
 func TestMaterializationRefusesAmbiguousOrConflictingClaims(t *testing.T) {
 	ctx := context.Background()
 	f := newMaterializationFixture(t, chainBaseline())
-	ambiguous := f.historicalTurn(t, rawMessageWorker{layoutWorker{root: f.root, dir: f.workDir}, []string{"work\n\n" + CompletionTrailer + ": unit:a (done, I think)\n"}})
+	// Each message uses the live layout (claim above the Co-Authored-By
+	// trailer) so the legacy recognizer sees nothing and the turn qualifies.
+	trailer := "\n\nCo-Authored-By: Worker <worker@example.invalid>\n"
+	ambiguous := f.historicalTurn(t, rawMessageWorker{layoutWorker{root: f.root, dir: f.workDir}, []string{"work\n\n" + CompletionTrailer + ": unit:a (done, I think)" + trailer}})
 	if _, err := f.materialize(ambiguous.TurnID); !errors.Is(err, ErrAmbiguousCompletionClaim) {
 		t.Fatalf("R5: an ambiguous claim line must be refused: %v", err)
 	}
-	conflicting := f.historicalTurn(t, rawMessageWorker{layoutWorker{root: f.root, dir: f.workDir}, []string{"part one\n\n" + CompletionTrailer + ": unit:a\n", "part two\n\n" + CompletionTrailer + ": unit:b\n"}})
+	conflicting := f.historicalTurn(t, rawMessageWorker{layoutWorker{root: f.root, dir: f.workDir}, []string{"part one\n\n" + CompletionTrailer + ": unit:a" + trailer, "part two\n\n" + CompletionTrailer + ": unit:b" + trailer}})
 	if _, err := f.materialize(conflicting.TurnID); err == nil || errors.Is(err, ErrAlreadyMaterialized) {
 		t.Fatalf("R5: conflicting units across the span must be refused: %v", err)
 	}

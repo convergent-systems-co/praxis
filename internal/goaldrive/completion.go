@@ -37,6 +37,9 @@ type UnitCompletion struct {
 	Requirements []string  `json:"requirements,omitempty"`
 	Evidence     []string  `json:"evidence"`
 	CompletedAt  time.Time `json:"completed_at"`
+	// Materialization is set only when the completion was derived after the
+	// turn ended by deterministic re-materialization (#164).
+	Materialization *CompletionMaterialization `json:"materialization,omitempty"`
 }
 
 func (c UnitCompletion) validate() error {

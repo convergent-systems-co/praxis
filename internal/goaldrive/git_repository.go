@@ -236,6 +236,39 @@ func (r GitRepository) PushAndVerify(ctx context.Context, head string) error {
 	return nil
 }
 
+// CheckpointPublished verifies that the exact consequence of a turn is
+// still what the remote branch publishes: endHead is contained in the
+// fetched remote branch and startHead (when known) is an ancestor of it.
+func (r GitRepository) CheckpointPublished(ctx context.Context, startHead, endHead string) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	if endHead == "" {
+		return errors.New("checkpoint HEAD is required")
+	}
+	if _, err := r.run(ctx, "fetch", "--quiet", r.Remote, r.Branch); err != nil {
+		return fmt.Errorf("fetch published branch: %w", err)
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	contained, err := r.isAncestor(ctx, endHead, remoteRef)
+	if err != nil {
+		return err
+	}
+	if !contained {
+		return fmt.Errorf("checkpoint %s is not contained in %s/%s", endHead, r.Remote, r.Branch)
+	}
+	if startHead != "" {
+		spans, err := r.isAncestor(ctx, startHead, endHead)
+		if err != nil {
+			return err
+		}
+		if !spans {
+			return fmt.Errorf("start head %s is not an ancestor of checkpoint %s", startHead, endHead)
+		}
+	}
+	return nil
+}
+
 func (r GitRepository) isAncestor(ctx context.Context, ancestor, descendant string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "-C", r.Dir, "merge-base", "--is-ancestor", ancestor, descendant)
 	if err := cmd.Run(); err != nil {

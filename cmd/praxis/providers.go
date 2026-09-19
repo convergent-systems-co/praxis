@@ -31,14 +31,18 @@ type goalDriveProvider struct {
 	// execution, a turn whose checkpoint contract needs more.
 	Capabilities []string `json:"capabilities"`
 	Required     []string `json:"required_by_repository_turn"`
+	// Envelope is the non-interactive execution envelope the launch
+	// establishes (#170); the worker receives it in its context.
+	Envelope *goaldrive.WorkerExecutionEnvelope `json:"execution_envelope,omitempty"`
 }
 
 var firstPartyProviderProfiles = []struct {
 	id, cli      string
 	capabilities []goaldrive.WorkerCapability
+	envelope     *goaldrive.WorkerExecutionEnvelope
 }{
-	{"claude", "claude", goaldrive.ClaudeSubscriptionCapabilities()}, {"claude-subscription", "claude", goaldrive.ClaudeSubscriptionCapabilities()},
-	{"codex", "codex", goaldrive.CodexSubscriptionCapabilities()}, {"codex-subscription", "codex", goaldrive.CodexSubscriptionCapabilities()},
+	{"claude", "claude", goaldrive.ClaudeSubscriptionCapabilities(), goaldrive.ClaudeSubscriptionEnvelope()}, {"claude-subscription", "claude", goaldrive.ClaudeSubscriptionCapabilities(), goaldrive.ClaudeSubscriptionEnvelope()},
+	{"codex", "codex", goaldrive.CodexSubscriptionCapabilities(), goaldrive.CodexSubscriptionEnvelope()}, {"codex-subscription", "codex", goaldrive.CodexSubscriptionCapabilities(), goaldrive.CodexSubscriptionEnvelope()},
 }
 
 func capabilityNames(items []goaldrive.WorkerCapability) []string {
@@ -72,7 +76,7 @@ func goalDriveProviderCatalog(getenv func(string) string) ([]goalDriveProvider, 
 		out = append(out, entry)
 	}
 	for _, profile := range firstPartyProviderProfiles {
-		entry := goalDriveProvider{ID: profile.id, Kind: "first-party subscription profile", Model: "optional --model hint passed to the " + profile.cli + " CLI", DriveOption: "--provider=" + profile.id, Capabilities: capabilityNames(profile.capabilities), Required: capabilityNames(goaldrive.RequiredRepositoryCapabilities())}
+		entry := goalDriveProvider{ID: profile.id, Kind: "first-party subscription profile", Model: "optional --model hint passed to the " + profile.cli + " CLI", DriveOption: "--provider=" + profile.id, Capabilities: capabilityNames(profile.capabilities), Required: capabilityNames(goaldrive.RequiredRepositoryCapabilities()), Envelope: profile.envelope}
 		if path, err := exec.LookPath(profile.cli); err != nil {
 			entry.Reason = profile.cli + " CLI is not on PATH"
 		} else {

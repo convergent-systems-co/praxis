@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/packages/goals"
@@ -94,6 +95,9 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 	}
 	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
 		return TurnRecord{}, fmt.Errorf("record work selection: %w", err)
+	}
+	if err := c.emitEnvelope(ctx, req); err != nil {
+		return TurnRecord{}, err
 	}
 	record, workerErr := c.invoke(ctx, req)
 	if err := c.recordTurn(ctx, &record); err != nil {
@@ -187,7 +191,11 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 			}
 			req.WorkCandidates, req.WorkRelationships = candidates, relationships
 		}
-		workerContext, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, req.WorkRelationships, req.ChildObjective, WorkerRepositoryContext{Path: req.RepositoryPath, Branch: req.RepositoryBranch, StartHead: req.StartHead}, granted, req.ValidationDeclared, req.DeclaredValidation, req.Recovery)
+		var envelope *WorkerExecutionEnvelope
+		if declaring, ok := worker.(EnvelopeDeclaringWorker); ok {
+			envelope = declaring.ExecutionEnvelope()
+		}
+		workerContext, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, req.WorkRelationships, req.ChildObjective, WorkerRepositoryContext{Path: req.RepositoryPath, Branch: req.RepositoryBranch, StartHead: req.StartHead}, granted, req.ValidationDeclared, req.DeclaredValidation, req.Recovery, envelope)
 		if err != nil {
 			return nil, TurnRequest{}, err
 		}
@@ -297,6 +305,17 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 
 func (c Controller) workerRequest(req TurnRequest) WorkerRequest {
 	return WorkerRequest{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, ProviderID: req.ProviderID, Context: req.Context, Activity: c.Activity, ActivityActor: c.Ledger.Actor}
+}
+
+// emitEnvelope records the execution envelope the worker context carries,
+// before the provider starts, so the conditions a turn ran under are
+// durable evidence (#170).
+func (c Controller) emitEnvelope(ctx context.Context, req TurnRequest) error {
+	if req.Context == nil || req.Context.Authority.Envelope == nil {
+		return nil
+	}
+	envelope := req.Context.Authority.Envelope
+	return c.emit(ctx, ActivityExecutionEnvelope, req, map[string]string{"interactive": fmt.Sprint(envelope.Interactive), "tools": strings.Join(envelope.Tools, " "), "shell_policy": envelope.ShellPolicy, "denial_policy": envelope.DenialPolicy})
 }
 
 func (c Controller) emit(ctx context.Context, typ ActivityType, req TurnRequest, data map[string]string) error {

@@ -176,6 +176,29 @@ type WorkerCheckpointContext struct {
 type WorkerAuthorityContext struct {
 	Granted   []WorkerCapability `json:"granted"`
 	Forbidden []string           `json:"forbidden"`
+	// Envelope is the non-interactive execution envelope the worker actually
+	// runs under (#170); nil when the launch contract does not declare one.
+	Envelope *WorkerExecutionEnvelope `json:"envelope,omitempty"`
+}
+
+// WorkerExecutionEnvelope is the usable non-interactive execution envelope
+// of a worker launch: whether prompts exist, the exact tool patterns the
+// launch allows, how shell calls are judged, and what happens to a call
+// outside the envelope. Weather II workers ran under a fixed allowlist with
+// prompts disabled and discovered the denials mid-turn (turns 3, 4, 6, 7),
+// re-running work each time; the envelope is declared by the launch
+// contract, rendered to the worker, and recorded durably at dispatch.
+type WorkerExecutionEnvelope struct {
+	Interactive  bool     `json:"interactive"`
+	Tools        []string `json:"tools,omitempty"`
+	ShellPolicy  string   `json:"shell_policy,omitempty"`
+	DenialPolicy string   `json:"denial_policy,omitempty"`
+}
+
+// EnvelopeDeclaringWorker reports the execution envelope its launch
+// contract establishes.
+type EnvelopeDeclaringWorker interface {
+	ExecutionEnvelope() *WorkerExecutionEnvelope
 }
 
 // WorkerRecoveryContext describes uncommitted consequence bound from an
@@ -206,7 +229,7 @@ const (
 // BuildWorkerContext derives the worker context from the exact Goal
 // generation and the selected candidate. It fails closed when the candidate
 // is not part of the accepted plan.
-func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.WorkCandidate, relationships []contracts.WorkRelationship, objective string, repository WorkerRepositoryContext, granted []WorkerCapability, validationDeclared bool, declaredValidation string, recovery *WorkerRecoveryContext) (*WorkerContext, error) {
+func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.WorkCandidate, relationships []contracts.WorkRelationship, objective string, repository WorkerRepositoryContext, granted []WorkerCapability, validationDeclared bool, declaredValidation string, recovery *WorkerRecoveryContext, envelope *WorkerExecutionEnvelope) (*WorkerContext, error) {
 	if baseline == nil {
 		return nil, errors.New("worker context requires the exact Goal generation")
 	}
@@ -249,7 +272,7 @@ func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.Wor
 		Unit:       unitContext,
 		Repository: repository,
 		Checkpoint: WorkerCheckpointContext{Predicates: predicates, DeclaredValidation: declaredValidation, ValidationDeclared: validationDeclared},
-		Authority:  WorkerAuthorityContext{Granted: granted, Forbidden: []string{"push or fetch", "rewrite or force-update any ref", "change branch", "modify Praxis durable state", "read or write outside the repository", "claim that a checkpoint is valid or that the Goal is complete", "select another objective"}},
+		Authority:  WorkerAuthorityContext{Granted: granted, Forbidden: []string{"push or fetch", "rewrite or force-update any ref", "change branch", "modify Praxis durable state", "read or write outside the repository", "claim that a checkpoint is valid or that the Goal is complete", "select another objective"}, Envelope: envelope},
 		Recovery:   recovery,
 		Invariants: []string{"Praxis, not the provider, decides progress, checkpoint validity, publication, and the next invocation", "a worker receives the minimum authority its accepted unit needs and cannot expand it", "uncommitted work is evidence, never progress"},
 	}, nil

@@ -90,7 +90,7 @@ func TestGoalDriveInvocationIsRegistryBoundAndProviderNeutral(t *testing.T) {
 	if inv.EntryPointID != "goal-drive" || len(inv.Aliases) != 1 || inv.Aliases[0] != "goal-drive" {
 		t.Fatalf("unexpected Goal-drive identity: %+v", inv)
 	}
-	for _, required := range []string{"goal", "goal-file", "goal-id", "provider", "no-progress-limit", "ledger"} {
+	for _, required := range []string{"goal-id", "goal-version", "provider", "no-progress-limit", "ledger"} {
 		found := false
 		for _, option := range inv.Options {
 			if option.Name == required {

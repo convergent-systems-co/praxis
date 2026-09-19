@@ -1,21 +1,15 @@
 package goaldrive
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestParseInvocationNormalizesGoalInputAndControlOptions(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "GOAL.md")
-	if err := os.WriteFile(path, []byte("inventory issues"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	request, err := ParseInvocation(map[string]string{"goal-file": path, "provider": "codex", "invocation-id": "inv-1", "goal-version": "7", "max-turns": "3", "turn-timeout": "2m", "no-progress-limit": "2", "no-push": "true"})
+	request, err := ParseInvocation(map[string]string{"goal-id": "goal:inventory", "provider": "codex", "invocation-id": "inv-1", "goal-version": "7", "max-turns": "3", "turn-timeout": "2m", "no-progress-limit": "2", "no-push": "true"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if request.Input.Kind != "file" || request.ProviderID != "codex" || request.InvocationID != "inv-1" || request.GoalVersion != "7" || request.Mode != ModeSupervised || request.MaxTurns != 3 || request.TurnTimeout.String() != "2m0s" || request.NoProgressLimit != 2 || !request.NoPush || !request.RequireClean {
+	if request.Input.Kind != "goal_id" || request.Input.GoalID != "goal:inventory" || request.ProviderID != "codex" || request.InvocationID != "inv-1" || request.GoalVersion != "7" || request.Mode != ModeSupervised || request.MaxTurns != 3 || request.TurnTimeout.String() != "2m0s" || request.NoProgressLimit != 2 || !request.NoPush || !request.RequireClean {
 		t.Fatalf("unexpected normalized invocation: %+v", request)
 	}
 }

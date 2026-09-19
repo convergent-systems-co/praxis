@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -175,6 +176,7 @@ func stopIntervention(control interventionControl) ActivityType {
 }
 
 type providerMessageWriter struct {
+	mu       sync.Mutex
 	ctx      context.Context
 	request  WorkerRequest
 	provider string
@@ -187,6 +189,8 @@ func newProviderMessageWriter(ctx context.Context, request WorkerRequest, provid
 }
 
 func (w *providerMessageWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	_, _ = w.buffer.Write(p)
 	for {
 		value := w.buffer.String()
@@ -203,6 +207,8 @@ func (w *providerMessageWriter) Write(p []byte) (int, error) {
 }
 
 func (w *providerMessageWriter) Flush() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if strings.TrimSpace(w.buffer.String()) != "" {
 		w.emit(strings.TrimSpace(w.buffer.String()))
 	}

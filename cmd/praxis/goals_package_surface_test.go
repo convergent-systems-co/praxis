@@ -133,8 +133,16 @@ func TestGoalsPackageExposesGoalDriveThroughInstalledSurface(t *testing.T) {
 
 	// Dispatch through the generic path reaches the registered first-party
 	// handler and fails closed at each guard, in order.
-	if err := runDynamicInvocation(ctx, []string{"goal-drive", "--goal=free text", "--provider=local", "--invocation-id=inv-1"}, getenv); !errors.Is(err, goaldrive.ErrGoalExecutionInput) {
-		t.Fatalf("literal goal text must not execute: %v", err)
+	// goal-drive runs an existing durable Goal only (#103, ADR-101): the
+	// successor contract no longer declares prose input, so the registry
+	// refuses it before any handler runs.
+	for _, prose := range []string{"--goal=free text", "--goal-file=/tmp/GOAL.md"} {
+		if err := runDynamicInvocation(ctx, []string{"goal-drive", prose, "--provider=local", "--invocation-id=inv-1"}, getenv); err == nil || !strings.Contains(err.Error(), "unknown option") {
+			t.Fatalf("prose goal input %q must not execute: %v", prose, err)
+		}
+	}
+	if err := runDynamicInvocation(ctx, []string{"goal-drive", "--provider=local", "--invocation-id=inv-1"}, getenv); err == nil {
+		t.Fatal("goal-drive without an existing Goal identity must not execute")
 	}
 	if err := runDynamicInvocation(ctx, []string{"goal-drive", "--goal-id=goal-1", "--provider=local", "--invocation-id=inv-1"}, getenv); !errors.Is(err, goaldrive.ErrExactGoalVersionRequired) {
 		t.Fatalf("goal-drive must require an exact durable Goal version: %v", err)

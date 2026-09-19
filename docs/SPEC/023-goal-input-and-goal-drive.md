@@ -7,7 +7,8 @@
 
 ## GoalInput
 
-The command/package contract SHALL accept mutually exclusive forms:
+The shared GoalInput contract (`contracts.ResolveGoalInput`) accepts mutually
+exclusive forms, used by the surfaces that introduce or select a Goal:
 
 ```text
 --goal <literal text>
@@ -16,10 +17,16 @@ The command/package contract SHALL accept mutually exclusive forms:
 ```
 
 `--goal` is literal text. `--goal-file` records path provenance and a content
-digest before creating or relating a Goal. `--goal-id` resolves an existing
-immutable generation. Missing input is allowed only when the active
-InvocationContract explicitly permits interactive discovery. Ambiguous or
+digest. `--goal-id` resolves an existing immutable generation. Ambiguous or
 multiple forms fail before a Goal is created.
+
+**`goal-drive` accepts only the identity form** (`--goal-id` with
+`--goal-version`; ADR-101). It never creates or accepts a Goal from prose: the
+package contract does not declare `--goal` or `--goal-file`, and the parser
+refuses them with the intake path named. A prose Goal enters through
+`goals-lifecycle --operation=intake` (SPEC-031), which admits a Baseline at the
+import boundary, confers no authority, and leaves the Goal undrivable until the
+propose, review, request, decide, accept and attach topology has run.
 
 ## Controller authority
 

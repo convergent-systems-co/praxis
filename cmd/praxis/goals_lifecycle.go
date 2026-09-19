@@ -70,6 +70,33 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	now := time.Now().UTC()
 
 	switch operation {
+	case "intake":
+		goalID, goalVersion := in.Options["goal-id"], in.Options["goal-version"]
+		if goalID == "" {
+			return errors.New("intake requires --goal-id, the exact identity the new Goal will carry")
+		}
+		if inputPath == "" || len(input) == 0 {
+			return errors.New("intake requires --input <prose Goal document>")
+		}
+		if goalVersion == "" {
+			goalVersion = "1"
+		}
+		path, err := filepath.Abs(inputPath)
+		if err != nil {
+			return err
+		}
+		admitted, err := intakeGoalBaseline(ctx, repo, goalID, goalVersion, path, input, now)
+		if err != nil {
+			return err
+		}
+		return printJSON(map[string]any{
+			"operation": operation, "goal_id": admitted.ID, "goal_version": admitted.Version, "baseline_digest": admitted.Digest,
+			"status": "baseline_admitted", "drivable": false,
+			"authority_conferred": "none: a Baseline is Goal state; only an owner-decided, accepted WorkPlan attached as a successor generation makes a Goal drivable",
+			"derived_fields":      []string{"original_intent", "refined_outcome", "scope", "non_goals", "constraints", "success_criteria", "rigor", "recommendation_mode"},
+			"inspect_with":        "praxis goals-lifecycle --operation=inspect --goal-id=" + admitted.ID + " --goal-version=" + admitted.Version,
+			"next":                "propose a WorkPlan decomposition for this exact generation (goals-lifecycle --operation=propose), then review, request, owner decision, accept, and attach",
+		})
 	case "import":
 		path, err := filepath.Abs(inputPath)
 		if err != nil {

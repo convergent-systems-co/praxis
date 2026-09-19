@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,4 +50,35 @@ func importGoalBaseline(ctx context.Context, repo goalstore.Repository, path str
 		return goals.GoalBaseline{}, fmt.Errorf("import Goal Baseline: %w", err)
 	}
 	return imported, nil
+}
+
+// intakeGoalBaseline is the prose front door to the same import boundary as
+// importGoalBaseline (ADR-068, ADR-101). The Baseline is derived
+// deterministically from the document, then admitted through
+// Repository.ImportBaseline, so an exact repeat is idempotent, a differing
+// document under the same generation fails closed, and nothing but Goal state
+// is created. The document's own digest is bound into the Baseline as
+// evidence; source_ref is the document's canonical absolute path.
+func intakeGoalBaseline(ctx context.Context, repo goalstore.Repository, goalID, goalVersion, path string, document []byte, now time.Time) (goals.GoalBaseline, error) {
+	baseline, err := goals.BaselineFromProse(goalID, goalVersion, document)
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("derive Goal Baseline from prose: %w", err)
+	}
+	canonical, err := baseline.CanonicalBytes()
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("canonicalize derived Goal Baseline: %w", err)
+	}
+	sum := sha256.Sum256(canonical)
+	baseline.ImportSourceRef, baseline.ImportSourceDigest = path, "sha256:"+hex.EncodeToString(sum[:])
+	if baseline.Digest, err = baseline.ComputeDigest(); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	admitted, err := repo.ImportBaseline(ctx, goalstore.ImportBaselineRequest{Baseline: baseline, SourceRef: path, Source: canonical, CreatedAt: now})
+	if err != nil {
+		if errors.Is(err, goalstore.ErrBaselineImportConflict) {
+			return goals.GoalBaseline{}, fmt.Errorf("intake Goal Baseline: Goal generation %s/%s already exists with different content; changed prose is a governed successor, never a mutation: %w", goalID, goalVersion, err)
+		}
+		return goals.GoalBaseline{}, fmt.Errorf("intake Goal Baseline: %w", err)
+	}
+	return admitted, nil
 }

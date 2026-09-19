@@ -23,6 +23,11 @@ GoalInput has exactly one of:
 - file contents captured with path provenance and content digest;
 - an existing Goal identity plus exact generation/version.
 
+> **Amended by ADR-101.** `goal-drive` consumes only the existing-Goal identity
+> form. The literal and file forms are not inputs to `goal-drive`: a prose Goal
+> is introduced through `goals-lifecycle --operation=intake`, which admits a
+> Baseline at the import boundary and confers no authority.
+
 Input identity is immutable. Changed text/file content creates a governed
 successor; it never mutates a historical Goal or silently changes an active
 run. Goal identity is independent of provider, model, executor, branch, or

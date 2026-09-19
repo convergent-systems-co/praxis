@@ -13,10 +13,13 @@ import (
 
 var (
 	ErrExactGoalVersionRequired = errors.New("supervised Goal-drive requires an exact Goal Baseline version")
-	ErrGoalExecutionInput       = errors.New("supervised Goal-drive accepts only an existing durable Goal identity")
-	ErrSupervisedRuntimeOption  = errors.New("supervised Goal-drive option is not yet wired at the production runtime boundary")
-	ErrContinuousTurnLimit      = errors.New("continuous Goal-drive bounded turn limit reached")
-	ErrResumeRequired           = errors.New("Goal-drive execution requires an explicit supervision resume")
+	ErrGoalExecutionInput       = errors.New("Goal-drive accepts only an existing durable Goal identity")
+	// ErrGoalInputNotDriveable refuses prose Goal input at the parser, so the
+	// caller is told the path rather than handed a bare refusal (#103, ADR-101).
+	ErrGoalInputNotDriveable   = errors.New("goal-drive runs only an existing durable Goal (--goal-id with --goal-version) and never creates or accepts a Goal from prose; introduce one with `praxis goals-lifecycle --operation=intake --goal-id=<id> --input=<goal document>`, then take it through propose, review, request, decide, accept and attach")
+	ErrSupervisedRuntimeOption = errors.New("supervised Goal-drive option is not yet wired at the production runtime boundary")
+	ErrContinuousTurnLimit     = errors.New("continuous Goal-drive bounded turn limit reached")
+	ErrResumeRequired          = errors.New("Goal-drive execution requires an explicit supervision resume")
 )
 
 // BaselineStore is the durable Goal recovery boundary. Implementations must

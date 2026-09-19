@@ -31,7 +31,13 @@ type InvocationRequest struct {
 // parser only: it does not create a Goal, authorize a provider, or invoke a
 // worker.
 func ParseInvocation(options map[string]string) (InvocationRequest, error) {
-	input, err := contracts.ResolveGoalInput(options["goal"], options["goal-file"], options["goal-id"])
+	if options["goal"] != "" || options["goal-file"] != "" {
+		return InvocationRequest{}, ErrGoalInputNotDriveable
+	}
+	if options["goal-id"] == "" {
+		return InvocationRequest{}, errors.New("Goal-drive requires an existing durable Goal: --goal-id and --goal-version")
+	}
+	input, err := contracts.ResolveGoalInput("", "", options["goal-id"])
 	if err != nil {
 		return InvocationRequest{}, err
 	}

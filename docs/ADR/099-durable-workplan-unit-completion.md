@@ -131,6 +131,23 @@ turn's terminal disposition. The general boundary this exposed (derived
 state persisted through several non-atomic appends after an irreversible
 consequence; null observations never recorded) is #165.
 
+### Governing state in inspect (#171)
+
+`inspect` reports `governing_state` and `drivable` derived from durable
+lifecycle and settlement state, never from the presence of a WorkPlan
+alone: `unattached` (no accepted plan), `drivable` (plan, no candidate, no
+decision), `candidate-pending-evaluation` (candidate whose latest evaluation
+is not satisfied), `candidate-pending-settlement` (latest evaluation
+satisfied, owner decision pending), `complete` or `incomplete` (durable
+decision), `superseded` (successor generation exists). `drivable` is true
+only in the `drivable` state, which is exactly when goal-drive admits a
+turn. `turn_records` renders every durable turn with unit, outcome, heads,
+publication, the proposal seen at turn time and the completion the turn
+earned (`turn-time` or `materialized` with provenance), so a supervisor
+does not reconstruct them from raw events. After the first Weather II
+settlement inspect had rendered `drivable: true` for the completed
+generation.
+
 ### Unit completion versus Goal completion (#160)
 
 A turn's outcome is `CONTINUE` whenever the checkpoint is valid, whether or

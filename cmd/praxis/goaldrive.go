@@ -326,6 +326,16 @@ func announceGoalDriveTurn(w io.Writer, out normalizedOutput, invocation goaldri
 	}
 }
 
+// recoverableTurn reports whether a turn left consequence that recovery may
+// bind: it ended BLOCKED without a checkpoint, or it progressed but its
+// checkpoint was retained locally and never published (--no-push).
+func recoverableTurn(turn goaldrive.TurnRecord) bool {
+	if turn.Outcome == goaldrive.OutcomeBlocked && !turn.Progress {
+		return true
+	}
+	return turn.Progress && !turn.CheckpointPublished
+}
+
 // bindRecoveredTurn binds the checkout's uncommitted consequence to the
 // exact BLOCKED turn named by --recover-turn. The turn must belong to this
 // Goal generation, must have ended BLOCKED without a checkpoint, its end
@@ -352,8 +362,8 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	if recovered == nil {
 		return nil, "", fmt.Errorf("turn %q is not a durable turn of %s/%s", invocation.RecoverTurn, invocation.Input.GoalID, invocation.GoalVersion)
 	}
-	if recovered.Outcome != goaldrive.OutcomeBlocked || recovered.Progress {
-		return nil, "", fmt.Errorf("turn %s is %s, not a BLOCKED turn without checkpoint", recovered.TurnID, recovered.Outcome)
+	if !recoverableTurn(*recovered) {
+		return nil, "", fmt.Errorf("turn %s is %s with a published checkpoint; only a BLOCKED turn or an unpublished (--no-push) checkpoint can be recovered", recovered.TurnID, recovered.Outcome)
 	}
 	// Only turns recorded after the blocked one can supersede it.
 	for _, later := range turns[position+1:] {

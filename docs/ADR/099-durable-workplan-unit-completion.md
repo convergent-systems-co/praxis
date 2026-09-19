@@ -79,7 +79,9 @@ needed. A trailer naming a unit other than the selected one blocks the turn
 without a checkpoint (the commit is retained as evidence). A proposal on a
 checkpoint whose declared validation fails never reaches settlement: the
 turn is BLOCKED. A proposal on a checkpoint that is not published
-(`--no-push`) records the claim but no completion. Recovery turns settle
+(`--no-push`) records the claim but no completion; such a turn is listed by
+`inspect` as recoverable, and `--recover-turn` binds its retained commits so
+a later turn can validate, publish, and complete it. Recovery turns settle
 exactly like any other turn.
 
 ### Unit versus Goal COMPLETE

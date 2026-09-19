@@ -33,13 +33,15 @@ type ConsequenceRepository interface {
 	Fingerprint(ctx context.Context) (fingerprint string, files []string, commits []string, err error)
 }
 
-// recordConsequence binds the checkout's current consequence to a BLOCKED
-// record so recovery can later admit exactly that state. Best effort: a
+// recordConsequence binds the checkout's current consequence to a record
+// that leaves work unpublished (a BLOCKED turn, or a progressing turn whose
+// checkpoint was retained locally with --no-push) so recovery can later
+// admit exactly that state. Best effort: a
 // failure to fingerprint leaves the record without a binding, which makes
 // the turn unrecoverable rather than wrongly recoverable.
 func recordConsequence(ctx context.Context, repo RepositoryAdapter, record *TurnRecord) {
 	fingerprinter, ok := repo.(ConsequenceRepository)
-	if !ok || record.Outcome != OutcomeBlocked {
+	if !ok {
 		return
 	}
 	fingerprint, files, commits, err := fingerprinter.Fingerprint(ctx)
@@ -190,6 +192,9 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 	}
 	record.CheckpointPublished = record.Progress && !req.NoPush
+	if record.Progress && !record.CheckpointPublished {
+		recordConsequence(ctx, repo, &record)
+	}
 	record, err = c.settleCompletion(ctx, req, record)
 	if err != nil {
 		return TurnRecord{}, err

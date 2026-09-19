@@ -157,25 +157,42 @@ func ApplyCompletions(candidates []contracts.WorkCandidate, completions []UnitCo
 	return out
 }
 
-// GoalCompletionAssessment says whether a Goal generation is complete: every
-// WorkPlan unit is durably complete and every success criterion of the
-// generation is covered by a requirement of a completed unit.
+// GoalCompletionAssessment is STRUCTURAL: every WorkPlan unit is durably
+// complete, and each success criterion is or is not referenced by a
+// requirement of a completed unit. Coverage is evidence that the accepted
+// decomposition addressed a criterion; it is never criterion satisfaction
+// (#160). Satisfaction is established only by a GoalCompletionEvaluation.
 type GoalCompletionAssessment struct {
-	AllUnitsComplete  bool     `json:"all_units_complete"`
-	IncompleteUnits   []string `json:"incomplete_units,omitempty"`
-	UncoveredCriteria []string `json:"uncovered_criteria,omitempty"`
-	Complete          bool     `json:"complete"`
+	AllUnitsComplete  bool                `json:"all_units_complete"`
+	IncompleteUnits   []string            `json:"incomplete_units,omitempty"`
+	Coverage          []CriterionCoverage `json:"coverage,omitempty"`
+	UncoveredCriteria []string            `json:"uncovered_criteria,omitempty"`
+	// StructurallyComplete means all units complete and every criterion
+	// covered. It is a candidate condition, not Goal completion.
+	StructurallyComplete bool `json:"structurally_complete"`
 }
 
-// AssessGoalCompletion evaluates the Goal-level completion predicate from
-// the immutable generation and the durable unit completions.
+// CriterionCoverage names which completed units reference a success
+// criterion (structural coverage only).
+type CriterionCoverage struct {
+	Ref          string   `json:"ref"`
+	Criterion    string   `json:"criterion"`
+	Units        []string `json:"units,omitempty"`
+	Requirements []string `json:"requirements,omitempty"`
+}
+
+// AssessGoalCompletion computes the structural assessment from the
+// immutable generation and the durable unit completions.
 func AssessGoalCompletion(baseline goals.GoalBaseline, completions []UnitCompletion) (GoalCompletionAssessment, error) {
 	if baseline.WorkPlan == nil {
 		return GoalCompletionAssessment{}, ErrNoAcceptedGoalWorkPlan
 	}
 	candidates := ApplyCompletions(baseline.WorkPlan.Candidates, completions)
 	assessment := GoalCompletionAssessment{AllUnitsComplete: true}
-	covered := map[int]struct{}{}
+	coverage := make([]CriterionCoverage, len(baseline.SuccessCriteria))
+	for i, criterion := range baseline.SuccessCriteria {
+		coverage[i] = CriterionCoverage{Ref: "success_criteria/" + strconv.Itoa(i+1), Criterion: criterion}
+	}
 	for _, candidate := range candidates {
 		if !candidate.Completed {
 			assessment.AllUnitsComplete = false
@@ -183,18 +200,20 @@ func AssessGoalCompletion(baseline goals.GoalBaseline, completions []UnitComplet
 			continue
 		}
 		for _, requirement := range candidate.Requirements {
-			if index, ok := successCriterionIndex(requirement.SourceRef); ok {
-				covered[index] = struct{}{}
+			if index, ok := successCriterionIndex(requirement.SourceRef); ok && index <= len(coverage) {
+				coverage[index-1].Units = append(coverage[index-1].Units, candidate.ID)
+				coverage[index-1].Requirements = append(coverage[index-1].Requirements, requirement.ID)
 			}
 		}
 	}
-	for i := range baseline.SuccessCriteria {
-		if _, ok := covered[i+1]; !ok {
-			assessment.UncoveredCriteria = append(assessment.UncoveredCriteria, "success_criteria/"+strconv.Itoa(i+1))
+	for _, item := range coverage {
+		if len(item.Units) == 0 {
+			assessment.UncoveredCriteria = append(assessment.UncoveredCriteria, item.Ref)
 		}
 	}
+	assessment.Coverage = coverage
 	sort.Strings(assessment.UncoveredCriteria)
-	assessment.Complete = assessment.AllUnitsComplete && len(assessment.UncoveredCriteria) == 0
+	assessment.StructurallyComplete = assessment.AllUnitsComplete && len(assessment.UncoveredCriteria) == 0
 	return assessment, nil
 }
 
@@ -211,146 +230,4 @@ func successCriterionIndex(sourceRef string) (int, bool) {
 		return 0, false
 	}
 	return index, true
-}
-
-// GoalCompletionClaim is the controller's provisional evidence that a Goal
-// generation may be complete: every WorkPlan unit is durably complete and
-// every success criterion is covered. It is not authoritative. The WorkPlan
-// itself may have been incomplete, so the installation owner re-evaluates
-// the original Goal contract before Goal completion is recorded (#158).
-type GoalCompletionClaim struct {
-	GoalID       string                   `json:"goal_id"`
-	GoalVersion  string                   `json:"goal_version"`
-	GoalDigest   string                   `json:"goal_digest"`
-	InvocationID string                   `json:"invocation_id"`
-	TurnID       string                   `json:"turn_id"`
-	FinalHead    string                   `json:"final_head"`
-	Units        []UnitCompletion         `json:"units"`
-	Assessment   GoalCompletionAssessment `json:"assessment"`
-	ClaimedAt    time.Time                `json:"claimed_at"`
-}
-
-// GoalCompletionStatus is the owner's authoritative re-evaluation outcome.
-type GoalCompletionStatus string
-
-const (
-	GoalComplete   GoalCompletionStatus = "complete"
-	GoalIncomplete GoalCompletionStatus = "incomplete"
-)
-
-// GoalCompletionDecision is the owner's authoritative evaluation of a claim
-// against the original Goal contract.
-type GoalCompletionDecision struct {
-	GoalID      string                 `json:"goal_id"`
-	GoalVersion string                 `json:"goal_version"`
-	GoalDigest  string                 `json:"goal_digest"`
-	ClaimTurnID string                 `json:"claim_turn_id"`
-	FinalHead   string                 `json:"final_head"`
-	Status      GoalCompletionStatus   `json:"status"`
-	DecidedBy   contracts.PrincipalRef `json:"decided_by"`
-	Reason      string                 `json:"reason,omitempty"`
-	DecidedAt   time.Time              `json:"decided_at"`
-}
-
-// GoalCompletionState is the durable Goal-level completion state of a
-// generation: the provisional claim, if any, and the owner's decision.
-type GoalCompletionState struct {
-	Claim    *GoalCompletionClaim    `json:"claim,omitempty"`
-	Decision *GoalCompletionDecision `json:"decision,omitempty"`
-}
-
-const (
-	goalCompletionClaimedEventType = "goal_drive.goal_completion_claimed"
-	goalCompletionDecidedEventType = "goal_drive.goal_completion_decided"
-)
-
-func goalCompletionAggregate(goalID, version string) string {
-	return "goal-drive-goal-completion:" + goalID + ":" + version
-}
-
-// LoadGoalCompletion returns the generation's provisional claim and the
-// owner's decision, when they exist.
-func (l Ledger) LoadGoalCompletion(ctx context.Context, goalID, goalVersion string) (GoalCompletionState, error) {
-	if l.Store == nil {
-		return GoalCompletionState{}, errors.New("Goal drive event store is required")
-	}
-	events, err := l.Store.LoadAggregate(ctx, goalCompletionAggregate(goalID, goalVersion), 0)
-	if err != nil {
-		return GoalCompletionState{}, err
-	}
-	var state GoalCompletionState
-	for _, event := range events {
-		switch event.Type {
-		case goalCompletionClaimedEventType:
-			var claim GoalCompletionClaim
-			if err := json.Unmarshal(event.Payload, &claim); err != nil {
-				return GoalCompletionState{}, fmt.Errorf("decode Goal completion claim: %w", err)
-			}
-			state.Claim = &claim
-		case goalCompletionDecidedEventType:
-			var decision GoalCompletionDecision
-			if err := json.Unmarshal(event.Payload, &decision); err != nil {
-				return GoalCompletionState{}, fmt.Errorf("decode Goal completion decision: %w", err)
-			}
-			state.Decision = &decision
-		default:
-			return GoalCompletionState{}, fmt.Errorf("unexpected Goal completion event %q", event.Type)
-		}
-	}
-	return state, nil
-}
-
-// RecordGoalCompletionClaim persists the provisional claim once.
-func (l Ledger) RecordGoalCompletionClaim(ctx context.Context, claim GoalCompletionClaim) error {
-	if claim.GoalID == "" || claim.GoalVersion == "" || claim.TurnID == "" || claim.FinalHead == "" || !claim.Assessment.Complete {
-		return errors.New("Goal completion claim requires the generation, the claiming turn, the final checkpoint, and a complete assessment")
-	}
-	state, err := l.LoadGoalCompletion(ctx, claim.GoalID, claim.GoalVersion)
-	if err != nil {
-		return err
-	}
-	if state.Claim != nil {
-		return fmt.Errorf("Goal %s/%s completion was already claimed by turn %s", claim.GoalID, claim.GoalVersion, state.Claim.TurnID)
-	}
-	return l.appendGoalCompletion(ctx, claim.GoalID, claim.GoalVersion, 0, goalCompletionClaimedEventType, "goal-drive:goal-completion-claim:"+claim.TurnID, claim, claim.ClaimedAt)
-}
-
-// RecordGoalCompletionDecision persists the owner's evaluation of the
-// claim. It requires a claim, binds the decision to the claim's turn and
-// final checkpoint, and admits exactly one decision.
-func (l Ledger) RecordGoalCompletionDecision(ctx context.Context, decision GoalCompletionDecision) error {
-	if decision.Status != GoalComplete && decision.Status != GoalIncomplete {
-		return fmt.Errorf("Goal completion status must be %q or %q", GoalComplete, GoalIncomplete)
-	}
-	if err := decision.DecidedBy.Validate(); err != nil {
-		return fmt.Errorf("Goal completion decider: %w", err)
-	}
-	state, err := l.LoadGoalCompletion(ctx, decision.GoalID, decision.GoalVersion)
-	if err != nil {
-		return err
-	}
-	if state.Claim == nil {
-		return fmt.Errorf("Goal %s/%s has no provisional completion claim to evaluate", decision.GoalID, decision.GoalVersion)
-	}
-	if state.Decision != nil {
-		return fmt.Errorf("Goal %s/%s completion was already decided (%s) by %s", decision.GoalID, decision.GoalVersion, state.Decision.Status, state.Decision.DecidedBy.ID)
-	}
-	if decision.ClaimTurnID != state.Claim.TurnID || decision.FinalHead != state.Claim.FinalHead || decision.GoalDigest != state.Claim.GoalDigest {
-		return errors.New("Goal completion decision must bind the exact claim turn, final checkpoint, and generation digest")
-	}
-	return l.appendGoalCompletion(ctx, decision.GoalID, decision.GoalVersion, 1, goalCompletionDecidedEventType, "goal-drive:goal-completion-decision:"+decision.ClaimTurnID, decision, decision.DecidedAt)
-}
-
-func (l Ledger) appendGoalCompletion(ctx context.Context, goalID, goalVersion string, expected int64, eventType, commandID string, payload any, at time.Time) error {
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	aggregate := goalCompletionAggregate(goalID, goalVersion)
-	_, err = l.Store.Append(ctx, aggregate, expected, []eventstore.Event{{
-		ID: aggregate + ":" + eventType, AggregateType: "goal_drive_goal_completion", Type: eventType, Version: "1",
-		Actor: l.Actor, CommandID: commandID, CorrelationID: aggregate, Trust: contracts.TrustObserved,
-		Payload: encoded, CreatedAt: at,
-	}})
-	return err
 }

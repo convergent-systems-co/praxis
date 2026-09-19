@@ -141,41 +141,140 @@ func TestUnitCompletionDrivesDependencyOrder(t *testing.T) {
 	if err != nil || record.ChildObjective != "unit:b" || !record.UnitCompleted || record.Outcome != OutcomeContinue {
 		t.Fatalf("B must be selected after A and complete: %+v %v", record, err)
 	}
-	// 7, 14, 15: C unlocks after B; completing C completes the Goal only
-	// because every success criterion is covered.
+	// 7, 14: C unlocks after B; completing C records the GOAL_COMPLETION_CANDIDATE
+	// and the deterministic evaluation, and stops for settlement. The chain
+	// validator is bound to no criterion, so every criterion is UNKNOWN and
+	// only the integrated validation is satisfied: outcome UNKNOWN.
 	record, err = drive(chainWorker{dir: workDir, trailer: "unit:c"})
-	if err != nil || record.ChildObjective != "unit:c" || !record.UnitCompleted || record.Outcome != OutcomeUserDecisionRequired {
-		t.Fatalf("completing C makes Goal completion provisional and stops for the owner's evaluation: %+v %v", record, err)
+	if err != nil || record.ChildObjective != "unit:c" || !record.UnitCompleted || record.Outcome != OutcomeUserDecisionRequired || !record.GoalCandidate || record.GoalEvaluation != string(ResultUnknown) {
+		t.Fatalf("completing C yields a candidate with an unknown evaluation and stops for settlement: %+v %v", record, err)
 	}
 	ledger := Ledger{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
 	goalState, err := ledger.LoadGoalCompletion(ctx, baseline.ID, baseline.Version)
-	if err != nil || goalState.Claim == nil || goalState.Decision != nil || goalState.Claim.FinalHead != record.EndHead || goalState.Claim.TurnID != record.TurnID {
-		t.Fatalf("the provisional claim must be durable and undecided: %v %+v", err, goalState)
+	if err != nil || goalState.Candidate == nil || goalState.Decision != nil || goalState.Candidate.FinalHead != record.EndHead || goalState.Candidate.TurnID != record.TurnID || len(goalState.Evaluations) != 1 {
+		t.Fatalf("candidate and deterministic evaluation must be durable and unsettled: %v %+v", err, goalState)
+	}
+	latest := goalState.Latest()
+	if latest.EvaluatorKind != EvaluatorDeterministic || latest.Outcome != ResultUnknown {
+		t.Fatalf("deterministic evaluation: %+v", latest)
+	}
+	for _, item := range latest.Items {
+		switch item.Kind {
+		case ItemSuccessCriterion:
+			if item.Result != ResultUnknown || len(item.Coverage) == 0 || !strings.Contains(item.Predicate, "requires judgment") {
+				t.Fatalf("an unbound criterion stays UNKNOWN with coverage recorded as evidence only: %+v", item)
+			}
+		case ItemIntegratedValidator:
+			if item.Result != ResultSatisfied {
+				t.Fatalf("integrated validation must have run at the final head: %+v", item)
+			}
+		}
 	}
 	if _, err := drive(chainWorker{dir: workDir}); !errors.Is(err, ErrGoalCompletionPending) {
-		t.Fatalf("goal-drive must wait for the owner's evaluation: %v", err)
+		t.Fatalf("goal-drive must wait for settlement: %v", err)
 	}
-	// The owner re-evaluates the original contract; only then is the Goal complete.
-	bad := GoalCompletionDecision{GoalID: baseline.ID, GoalVersion: baseline.Version, GoalDigest: baseline.Digest, ClaimTurnID: "other", FinalHead: record.EndHead, Status: GoalComplete, DecidedBy: contracts.PrincipalRef{ID: "owner", Kind: "human"}, DecidedAt: time.Now().UTC()}
-	if err := ledger.RecordGoalCompletionDecision(ctx, bad); err == nil {
-		t.Fatal("a decision must bind the exact claim")
+	// G: settlement cannot turn UNKNOWN into satisfaction.
+	digest, _ := latest.Digest()
+	owner := contracts.PrincipalRef{ID: "owner", Kind: "human"}
+	complete := GoalCompletionDecision{GoalID: baseline.ID, GoalVersion: baseline.Version, GoalDigest: baseline.Digest, CandidateTurnID: record.TurnID, FinalHead: record.EndHead, EvaluationDigest: digest, Status: GoalComplete, DecidedBy: owner, DecidedAt: time.Now().UTC()}
+	if err := ledger.RecordGoalCompletionDecision(ctx, complete); err == nil || !strings.Contains(err.Error(), "outcome is unknown") {
+		t.Fatalf("COMPLETE must be refused on an unknown evaluation: %v", err)
 	}
-	good := bad
-	good.ClaimTurnID = record.TurnID
-	if err := ledger.RecordGoalCompletionDecision(ctx, good); err != nil {
+	// An evaluator resolves the unknown criteria with evidence and judgment.
+	findings := []Finding{}
+	for i := 1; i <= 3; i++ {
+		findings = append(findings, Finding{Ref: "success_criteria/" + string(rune('0'+i)), Result: ResultSatisfied, Evidence: []string{"reviewed checkpoint " + record.EndHead}, Judgment: "criterion holds in the integrated result"})
+	}
+	composed, err := ComposeEvaluation(*latest, contracts.PrincipalRef{ID: "reviewer", Kind: "human"}, EvaluatorHuman, findings)
+	if err != nil || composed.Outcome != ResultSatisfied || composed.BasedOn != digest {
+		t.Fatalf("composition must resolve the unknowns into a satisfied evaluation based on the verifier's: %+v %v", composed, err)
+	}
+	// F: a stale binding is refused.
+	stale := composed
+	stale.FinalHead = "0000000"
+	if _, err := ledger.RecordGoalEvaluation(ctx, stale); err == nil {
+		t.Fatal("an evaluation bound to another checkpoint must be refused")
+	}
+	composedDigest, err := ledger.RecordGoalEvaluation(ctx, composed)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ledger.RecordGoalCompletionDecision(ctx, good); err == nil {
-		t.Fatal("exactly one decision is admitted")
+	// Settlement binds the exact latest evaluation.
+	if err := ledger.RecordGoalCompletionDecision(ctx, complete); err == nil {
+		t.Fatal("a decision bound to a superseded evaluation must be refused")
 	}
-	if _, err := drive(chainWorker{dir: workDir}); !errors.Is(err, ErrGoalComplete) {
-		t.Fatalf("a complete Goal refuses further turns: %v", err)
+	complete.EvaluationDigest = composedDigest
+	if err := ledger.RecordGoalCompletionDecision(ctx, complete); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordGoalCompletionDecision(ctx, complete); err == nil {
+		t.Fatal("exactly one settlement is admitted")
+	}
+	if _, err := drive(chainWorker{dir: workDir}); !errors.Is(err, ErrGoalSettled) {
+		t.Fatalf("a settled generation refuses further turns: %v", err)
 	}
 }
 
-// TestGoalCompletionRequiresCriteriaCoverage proves all units complete is not
-// enough: an uncovered success criterion keeps the Goal incomplete.
-func TestGoalCompletionRequiresCriteriaCoverage(t *testing.T) {
+// TestVerifierBindingsAndOverrides proves bound criteria are verified by the
+// declared validator at the final head, unbound ones stay UNKNOWN, an
+// integrated failure yields UNSATISFIED, and a judgment cannot override a
+// deterministic UNSATISFIED.
+func TestVerifierBindingsAndOverrides(t *testing.T) {
+	ctx := context.Background()
+	_, workDir := contractRepo(t)
+	if err := os.MkdirAll(filepath.Join(workDir, ".praxis"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// success_criteria/1 passes, success_criteria/2 fails, integrated passes.
+	writeFile(t, filepath.Join(workDir, ".praxis", "validate"), "#!/bin/sh\ncase \"$1\" in success_criteria/1|integrated) exit 0;; success_criteria/2) echo 'criterion 2 not met'; exit 1;; *) exit 0;; esac\n")
+	if err := os.Chmod(filepath.Join(workDir, ".praxis", "validate"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGitTest(t, workDir, "add", ".praxis")
+	runGitTest(t, workDir, "commit", "-m", "validator")
+	runGitTest(t, workDir, "push", "origin", "main")
+	head := strings.TrimSpace(runGitOutput(t, workDir, "rev-parse", "HEAD"))
+	baseline := chainBaseline()
+	baseline.ValidityPredicates = []string{"verify success_criteria/1 with declared-validation", "verify success_criteria/2 with declared-validation", "the deployment stays keyless"}
+	baseline.Constraints = []string{"no secrets"}
+	candidate := GoalCompletionCandidate{GoalID: baseline.ID, GoalVersion: baseline.Version, GoalDigest: baseline.Digest, TurnID: "t:turn:1", InvocationID: "t", FinalHead: head, Assessment: GoalCompletionAssessment{AllUnitsComplete: true}}
+	repo := GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}
+	evaluation, err := EvaluateDeterministically(ctx, baseline, candidate, repo, contracts.PrincipalRef{ID: "verifier", Kind: "controller"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := map[string]EvaluationResult{}
+	for _, item := range evaluation.Items {
+		results[item.Ref] = item.Result
+	}
+	if results["success_criteria/1"] != ResultSatisfied || results["success_criteria/2"] != ResultUnsatisfied || results["success_criteria/3"] != ResultUnknown || results["constraint/1"] != ResultUnknown || results["validity_predicates/3"] != ResultUnknown || results[IntegratedValidator] != ResultSatisfied || evaluation.Outcome != ResultUnsatisfied {
+		t.Fatalf("verifier results: %v outcome %s", results, evaluation.Outcome)
+	}
+	if _, err := ComposeEvaluation(evaluation, contracts.PrincipalRef{ID: "r", Kind: "human"}, EvaluatorHuman, []Finding{{Ref: "success_criteria/2", Result: ResultSatisfied, Evidence: []string{"x"}, Judgment: "looks fine"}}); err == nil || !strings.Contains(err.Error(), "cannot override") {
+		t.Fatalf("a judgment must not override a deterministic UNSATISFIED: %v", err)
+	}
+	if _, err := ComposeEvaluation(evaluation, contracts.PrincipalRef{ID: "r", Kind: "human"}, EvaluatorHuman, []Finding{{Ref: "success_criteria/3", Result: ResultSatisfied, Judgment: "no evidence"}}); err == nil || !strings.Contains(err.Error(), "without evidence") {
+		t.Fatalf("satisfaction without evidence must be refused: %v", err)
+	}
+	if _, err := ComposeEvaluation(evaluation, contracts.PrincipalRef{ID: "r", Kind: "human"}, EvaluatorHuman, []Finding{{Ref: "success_criteria/9", Result: ResultUnknown, Judgment: "?"}}); err == nil {
+		t.Fatal("a finding must name a contract element")
+	}
+	// A stale checkout fails closed.
+	writeFile(t, filepath.Join(workDir, "extra.txt"), "x\n")
+	runGitTest(t, workDir, "add", "extra.txt")
+	runGitTest(t, workDir, "commit", "-q", "-m", "moved on")
+	if _, err := EvaluateDeterministically(ctx, baseline, candidate, repo, contracts.PrincipalRef{ID: "verifier", Kind: "controller"}); err == nil {
+		t.Fatal("evaluation at a checkout that is not the final checkpoint must fail closed")
+	}
+	if DeriveOutcome(nil) != ResultUnknown || DeriveOutcome([]PredicateEvaluation{{Result: ResultSatisfied}}) != ResultSatisfied {
+		t.Fatal("outcome derivation")
+	}
+}
+
+// TestStructuralAssessmentIsCoverageOnly proves the assessment reports
+// coverage and never satisfaction: an uncovered criterion is listed, and a
+// fully covered plan is only structurally complete.
+func TestStructuralAssessmentIsCoverageOnly(t *testing.T) {
 	baseline := chainBaseline()
 	baseline.SuccessCriteria = append(baseline.SuccessCriteria, "four")
 	completions := []UnitCompletion{}
@@ -183,13 +282,13 @@ func TestGoalCompletionRequiresCriteriaCoverage(t *testing.T) {
 		completions = append(completions, UnitCompletion{GoalID: baseline.ID, GoalVersion: baseline.Version, UnitID: unit, InvocationID: "i", TurnID: "t", EndHead: "h", Evidence: []string{"x"}})
 	}
 	assessment, err := AssessGoalCompletion(baseline, completions)
-	if err != nil || !assessment.AllUnitsComplete || assessment.Complete || strings.Join(assessment.UncoveredCriteria, ",") != "success_criteria/4" {
-		t.Fatalf("uncovered criterion must keep the Goal incomplete: %+v %v", assessment, err)
+	if err != nil || !assessment.AllUnitsComplete || assessment.StructurallyComplete || strings.Join(assessment.UncoveredCriteria, ",") != "success_criteria/4" {
+		t.Fatalf("uncovered criterion must be listed: %+v %v", assessment, err)
 	}
 	baseline.SuccessCriteria = baseline.SuccessCriteria[:3]
 	assessment, _ = AssessGoalCompletion(baseline, completions)
-	if !assessment.Complete {
-		t.Fatalf("all units complete and all criteria covered must complete the Goal: %+v", assessment)
+	if !assessment.StructurallyComplete || len(assessment.Coverage) != 3 || strings.Join(assessment.Coverage[2].Units, ",") != "unit:c" {
+		t.Fatalf("full coverage is structural completeness with per-criterion units: %+v", assessment)
 	}
 	if _, err := AssessGoalCompletion(baseline, completions[:2]); err != nil {
 		t.Fatal(err)

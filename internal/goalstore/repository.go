@@ -1403,3 +1403,52 @@ func firstAuthority(values []string) string {
 	}
 	return ""
 }
+
+// SaveReplanningSuccessor creates the successor immutable generation of a
+// settled Goal generation for governed succession (ADR-099, #160): the same
+// Goal contract, the predecessor digest, no WorkPlan (a successor WorkPlan
+// is proposed, reviewed, accepted, and attached through the ordinary
+// lifecycle), and evidence references binding the predecessor's completion
+// state. The predecessor is never rewritten.
+func (r Repository) SaveReplanningSuccessor(ctx context.Context, sourceID, sourceVersion, sourceDigest, successorVersion string, evidenceRefs []string, createdAt time.Time) (goals.GoalBaseline, error) {
+	source, err := r.Load(ctx, sourceID, sourceVersion, createdAt)
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("load source Goal Baseline: %w", err)
+	}
+	if source.Digest != sourceDigest {
+		return goals.GoalBaseline{}, goals.ErrBaselineDigestMismatch
+	}
+	if successorVersion == "" || successorVersion == source.Version {
+		return goals.GoalBaseline{}, errors.New("successor Goal Baseline version must be distinct")
+	}
+	if _, err := r.Load(ctx, sourceID, successorVersion, createdAt); err == nil {
+		return goals.GoalBaseline{}, fmt.Errorf("Goal generation %s/%s already exists", sourceID, successorVersion)
+	}
+	successor := source
+	successor.Version = successorVersion
+	successor.Digest = ""
+	successor.PredecessorDigest = source.Digest
+	successor.WorkPlan = nil
+	successor.ImportSourceRef, successor.ImportSourceDigest = "", ""
+	successor.EvidenceRefs = append(append([]string(nil), source.EvidenceRefs...), evidenceRefs...)
+	if err := successor.Validate(); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	digest, err := successor.ComputeDigest()
+	if err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	successor.Digest = digest
+	payload, err := json.Marshal(successor)
+	if err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("encode successor Goal Baseline: %w", err)
+	}
+	record, err := r.goalBaselineRecord(ctx, successor, payload, digest, createdAt, nil)
+	if err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if err := r.Store.PutSecureBlob(ctx, record); err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("persist successor Goal Baseline: %w", err)
+	}
+	return successor, nil
+}

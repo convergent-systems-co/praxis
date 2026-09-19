@@ -75,6 +75,25 @@ func (r GitRepository) DeclaredValidation() (string, bool) {
 // RunDeclaredValidation executes the declared validation in the checkout
 // with the same minimal environment providers receive.
 func (r GitRepository) RunDeclaredValidation(ctx context.Context) (string, error) {
+	return r.RunDeclaredValidationWith(ctx)
+}
+
+// HeadIs fails unless the checkout is exactly at the given commit.
+func (r GitRepository) HeadIs(ctx context.Context, head string) error {
+	current, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(current) != head {
+		return fmt.Errorf("checkout is at %s, not %s", strings.TrimSpace(current), head)
+	}
+	return nil
+}
+
+// RunDeclaredValidationWith executes the declared validation with arguments
+// (a bound contract element or "integrated") in the checkout with the same
+// minimal environment providers receive.
+func (r GitRepository) RunDeclaredValidationWith(ctx context.Context, args ...string) (string, error) {
 	command, declared := r.DeclaredValidation()
 	if !declared {
 		return "", errors.New("repository declares no validation")
@@ -83,12 +102,12 @@ func (r GitRepository) RunDeclaredValidation(ctx context.Context) (string, error
 	if err != nil {
 		return "", err
 	}
-	cmd := exec.CommandContext(ctx, filepath.Join(r.Dir, declaredValidationPath))
+	cmd := exec.CommandContext(ctx, filepath.Join(r.Dir, declaredValidationPath), args...)
 	cmd.Dir = r.Dir
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return string(output), fmt.Errorf("%s: %w", command, err)
+		return string(output), fmt.Errorf("%s %s: %w", command, strings.Join(args, " "), err)
 	}
 	return string(output), nil
 }

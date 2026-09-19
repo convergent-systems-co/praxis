@@ -2,6 +2,7 @@ package goaldrive
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -129,5 +130,49 @@ func TestActiveTurnCancelAndSuspendAreDurableControlSignals(t *testing.T) {
 				t.Fatal("provider did not honor active-turn control")
 			}
 		})
+	}
+}
+
+// TestTurnAllocationIsDurableBeforeAnnouncement proves the announced turn
+// identity always resolves to durable activity (#155): turn.allocated is
+// recorded before OnTurnAllocated runs.
+func TestTurnAllocationIsDurableBeforeAnnouncement(t *testing.T) {
+	baseline := goals.GoalBaseline{ID: "goal-announce", Version: "1", OriginalIntent: "bounded", RefinedOutcome: "complete", Rigor: goals.RigorStructured, RecommendationMode: goals.RecommendationReviewAll, WorkPlan: &contracts.WorkPlan{BaselineDigest: "baseline", AuthorityRef: "authority", AuthorityDigest: "sha256:authority", AcceptanceRef: "acceptance", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:proposal", Candidates: []contracts.WorkCandidate{{ID: "unit", Priority: 1, Sequence: 1, SourceRef: "test", SourceDigest: "sha256:source", Provenance: contracts.ProvenancePLAN, Requirements: []contracts.RequirementRef{{ID: "req", SourceRef: "test:req", SourceDigest: "sha256:req"}}}}}}
+	store := eventstore.NewMemoryStore()
+	activity := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	checkout := &supervisionRepository{head: "a"}
+	worker := &continuousWorker{repo: checkout}
+	var seenAtAnnouncement []string
+	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: store, Actor: activity.Actor}, Worker: worker, NoProgressLimit: 2, Activity: activity}, Baselines: supervisionBaselineStore{baseline: baseline}, Repository: checkout, GraphID: "graph", GraphVersion: "1", Activity: activity}
+	runtime.OnTurnAllocated = func(turnID string) {
+		events, err := activity.Load(context.Background(), "announce-1", turnID, 0)
+		if err != nil {
+			t.Errorf("load at announcement: %v", err)
+		}
+		for _, event := range events {
+			seenAtAnnouncement = append(seenAtAnnouncement, string(event.Type))
+		}
+	}
+	record, err := runtime.Execute(context.Background(), InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeSupervised, InvocationID: "announce-1", ProviderID: "provider", NoPush: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seenAtAnnouncement) != 1 || seenAtAnnouncement[0] != string(ActivityTurnAllocated) {
+		t.Fatalf("turn.allocated must be durable before the announcement: %v", seenAtAnnouncement)
+	}
+	if record.CreatedAt.IsZero() {
+		t.Fatalf("the returned record must carry its durable creation instant (#156): %+v", record)
+	}
+	turns, err := runtime.Controller.Ledger.Load(context.Background(), baseline.ID, baseline.Version)
+	if err != nil || len(turns) != 1 || !turns[0].CreatedAt.Equal(record.CreatedAt) {
+		t.Fatalf("rendered and persisted timestamps must agree: %v %+v", err, turns)
+	}
+	encoded, _ := json.Marshal(TurnRecord{})
+	if strings.Contains(string(encoded), "created_at") {
+		t.Fatalf("an unknown creation instant must render as absent, not year 0001: %s", encoded)
+	}
+	encoded, _ = json.Marshal(record)
+	if !strings.Contains(string(encoded), `"created_at":"`+record.CreatedAt.Format("2006-01-02T15:04:05")) {
+		t.Fatalf("a known creation instant must render: %s", encoded)
 	}
 }

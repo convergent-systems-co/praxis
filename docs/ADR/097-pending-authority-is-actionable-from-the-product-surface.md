@@ -135,6 +135,28 @@ that start later until the newest reaches a terminal activity. Exact
 `--turn-id` observation remains, and interventions (comment, correction,
 constraint, suspend, cancel, resume) still require the exact turn.
 
+#### Follow semantics (#155)
+
+The announced command is a product contract, so `observe --follow` has
+deterministic semantics: resolve the selected turn; emit every already
+durable matching event at once; keep the cursor after the last one; stay
+attached and emit newly persisted events; emit the terminal disposition;
+terminate, so the stream reaches EOF. The terminal disposition of every
+turn is `execution.state_changed` (CONTINUE, COMPLETE, NO_PROGRESS,
+blocked); a turn refused before dispatch ends with
+`capability.unsatisfiable`, and a human intervention ends one with
+`cancelled` or `suspended`. The first live recovery turn ended CONTINUE and
+the follower recognised only `completion.qualified`, `blocker.detected`,
+`cancelled`, and `suspended`, so it never terminated and a pipeline reading
+to EOF showed nothing. Every turn now records `turn.allocated` durably
+before its identity is announced, so a selector that matches no durable
+activity names no turn of that invocation and fails closed, as does a
+selector whose Goal generation does not match the durable events.
+
+Durable turn records render an unknown creation instant as absent, never
+as the year-0001 zero time, and the record goal-drive returns carries the
+same instant the ledger persisted (#156).
+
 ## Consequences
 
 - A user with an installed Praxis, the installed Goals package, a Goal, and

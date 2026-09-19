@@ -177,15 +177,22 @@ func stopIntervention(control interventionControl) ActivityType {
 
 type providerMessageWriter struct {
 	mu       sync.Mutex
+	cond     *sync.Cond
 	ctx      context.Context
 	request  WorkerRequest
 	provider string
 	buffer   strings.Builder
+	queue    []string
+	closed   bool
+	done     chan struct{}
 	err      error
 }
 
 func newProviderMessageWriter(ctx context.Context, request WorkerRequest, provider string) *providerMessageWriter {
-	return &providerMessageWriter{ctx: ctx, request: request, provider: provider}
+	w := &providerMessageWriter{ctx: ctx, request: request, provider: provider, done: make(chan struct{})}
+	w.cond = sync.NewCond(&w.mu)
+	go w.persist()
+	return w
 }
 
 func (w *providerMessageWriter) Write(p []byte) (int, error) {
@@ -201,18 +208,48 @@ func (w *providerMessageWriter) Write(p []byte) (int, error) {
 		line := strings.TrimSpace(value[:idx])
 		w.buffer.Reset()
 		_, _ = w.buffer.WriteString(value[idx+1:])
-		w.emit(line)
+		w.enqueue(line)
 	}
 	return len(p), nil
 }
 
 func (w *providerMessageWriter) Flush() {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	if strings.TrimSpace(w.buffer.String()) != "" {
-		w.emit(strings.TrimSpace(w.buffer.String()))
+		w.enqueue(strings.TrimSpace(w.buffer.String()))
 	}
 	w.buffer.Reset()
+	w.closed = true
+	w.cond.Broadcast()
+	w.mu.Unlock()
+	<-w.done
+}
+
+func (w *providerMessageWriter) enqueue(message string) {
+	if message == "" {
+		return
+	}
+	w.queue = append(w.queue, message)
+	w.cond.Signal()
+}
+
+func (w *providerMessageWriter) persist() {
+	defer close(w.done)
+	for {
+		w.mu.Lock()
+		for len(w.queue) == 0 && !w.closed {
+			w.cond.Wait()
+		}
+		if len(w.queue) == 0 && w.closed {
+			w.mu.Unlock()
+			return
+		}
+		message := w.queue[0]
+		w.queue[0] = ""
+		w.queue = w.queue[1:]
+		w.mu.Unlock()
+		w.emit(message)
+	}
 }
 
 func (w *providerMessageWriter) emit(message string) {

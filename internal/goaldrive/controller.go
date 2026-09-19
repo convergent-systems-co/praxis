@@ -99,7 +99,7 @@ func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecor
 	if err := c.emitEnvelope(ctx, req); err != nil {
 		return TurnRecord{}, err
 	}
-	record, workerErr := c.invoke(ctx, req)
+	record, workerErr, _ := c.invoke(ctx, req)
 	if err := c.recordTurn(ctx, &record); err != nil {
 		if workerErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", err, workerErr)
@@ -256,14 +256,14 @@ func (c Controller) worker(req TurnRequest) (Worker, error) {
 	return c.Worker, nil
 }
 
-func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, error) {
+func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, error, bool) {
 	worker, err := c.worker(req)
 	if err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, err, false
 	}
 	workerReq := c.workerRequest(req)
 	if err := c.emit(ctx, ActivityActionStarted, req, map[string]string{"action": "provider.execute"}); err != nil {
-		return TurnRecord{}, err
+		return TurnRecord{}, err, false
 	}
 	result, workerErr := worker.Execute(ctx, workerReq)
 	// Durable writes after the worker returns must survive the cancellation
@@ -271,36 +271,44 @@ func (c Controller) invoke(ctx context.Context, req TurnRequest) (TurnRecord, er
 	ctx = context.WithoutCancel(ctx)
 	if workerErr != nil {
 		if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
-			return TurnRecord{}, err
+			return TurnRecord{}, err, true
 		}
 	} else {
 		if err := c.emit(ctx, ActivityActionCompleted, req, map[string]string{"action": "provider.execute"}); err != nil {
-			return TurnRecord{}, err
+			return TurnRecord{}, err, true
 		}
 	}
-	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence}
+	base := TurnRecord{GoalID: req.GoalID, GoalVersion: req.GoalVersion, InvocationID: req.InvocationID, Mode: req.Mode, TurnID: req.TurnID, ChildObjective: req.ChildObjective, GraphID: req.GraphID, GraphVersion: req.GraphVersion, StartHead: req.StartHead, EndHead: result.EndHead, ExecutorID: result.ExecutorID, CheckpointEvidence: result.CheckpointEvidence, RetryOf: recoveredTurn(req.Recovery)}
+	bindRecoveryLineage(&base, req.Recovery)
 	if workerErr != nil {
 		base.Outcome, base.Blocker = OutcomeBlocked, workerErr.Error()
-		return base, workerErr
+		return base, workerErr, true
 	}
 	if result.Outcome == OutcomeContinue || result.Outcome == OutcomeComplete {
 		progress, progressErr := contracts.ValidateCheckpointProgress(req.StartHead, result.EndHead, true, result.CheckpointValid)
 		if progressErr != nil {
 			if result.Outcome == OutcomeComplete {
-				return TurnRecord{}, progressErr
+				return TurnRecord{}, progressErr, true
 			}
 			result.Outcome = OutcomeNoProgress
 		} else if !progress {
 			if result.Outcome == OutcomeComplete {
-				return TurnRecord{}, errors.New("COMPLETE turn made no progress")
+				return TurnRecord{}, errors.New("COMPLETE turn made no progress"), true
 			}
 			result.Outcome = OutcomeNoProgress
 		}
 		base.Outcome, base.Progress = result.Outcome, progress
-		return base, nil
+		return base, nil, true
 	}
 	base.Outcome = result.Outcome
-	return base, nil
+	return base, nil, true
+}
+
+func recoveredTurn(recovery *WorkerRecoveryContext) string {
+	if recovery == nil {
+		return ""
+	}
+	return recovery.RecoveredTurnID
 }
 
 func (c Controller) workerRequest(req TurnRequest) WorkerRequest {

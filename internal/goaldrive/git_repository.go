@@ -25,9 +25,9 @@ type GitRepository struct {
 	AllowDetached    bool
 	AllowDirtyStart  bool
 	DirtyStartDigest string
-	// AllowRecoveryStart admits a dirty authoritative checkout only when its
-	// consequence fingerprint equals RecoveryDigest, the fingerprint bound to
-	// the BLOCKED turn being recovered.
+	// AllowRecoveryStart admits a dirty, local-ahead, or provably divergent
+	// authoritative checkout only when its consequence fingerprint equals
+	// RecoveryDigest, the fingerprint bound to the recovered turn.
 	AllowRecoveryStart bool
 	RecoveryDigest     string
 }
@@ -38,6 +38,23 @@ func (r GitRepository) Location() (string, string) { return r.Dir, r.Branch }
 // changes and local commits not yet published to the remote branch.
 func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []string, error) {
 	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
+}
+
+func (r GitRepository) ConsequenceLineage(ctx context.Context) (string, string, error) {
+	remote, err := r.run(ctx, "rev-parse", "--verify", "refs/remotes/"+r.Remote+"/"+r.Branch+"^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	local, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	remote, local = strings.TrimSpace(remote), strings.TrimSpace(local)
+	base, err := r.run(ctx, "merge-base", local, remote)
+	if err != nil {
+		return "", "", err
+	}
+	return strings.TrimSpace(base), remote, nil
 }
 
 // CompletionClaims returns the units proposed complete by the commits the
@@ -69,8 +86,29 @@ func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead 
 	return units, nil
 }
 
+func (r GitRepository) RecoveryCompletionClaims(ctx context.Context, remoteHead, endHead string) ([]string, error) {
+	if remoteHead == "" || endHead == "" {
+		return nil, errors.New("recovery completion claims require remote and checkpoint HEADs")
+	}
+	output, err := r.run(ctx, "log", "-z", "--no-merges", "--format=%B", remoteHead+".."+endHead)
+	if err != nil {
+		return nil, fmt.Errorf("read recovery commit messages: %w", err)
+	}
+	var messages []string
+	for _, message := range strings.Split(output, "\x00") {
+		if strings.TrimSpace(message) != "" {
+			messages = append(messages, message)
+		}
+	}
+	units, err := ParseCompletionClaims(messages)
+	if err != nil {
+		return nil, fmt.Errorf("read recovery completion proposals in %s..%s: %w", remoteHead, endHead, err)
+	}
+	return units, nil
+}
+
 // RecoveryStartAllowed reports whether a bound recovery may start from a
-// checkout that is dirty or ahead of the remote.
+// checkout that is dirty, ahead of, or provably diverged from the remote.
 func (r GitRepository) RecoveryStartAllowed() bool { return r.AllowRecoveryStart }
 
 const declaredValidationPath = ".praxis/validate"
@@ -133,6 +171,75 @@ func (r GitRepository) VerifyRecoveryConsequence(ctx context.Context) error {
 		return errors.New("checkout does not match the consequence fingerprint bound to the recovered turn")
 	}
 	return nil
+}
+
+// VerifyDivergedRecovery proves the two lineages share a base and that the
+// fetched authority advanced beyond it. The exact local consequence is
+// independently fenced by VerifyRecoveryConsequence.
+func (r GitRepository) VerifyDivergedRecovery(ctx context.Context) (string, string, error) {
+	local, err := r.run(ctx, "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	remote, err := r.run(ctx, "rev-parse", "--verify", remoteRef+"^{commit}")
+	if err != nil {
+		return "", "", err
+	}
+	base, err := r.run(ctx, "merge-base", strings.TrimSpace(local), strings.TrimSpace(remote))
+	if err != nil {
+		return "", "", fmt.Errorf("find divergent recovery base: %w", err)
+	}
+	local, remote, base = strings.TrimSpace(local), strings.TrimSpace(remote), strings.TrimSpace(base)
+	if base == "" || base == local || base == remote {
+		return "", "", errors.New("authoritative remote did not advance from the retained consequence base")
+	}
+	return remote, base, nil
+}
+
+// VerifyCheckpointLineage fences publication to the exact authority observed
+// at recovery preflight. A concurrent remote advance requires a fresh turn;
+// the controller never asks the worker to guess or overwrite it.
+func (r GitRepository) VerifyCheckpointLineage(ctx context.Context, remoteHead, retainedHead, checkpointHead string) (string, error) {
+	if remoteHead == "" || retainedHead == "" || checkpointHead == "" {
+		return "", errors.New("remote, retained, and checkpoint HEADs are required for lineage verification")
+	}
+	if _, err := r.run(ctx, "fetch", "--quiet", r.Remote, r.Branch); err != nil {
+		return "", fmt.Errorf("fetch checkpoint authority: %w", err)
+	}
+	remoteRef := "refs/remotes/" + r.Remote + "/" + r.Branch
+	current, err := r.run(ctx, "rev-parse", "--verify", remoteRef+"^{commit}")
+	if err != nil {
+		return "", err
+	}
+	if current = strings.TrimSpace(current); current != remoteHead {
+		return "", fmt.Errorf("authoritative remote advanced from %s to %s during recovery", remoteHead, current)
+	}
+	spans, err := r.isAncestor(ctx, remoteHead, checkpointHead)
+	if err != nil {
+		return "", err
+	}
+	if !spans {
+		return "", fmt.Errorf("recovered checkpoint %s does not contain authoritative remote %s", checkpointHead, remoteHead)
+	}
+	retained, err := r.isAncestor(ctx, retainedHead, checkpointHead)
+	if err != nil {
+		return "", err
+	}
+	if retained {
+		return "merged", nil
+	}
+	if checkpointHead == remoteHead {
+		return "", errors.New("recovered checkpoint silently drops the retained consequence without a worker-authored replacement")
+	}
+	replacements, err := r.run(ctx, "rev-list", "--no-merges", remoteHead+".."+checkpointHead)
+	if err != nil {
+		return "", fmt.Errorf("inspect recovery replacement lineage: %w", err)
+	}
+	if strings.TrimSpace(replacements) == "" {
+		return "", errors.New("recovered checkpoint neither contains the retained consequence nor records a worker-authored replacement")
+	}
+	return "replaced", nil
 }
 
 func (r GitRepository) DirtyStartAllowed() bool { return r.AllowDirtyStart }

@@ -62,6 +62,20 @@ type TurnRecord struct {
 	ConsequenceFingerprint string   `json:"consequence_fingerprint,omitempty"`
 	ConsequenceFiles       []string `json:"consequence_files,omitempty"`
 	ConsequenceCommits     []string `json:"consequence_commits,omitempty"`
+	// ConsequenceBaseHead is the merge base from which the retained consequence
+	// and authoritative remote diverge. ConsequenceRemoteHead is the upstream
+	// identity against which ConsequenceCommits were fingerprinted. Keeping both
+	// makes a concurrently fenced publication exactly recoverable.
+	ConsequenceBaseHead   string `json:"consequence_base_head,omitempty"`
+	ConsequenceRemoteHead string `json:"consequence_remote_head,omitempty"`
+	// Recovery* preserve the exact reconciliation fence used by a recovery
+	// turn. Disposition is "merged" when the retained HEAD is an ancestor of
+	// the checkpoint and "replaced" when a worker-authored corrective/discard
+	// commit supersedes it on top of the authoritative remote.
+	RecoveryBaseHead     string `json:"recovery_base_head,omitempty"`
+	RecoveryRemoteHead   string `json:"recovery_remote_head,omitempty"`
+	RecoveryRetainedHead string `json:"recovery_retained_head,omitempty"`
+	RecoveryDisposition  string `json:"recovery_disposition,omitempty"`
 	// CompletionClaim is the unit the worker proposed complete (commit
 	// trailer); UnitCompleted says the controller accepted the proposal and
 	// recorded the unit's completion durably (#158).

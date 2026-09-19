@@ -215,6 +215,10 @@ type WorkerRecoveryContext struct {
 	// already-valid recovered commit span without treating the recovery turn's
 	// starting HEAD as the span's base.
 	BaseHead string `json:"base_head,omitempty"`
+	// RemoteHead is the fetched authoritative branch head that advanced from
+	// BaseHead. A divergent recovery must reconcile against this exact identity
+	// before the controller will publish a checkpoint.
+	RemoteHead string `json:"remote_head,omitempty"`
 	// Commits are the turn's local commits not yet published to the remote
 	// (for example the evidence commit retained after a failed declared
 	// validation), oldest first.

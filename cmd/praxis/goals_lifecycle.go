@@ -413,7 +413,9 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 			entry["request_with"] = requestCommand(baseline.ID, baseline.Version, entry["proposal_digest"].(string), entry["review_digest"].(string))
 		}
 	}
-	result := map[string]any{"goal": baseline, "drivable": baseline.WorkPlan != nil, "pending_authority": pending, "proposals": proposalEntries, "reviews": reviewEntries, "authority_requests": requestEntries, "acceptances": acceptanceEntries}
+	// drivable and governing_state are refined below from durable settlement
+	// state once the generation carries a plan (#171).
+	result := map[string]any{"goal": baseline, "drivable": false, "governing_state": governingUnattached, "pending_authority": pending, "proposals": proposalEntries, "reviews": reviewEntries, "authority_requests": requestEntries, "acceptances": acceptanceEntries}
 	if baseline.WorkPlan != nil {
 		result["drive_template"] = driveTemplate(baseline)
 		turns, err := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}.Load(ctx, goalID, version)
@@ -435,6 +437,9 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		if err != nil {
 			return fmt.Errorf("load Goal completion state: %w", err)
 		}
+		stateName, drivable := governingState(true, goalState)
+		result["governing_state"], result["drivable"] = stateName, drivable
+		result["turn_records"] = turnRecordEntries(turns, completions)
 		if goalState.Candidate != nil {
 			workSet["goal_completion_candidate"] = map[string]any{"turn_id": goalState.Candidate.TurnID, "final_head": goalState.Candidate.FinalHead, "candidate_at": goalState.Candidate.CandidateAt, "authoritative": false, "meaning": "the accepted decomposition has been executed; evidence for Goal completion, never proof of it"}
 		}

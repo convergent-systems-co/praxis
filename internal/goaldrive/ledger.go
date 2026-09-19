@@ -59,10 +59,15 @@ type TurnRecord struct {
 	// Consequence* bind what a BLOCKED turn left in the checkout (uncommitted
 	// paths, unpublished commits) so a later --recover-turn can admit exactly
 	// that state and nothing else.
-	ConsequenceFingerprint string    `json:"consequence_fingerprint,omitempty"`
-	ConsequenceFiles       []string  `json:"consequence_files,omitempty"`
-	ConsequenceCommits     []string  `json:"consequence_commits,omitempty"`
-	CreatedAt              time.Time `json:"created_at"`
+	ConsequenceFingerprint string   `json:"consequence_fingerprint,omitempty"`
+	ConsequenceFiles       []string `json:"consequence_files,omitempty"`
+	ConsequenceCommits     []string `json:"consequence_commits,omitempty"`
+	// CompletionClaim is the unit the worker proposed complete (commit
+	// trailer); UnitCompleted says the controller accepted the proposal and
+	// recorded the unit's completion durably (#158).
+	CompletionClaim string    `json:"completion_claim,omitempty"`
+	UnitCompleted   bool      `json:"unit_completed,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // MarshalJSON renders an unknown (zero) CreatedAt as absent rather than as

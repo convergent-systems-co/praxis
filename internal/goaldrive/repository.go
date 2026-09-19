@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -189,6 +190,10 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 	}
 	record.CheckpointPublished = record.Progress && !req.NoPush
+	record, err = c.settleCompletion(ctx, req, record)
+	if err != nil {
+		return TurnRecord{}, err
+	}
 	if _, err := c.Ledger.Record(ctx, int64(len(turns)), &record); err != nil {
 		return TurnRecord{}, err
 	}
@@ -223,7 +228,7 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 			base.EndHead = c.observedHead(ctx, repo)
 			return base, workerErr
 		}
-		return c.deriveRepositoryOutcome(ctx, req, repo, base, "")
+		return c.deriveRepositoryOutcome(ctx, req, repo, base)
 	}
 	// A worker that reports its own outcome (the environment command worker)
 	// is still not the authority on the repository: the same inspection
@@ -252,7 +257,7 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 	}
 	claimed := record.EndHead
 	record.Progress = false
-	derived, err := c.deriveRepositoryOutcome(ctx, req, repo, record, record.Outcome)
+	derived, err := c.deriveRepositoryOutcome(ctx, req, repo, record)
 	if err != nil {
 		return derived, err
 	}
@@ -277,9 +282,10 @@ func (c Controller) observedHead(ctx context.Context, repo RepositoryAdapter) st
 
 // deriveRepositoryOutcome is the controller-owned checkpoint inspection:
 // the tree must be clean, HEAD must have moved from the turn's start, and
-// the repository's declared validation, if any, must pass. claimedOutcome
-// (CONTINUE or COMPLETE) is retained only when every predicate holds.
-func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest, repo RepositoryAdapter, base TurnRecord, claimedOutcome Outcome) (TurnRecord, error) {
+// the repository's declared validation, if any, must pass. A worker's
+// completion proposal (commit trailer) is read here and settled after
+// publication.
+func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest, repo RepositoryAdapter, base TurnRecord) (TurnRecord, error) {
 	if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "repository-checkpoint"}); err != nil {
 		return TurnRecord{}, err
 	}
@@ -321,14 +327,110 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 		} else {
 			base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:no-declared-validation")
 		}
+	} else {
+		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:no-declared-validation")
 	}
+	// A worker never mints COMPLETE: the turn continues, and Goal completion
+	// is derived by the controller from durable unit completions (#158).
 	base.Outcome = OutcomeContinue
-	if claimedOutcome == OutcomeComplete {
-		base.Outcome = OutcomeComplete
-	}
 	base.Progress = true
 	base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-local-commit")
+	if claims, ok := repo.(CompletionClaimRepository); ok {
+		units, err := claims.CompletionClaims(ctx, req.StartHead, snapshot.Head)
+		if err != nil {
+			base.Outcome, base.Progress, base.Blocker = OutcomeBlocked, false, fmt.Sprintf("read unit completion claims: %v", err)
+			return base, errors.New(base.Blocker)
+		}
+		for _, unit := range units {
+			if unit != req.ChildObjective {
+				base.Outcome, base.Progress = OutcomeBlocked, false
+				base.Blocker = fmt.Sprintf("worker claimed completion of %s, which is not the selected unit %s; the local commit is retained as evidence and no checkpoint is valid", unit, req.ChildObjective)
+				return base, errors.New(base.Blocker)
+			}
+			base.CompletionClaim = unit
+		}
+	}
 	return base, nil
+}
+
+// unitCompletionPredicates are the controller-owned conditions under which a
+// worker's completion proposal becomes a durable unit completion: a
+// progressing turn, a published checkpoint, and the repository's declared
+// validation passed on that checkpoint (or no validation is declared). A
+// failed validation never reaches here: the turn is BLOCKED without a
+// checkpoint.
+func unitCompletionPredicates(record TurnRecord) []string {
+	var missing []string
+	if !record.Progress {
+		missing = append(missing, "validated progress")
+	}
+	if !record.CheckpointPublished {
+		missing = append(missing, "published checkpoint")
+	}
+	if !containsEvidence(record.CheckpointEvidence, "repository:declared-validation-passed") && !containsEvidence(record.CheckpointEvidence, "repository:no-declared-validation") {
+		missing = append(missing, "declared validation passed")
+	}
+	return missing
+}
+
+func containsEvidence(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+// settleCompletion turns an accepted completion proposal into durable unit
+// completion evidence and, when the generation is thereby complete, into
+// the Goal-level COMPLETE outcome. The worker proposes; the controller
+// decides (#158).
+func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, record TurnRecord) (TurnRecord, error) {
+	if record.CompletionClaim == "" {
+		return record, nil
+	}
+	if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"scope": "unit", "unit": record.CompletionClaim, "end_head": record.EndHead}); err != nil {
+		return record, err
+	}
+	if missing := unitCompletionPredicates(record); len(missing) > 0 {
+		return record, c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "unit-completion", "unit": record.CompletionClaim, "passed": "false", "missing": strings.Join(missing, ", ")})
+	}
+	var requirements []string
+	for _, candidate := range req.WorkCandidates {
+		if candidate.ID == record.CompletionClaim {
+			for _, requirement := range candidate.Requirements {
+				requirements = append(requirements, requirement.ID)
+			}
+		}
+	}
+	completion := UnitCompletion{GoalID: req.GoalID, GoalVersion: req.GoalVersion, UnitID: record.CompletionClaim, InvocationID: req.InvocationID, TurnID: req.TurnID, EndHead: record.EndHead, Requirements: requirements, Evidence: append([]string{"checkpoint:" + record.EndHead}, record.CheckpointEvidence...), CompletedAt: time.Now().UTC()}
+	if err := c.Ledger.RecordCompletion(ctx, completion); err != nil {
+		return record, fmt.Errorf("record unit completion: %w", err)
+	}
+	record.UnitCompleted = true
+	if err := c.emit(ctx, ActivityUnitCompleted, req, map[string]string{"unit": completion.UnitID, "end_head": completion.EndHead, "requirements": strings.Join(requirements, ",")}); err != nil {
+		return record, err
+	}
+	if req.GoalBaseline == nil {
+		return record, nil
+	}
+	completions, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)
+	if err != nil {
+		return record, err
+	}
+	assessment, err := AssessGoalCompletion(*req.GoalBaseline, completions)
+	if err != nil {
+		return record, err
+	}
+	if assessment.Complete {
+		record.Outcome = OutcomeComplete
+	} else if assessment.AllUnitsComplete {
+		if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "goal-completion", "passed": "false", "uncovered_criteria": strings.Join(assessment.UncoveredCriteria, ",")}); err != nil {
+			return record, err
+		}
+	}
+	return record, nil
 }
 
 func truncateForActivity(text string) string {

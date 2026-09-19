@@ -40,6 +40,23 @@ func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []str
 	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
 }
 
+// CompletionClaims returns the units named by Praxis-Unit-Complete trailers
+// in the commits the worker added between the two checkpoints.
+func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead string) ([]string, error) {
+	if endHead == "" {
+		return nil, errors.New("completion claims require the checkpoint HEAD")
+	}
+	span := endHead
+	if startHead != "" {
+		span = startHead + ".." + endHead
+	}
+	output, err := r.run(ctx, "log", "--format=%(trailers:key="+CompletionTrailer+",valueonly)", span)
+	if err != nil {
+		return nil, fmt.Errorf("read completion trailers: %w", err)
+	}
+	return ParseCompletionTrailers(output), nil
+}
+
 // RecoveryStartAllowed reports whether a bound recovery may start from a
 // checkout that is dirty or ahead of the remote.
 func (r GitRepository) RecoveryStartAllowed() bool { return r.AllowRecoveryStart }

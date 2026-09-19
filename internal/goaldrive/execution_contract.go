@@ -240,6 +240,7 @@ func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.Wor
 	} else {
 		predicates = append(predicates, "if you introduce a test or validation toolchain, also declare it as an executable ./.praxis/validate script so Praxis can run it on every later checkpoint")
 	}
+	predicates = append(predicates, "when the committed work fully satisfies every requirement of this unit, add the Git commit trailer `"+CompletionTrailer+": "+objective+"` to the final commit; Praxis verifies the published checkpoint and its declared validation and only then records the unit complete, which makes dependent units eligible; omit the trailer when more turns are needed on this unit")
 	if recovery != nil {
 		predicates = append(predicates, "the recovered uncommitted consequence from turn "+recovery.RecoveredTurnID+" is validated and committed, corrected, or deliberately removed; none of it may remain uncommitted")
 	}

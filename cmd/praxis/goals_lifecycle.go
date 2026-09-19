@@ -414,6 +414,16 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		}
 		result["turns"] = len(turns)
 		result["blocked_turns"] = recoverableTurns(baseline, turns)
+		ledger := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}
+		completions, err := ledger.LoadCompletions(ctx, goalID, version)
+		if err != nil {
+			return fmt.Errorf("load unit completions: %w", err)
+		}
+		workSet, err := workSetState(baseline, completions)
+		if err != nil {
+			return err
+		}
+		result["work_set"] = workSet
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
 	}
@@ -458,6 +468,49 @@ func acceptCommand(requestDigest string) string {
 
 func attachCommand(goalID, goalVersion, acceptanceRef string) string {
 	return "praxis goals-lifecycle --operation=attach --goal-id=" + goalID + " --goal-version=" + goalVersion + " --acceptance-ref=" + acceptanceRef
+}
+
+// workSetState renders the durable completion state of the generation's
+// WorkPlan: which units the controller has recorded complete (with the
+// checkpoint evidence), which unit goal-drive would select next, and the
+// Goal-level completion assessment (#158). The immutable plan's
+// proposal-time `completed` flag is never mutated.
+func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompletion) (map[string]any, error) {
+	candidates, relationships, err := goaldrive.MaterializeGoalWork(baseline)
+	if err != nil {
+		return nil, err
+	}
+	candidates = goaldrive.ApplyCompletions(candidates, completions)
+	byUnit := map[string]goaldrive.UnitCompletion{}
+	for _, completion := range completions {
+		byUnit[completion.UnitID] = completion
+	}
+	assessment, err := contracts.AssessWorkCandidates(candidates, relationships)
+	if err != nil {
+		return nil, err
+	}
+	units := make([]map[string]any, 0, len(assessment.Candidates))
+	for _, item := range assessment.Candidates {
+		entry := map[string]any{"unit": item.Candidate.ID, "completed": item.Candidate.Completed, "readiness": item.Readiness}
+		if len(item.BlockedBy) > 0 {
+			entry["blocked_by"] = item.BlockedBy
+		}
+		if completion, ok := byUnit[item.Candidate.ID]; ok {
+			entry["completed_by_turn"] = completion.TurnID
+			entry["completion_checkpoint"] = completion.EndHead
+			entry["completed_at"] = completion.CompletedAt
+		}
+		units = append(units, entry)
+	}
+	goalAssessment, err := goaldrive.AssessGoalCompletion(baseline, completions)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"state": assessment.State, "units": units, "goal_completion": goalAssessment, "completion_proposal": "a worker proposes completion of the selected unit with the commit trailer `" + goaldrive.CompletionTrailer + ": <unit id>`; Praxis records completion only after the checkpoint is published and validated"}
+	if assessment.Selected != nil {
+		out["next_unit"] = assessment.Selected.ID
+	}
+	return out, nil
 }
 
 // recoverableTurns lists the generation's BLOCKED turns without checkpoint

@@ -118,6 +118,13 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 			}
 			req.WorkCandidates, req.WorkRelationships = candidates, relationships
 		}
+		// Eligibility derives from durable, controller-recorded unit
+		// completions overlaid on the immutable plan (#158).
+		completions, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)
+		if err != nil {
+			return nil, TurnRequest{}, fmt.Errorf("load unit completions: %w", err)
+		}
+		req.WorkCandidates = ApplyCompletions(req.WorkCandidates, completions)
 		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
 		if err != nil {
 			if errors.Is(err, contracts.ErrNoRunnableWork) && c.AuthorityRequests != nil {

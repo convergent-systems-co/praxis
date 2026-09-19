@@ -40,8 +40,10 @@ func (r GitRepository) Fingerprint(ctx context.Context) (string, []string, []str
 	return ConsequenceFingerprint(ctx, r.run, func(path string) ([]byte, error) { return os.ReadFile(filepath.Join(r.Dir, path)) }, "refs/remotes/"+r.Remote+"/"+r.Branch)
 }
 
-// CompletionClaims returns the units named by Praxis-Unit-Complete trailers
-// in the commits the worker added between the two checkpoints.
+// CompletionClaims returns the units proposed complete by the commits the
+// worker added between the two checkpoints. It reads every full commit
+// message of the span and applies the worker-facing contract
+// (ParseCompletionProposals), never Git's trailer-block heuristic (#164).
 func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead string) ([]string, error) {
 	if endHead == "" {
 		return nil, errors.New("completion claims require the checkpoint HEAD")
@@ -50,11 +52,21 @@ func (r GitRepository) CompletionClaims(ctx context.Context, startHead, endHead 
 	if startHead != "" {
 		span = startHead + ".." + endHead
 	}
-	output, err := r.run(ctx, "log", "--format=%(trailers:key="+CompletionTrailer+",valueonly)", span)
+	output, err := r.run(ctx, "log", "-z", "--format=%B", span)
 	if err != nil {
-		return nil, fmt.Errorf("read completion trailers: %w", err)
+		return nil, fmt.Errorf("read commit messages: %w", err)
 	}
-	return ParseCompletionTrailers(output), nil
+	var messages []string
+	for _, message := range strings.Split(output, "\x00") {
+		if strings.TrimSpace(message) != "" {
+			messages = append(messages, message)
+		}
+	}
+	units, err := ParseCompletionClaims(messages)
+	if err != nil {
+		return nil, fmt.Errorf("read completion proposals in %s: %w", span, err)
+	}
+	return units, nil
 }
 
 // RecoveryStartAllowed reports whether a bound recovery may start from a

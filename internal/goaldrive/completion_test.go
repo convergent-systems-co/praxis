@@ -293,7 +293,7 @@ func TestStructuralAssessmentIsCoverageOnly(t *testing.T) {
 	if _, err := AssessGoalCompletion(baseline, completions[:2]); err != nil {
 		t.Fatal(err)
 	}
-	if got := ParseCompletionTrailers("unit:a\n\nunit:a\nunit:b\n"); strings.Join(got, ",") != "unit:a,unit:b" {
+	if got, err := ParseCompletionClaims([]string{"subject\n\nPraxis-Unit-Complete: unit:a\n", "subject\n\npraxis-unit-complete: unit:a\nPraxis-Unit-Complete: unit:b\n"}); err != nil || strings.Join(got, ",") != "unit:a,unit:b" {
 		t.Fatalf("trailer parsing: %v", got)
 	}
 }

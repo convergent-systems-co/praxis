@@ -55,23 +55,72 @@ type CompletionClaimRepository interface {
 	CompletionClaims(ctx context.Context, startHead, endHead string) ([]string, error)
 }
 
-// ParseCompletionTrailers extracts the unit identities named by
-// Praxis-Unit-Complete trailers from trailer-only git log output.
-func ParseCompletionTrailers(output string) []string {
+// ErrAmbiguousCompletionClaim reports a claim line that starts with the
+// completion key but does not carry exactly one unit identity. Praxis fails
+// closed: it neither guesses the unit nor treats the line as prose (#164).
+var ErrAmbiguousCompletionClaim = errors.New("ambiguous completion proposal")
+
+// ParseCompletionProposals extracts the unit identities a commit message
+// proposes complete. The contract is exactly what Praxis tells the worker: a
+// line of the form `Praxis-Unit-Complete: <unit>` standing alone on a line
+// anywhere after the subject line (the key compared case-insensitively, as
+// Git compares trailer keys). Git's own trailer-block heuristic (final
+// paragraph only) is not the contract: the live Weather II turn 6
+// checkpoint carried the claim one paragraph above the Co-Authored-By
+// trailer and was invisible to `%(trailers:key=...)` (#164).
+//
+// A line that starts with the key but is not exactly `key: <one token>` is
+// ambiguous and returns ErrAmbiguousCompletionClaim. The key appearing
+// inside prose (not at the start of a line) is not a proposal. The subject
+// line is a title, never a proposal. Duplicate identical claims collapse
+// to one; distinct units are all returned in message order so the caller
+// can refuse a conflicting set.
+func ParseCompletionProposals(message string) ([]string, error) {
+	lines := strings.Split(message, "\n")
 	seen := map[string]struct{}{}
 	var units []string
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if i == 0 || line == "" {
 			continue
 		}
-		if _, dup := seen[line]; dup {
+		key, rest, found := strings.Cut(line, ":")
+		if !found || !strings.EqualFold(strings.TrimSpace(key), CompletionTrailer) {
 			continue
 		}
-		seen[line] = struct{}{}
-		units = append(units, line)
+		fields := strings.Fields(rest)
+		if len(fields) != 1 {
+			return nil, fmt.Errorf("%w: %q is not exactly `%s: <unit>`", ErrAmbiguousCompletionClaim, line, CompletionTrailer)
+		}
+		unit := fields[0]
+		if _, dup := seen[unit]; dup {
+			continue
+		}
+		seen[unit] = struct{}{}
+		units = append(units, unit)
 	}
-	return units
+	return units, nil
+}
+
+// ParseCompletionClaims applies ParseCompletionProposals to every commit
+// message of a turn span, in log order, collapsing duplicates across commits.
+func ParseCompletionClaims(messages []string) ([]string, error) {
+	seen := map[string]struct{}{}
+	var units []string
+	for _, message := range messages {
+		proposals, err := ParseCompletionProposals(message)
+		if err != nil {
+			return nil, err
+		}
+		for _, unit := range proposals {
+			if _, dup := seen[unit]; dup {
+				continue
+			}
+			seen[unit] = struct{}{}
+			units = append(units, unit)
+		}
+	}
+	return units, nil
 }
 
 func completionAggregate(goalID, version string) string {

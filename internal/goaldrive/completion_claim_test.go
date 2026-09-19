@@ -59,10 +59,16 @@ func TestCompletionClaimIsRecognizedOutsideGitTrailerBlock(t *testing.T) {
 		t.Fatalf("the trailer-block layout must remain recognised: units=%v err=%v", units, err)
 	}
 
-	prose := commitWithMessage(t, root, workDir, "prose.txt", "subject\n\nDo not add "+CompletionTrailer+": unit:c yet; more turns are needed.\n"+CompletionTrailer+": unit:c (not yet)\n")
+	prose := commitWithMessage(t, root, workDir, "prose.txt", "subject\n\nDo not add "+CompletionTrailer+": unit:c yet; more turns are needed.\n")
 	if units, err = repo.CompletionClaims(ctx, adjacent, prose); err != nil || len(units) != 0 {
-		t.Fatalf("a mention that is not a standalone claim line must not be a proposal: units=%v err=%v", units, err)
+		t.Fatalf("the key inside prose is not a proposal: units=%v err=%v", units, err)
 	}
+
+	malformed := commitWithMessage(t, root, workDir, "malformed.txt", "subject\n\n"+CompletionTrailer+": unit:c (not yet)\n")
+	if _, err = repo.CompletionClaims(ctx, prose, malformed); !errors.Is(err, ErrAmbiguousCompletionClaim) {
+		t.Fatalf("a key-led line that is not exactly `key: <unit>` is ambiguous and fails closed: %v", err)
+	}
+	runGitTest(t, workDir, "reset", "-q", "--hard", prose)
 
 	subject := commitWithMessage(t, root, workDir, "subject.txt", CompletionTrailer+": unit:d\n")
 	if units, err = repo.CompletionClaims(ctx, prose, subject); err != nil || len(units) != 0 {

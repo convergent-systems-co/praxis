@@ -38,7 +38,10 @@ const (
 	// ActivityTurnAllocated is the first durable activity of every turn: it
 	// is recorded before the turn identity is announced, so an observer that
 	// executes the announced command always finds the turn.
-	ActivityTurnAllocated       ActivityType = "turn.allocated"
+	ActivityTurnAllocated ActivityType = "turn.allocated"
+	// ActivityUnitCompleted records that the controller accepted a unit
+	// completion proposal and persisted the unit's completion (#158).
+	ActivityUnitCompleted       ActivityType = "unit.completed"
 	ActivityAuthorityRequired   ActivityType = "authority.required"
 	ActivityAuthorityResolved   ActivityType = "authority.resolved"
 	ActivityHumanComment        ActivityType = "human.comment"
@@ -59,7 +62,7 @@ var activityTypes = map[ActivityType]struct{}{
 	ActivityCheckpointCreated: {}, ActivityBlockerDetected: {}, ActivityAuthorityRequired: {}, ActivityAuthorityResolved: {}, ActivityHumanComment: {},
 	ActivityHumanCorrection: {}, ActivityHumanConstraint: {}, ActivitySuspendRequested: {}, ActivitySuspended: {}, ActivityCancelRequested: {},
 	ActivityCancelled: {}, ActivityResumed: {}, ActivityCompletionClaimed: {}, ActivityCompletionQualified: {},
-	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {},
+	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {}, ActivityUnitCompleted: {},
 }
 
 const supervisionAggregateType = "goal_drive_supervision"

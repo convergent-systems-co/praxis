@@ -108,13 +108,17 @@ func TestRuntimeRecoversExactBaselineAndExecutesOneBoundedUnit(t *testing.T) {
 	}
 	dbLedger := state.NewSQLiteEventStore(db)
 	providers := NewRegistry()
-	if err := providers.Register("local-command", CommandWorker{ProviderID: "local-command", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'runtime\\n' > runtime.txt && git add runtime.txt && git commit -m runtime >/dev/null && head=$(git rev-parse HEAD) && printf '{\"outcome\":\"COMPLETE\",\"end_head\":\"%s\",\"checkpoint_valid\":true}' \"$head\""}}); err != nil {
+	if err := providers.Register("local-command", CommandWorker{ProviderID: "local-command", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'runtime\\n' > runtime.txt && git add runtime.txt && git commit -m runtime -m 'Praxis-Unit-Complete: runtime-unit' >/dev/null && head=$(git rev-parse HEAD) && printf '{\"outcome\":\"CONTINUE\",\"end_head\":\"%s\",\"checkpoint_valid\":true}' \"$head\""}}); err != nil {
 		t.Fatal(err)
 	}
 	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: dbLedger, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Providers: providers, NoProgressLimit: 1}, Baselines: repo, Repository: GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}, GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0"}
 	record, err := runtime.Execute(ctx, InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeSupervised, InvocationID: "runtime-invocation-1", ProviderID: "local-command"})
-	if err != nil || record.ChildObjective != "runtime-unit" || record.Outcome != OutcomeComplete || !record.Progress || !record.CheckpointPublished {
-		t.Fatalf("runtime did not execute one durable bounded unit: record=%+v err=%v", record, err)
+	if err != nil || record.ChildObjective != "runtime-unit" || record.Outcome != OutcomeComplete || !record.Progress || !record.CheckpointPublished || !record.UnitCompleted || record.CompletionClaim != "runtime-unit" {
+		t.Fatalf("runtime did not execute one durable bounded unit to completion: record=%+v err=%v", record, err)
+	}
+	completions, err := runtime.Controller.Ledger.LoadCompletions(ctx, baseline.ID, baseline.Version)
+	if err != nil || len(completions) != 1 || completions[0].UnitID != "runtime-unit" || completions[0].EndHead != record.EndHead {
+		t.Fatalf("unit completion must be durable: %v %+v", err, completions)
 	}
 }
 

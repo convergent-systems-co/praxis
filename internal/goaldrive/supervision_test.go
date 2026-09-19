@@ -25,14 +25,23 @@ func (s supervisionBaselineStore) Load(context.Context, string, string, time.Tim
 
 // supervisionRepository models a checkout whose HEAD the worker advances;
 // the controller inspects it rather than trusting the worker's report.
-type supervisionRepository struct{ head string }
+type supervisionRepository struct {
+	head   string
+	claims map[string][]string // completion claims by end head
+}
 
 func (r *supervisionRepository) Snapshot(context.Context) (RepositorySnapshot, error) {
 	return RepositorySnapshot{Clean: true, Relation: contracts.RelationEqual, Head: r.head}, nil
 }
 func (r *supervisionRepository) FastForward(context.Context) error           { return nil }
 func (r *supervisionRepository) PushAndVerify(context.Context, string) error { return nil }
+func (r *supervisionRepository) CompletionClaims(_ context.Context, _, endHead string) ([]string, error) {
+	return r.claims[endHead], nil
+}
 
+// continuousWorker makes progress on the first turn and proposes unit
+// completion (commit trailer) on the second; it never reports COMPLETE,
+// which the controller alone derives.
 type continuousWorker struct {
 	calls int
 	repo  *supervisionRepository
@@ -45,7 +54,11 @@ func (w *continuousWorker) Execute(context.Context, WorkerRequest) (WorkerResult
 		return WorkerResult{Outcome: OutcomeContinue, EndHead: "b", CheckpointValid: true}, nil
 	}
 	w.repo.head = "c"
-	return WorkerResult{Outcome: OutcomeComplete, EndHead: "c", CheckpointValid: true}, nil
+	if w.repo.claims == nil {
+		w.repo.claims = map[string][]string{}
+	}
+	w.repo.claims["c"] = []string{"unit"}
+	return WorkerResult{Outcome: OutcomeContinue, EndHead: "c", CheckpointValid: true}, nil
 }
 
 func TestRuntimeContinuousModeRepeatsBoundedTransitionsAndStopsAtCompletion(t *testing.T) {
@@ -53,8 +66,8 @@ func TestRuntimeContinuousModeRepeatsBoundedTransitionsAndStopsAtCompletion(t *t
 	checkout := &supervisionRepository{head: "a"}
 	worker := &continuousWorker{repo: checkout}
 	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Worker: worker, NoProgressLimit: 2}, Baselines: supervisionBaselineStore{baseline: baseline}, Repository: checkout, GraphID: "graph", GraphVersion: "1"}
-	record, err := runtime.Execute(context.Background(), InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeContinuous, InvocationID: "continuous-1", ProviderID: "provider", MaxTurns: 3, NoPush: true})
-	if err != nil || record.Outcome != OutcomeComplete || worker.calls != 2 {
+	record, err := runtime.Execute(context.Background(), InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeContinuous, InvocationID: "continuous-1", ProviderID: "provider", MaxTurns: 3})
+	if err != nil || record.Outcome != OutcomeComplete || worker.calls != 2 || !record.UnitCompleted {
 		t.Fatalf("continuous execution did not stop at qualified completion: record=%+v calls=%d err=%v", record, worker.calls, err)
 	}
 }

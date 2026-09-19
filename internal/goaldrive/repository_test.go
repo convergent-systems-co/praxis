@@ -69,8 +69,8 @@ func TestExecuteTurnWithRepositoryNoPushRetainsProgressWithoutPublication(t *tes
 	req.NoPush = true
 	repo.snapshots = append(repo.snapshots, RepositorySnapshot{Clean: true, Relation: contracts.RelationLocalAhead, Head: "b"})
 	record, err := controller.ExecuteTurnWithRepository(context.Background(), req, repo)
-	if err != nil || record.Outcome != OutcomeComplete || !record.Progress || record.CheckpointPublished || len(repo.publishes) != 0 {
-		t.Fatalf("no-push must retain validated local progress without publication: %+v err=%v publishes=%v", record, err, repo.publishes)
+	if err != nil || record.Outcome != OutcomeContinue || !record.Progress || record.CheckpointPublished || len(repo.publishes) != 0 {
+		t.Fatalf("no-push must retain validated local progress without publication, and a worker cannot mint COMPLETE: %+v err=%v publishes=%v", record, err, repo.publishes)
 	}
 	turns, loadErr := controller.Ledger.Load(context.Background(), req.GoalID, req.GoalVersion)
 	if loadErr != nil || len(turns) != 1 || !turns[0].Progress || turns[0].CheckpointPublished {

@@ -151,6 +151,18 @@ func (p WorkPlanProposal) Validate() error {
 		if _, ok := seen[relationship.Prerequisite]; !ok {
 			return fmt.Errorf("%w: proposal relationship prerequisite %q is not a candidate", ErrUnacceptedWorkPlan, relationship.Prerequisite)
 		}
+		// A proposal may describe a hard dependency for independent review;
+		// model provenance keeps it advisory and prevents selection until an
+		// authority-backed acceptance promotes it. WorkRelationship.Validate
+		// intentionally rejects that same edge in executable state.
+		if relationship.Provenance == ProvenanceModelProposal {
+			switch relationship.Kind {
+			case RelationshipHardDependency, RelationshipConsumer, RelationshipInteraction, RelationshipAdvisory:
+				continue
+			default:
+				return fmt.Errorf("%w: unknown proposal relationship kind %q", ErrUnacceptedWorkPlan, relationship.Kind)
+			}
+		}
 		if err := relationship.Validate(); err != nil {
 			return err
 		}
@@ -255,6 +267,48 @@ func (p WorkPlanProposal) Digest() (string, error) {
 	}
 	sum := sha256.Sum256(payload)
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+// MaterializeAcceptedPlanCandidate converts the advisory portions of a
+// proposal into a candidate for authority-backed acceptance. It does not
+// grant authority: callers must still pass the result through AcceptWorkPlan
+// (normally via the durable authority-decision bridge in goalstore).
+//
+// A planner may introduce candidates and relationships with
+// model_proposal provenance so they can be reviewed without becoming
+// selector input. Once an exact request binding that proposal is approved,
+// those advisory records are re-sourced to that request and become plan
+// provenance. Already-authoritative source records retain their provenance.
+func MaterializeAcceptedPlanCandidate(proposal WorkPlanProposal, authorityRef, authorityDigest string) (WorkPlan, error) {
+	if err := proposal.Validate(); err != nil {
+		return WorkPlan{}, err
+	}
+	if authorityRef == "" {
+		return WorkPlan{}, fmt.Errorf("%w: accepted plan candidate requires an authority source", ErrUnacceptedWorkPlan)
+	}
+	if err := ValidateSHA256Digest(authorityDigest); err != nil {
+		return WorkPlan{}, fmt.Errorf("%w: accepted plan candidate authority digest: %v", ErrUnacceptedWorkPlan, err)
+	}
+	plan := WorkPlan{
+		Candidates:    append([]WorkCandidate(nil), proposal.Candidates...),
+		Relationships: append([]WorkRelationship(nil), proposal.Relationships...),
+	}
+	for i := range plan.Candidates {
+		plan.Candidates[i].Requirements = append([]RequirementRef(nil), plan.Candidates[i].Requirements...)
+		if plan.Candidates[i].Provenance == ProvenanceModelProposal {
+			plan.Candidates[i].Provenance = ProvenancePLAN
+			plan.Candidates[i].SourceRef = authorityRef + "#candidate:" + plan.Candidates[i].ID
+			plan.Candidates[i].SourceDigest = authorityDigest
+		}
+	}
+	for i := range plan.Relationships {
+		if plan.Relationships[i].Provenance == ProvenanceModelProposal {
+			plan.Relationships[i].Provenance = ProvenancePLAN
+			plan.Relationships[i].SourceRef = authorityRef + "#relationship:" + plan.Relationships[i].Dependent + ":" + plan.Relationships[i].Prerequisite
+			plan.Relationships[i].SourceDigest = authorityDigest
+		}
+	}
+	return plan, nil
 }
 
 // AcceptWorkPlan is the only contract operation that turns a proposal into

@@ -51,6 +51,9 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	if operation == "inspect" {
 		return inspectGoalsLifecycle(ctx, in.Options, getenv)
 	}
+	if operation == "complete" {
+		return runGoalCompleteWithTerminal(ctx, in.Options, getenv, os.Stdin, os.Stdout)
+	}
 	if _, selected := selectorFromOptions(in.Options); len(input) == 0 && !selected {
 		return errors.New("Goals lifecycle mutation requires exact selector options or --input <document>")
 	}
@@ -423,6 +426,21 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		if err != nil {
 			return err
 		}
+		goalState, err := ledger.LoadGoalCompletion(ctx, goalID, version)
+		if err != nil {
+			return fmt.Errorf("load Goal completion state: %w", err)
+		}
+		if goalState.Claim != nil {
+			workSet["goal_completion_claim"] = map[string]any{"claimed_by_turn": goalState.Claim.TurnID, "final_head": goalState.Claim.FinalHead, "claimed_at": goalState.Claim.ClaimedAt, "authoritative": false}
+			if goalState.Decision == nil {
+				workSet["complete_with"] = "praxis goals-lifecycle --operation=complete --goal-id=" + goalID + " --goal-version=" + version
+				workSet["reject_with"] = "praxis goals-lifecycle --operation=complete --goal-id=" + goalID + " --goal-version=" + version + " --status=incomplete --reason=<what the Goal contract still lacks>"
+			}
+		}
+		if goalState.Decision != nil {
+			workSet["goal_completion_decision"] = goalState.Decision
+		}
+		workSet["goal_complete"] = goalState.Decision != nil && goalState.Decision.Status == goaldrive.GoalComplete
 		result["work_set"] = workSet
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
@@ -506,7 +524,7 @@ func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompl
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"state": assessment.State, "units": units, "goal_completion": goalAssessment, "completion_proposal": "a worker proposes completion of the selected unit with the commit trailer `" + goaldrive.CompletionTrailer + ": <unit id>`; Praxis records completion only after the checkpoint is published and validated"}
+	out := map[string]any{"state": assessment.State, "units": units, "goal_completion_assessment": goalAssessment, "completion_proposal": "a worker proposes completion of the selected unit with the commit trailer `" + goaldrive.CompletionTrailer + ": <unit id>`; Praxis records completion only after the checkpoint is published and validated"}
 	if assessment.Selected != nil {
 		out["next_unit"] = assessment.Selected.ID
 	}

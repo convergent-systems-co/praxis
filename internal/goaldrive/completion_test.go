@@ -2,10 +2,12 @@ package goaldrive
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/packages/goals"
@@ -142,11 +144,32 @@ func TestUnitCompletionDrivesDependencyOrder(t *testing.T) {
 	// 7, 14, 15: C unlocks after B; completing C completes the Goal only
 	// because every success criterion is covered.
 	record, err = drive(chainWorker{dir: workDir, trailer: "unit:c"})
-	if err != nil || record.ChildObjective != "unit:c" || !record.UnitCompleted || record.Outcome != OutcomeComplete {
-		t.Fatalf("completing C must complete the Goal: %+v %v", record, err)
+	if err != nil || record.ChildObjective != "unit:c" || !record.UnitCompleted || record.Outcome != OutcomeUserDecisionRequired {
+		t.Fatalf("completing C makes Goal completion provisional and stops for the owner's evaluation: %+v %v", record, err)
 	}
-	if _, err := drive(chainWorker{dir: workDir}); err == nil || !strings.Contains(err.Error(), "no authoritative runnable work") {
-		t.Fatalf("a complete Goal has no runnable work: %v", err)
+	ledger := Ledger{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	goalState, err := ledger.LoadGoalCompletion(ctx, baseline.ID, baseline.Version)
+	if err != nil || goalState.Claim == nil || goalState.Decision != nil || goalState.Claim.FinalHead != record.EndHead || goalState.Claim.TurnID != record.TurnID {
+		t.Fatalf("the provisional claim must be durable and undecided: %v %+v", err, goalState)
+	}
+	if _, err := drive(chainWorker{dir: workDir}); !errors.Is(err, ErrGoalCompletionPending) {
+		t.Fatalf("goal-drive must wait for the owner's evaluation: %v", err)
+	}
+	// The owner re-evaluates the original contract; only then is the Goal complete.
+	bad := GoalCompletionDecision{GoalID: baseline.ID, GoalVersion: baseline.Version, GoalDigest: baseline.Digest, ClaimTurnID: "other", FinalHead: record.EndHead, Status: GoalComplete, DecidedBy: contracts.PrincipalRef{ID: "owner", Kind: "human"}, DecidedAt: time.Now().UTC()}
+	if err := ledger.RecordGoalCompletionDecision(ctx, bad); err == nil {
+		t.Fatal("a decision must bind the exact claim")
+	}
+	good := bad
+	good.ClaimTurnID = record.TurnID
+	if err := ledger.RecordGoalCompletionDecision(ctx, good); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordGoalCompletionDecision(ctx, good); err == nil {
+		t.Fatal("exactly one decision is admitted")
+	}
+	if _, err := drive(chainWorker{dir: workDir}); !errors.Is(err, ErrGoalComplete) {
+		t.Fatalf("a complete Goal refuses further turns: %v", err)
 	}
 }
 

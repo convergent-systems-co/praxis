@@ -113,7 +113,7 @@ func TestRuntimeRecoversExactBaselineAndExecutesOneBoundedUnit(t *testing.T) {
 	}
 	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: dbLedger, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Providers: providers, NoProgressLimit: 1}, Baselines: repo, Repository: GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}, GraphID: "praxis.package.goals.default", GraphVersion: "0.2.0"}
 	record, err := runtime.Execute(ctx, InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeSupervised, InvocationID: "runtime-invocation-1", ProviderID: "local-command"})
-	if err != nil || record.ChildObjective != "runtime-unit" || record.Outcome != OutcomeComplete || !record.Progress || !record.CheckpointPublished || !record.UnitCompleted || record.CompletionClaim != "runtime-unit" {
+	if err != nil || record.ChildObjective != "runtime-unit" || record.Outcome != OutcomeUserDecisionRequired || !record.Progress || !record.CheckpointPublished || !record.UnitCompleted || record.CompletionClaim != "runtime-unit" {
 		t.Fatalf("runtime did not execute one durable bounded unit to completion: record=%+v err=%v", record, err)
 	}
 	completions, err := runtime.Controller.Ledger.LoadCompletions(ctx, baseline.ID, baseline.Version)

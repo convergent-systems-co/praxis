@@ -1,0 +1,18 @@
+{
+  "schema": "weather-ii-commitment-v1",
+  "experiment_id": "weather-ii",
+  "goal_id": "goal:weather-app-continuous",
+  "t0_commit": "fdb03e19947feb594f2e040608900c09b7e0a6ae",
+  "t0_tree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+  "goal_document_digest": "sha256:9c182f4efcefba1349837e4755be2ec4698a6990851240d2e9ff55ecd710df3c",
+  "proposal_file_sha256": "b20bcf547f29dff5d017be36af1984956d046b643e9d6b907789485168c5ba74",
+  "plaintext_bundle_sha256": "1f96f54c8f5c31a28587d9871f08a0df0dc5e16f9bd97f0a3ab193be7093263f",
+  "sealed_bundle_sha256": "bdf5619b6ca935ae38b45f5de99003c15dd42b15e87753a0b06651e8b1c904f4",
+  "bundle_format": "tar",
+  "sealing_method": "AES-256-CBC/PBKDF2-SHA256/600000",
+  "oracle_contract": "executable(repository-path, checkpoint-sha) -> PASS|FAIL|ERROR",
+  "praxis_event_sequence_before_commitment": 238,
+  "praxis_binary_sha256": "642ca491e46f520a93868228fd6328d5725f69412008eab9f813ed79148b92f7",
+  "goals_package": "praxis.package.goals@0.1.3",
+  "committed_by": "Thomas/Aster"
+}

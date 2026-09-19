@@ -236,9 +236,9 @@ func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.Wor
 		"exactly the bounded changes for this unit are committed locally on branch " + repository.Branch + " on top of " + repository.StartHead,
 	}
 	if validationDeclared {
-		predicates = append(predicates, "the repository's declared validation ("+declaredValidation+") passes; Praxis runs it after your commit and refuses the checkpoint if it fails")
+		predicates = append(predicates, "the repository's declared validation ("+declaredValidation+") passes; Praxis runs it after your commit and refuses the checkpoint if it fails; when Praxis later invokes it with a contract reference argument (success_criteria/<n>, constraint/<n>, validity_predicates/<n>) it must print `"+ValidationAcknowledgement+" <ref>` and exit non-zero if that element does not hold, or print `"+ValidationAcknowledgement+" <ref> unhandled` when it does not verify that element; an unacknowledged run never counts as verification")
 	} else {
-		predicates = append(predicates, "if you introduce a test or validation toolchain, also declare it as an executable ./.praxis/validate script so Praxis can run it on every later checkpoint")
+		predicates = append(predicates, "if you introduce a test or validation toolchain, also declare it as an executable ./.praxis/validate script so Praxis can run it on every later checkpoint; invoked with no argument or `integrated` it runs the whole validation; invoked with a contract reference (success_criteria/<n>, constraint/<n>, validity_predicates/<n>) it must print `"+ValidationAcknowledgement+" <ref>` and exit non-zero if that element does not hold, or print `"+ValidationAcknowledgement+" <ref> unhandled`; an unacknowledged run never counts as verification of a bound element")
 	}
 	predicates = append(predicates, "when the committed work fully satisfies every requirement of this unit, add the line `"+CompletionTrailer+": "+objective+"` on its own line in the message of the final commit (any paragraph after the subject line; nothing else on that line); Praxis verifies the published checkpoint and its declared validation and only then records the unit complete, which makes dependent units eligible; omit the line when more turns are needed on this unit")
 	if recovery != nil {

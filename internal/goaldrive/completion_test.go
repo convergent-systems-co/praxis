@@ -226,7 +226,7 @@ func TestVerifierBindingsAndOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	// success_criteria/1 passes, success_criteria/2 fails, integrated passes.
-	writeFile(t, filepath.Join(workDir, ".praxis", "validate"), "#!/bin/sh\ncase \"$1\" in success_criteria/1|integrated) exit 0;; success_criteria/2) echo 'criterion 2 not met'; exit 1;; *) exit 0;; esac\n")
+	writeFile(t, filepath.Join(workDir, ".praxis", "validate"), "#!/bin/sh\ncase \"$1\" in success_criteria/1) echo 'praxis-verify: success_criteria/1'; exit 0;; success_criteria/2) echo 'praxis-verify: success_criteria/2'; echo 'criterion 2 not met'; exit 1;; integrated) exit 0;; *) exit 0;; esac\n")
 	if err := os.Chmod(filepath.Join(workDir, ".praxis", "validate"), 0o755); err != nil {
 		t.Fatal(err)
 	}

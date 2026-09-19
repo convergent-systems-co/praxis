@@ -90,3 +90,61 @@ func TestBindRecoveredTurnRequiresRecordedConsequenceOrDeclaresObservation(t *te
 		t.Fatalf("unknown turn must be refused: %v", err)
 	}
 }
+
+func TestBindRecoveredTurnPreservesRecordedBaseAfterRemoteAdvance(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	remote, work := filepath.Join(root, "remote.git"), filepath.Join(root, "work")
+	gitT(t, root, "init", "--bare", remote)
+	gitT(t, root, "init", "--initial-branch=main", work)
+	gitT(t, work, "config", "user.email", "t@example.invalid")
+	gitT(t, work, "config", "user.name", "T")
+	gitT(t, work, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(work, "README"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, work, "add", "README")
+	gitT(t, work, "commit", "-m", "base")
+	gitT(t, work, "push", "-u", "origin", "main")
+	baseHead := gitT(t, work, "rev-parse", "HEAD")
+	if err := os.WriteFile(filepath.Join(work, "retained.txt"), []byte("retained\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, work, "add", "retained.txt")
+	gitT(t, work, "commit", "-m", "retained consequence")
+	retainedHead := gitT(t, work, "rev-parse", "HEAD")
+	repo := goaldrive.GitRepository{Dir: work, Remote: "origin", Branch: "main"}
+	fingerprint, files, commits, err := repo.Fingerprint(ctx)
+	if err != nil || len(files) != 0 || len(commits) != 1 || commits[0] != retainedHead {
+		t.Fatalf("fingerprint retained consequence: %s %v %v %v", fingerprint, files, commits, err)
+	}
+	ledger := goaldrive.Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	record := goaldrive.TurnRecord{GoalID: "goal:x", GoalVersion: "2", InvocationID: "blocked", Mode: goaldrive.ModeSupervised, TurnID: "blocked:turn:1", ChildObjective: "unit:one", GraphID: "g", GraphVersion: "1", StartHead: baseHead, EndHead: retainedHead, Outcome: goaldrive.OutcomeBlocked, Blocker: "qualified governor repair required", ConsequenceFingerprint: fingerprint, ConsequenceCommits: commits}
+	if _, err := ledger.Append(ctx, 0, record); err != nil {
+		t.Fatal(err)
+	}
+
+	repair := filepath.Join(root, "repair")
+	gitT(t, root, "clone", remote, repair)
+	gitT(t, repair, "config", "user.email", "governor@example.invalid")
+	gitT(t, repair, "config", "user.name", "Governor")
+	if err := os.WriteFile(filepath.Join(repair, "governor.txt"), []byte("qualified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, repair, "add", "governor.txt")
+	gitT(t, repair, "commit", "-m", "qualified governor repair")
+	gitT(t, repair, "push", "origin", "main")
+	remoteHead := gitT(t, repair, "rev-parse", "HEAD")
+	if _, err := repo.Snapshot(ctx); err != nil { // fetch the advanced authority
+		t.Fatal(err)
+	}
+
+	invocation := goaldrive.InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: "goal:x"}, GoalVersion: "2", RecoverTurn: record.TurnID}
+	bound, _, err := bindRecoveredTurn(ctx, ledger, repo, invocation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bound.BaseHead != baseHead {
+		t.Fatalf("recovery base drifted to advanced remote: base=%s want=%s remote=%s", bound.BaseHead, baseHead, remoteHead)
+	}
+}

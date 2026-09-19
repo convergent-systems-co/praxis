@@ -513,8 +513,9 @@ func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompl
 	return out, nil
 }
 
-// recoverableTurns lists the generation's BLOCKED turns without checkpoint
-// whose objective has not progressed since. A turn whose end HEAD is known
+// recoverableTurns lists the generation's turns that left unpublished
+// consequence (BLOCKED without checkpoint, or progressed with a --no-push
+// retained checkpoint) whose objective has not progressed since. A turn whose end HEAD is known
 // carries the exact public recovery template; one whose end HEAD was never
 // observed is listed as not recoverable, with the reason. The checkout is
 // not durable state, so whether the consequence still exists is established
@@ -522,7 +523,7 @@ func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompl
 func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord) []map[string]any {
 	out := make([]map[string]any, 0)
 	for i, turn := range turns {
-		if turn.Outcome != goaldrive.OutcomeBlocked || turn.Progress {
+		if !recoverableTurn(turn) {
 			continue
 		}
 		superseded := false
@@ -534,7 +535,10 @@ func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord)
 		if superseded {
 			continue
 		}
-		entry := map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recoverable": turn.EndHead != "", "consequence_fingerprint": turn.ConsequenceFingerprint, "consequence_files": turn.ConsequenceFiles, "consequence_commits": turn.ConsequenceCommits}
+		entry := map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "outcome": turn.Outcome, "end_head": turn.EndHead, "blocker": turn.Blocker, "recoverable": turn.EndHead != "", "consequence_fingerprint": turn.ConsequenceFingerprint, "consequence_files": turn.ConsequenceFiles, "consequence_commits": turn.ConsequenceCommits}
+		if turn.Progress && !turn.CheckpointPublished {
+			entry["blocker"] = "validated checkpoint retained locally and not published (--no-push)"
+		}
 		if turn.EndHead != "" {
 			entry["recover_template"] = recoverTemplate(baseline.ID, baseline.Version, turn.TurnID)
 		} else {

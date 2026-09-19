@@ -237,7 +237,7 @@ func providerPrompt(request WorkerRequest) (string, error) {
 		writeList(&b, "Units that depend on this one", c.Unit.Dependents)
 		fmt.Fprintf(&b, "\n## Repository authority\nPath: %s\nBranch: %s\nStart HEAD: %s\nWork only inside this path.\n", c.Repository.Path, c.Repository.Branch, c.Repository.StartHead)
 		if c.Recovery != nil {
-			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe checkout already carries that turn's work (consequence fingerprint %s).\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint)
+			fmt.Fprintf(&b, "\n## Recovered consequence\nTurn %s ended BLOCKED: %s\nThe checkout already carries that turn's work (consequence fingerprint %s, %s).\n", c.Recovery.RecoveredTurnID, c.Recovery.Blocker, c.Recovery.Fingerprint, c.Recovery.Provenance)
 			if len(c.Recovery.Files) > 0 {
 				fmt.Fprintf(&b, "Uncommitted paths:\n")
 				for _, file := range c.Recovery.Files {

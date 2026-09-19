@@ -191,7 +191,17 @@ type WorkerRecoveryContext struct {
 	// (for example the evidence commit retained after a failed declared
 	// validation), oldest first.
 	Commits []string `json:"commits,omitempty"`
+	// Provenance says how the fingerprint was bound: "recorded" when the
+	// blocked turn recorded it at block time (the consequence admitted is
+	// exactly the one recorded), or "observed-at-recovery" for a turn that
+	// predates consequence recording, where the checkout as found is bound.
+	Provenance string `json:"provenance"`
 }
+
+const (
+	RecoveryProvenanceRecorded = "recorded"
+	RecoveryProvenanceObserved = "observed-at-recovery"
+)
 
 // BuildWorkerContext derives the worker context from the exact Goal
 // generation and the selected candidate. It fails closed when the candidate

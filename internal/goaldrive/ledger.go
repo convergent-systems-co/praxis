@@ -56,7 +56,13 @@ type TurnRecord struct {
 	CheckpointEvidence  []string      `json:"checkpoint_evidence,omitempty"`
 	RetryOf             string        `json:"retry_of,omitempty"`
 	Blocker             string        `json:"blocker,omitempty"`
-	CreatedAt           time.Time     `json:"created_at"`
+	// Consequence* bind what a BLOCKED turn left in the checkout (uncommitted
+	// paths, unpublished commits) so a later --recover-turn can admit exactly
+	// that state and nothing else.
+	ConsequenceFingerprint string    `json:"consequence_fingerprint,omitempty"`
+	ConsequenceFiles       []string  `json:"consequence_files,omitempty"`
+	ConsequenceCommits     []string  `json:"consequence_commits,omitempty"`
+	CreatedAt              time.Time `json:"created_at"`
 }
 
 func (r TurnRecord) validate() error {

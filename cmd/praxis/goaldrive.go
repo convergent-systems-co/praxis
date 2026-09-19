@@ -331,10 +331,12 @@ func announceGoalDriveTurn(w io.Writer, out normalizedOutput, invocation goaldri
 // Goal generation, must have ended BLOCKED without a checkpoint, its end
 // HEAD must be the checkout's current HEAD, and the checkout must carry a
 // consequence: uncommitted changes, unpublished local commits (the evidence
-// retained after a failed declared validation), or both. The consequence
-// fingerprint (status, tracked diff, untracked file contents, unpublished
-// commits) is recorded on the new turn and enforced by the repository
-// adapter, so only that exact consequence can be recovered.
+// retained after a failed declared validation), or both. The checkout's
+// consequence fingerprint (status, tracked diff, untracked file contents,
+// unpublished commits) must equal the one the blocked turn recorded when it
+// blocked; a turn that predates recording binds the checkout as found, with
+// that provenance durable. The bound fingerprint is enforced by the
+// repository adapter at turn start.
 func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository goaldrive.GitRepository, invocation goaldrive.InvocationRequest) (*goaldrive.WorkerRecoveryContext, string, error) {
 	turns, err := ledger.Load(ctx, invocation.Input.GoalID, invocation.GoalVersion)
 	if err != nil {
@@ -373,7 +375,18 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	if len(files) == 0 && len(commits) == 0 {
 		return nil, "", errors.New("checkout is clean and published; there is no consequence to recover")
 	}
-	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files, Commits: commits}, fingerprint, nil
+	provenance := goaldrive.RecoveryProvenanceRecorded
+	if recorded := recovered.ConsequenceFingerprint; recorded != "" {
+		if fingerprint != recorded {
+			return nil, "", fmt.Errorf("checkout consequence %s is not the consequence %s recorded by turn %s (recorded files %s, commits %s); it was altered after the block and cannot be bound", fingerprint, recorded, recovered.TurnID, strings.Join(recovered.ConsequenceFiles, ","), strings.Join(recovered.ConsequenceCommits, ","))
+		}
+	} else {
+		// The blocked turn predates consequence recording (no fingerprint on
+		// its record): the checkout as found now is bound, and that
+		// provenance is durable on the recovery turn.
+		provenance = goaldrive.RecoveryProvenanceObserved
+	}
+	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files, Commits: commits, Provenance: provenance}, fingerprint, nil
 }
 
 func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
@@ -395,8 +408,14 @@ func announceBlockedConsequence(ctx context.Context, w io.Writer, repository goa
 	if record.Outcome != goaldrive.OutcomeBlocked || record.Progress {
 		return
 	}
-	fingerprint, files, commits, err := repository.Fingerprint(ctx)
-	if err != nil || (len(files) == 0 && len(commits) == 0) {
+	fingerprint, files, commits := record.ConsequenceFingerprint, record.ConsequenceFiles, record.ConsequenceCommits
+	if fingerprint == "" {
+		var err error
+		if fingerprint, files, commits, err = repository.Fingerprint(ctx); err != nil {
+			return
+		}
+	}
+	if len(files) == 0 && len(commits) == 0 {
 		return
 	}
 	announcement := map[string]any{

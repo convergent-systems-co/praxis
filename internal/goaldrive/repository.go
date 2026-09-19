@@ -26,6 +26,28 @@ type RepositoryAdapter interface {
 
 type DirtyStartRepository interface{ DirtyStartAllowed() bool }
 
+// ConsequenceRepository fingerprints what the checkout carries beyond the
+// published branch: uncommitted paths and unpublished commits.
+type ConsequenceRepository interface {
+	Fingerprint(ctx context.Context) (fingerprint string, files []string, commits []string, err error)
+}
+
+// recordConsequence binds the checkout's current consequence to a BLOCKED
+// record so recovery can later admit exactly that state. Best effort: a
+// failure to fingerprint leaves the record without a binding, which makes
+// the turn unrecoverable rather than wrongly recoverable.
+func recordConsequence(ctx context.Context, repo RepositoryAdapter, record *TurnRecord) {
+	fingerprinter, ok := repo.(ConsequenceRepository)
+	if !ok || record.Outcome != OutcomeBlocked {
+		return
+	}
+	fingerprint, files, commits, err := fingerprinter.Fingerprint(ctx)
+	if err != nil || (len(files) == 0 && len(commits) == 0) {
+		return
+	}
+	record.ConsequenceFingerprint, record.ConsequenceFiles, record.ConsequenceCommits = fingerprint, files, commits
+}
+
 // RecoveryStartRepository admits a checkout that carries a bound recovery
 // consequence: uncommitted changes or unpublished local commits whose
 // fingerprint matches the recovered turn.
@@ -132,7 +154,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, err
 	}
 	if req.Recovery != nil {
-		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "commits": strings.Join(req.Recovery.Commits, ","), "blocker": req.Recovery.Blocker}); err != nil {
+		if err := c.emit(ctx, ActivityRecoveryBound, req, map[string]string{"recovered_turn": req.Recovery.RecoveredTurnID, "fingerprint": req.Recovery.Fingerprint, "files": strings.Join(req.Recovery.Files, ","), "commits": strings.Join(req.Recovery.Commits, ","), "provenance": req.Recovery.Provenance, "blocker": req.Recovery.Blocker}); err != nil {
 			return TurnRecord{}, err
 		}
 	}
@@ -141,6 +163,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	}
 	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
 	if workerErr != nil {
+		recordConsequence(ctx, repo, &record)
 		if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), record); appendErr != nil {
 			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", appendErr, workerErr)
 		}
@@ -155,6 +178,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 			blocked.Outcome = OutcomeBlocked
 			blocked.Progress = false
 			blocked.Blocker = err.Error()
+			recordConsequence(ctx, repo, &blocked)
 			if _, appendErr := c.Ledger.Append(ctx, int64(len(turns)), blocked); appendErr != nil {
 				return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
 			}

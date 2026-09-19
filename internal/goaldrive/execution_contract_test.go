@@ -172,7 +172,10 @@ func TestDeclaredValidationGatesTheCheckpoint(t *testing.T) {
 	controller.Worker = passing
 	req := contractRequest("")
 	req.InvocationID, req.TurnID = "inv-contract-2", "inv-contract-2:turn:2"
-	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: record.TurnID, Objective: record.ChildObjective, Blocker: record.Blocker, Fingerprint: fingerprint, Commits: commits}
+	if record.ConsequenceFingerprint != fingerprint || len(record.ConsequenceCommits) != 1 || record.ConsequenceCommits[0] != head {
+		t.Fatalf("the blocked record must carry the consequence it left: %+v", record)
+	}
+	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: record.TurnID, Objective: record.ChildObjective, Blocker: record.Blocker, Fingerprint: fingerprint, Commits: commits, Provenance: RecoveryProvenanceRecorded}
 	record, err = controller.ExecuteTurnWithRepository(ctx, req, bound)
 	if err != nil || !record.Progress || !record.CheckpointPublished || !containsString(record.CheckpointEvidence, "repository:declared-validation-passed") {
 		t.Fatalf("recovered evidence plus a fix must checkpoint and publish: %+v %v", record, err)
@@ -220,7 +223,7 @@ func TestRecoveryBindsExactConsequence(t *testing.T) {
 	if _, err := PrepareRepository(ctx, bound); err != nil {
 		t.Fatalf("exact consequence must be admitted: %v", err)
 	}
-	recovery := &WorkerRecoveryContext{RecoveredTurnID: "inv-blocked:turn:1", Objective: "unit:one", Blocker: "provider left repository with uncommitted changes; no checkpoint is valid", Fingerprint: fingerprint, Files: files}
+	recovery := &WorkerRecoveryContext{RecoveredTurnID: "inv-blocked:turn:1", Objective: "unit:one", Blocker: "provider left repository with uncommitted changes; no checkpoint is valid", Fingerprint: fingerprint, Files: files, Provenance: RecoveryProvenanceRecorded}
 	seen := filepath.Join(root, "prompt.txt")
 	worker := ProviderCLIWorker{ProviderID: "local", Dir: workDir, Command: []string{"/bin/sh", "-c", "cat > " + seen + " && git add left.txt && git commit -q -m recovered"}}
 	controller, activity := contractController(t, root, worker)
@@ -296,4 +299,28 @@ func runGitOutput(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %v failed: %v", args, err)
 	}
 	return string(output)
+}
+
+// TestBlockedTurnRecordsTheConsequenceItLeft proves a dirty-leaving worker's
+// BLOCKED record binds the exact uncommitted consequence at block time, so a
+// later alteration of the checkout cannot pass as the recorded consequence.
+func TestBlockedTurnRecordsTheConsequenceItLeft(t *testing.T) {
+	ctx := context.Background()
+	root, workDir := contractRepo(t)
+	worker := ProviderCLIWorker{ProviderID: "local", Dir: workDir, Command: []string{"/bin/sh", "-c", "printf 'left\\n' > left.txt"}}
+	controller, _ := contractController(t, root, worker)
+	record, err := controller.ExecuteTurnWithRepository(ctx, contractRequest(""), GitRepository{Dir: workDir, Remote: "origin", Branch: "main"})
+	if err == nil || record.Outcome != OutcomeBlocked || record.ConsequenceFingerprint == "" || strings.Join(record.ConsequenceFiles, ",") != "left.txt" {
+		t.Fatalf("blocked record must carry the consequence: %+v %v", record, err)
+	}
+	repo := GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}
+	fingerprint, _, _, err := repo.Fingerprint(ctx)
+	if err != nil || fingerprint != record.ConsequenceFingerprint {
+		t.Fatalf("recorded fingerprint must be the checkout's: %s vs %s %v", fingerprint, record.ConsequenceFingerprint, err)
+	}
+	writeFile(t, filepath.Join(workDir, "left.txt"), "altered\n")
+	altered, _, _, _ := repo.Fingerprint(ctx)
+	if altered == record.ConsequenceFingerprint {
+		t.Fatal("an altered consequence must not match the recorded fingerprint")
+	}
 }

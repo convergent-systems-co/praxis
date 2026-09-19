@@ -481,7 +481,7 @@ func recoverableTurns(baseline goals.GoalBaseline, turns []goaldrive.TurnRecord)
 		if superseded {
 			continue
 		}
-		entry := map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recoverable": turn.EndHead != ""}
+		entry := map[string]any{"turn_id": turn.TurnID, "invocation_id": turn.InvocationID, "child_objective": turn.ChildObjective, "end_head": turn.EndHead, "blocker": turn.Blocker, "recoverable": turn.EndHead != "", "consequence_fingerprint": turn.ConsequenceFingerprint, "consequence_files": turn.ConsequenceFiles, "consequence_commits": turn.ConsequenceCommits}
 		if turn.EndHead != "" {
 			entry["recover_template"] = recoverTemplate(baseline.ID, baseline.Version, turn.TurnID)
 		} else {

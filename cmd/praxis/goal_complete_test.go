@@ -88,7 +88,7 @@ func TestGoalCompletionIsEvaluatedThenSettledThenSucceeded(t *testing.T) {
 	}
 	// A human evaluator resolves the unknown with evidence and judgment.
 	out.Reset()
-	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
+	doc := []byte(`{"evaluator":{"id":"reviewer","kind":"human"},"evaluator_kind":"human","based_on":"` + evaluation["evaluation_digest"].(string) + `","goal_digest":"` + digest + `","candidate_turn_id":"inv-c:turn:1","final_head":"abc123","findings":[{"ref":"integrated","result":"satisfied","evidence":["exercised the integrated result at abc123"],"judgment":"the contract is met"}]}`)
 	if err := runGoalEvaluate(ctx, options, doc, governed, &out); err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}

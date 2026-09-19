@@ -32,7 +32,15 @@ func TestEvaluationLineageIsFencedAtTheLedger(t *testing.T) {
 	}
 	reviewer := contracts.PrincipalRef{ID: "r", Kind: "human"}
 	finding := []Finding{{Ref: IntegratedValidator, Result: ResultSatisfied, Evidence: []string{"x"}, Judgment: "ok"}}
-	first, err := ComposeEvaluation(deterministic, reviewer, EvaluatorHuman, finding)
+	// Compose over the evaluation as recorded (outcome derived), which is
+	// what the CLI does; composing over an unrecorded copy yields another
+	// digest and is exactly what the fence refuses.
+	recorded, err := ledger.LoadGoalCompletion(ctx, baseline.ID, baseline.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := *recorded.Latest()
+	first, err := ComposeEvaluation(root, reviewer, EvaluatorHuman, finding)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +48,7 @@ func TestEvaluationLineageIsFencedAtTheLedger(t *testing.T) {
 	if err != nil || first.BasedOn != d0 {
 		t.Fatalf("composition over the latest is recorded with lineage: %v based_on=%s", err, first.BasedOn)
 	}
-	staleComposition, _ := ComposeEvaluation(deterministic, reviewer, EvaluatorHuman, finding)
+	staleComposition, _ := ComposeEvaluation(root, reviewer, EvaluatorHuman, finding)
 	if _, err := ledger.RecordGoalEvaluation(ctx, staleComposition); err == nil || !strings.Contains(err.Error(), d1) {
 		t.Fatalf("RED #169: a composition over a superseded evaluation must be refused naming the current latest %s: %v", d1, err)
 	}

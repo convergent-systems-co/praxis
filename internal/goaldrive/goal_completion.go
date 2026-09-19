@@ -303,12 +303,63 @@ func (l Ledger) RecordGoalEvaluation(ctx context.Context, evaluation GoalComplet
 	if evaluation.CandidateTurnID != state.Candidate.TurnID || evaluation.FinalHead != state.Candidate.FinalHead || evaluation.GoalDigest != state.Candidate.GoalDigest {
 		return "", fmt.Errorf("evaluation binds turn %s, checkpoint %s, generation %s; the candidate is turn %s, checkpoint %s, generation %s", evaluation.CandidateTurnID, evaluation.FinalHead, evaluation.GoalDigest, state.Candidate.TurnID, state.Candidate.FinalHead, state.Candidate.GoalDigest)
 	}
+	// Lineage fencing (#169): the deterministic evaluation is the root and
+	// is recorded once; every composed evaluation is based on exactly the
+	// current latest, so a stale or concurrent composition is refused
+	// naming what it should have been based on.
+	if evaluation.EvaluatorKind == EvaluatorDeterministic {
+		if len(state.Evaluations) > 0 {
+			return "", fmt.Errorf("Goal %s/%s already has its deterministic evaluation; further evaluations compose over the latest", evaluation.GoalID, evaluation.GoalVersion)
+		}
+		if evaluation.BasedOn != "" {
+			return "", errors.New("the deterministic evaluation is the root of the lineage and is based on nothing")
+		}
+	} else {
+		latest := state.Latest()
+		if latest == nil {
+			return "", fmt.Errorf("Goal %s/%s has no deterministic evaluation to compose over", evaluation.GoalID, evaluation.GoalVersion)
+		}
+		latestDigest, err := latest.Digest()
+		if err != nil {
+			return "", err
+		}
+		if evaluation.BasedOn != latestDigest {
+			return "", fmt.Errorf("evaluation is based on %q; the current latest evaluation is %s; compose over the current latest", evaluation.BasedOn, latestDigest)
+		}
+	}
 	evaluation.Outcome = DeriveOutcome(evaluation.Items)
 	digest, err := evaluation.Digest()
 	if err != nil {
 		return "", err
 	}
 	return digest, l.appendGoalCompletion(ctx, evaluation.GoalID, evaluation.GoalVersion, count, goalEvaluationEventType, "evaluation:"+strconv.Itoa(len(state.Evaluations)+1), evaluation, evaluation.EvaluatedAt)
+}
+
+// VerifyEvaluationChain checks that the generation's evaluations form one
+// unbroken lineage: the first is the deterministic verifier's (no base),
+// and every later one is a composed evaluation based on exactly the
+// digest of its predecessor (#169). Settlement binds the head of this
+// chain, never an evaluation that merely happens to be newest.
+func VerifyEvaluationChain(evaluations []GoalCompletionEvaluation) error {
+	if len(evaluations) == 0 {
+		return errors.New("no evaluation")
+	}
+	if evaluations[0].EvaluatorKind != EvaluatorDeterministic || evaluations[0].BasedOn != "" {
+		return errors.New("evaluation lineage must be rooted at the deterministic verifier's evaluation")
+	}
+	for i := 1; i < len(evaluations); i++ {
+		previous, err := evaluations[i-1].Digest()
+		if err != nil {
+			return err
+		}
+		if evaluations[i].EvaluatorKind == EvaluatorDeterministic {
+			return fmt.Errorf("evaluation %d is a second deterministic evaluation; the verifier is the root of the lineage", i+1)
+		}
+		if evaluations[i].BasedOn != previous {
+			return fmt.Errorf("evaluation %d is based on %s, not on its predecessor %s; the lineage is broken", i+1, evaluations[i].BasedOn, previous)
+		}
+	}
+	return nil
 }
 
 // RecordGoalCompletionDecision persists the settlement. It requires a
@@ -342,6 +393,9 @@ func (l Ledger) RecordGoalCompletionDecision(ctx context.Context, decision GoalC
 	}
 	if decision.EvaluationDigest != latestDigest || decision.CandidateTurnID != state.Candidate.TurnID || decision.FinalHead != state.Candidate.FinalHead || decision.GoalDigest != state.Candidate.GoalDigest {
 		return errors.New("Goal completion decision must bind the exact latest evaluation, candidate turn, final checkpoint, and generation digest")
+	}
+	if err := VerifyEvaluationChain(state.Evaluations); err != nil {
+		return fmt.Errorf("Goal completion cannot be settled: %w", err)
 	}
 	if decision.Status == GoalComplete && latest.Outcome != ResultSatisfied {
 		return fmt.Errorf("Goal completion cannot be settled complete: the evaluation outcome is %s (%s)", latest.Outcome, strings.Join(UnresolvedRefs(*latest), ", "))

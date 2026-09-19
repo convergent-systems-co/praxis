@@ -283,3 +283,53 @@ func boolInt(v bool) int {
 	}
 	return 0
 }
+
+// ExtendSchedulerResourceLease renews an active, unexpired lease's expiry
+// (a heartbeat). A released or already expired lease cannot be extended:
+// the holder has lost it and must stop.
+func (s *Store) ExtendSchedulerResourceLease(ctx context.Context, leaseID string, expiry, now time.Time) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE scheduler_resource_leases SET expires_at=? WHERE lease_id=? AND released_at IS NULL AND (expires_at IS NULL OR expires_at>?)`, expiry.Format(time.RFC3339Nano), leaseID, now.Format(time.RFC3339Nano))
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("lease %s is released or expired", leaseID)
+	}
+	return nil
+}
+
+// LookupSchedulerResourceLease returns a lease by identity.
+func (s *Store) LookupSchedulerResourceLease(ctx context.Context, leaseID string) (scheduler.ResourceLease, bool, error) {
+	var lease scheduler.ResourceLease
+	var acquired string
+	var expires, released sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT lease_id,slice_id,attempt_id,resource_key,capacity,acquired_at,expires_at,released_at FROM scheduler_resource_leases WHERE lease_id=?`, leaseID).Scan(&lease.ID, &lease.SliceID, &lease.AttemptID, &lease.ResourceKey, &lease.Capacity, &acquired, &expires, &released)
+	if errors.Is(err, sql.ErrNoRows) {
+		return scheduler.ResourceLease{}, false, nil
+	}
+	if err != nil {
+		return scheduler.ResourceLease{}, false, err
+	}
+	if lease.AcquiredAt, err = time.Parse(time.RFC3339Nano, acquired); err != nil {
+		return scheduler.ResourceLease{}, false, err
+	}
+	if expires.Valid {
+		value, err := time.Parse(time.RFC3339Nano, expires.String)
+		if err != nil {
+			return scheduler.ResourceLease{}, false, err
+		}
+		lease.ExpiresAt = &value
+	}
+	if released.Valid {
+		value, err := time.Parse(time.RFC3339Nano, released.String)
+		if err != nil {
+			return scheduler.ResourceLease{}, false, err
+		}
+		lease.ReleasedAt = &value
+	}
+	return lease, true, nil
+}

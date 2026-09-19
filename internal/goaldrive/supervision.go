@@ -41,19 +41,25 @@ const (
 	ActivityTurnAllocated ActivityType = "turn.allocated"
 	// ActivityUnitCompleted records that the controller accepted a unit
 	// completion proposal and persisted the unit's completion (#158).
-	ActivityUnitCompleted       ActivityType = "unit.completed"
-	ActivityAuthorityRequired   ActivityType = "authority.required"
-	ActivityAuthorityResolved   ActivityType = "authority.resolved"
-	ActivityHumanComment        ActivityType = "human.comment"
-	ActivityHumanCorrection     ActivityType = "human.correction"
-	ActivityHumanConstraint     ActivityType = "human.constraint"
-	ActivitySuspendRequested    ActivityType = "execution.suspend_requested"
-	ActivitySuspended           ActivityType = "execution.suspended"
-	ActivityCancelRequested     ActivityType = "execution.cancel_requested"
-	ActivityCancelled           ActivityType = "execution.cancelled"
-	ActivityResumed             ActivityType = "execution.resumed"
-	ActivityCompletionClaimed   ActivityType = "completion.claimed"
-	ActivityCompletionQualified ActivityType = "completion.qualified"
+	ActivityUnitCompleted ActivityType = "unit.completed"
+	// ActivityExecutionInterrupted: the holder recorded a graceful interruption
+	// (signal or timeout) before exiting. ActivityExecutionLost: the explicit
+	// reconciliation path closed an execution whose process disappeared;
+	// its consequence is unknown.
+	ActivityExecutionInterrupted ActivityType = "execution.interrupted"
+	ActivityExecutionLost        ActivityType = "execution.lost"
+	ActivityAuthorityRequired    ActivityType = "authority.required"
+	ActivityAuthorityResolved    ActivityType = "authority.resolved"
+	ActivityHumanComment         ActivityType = "human.comment"
+	ActivityHumanCorrection      ActivityType = "human.correction"
+	ActivityHumanConstraint      ActivityType = "human.constraint"
+	ActivitySuspendRequested     ActivityType = "execution.suspend_requested"
+	ActivitySuspended            ActivityType = "execution.suspended"
+	ActivityCancelRequested      ActivityType = "execution.cancel_requested"
+	ActivityCancelled            ActivityType = "execution.cancelled"
+	ActivityResumed              ActivityType = "execution.resumed"
+	ActivityCompletionClaimed    ActivityType = "completion.claimed"
+	ActivityCompletionQualified  ActivityType = "completion.qualified"
 )
 
 var activityTypes = map[ActivityType]struct{}{
@@ -62,7 +68,7 @@ var activityTypes = map[ActivityType]struct{}{
 	ActivityCheckpointCreated: {}, ActivityBlockerDetected: {}, ActivityAuthorityRequired: {}, ActivityAuthorityResolved: {}, ActivityHumanComment: {},
 	ActivityHumanCorrection: {}, ActivityHumanConstraint: {}, ActivitySuspendRequested: {}, ActivitySuspended: {}, ActivityCancelRequested: {},
 	ActivityCancelled: {}, ActivityResumed: {}, ActivityCompletionClaimed: {}, ActivityCompletionQualified: {},
-	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {}, ActivityUnitCompleted: {},
+	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {}, ActivityUnitCompleted: {}, ActivityExecutionInterrupted: {}, ActivityExecutionLost: {},
 }
 
 const supervisionAggregateType = "goal_drive_supervision"

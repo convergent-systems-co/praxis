@@ -150,7 +150,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if validator, ok := repo.(DeclaredValidator); ok {
 		req.DeclaredValidation, req.ValidationDeclared = validator.DeclaredValidation()
 	}
-	turns, req, err := c.prepare(ctx, req)
+	_, req, err = c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, err
 	}
@@ -166,10 +166,28 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return TurnRecord{}, err
 	}
 	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
+	interrupted := ctx.Err() != nil
+	// Everything durable after the worker returns runs on a context that
+	// survives the interruption that may have stopped the worker (#163).
+	ctx = context.WithoutCancel(ctx)
+	if req.Lease != nil && !req.Lease.Held(ctx) {
+		// Authority moved on (lease expired or reconciled): this process
+		// records nothing and publishes nothing; reconciliation owns the
+		// disposition (#163 B7).
+		return record, fmt.Errorf("%w: turn %s", ErrLeaseLost, req.TurnID)
+	}
 	if workerErr != nil {
+		if interrupted {
+			record.Outcome, record.Progress = OutcomeBlocked, false
+			record.Blocker = "execution interrupted (operator signal or turn timeout) while the provider was running; provider consequence unknown, checkout observed at interruption: " + workerErr.Error()
+			if emitErr := c.emit(ctx, ActivityExecutionInterrupted, req, map[string]string{"reason": workerErr.Error(), "consequence": "unknown"}); emitErr != nil {
+				return TurnRecord{}, emitErr
+			}
+			workerErr = errors.New(record.Blocker)
+		}
 		recordConsequence(ctx, repo, &record)
-		if _, appendErr := c.Ledger.Record(ctx, int64(len(turns)), &record); appendErr != nil {
-			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", appendErr, workerErr)
+		if err := c.recordTurn(ctx, &record); err != nil {
+			return TurnRecord{}, fmt.Errorf("record worker interruption: %w (worker: %v)", err, workerErr)
 		}
 		if emitErr := c.emitTurnOutcome(ctx, req, record, workerErr); emitErr != nil {
 			return TurnRecord{}, emitErr
@@ -177,13 +195,16 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		return record, workerErr
 	}
 	if !req.NoPush {
+		if req.Lease != nil && !req.Lease.Held(ctx) {
+			return record, fmt.Errorf("%w: turn %s; checkpoint %s not published", ErrLeaseLost, req.TurnID, record.EndHead)
+		}
 		if err := PublishCheckpoint(ctx, repo, record); err != nil {
 			blocked := record
 			blocked.Outcome = OutcomeBlocked
 			blocked.Progress = false
 			blocked.Blocker = err.Error()
 			recordConsequence(ctx, repo, &blocked)
-			if _, appendErr := c.Ledger.Record(ctx, int64(len(turns)), &blocked); appendErr != nil {
+			if appendErr := c.recordTurn(ctx, &blocked); appendErr != nil {
 				return TurnRecord{}, fmt.Errorf("record checkpoint publication failure: %w", appendErr)
 			}
 			if emitErr := c.emitTurnOutcome(ctx, req, blocked, err); emitErr != nil {
@@ -200,7 +221,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if err != nil {
 		return TurnRecord{}, err
 	}
-	if _, err := c.Ledger.Record(ctx, int64(len(turns)), &record); err != nil {
+	if err := c.recordTurn(ctx, &record); err != nil {
 		return TurnRecord{}, err
 	}
 	if err := c.emitTurnOutcome(ctx, req, record, nil); err != nil {
@@ -219,6 +240,7 @@ func (c Controller) invokeRepositoryTurn(ctx context.Context, req TurnRequest, r
 			return TurnRecord{}, err
 		}
 		result, workerErr := worker.Execute(ctx, c.workerRequest(req))
+		ctx = context.WithoutCancel(ctx)
 		if workerErr != nil {
 			if err := c.emit(ctx, ActivityActionFailed, req, map[string]string{"action": "provider.execute", "error": workerErr.Error()}); err != nil {
 				return TurnRecord{}, err

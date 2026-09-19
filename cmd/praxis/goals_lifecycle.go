@@ -459,6 +459,20 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 			workSet["succession"] = goalState.Succession
 		}
 		workSet["goal_complete"] = goalState.Decision != nil && goalState.Decision.Status == goaldrive.GoalComplete
+		lost, active, err := goaldrive.LostTurns(ctx, ledger, state.New(db), goalID, version, time.Now().UTC())
+		if err != nil {
+			return fmt.Errorf("load turn admissions: %w", err)
+		}
+		activeEntries := make([]map[string]any, 0, len(active))
+		for _, admission := range active {
+			activeEntries = append(activeEntries, map[string]any{"turn_id": admission.TurnID, "invocation_id": admission.InvocationID, "scope": admission.Scope, "pid": admission.PID, "host": admission.Host, "admitted_at": admission.AdmittedAt, "observe_with": "praxis supervise observe --goal-id=" + goalID + " --goal-version=" + version + " --invocation-id=" + admission.InvocationID + " --turn-id=" + admission.TurnID + " --follow"})
+		}
+		lostEntries := make([]map[string]any, 0, len(lost))
+		for _, admission := range lost {
+			lostEntries = append(lostEntries, map[string]any{"turn_id": admission.TurnID, "invocation_id": admission.InvocationID, "scope": admission.Scope, "pid": admission.PID, "host": admission.Host, "admitted_at": admission.AdmittedAt, "consequence": "unknown", "reconcile_with": reconcileCommand(goalID, version, admission.InvocationID, admission.TurnID)})
+		}
+		workSet["active_turns"] = activeEntries
+		workSet["lost_turns"] = lostEntries
 		result["work_set"] = workSet
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"

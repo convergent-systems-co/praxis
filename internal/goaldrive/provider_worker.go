@@ -123,10 +123,11 @@ func (w ProviderCLIWorker) Execute(ctx context.Context, request WorkerRequest) (
 	if messageWriter.err != nil {
 		return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 	}
-	if stdout.truncated || stderr.truncated {
-		return WorkerResult{}, errors.New("provider transcript exceeds configured output limit")
-	}
-	// The transcript is intentionally not returned, persisted, or interpreted.
+	// stdout and stderr are persisted in full by messageWriter. The bounded
+	// buffers above exist only to make a failed process diagnostic safe to
+	// return; truncating those diagnostic copies cannot invalidate a successful
+	// provider execution or its complete durable supervision evidence. Unlike
+	// CommandWorker, this adapter does not interpret stdout as a result contract.
 	return WorkerResult{Outcome: OutcomeContinue, ExecutorID: w.ProviderID, CheckpointEvidence: []string{"provider-process:completed"}}, nil
 }
 

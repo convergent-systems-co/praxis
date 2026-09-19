@@ -197,6 +197,7 @@ type TurnLease struct {
 	ledger    Ledger
 	leases    LeaseStore
 	lost      atomic.Bool
+	started   atomic.Bool
 	stop      chan struct{}
 	stopOnce  sync.Once
 	done      chan struct{}
@@ -221,6 +222,7 @@ func (t *TurnLease) Held(ctx context.Context) bool {
 // heartbeat renews the lease until stopped; on the first failed renewal the
 // lease is lost and onLost cancels the turn.
 func (t *TurnLease) heartbeat(onLost func()) {
+	t.started.Store(true)
 	defer close(t.done)
 	if t.leases == nil || t.Admission.LeaseID == "" {
 		<-t.stop
@@ -249,7 +251,9 @@ func (t *TurnLease) heartbeat(onLost func()) {
 
 func (t *TurnLease) stopHeartbeat() {
 	t.stopOnce.Do(func() { close(t.stop) })
-	<-t.done
+	if t.started.Load() {
+		<-t.done
+	}
 }
 
 // Release records the holder's disposition and releases the lease. A lost

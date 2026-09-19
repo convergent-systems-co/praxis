@@ -154,6 +154,7 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 	turnID := lease.Admission.TurnID
 	turnCtx, cancelTurn := context.WithCancel(ctx)
 	defer cancelTurn()
+	lease.started.Store(true)
 	go lease.heartbeat(cancelTurn)
 	if r.Activity != nil {
 		// Durable before the announcement: the announced observe command

@@ -121,6 +121,14 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		}
 	}
 	turnID := invocation.InvocationID + ":turn:" + strconv.Itoa(len(turns)+1)
+	if r.Activity != nil {
+		// Durable before the announcement: the announced observe command
+		// must always find at least this event (#155).
+		request := WorkerRequest{GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion, InvocationID: invocation.InvocationID, TurnID: turnID, ProviderID: invocation.ProviderID, GraphID: r.GraphID, GraphVersion: r.GraphVersion}
+		if _, err := r.Activity.Emit(ctx, ActivityTurnAllocated, request, r.Controller.Ledger.Actor, contracts.TrustObserved, "praxis.controller", map[string]string{"mode": string(invocation.Mode)}); err != nil {
+			return TurnRecord{}, fmt.Errorf("record turn allocation: %w", err)
+		}
+	}
 	if r.OnTurnAllocated != nil {
 		r.OnTurnAllocated(turnID)
 	}

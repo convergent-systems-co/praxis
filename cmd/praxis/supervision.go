@@ -149,9 +149,20 @@ func observeSupervision(args supervisionArgs, out io.Writer) error {
 		return observeInvocation(ctx, log, args, out)
 	}
 	cursor := args.after
+	first := true
 	for {
 		events, err := log.Load(ctx, args.invocationID, args.turnID, cursor)
 		if err != nil {
+			return err
+		}
+		if first && len(events) == 0 && cursor == 0 {
+			// Every turn records turn.allocated before its identity is
+			// announced, so an empty history means the selector names no
+			// durable turn of this invocation: fail closed (#155).
+			return fmt.Errorf("turn %q has no durable activity for invocation %q; discover its turns with `praxis supervise observe --goal-id=%s --goal-version=%s --invocation-id=%s`", args.turnID, args.invocationID, args.goalID, args.goalVersion, args.invocationID)
+		}
+		first = false
+		if err := verifyLineage(events, args); err != nil {
 			return err
 		}
 		for _, event := range events {
@@ -163,6 +174,8 @@ func observeSupervision(args supervisionArgs, out io.Writer) error {
 		if !args.follow {
 			return nil
 		}
+		// Follow semantics: replay, stay attached, emit the terminal
+		// disposition, then terminate so the stream reaches EOF (#155).
 		if terminalActivity(events) {
 			return nil
 		}
@@ -170,9 +183,27 @@ func observeSupervision(args supervisionArgs, out io.Writer) error {
 	}
 }
 
+// verifyLineage fails closed when a durable event under the selected
+// invocation and turn belongs to a different Goal generation than the one
+// the operator named.
+func verifyLineage(events []goaldrive.ActivityRecord, args supervisionArgs) error {
+	for _, event := range events {
+		if event.GoalID != args.goalID || event.GoalVersion != args.goalVersion {
+			return fmt.Errorf("turn %q of invocation %q belongs to %s/%s, not %s/%s", event.TurnID, event.InvocationID, event.GoalID, event.GoalVersion, args.goalID, args.goalVersion)
+		}
+	}
+	return nil
+}
+
+// terminalActivity reports whether a batch carries the turn's terminal
+// disposition. The controller ends every turn with execution.state_changed
+// (CONTINUE, COMPLETE, NO_PROGRESS, blocked); a turn refused before
+// dispatch ends with capability.unsatisfiable; a human intervention ends it
+// with cancelled or suspended.
 func terminalActivity(events []goaldrive.ActivityRecord) bool {
 	for _, event := range events {
-		if event.Type == goaldrive.ActivityCompletionQualified || event.Type == goaldrive.ActivityCancelled || event.Type == goaldrive.ActivitySuspended || event.Type == goaldrive.ActivityBlockerDetected {
+		switch event.Type {
+		case goaldrive.ActivityExecutionStateChanged, goaldrive.ActivityCapabilityUnsatisfied, goaldrive.ActivityCancelled, goaldrive.ActivitySuspended:
 			return true
 		}
 	}
@@ -247,6 +278,9 @@ func observeInvocation(ctx context.Context, log goaldrive.ActivityLog, args supe
 		for _, turn := range known {
 			events, err := log.Load(ctx, args.invocationID, turn, cursors[turn])
 			if err != nil {
+				return err
+			}
+			if err := verifyLineage(events, args); err != nil {
 				return err
 			}
 			for _, event := range events {

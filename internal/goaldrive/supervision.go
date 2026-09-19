@@ -35,18 +35,22 @@ const (
 	ActivityBlockerDetected       ActivityType = "blocker.detected"
 	ActivityCapabilityUnsatisfied ActivityType = "capability.unsatisfiable"
 	ActivityRecoveryBound         ActivityType = "workspace.recovery_bound"
-	ActivityAuthorityRequired     ActivityType = "authority.required"
-	ActivityAuthorityResolved     ActivityType = "authority.resolved"
-	ActivityHumanComment          ActivityType = "human.comment"
-	ActivityHumanCorrection       ActivityType = "human.correction"
-	ActivityHumanConstraint       ActivityType = "human.constraint"
-	ActivitySuspendRequested      ActivityType = "execution.suspend_requested"
-	ActivitySuspended             ActivityType = "execution.suspended"
-	ActivityCancelRequested       ActivityType = "execution.cancel_requested"
-	ActivityCancelled             ActivityType = "execution.cancelled"
-	ActivityResumed               ActivityType = "execution.resumed"
-	ActivityCompletionClaimed     ActivityType = "completion.claimed"
-	ActivityCompletionQualified   ActivityType = "completion.qualified"
+	// ActivityTurnAllocated is the first durable activity of every turn: it
+	// is recorded before the turn identity is announced, so an observer that
+	// executes the announced command always finds the turn.
+	ActivityTurnAllocated       ActivityType = "turn.allocated"
+	ActivityAuthorityRequired   ActivityType = "authority.required"
+	ActivityAuthorityResolved   ActivityType = "authority.resolved"
+	ActivityHumanComment        ActivityType = "human.comment"
+	ActivityHumanCorrection     ActivityType = "human.correction"
+	ActivityHumanConstraint     ActivityType = "human.constraint"
+	ActivitySuspendRequested    ActivityType = "execution.suspend_requested"
+	ActivitySuspended           ActivityType = "execution.suspended"
+	ActivityCancelRequested     ActivityType = "execution.cancel_requested"
+	ActivityCancelled           ActivityType = "execution.cancelled"
+	ActivityResumed             ActivityType = "execution.resumed"
+	ActivityCompletionClaimed   ActivityType = "completion.claimed"
+	ActivityCompletionQualified ActivityType = "completion.qualified"
 )
 
 var activityTypes = map[ActivityType]struct{}{
@@ -55,7 +59,7 @@ var activityTypes = map[ActivityType]struct{}{
 	ActivityCheckpointCreated: {}, ActivityBlockerDetected: {}, ActivityAuthorityRequired: {}, ActivityAuthorityResolved: {}, ActivityHumanComment: {},
 	ActivityHumanCorrection: {}, ActivityHumanConstraint: {}, ActivitySuspendRequested: {}, ActivitySuspended: {}, ActivityCancelRequested: {},
 	ActivityCancelled: {}, ActivityResumed: {}, ActivityCompletionClaimed: {}, ActivityCompletionQualified: {},
-	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {},
+	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {},
 }
 
 const supervisionAggregateType = "goal_drive_supervision"

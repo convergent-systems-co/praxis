@@ -62,13 +62,13 @@ func (w *continuousWorker) Execute(context.Context, WorkerRequest) (WorkerResult
 }
 
 func TestRuntimeContinuousModeRepeatsBoundedTransitionsAndStopsAtCompletion(t *testing.T) {
-	baseline := goals.GoalBaseline{ID: "goal-continuous", Version: "1", OriginalIntent: "bounded", RefinedOutcome: "complete", Rigor: goals.RigorStructured, RecommendationMode: goals.RecommendationReviewAll, WorkPlan: &contracts.WorkPlan{BaselineDigest: "baseline", AuthorityRef: "authority", AuthorityDigest: "sha256:authority", AcceptanceRef: "acceptance", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:proposal", Candidates: []contracts.WorkCandidate{{ID: "unit", Priority: 1, Sequence: 1, SourceRef: "test", SourceDigest: "sha256:source", Provenance: contracts.ProvenancePLAN, Requirements: []contracts.RequirementRef{{ID: "req", SourceRef: "test:req", SourceDigest: "sha256:req"}}}}}}
+	baseline := goals.GoalBaseline{ID: "goal-continuous", Version: "1", Digest: "sha256:" + strings.Repeat("c", 64), OriginalIntent: "bounded", RefinedOutcome: "complete", Rigor: goals.RigorStructured, RecommendationMode: goals.RecommendationReviewAll, WorkPlan: &contracts.WorkPlan{BaselineDigest: "baseline", AuthorityRef: "authority", AuthorityDigest: "sha256:authority", AcceptanceRef: "acceptance", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:proposal", Candidates: []contracts.WorkCandidate{{ID: "unit", Priority: 1, Sequence: 1, SourceRef: "test", SourceDigest: "sha256:source", Provenance: contracts.ProvenancePLAN, Requirements: []contracts.RequirementRef{{ID: "req", SourceRef: "test:req", SourceDigest: "sha256:req"}}}}}}
 	checkout := &supervisionRepository{head: "a"}
 	worker := &continuousWorker{repo: checkout}
 	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Worker: worker, NoProgressLimit: 2}, Baselines: supervisionBaselineStore{baseline: baseline}, Repository: checkout, GraphID: "graph", GraphVersion: "1"}
 	record, err := runtime.Execute(context.Background(), InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeContinuous, InvocationID: "continuous-1", ProviderID: "provider", MaxTurns: 3})
 	if err != nil || record.Outcome != OutcomeUserDecisionRequired || worker.calls != 2 || !record.UnitCompleted {
-		t.Fatalf("continuous execution did not stop at the provisional Goal completion claim: record=%+v calls=%d err=%v", record, worker.calls, err)
+		t.Fatalf("continuous execution did not stop at the Goal completion candidate: record=%+v calls=%d err=%v", record, worker.calls, err)
 	}
 }
 
@@ -150,7 +150,7 @@ func TestActiveTurnCancelAndSuspendAreDurableControlSignals(t *testing.T) {
 // identity always resolves to durable activity (#155): turn.allocated is
 // recorded before OnTurnAllocated runs.
 func TestTurnAllocationIsDurableBeforeAnnouncement(t *testing.T) {
-	baseline := goals.GoalBaseline{ID: "goal-announce", Version: "1", OriginalIntent: "bounded", RefinedOutcome: "complete", Rigor: goals.RigorStructured, RecommendationMode: goals.RecommendationReviewAll, WorkPlan: &contracts.WorkPlan{BaselineDigest: "baseline", AuthorityRef: "authority", AuthorityDigest: "sha256:authority", AcceptanceRef: "acceptance", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:proposal", Candidates: []contracts.WorkCandidate{{ID: "unit", Priority: 1, Sequence: 1, SourceRef: "test", SourceDigest: "sha256:source", Provenance: contracts.ProvenancePLAN, Requirements: []contracts.RequirementRef{{ID: "req", SourceRef: "test:req", SourceDigest: "sha256:req"}}}}}}
+	baseline := goals.GoalBaseline{ID: "goal-announce", Version: "1", Digest: "sha256:" + strings.Repeat("d", 64), OriginalIntent: "bounded", RefinedOutcome: "complete", Rigor: goals.RigorStructured, RecommendationMode: goals.RecommendationReviewAll, WorkPlan: &contracts.WorkPlan{BaselineDigest: "baseline", AuthorityRef: "authority", AuthorityDigest: "sha256:authority", AcceptanceRef: "acceptance", AcceptanceDigest: "sha256:acceptance", AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:proposal", Candidates: []contracts.WorkCandidate{{ID: "unit", Priority: 1, Sequence: 1, SourceRef: "test", SourceDigest: "sha256:source", Provenance: contracts.ProvenancePLAN, Requirements: []contracts.RequirementRef{{ID: "req", SourceRef: "test:req", SourceDigest: "sha256:req"}}}}}}
 	store := eventstore.NewMemoryStore()
 	activity := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
 	checkout := &supervisionRepository{head: "a"}

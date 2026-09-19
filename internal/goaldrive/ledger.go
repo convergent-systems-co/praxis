@@ -65,9 +65,14 @@ type TurnRecord struct {
 	// CompletionClaim is the unit the worker proposed complete (commit
 	// trailer); UnitCompleted says the controller accepted the proposal and
 	// recorded the unit's completion durably (#158).
-	CompletionClaim string    `json:"completion_claim,omitempty"`
-	UnitCompleted   bool      `json:"unit_completed,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	CompletionClaim string `json:"completion_claim,omitempty"`
+	UnitCompleted   bool   `json:"unit_completed,omitempty"`
+	// GoalCandidate says this turn completed the last unit and recorded the
+	// GOAL_COMPLETION_CANDIDATE; GoalEvaluation is the deterministic
+	// verifier's outcome (satisfied|unsatisfied|unknown), evidence only.
+	GoalCandidate  bool      `json:"goal_candidate,omitempty"`
+	GoalEvaluation string    `json:"goal_evaluation,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // MarshalJSON renders an unknown (zero) CreatedAt as absent rather than as

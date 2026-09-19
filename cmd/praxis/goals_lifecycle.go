@@ -51,8 +51,13 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	if operation == "inspect" {
 		return inspectGoalsLifecycle(ctx, in.Options, getenv)
 	}
-	if operation == "complete" {
+	switch operation {
+	case "evaluate":
+		return runGoalEvaluate(ctx, in.Options, input, getenv, os.Stdout)
+	case "complete":
 		return runGoalCompleteWithTerminal(ctx, in.Options, getenv, os.Stdin, os.Stdout)
+	case "succeed":
+		return runGoalSucceedWithTerminal(ctx, in.Options, getenv, os.Stdin, os.Stdout)
 	}
 	if _, selected := selectorFromOptions(in.Options); len(input) == 0 && !selected {
 		return errors.New("Goals lifecycle mutation requires exact selector options or --input <document>")
@@ -430,20 +435,42 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		if err != nil {
 			return fmt.Errorf("load Goal completion state: %w", err)
 		}
-		if goalState.Claim != nil {
-			workSet["goal_completion_claim"] = map[string]any{"claimed_by_turn": goalState.Claim.TurnID, "final_head": goalState.Claim.FinalHead, "claimed_at": goalState.Claim.ClaimedAt, "authoritative": false}
+		if goalState.Candidate != nil {
+			workSet["goal_completion_candidate"] = map[string]any{"turn_id": goalState.Candidate.TurnID, "final_head": goalState.Candidate.FinalHead, "candidate_at": goalState.Candidate.CandidateAt, "authoritative": false, "meaning": "the accepted decomposition has been executed; evidence for Goal completion, never proof of it"}
+		}
+		if latest := goalState.Latest(); latest != nil {
+			digest, _ := latest.Digest()
+			workSet["goal_evaluation"] = map[string]any{"evaluation_digest": digest, "evaluator": latest.Evaluator, "evaluator_kind": latest.EvaluatorKind, "outcome": latest.Outcome, "unresolved": goaldrive.UnresolvedRefs(*latest), "items": latest.Items, "evaluations": len(goalState.Evaluations)}
 			if goalState.Decision == nil {
-				workSet["complete_with"] = "praxis goals-lifecycle --operation=complete --goal-id=" + goalID + " --goal-version=" + version
-				workSet["reject_with"] = "praxis goals-lifecycle --operation=complete --goal-id=" + goalID + " --goal-version=" + version + " --status=incomplete --reason=<what the Goal contract still lacks>"
+				workSet["evaluate_with"] = "praxis goals-lifecycle --operation=evaluate --goal-id=" + goalID + " --goal-version=" + version + " --input=<evaluation.json binding candidate_turn_id " + goalState.Candidate.TurnID + ", final_head " + goalState.Candidate.FinalHead + ", goal_digest " + baseline.Digest + ">"
+				if latest.Outcome == goaldrive.ResultSatisfied {
+					workSet["complete_with"] = completeCommand(goalID, version)
+				}
+				workSet["reject_with"] = completeCommand(goalID, version) + " --status=incomplete --reason=<what the Goal contract still lacks>"
 			}
 		}
 		if goalState.Decision != nil {
 			workSet["goal_completion_decision"] = goalState.Decision
+			if goalState.Succession == nil {
+				workSet["succeed_with"] = succeedCommand(goalID, version)
+			}
+		}
+		if goalState.Succession != nil {
+			workSet["succession"] = goalState.Succession
 		}
 		workSet["goal_complete"] = goalState.Decision != nil && goalState.Decision.Status == goaldrive.GoalComplete
 		result["work_set"] = workSet
 	} else if len(proposalEntries) == 0 {
 		result["next_step"] = "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=<planner-proposal.json>"
+	}
+	if baseline.PredecessorDigest != "" {
+		predecessor, err := predecessorCompletion(ctx, goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}, baseline)
+		if err != nil {
+			return fmt.Errorf("load predecessor completion: %w", err)
+		}
+		if predecessor != nil {
+			result["predecessor_completion"] = predecessor
+		}
 	}
 	return printJSON(result)
 }

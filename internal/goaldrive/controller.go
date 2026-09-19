@@ -13,8 +13,8 @@ import (
 var (
 	ErrUnsafeRepository       = errors.New("Goal-drive repository state is not safe for a worker turn")
 	ErrNoProgressLimit        = errors.New("Goal-drive no-progress limit reached")
-	ErrGoalComplete           = errors.New("Goal generation is complete")
-	ErrGoalCompletionPending  = errors.New("Goal completion awaits the owner's evaluation")
+	ErrGoalSettled            = errors.New("Goal generation is settled")
+	ErrGoalCompletionPending  = errors.New("Goal completion candidate awaits evaluation and settlement")
 	ErrSupervisedTerminated   = errors.New("supervised Goal-drive invocation terminated after its persisted checkpoint")
 	ErrInvocationModeMismatch = errors.New("Goal-drive invocation mode cannot change across turns")
 )
@@ -131,11 +131,11 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		if err != nil {
 			return nil, TurnRequest{}, fmt.Errorf("load Goal completion state: %w", err)
 		}
-		if goalState.Decision != nil && goalState.Decision.Status == GoalComplete {
-			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s is complete (decided by %s at %s)", ErrGoalComplete, req.GoalID, req.GoalVersion, goalState.Decision.DecidedBy.ID, goalState.Decision.DecidedAt.UTC().Format(time.RFC3339))
+		if goalState.Decision != nil {
+			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s is settled %s by %s at %s%s", ErrGoalSettled, req.GoalID, req.GoalVersion, goalState.Decision.Status, goalState.Decision.DecidedBy.ID, goalState.Decision.DecidedAt.UTC().Format(time.RFC3339), successorHint(goalState.Succession))
 		}
-		if goalState.Claim != nil && goalState.Decision == nil {
-			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s completion was claimed by turn %s and awaits the owner's evaluation: praxis goals-lifecycle --operation=complete --goal-id=%s --goal-version=%s", ErrGoalCompletionPending, req.GoalID, req.GoalVersion, goalState.Claim.TurnID, req.GoalID, req.GoalVersion)
+		if goalState.Candidate != nil {
+			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s completion candidate from turn %s awaits evaluation and settlement: praxis goals-lifecycle --operation=complete --goal-id=%s --goal-version=%s", ErrGoalCompletionPending, req.GoalID, req.GoalVersion, goalState.Candidate.TurnID, req.GoalID, req.GoalVersion)
 		}
 		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
 		if err != nil {
@@ -343,4 +343,11 @@ func (c Controller) emitTurnOutcome(ctx context.Context, req TurnRequest, record
 		state = "blocked"
 	}
 	return c.emit(ctx, ActivityExecutionStateChanged, req, map[string]string{"state": state})
+}
+
+func successorHint(succession *GoalSuccession) string {
+	if succession == nil {
+		return "; a successor generation may be created with praxis goals-lifecycle --operation=succeed"
+	}
+	return "; successor generation " + succession.SuccessorVersion + " carries the way forward"
 }

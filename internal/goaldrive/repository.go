@@ -196,7 +196,7 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if record.Progress && !record.CheckpointPublished {
 		recordConsequence(ctx, repo, &record)
 	}
-	record, err = c.settleCompletion(ctx, req, record)
+	record, err = c.settleCompletion(ctx, req, repo, record)
 	if err != nil {
 		return TurnRecord{}, err
 	}
@@ -392,7 +392,7 @@ func containsEvidence(items []string, want string) bool {
 // completion evidence and, when the generation is thereby complete, into
 // the Goal-level COMPLETE outcome. The worker proposes; the controller
 // decides (#158).
-func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, record TurnRecord) (TurnRecord, error) {
+func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, repo RepositoryAdapter, record TurnRecord) (TurnRecord, error) {
 	if record.CompletionClaim == "" {
 		return record, nil
 	}
@@ -429,24 +429,38 @@ func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, recor
 	if err != nil {
 		return record, err
 	}
-	if assessment.Complete {
-		// Provisional only: every unit is complete and every criterion is
-		// covered, but the WorkPlan itself may have been incomplete. The
-		// owner re-evaluates the original Goal contract before Goal
-		// completion is authoritative; the invocation stops for that
-		// decision.
-		claim := GoalCompletionClaim{GoalID: req.GoalID, GoalVersion: req.GoalVersion, GoalDigest: req.GoalBaseline.Digest, InvocationID: req.InvocationID, TurnID: req.TurnID, FinalHead: record.EndHead, Units: completions, Assessment: assessment, ClaimedAt: time.Now().UTC()}
-		if err := c.Ledger.RecordGoalCompletionClaim(ctx, claim); err != nil {
-			return record, fmt.Errorf("record Goal completion claim: %w", err)
+	if assessment.AllUnitsComplete {
+		// All units complete is a GOAL_COMPLETION_CANDIDATE: the accepted
+		// decomposition has been executed. It is evidence for Goal
+		// completion, never proof of it. The deterministic verifier then
+		// evaluates the final integrated consequence against the original
+		// contract; everything it cannot verify stays UNKNOWN. Settlement is
+		// a separate, authority-bearing act, so the invocation stops.
+		candidate := GoalCompletionCandidate{GoalID: req.GoalID, GoalVersion: req.GoalVersion, GoalDigest: req.GoalBaseline.Digest, InvocationID: req.InvocationID, TurnID: req.TurnID, FinalHead: record.EndHead, Units: completions, Assessment: assessment, CandidateAt: time.Now().UTC()}
+		if err := c.Ledger.RecordGoalCompletionCandidate(ctx, candidate); err != nil {
+			return record, fmt.Errorf("record Goal completion candidate: %w", err)
 		}
-		if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"scope": "goal", "final_head": record.EndHead, "units": strconv.Itoa(len(completions)), "authoritative": "false", "decide_with": "praxis goals-lifecycle --operation=complete --goal-id=" + req.GoalID + " --goal-version=" + req.GoalVersion}); err != nil {
+		if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"scope": "goal-candidate", "final_head": record.EndHead, "units": strconv.Itoa(len(completions)), "uncovered_criteria": strings.Join(assessment.UncoveredCriteria, ","), "authoritative": "false"}); err != nil {
 			return record, err
 		}
+		var verifier IntegratedValidationRepository
+		if v, ok := repo.(IntegratedValidationRepository); ok {
+			verifier = v
+		}
+		evaluation, err := EvaluateDeterministically(ctx, *req.GoalBaseline, candidate, verifier, c.Ledger.Actor)
+		if err != nil {
+			return record, fmt.Errorf("deterministic Goal evaluation: %w", err)
+		}
+		digest, err := c.Ledger.RecordGoalEvaluation(ctx, evaluation)
+		if err != nil {
+			return record, fmt.Errorf("record Goal evaluation: %w", err)
+		}
+		if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "goal-evaluation", "evaluator": EvaluatorDeterministic, "outcome": string(evaluation.Outcome), "evaluation_digest": digest, "unresolved": strings.Join(UnresolvedRefs(evaluation), ","), "settle_with": "praxis goals-lifecycle --operation=complete --goal-id=" + req.GoalID + " --goal-version=" + req.GoalVersion}); err != nil {
+			return record, err
+		}
+		record.GoalCandidate = true
+		record.GoalEvaluation = string(evaluation.Outcome)
 		record.Outcome = OutcomeUserDecisionRequired
-	} else if assessment.AllUnitsComplete {
-		if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "goal-completion", "passed": "false", "uncovered_criteria": strings.Join(assessment.UncoveredCriteria, ",")}); err != nil {
-			return record, err
-		}
 	}
 	return record, nil
 }

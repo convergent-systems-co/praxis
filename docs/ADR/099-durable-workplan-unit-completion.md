@@ -31,8 +31,16 @@ worker, which was Goal-level and unverified.
 - Dependency eligibility derives from durable, controller-verified
   completion state, never from worker assertion or the immutable plan's
   metadata alone.
-- Goal COMPLETE is derived by the controller from unit completion and
-  success-criteria coverage; a worker never mints it.
+- WorkPlan completion is evidence for Goal completion, never proof of Goal
+  completion. Structural criterion coverage is not criterion satisfaction.
+- Evaluation of the final integrated consequence against the original Goal
+  contract produces durable evidence and mints no authority; settlement is a
+  separate, authority-bearing act that binds the exact evaluation and cannot
+  change what it says. Neither a worker nor a keystroke mints Goal
+  completion.
+- Recursively: completion at level N is evidence for completion at level
+  N+1, never proof of it (a Goal for a parent Graph, Agent, or higher-order
+  Goal, as ADR-045 already states for checkpoints and completed baselines).
 
 ## Decision
 
@@ -84,55 +92,98 @@ turn is BLOCKED. A proposal on a checkpoint that is not published
 a later turn can validate, publish, and complete it. Recovery turns settle
 exactly like any other turn.
 
-### Unit versus Goal COMPLETE
+### Unit completion versus Goal completion (#160)
 
 A turn's outcome is `CONTINUE` whenever the checkpoint is valid, whether or
 not it completed a unit; `unit_completed` and `completion_claim` on the
 turn record say what happened to the unit. A worker-reported `COMPLETE` is
-no longer honoured.
+not honoured. Above the unit, four durable states with distinct names and
+distinct authority (aggregate `goal-drive-goal-completion:<goal>:<version>`):
 
-All-unit completion is provisional evidence of Goal completion, never Goal
-completion itself: the WorkPlan may have been incomplete against the Goal.
-When every WorkPlan unit is durably complete and every success criterion of
-the generation is covered by a requirement
-(`<goal>/<version>#success_criteria/<n>`) of a completed unit, the
-controller records a durable provisional claim
-(`goal_drive.goal_completion_claimed`: claiming turn, final checkpoint,
-generation digest, units, assessment), emits `completion.claimed` with
-`authoritative:false`, and ends the turn `USER_DECISION_REQUIRED`. Both
-modes stop there; goal-drive refuses further turns on the generation while
-the claim awaits evaluation. An uncovered criterion keeps the Goal
-incomplete with a durable `validation.completed` activity naming it.
+| State | Meaning | Who produces it |
+|---|---|---|
+| UNIT_COMPLETE | controller-qualified completion of one unit | controller, from a worker's proposal |
+| GOAL_COMPLETION_CANDIDATE | every WorkPlan unit is durably complete at an exact final checkpoint: the accepted decomposition has been executed | controller |
+| GOAL_EVALUATION | evidence about the final integrated consequence against the ORIGINAL Goal contract | any evaluator: deterministic verifier, human, agent, or a composition |
+| GOAL_COMPLETE / INCOMPLETE | authoritative settlement binding the exact evaluation | governance (currently the installation root owner) |
 
-Authoritative Goal completion is the installation owner's re-evaluation of
-the original Goal contract:
+**Candidate.** Recorded when all units are complete. It carries the
+generation digest, the claiming turn, the final checkpoint, the unit
+completions, and the structural assessment: for each success criterion,
+which completed units reference it (`coverage`). Coverage is evidence that
+the decomposition addressed a criterion. It is never satisfaction. The
+turn ends `USER_DECISION_REQUIRED`; goal-drive refuses further turns on
+the generation until it is settled.
 
-```
-praxis goals-lifecycle --operation=complete --goal-id=<id> --goal-version=<v> [--status=incomplete --reason=<text>]
-```
+**Evaluation.** Each element of the original contract, every success
+criterion, constraint, and non-binding validity predicate, plus the final
+integrated consequence, maps to the predicate that was evaluated, the
+evidence, and a result `satisfied | unsatisfied | unknown`. The outcome is
+derived from the items and can never be asserted. The controller records
+the deterministic verifier's evaluation immediately: an element the
+contract binds with a validity predicate of the exact form
+`verify success_criteria/<n> with declared-validation` (or
+`verify constraint/<n> with …`) is run through `./.praxis/validate <ref>`
+at the final checkpoint; the integrated consequence is always checked with
+`./.praxis/validate integrated`; the checkout must be at the final
+checkpoint or the verifier fails closed; everything else is UNKNOWN with
+the judgment requirement stated ("requires judgment: the Goal contract
+binds no verifier to …"). UNKNOWN stays UNKNOWN until an evaluator
+supplies evidence: `goals-lifecycle --operation=evaluate --input
+<evaluation.json>` composes a human or agent evaluator's findings over the
+latest evaluation. A finding must name a contract element, carry a
+judgment, carry evidence when it claims satisfaction, and may not override
+a deterministic UNSATISFIED at that checkpoint. A document that binds
+another generation, candidate, or checkpoint is refused. Evaluations are
+append-only and digest-addressed.
 
-It is interactive and owner-only (authenticated OS user must own the root),
-re-evaluates the claim from durable state, shows the Goal's intent, refined
-outcome, scope, success criteria, constraints, and non-goals beside every
-completed unit with its checkpoint, and accepts only the typed confirmation
+**Settlement.** `goals-lifecycle --operation=complete [--status=incomplete
+--reason]` binds the exact latest evaluation digest, candidate turn, final
+checkpoint, and generation digest. `complete` is admitted only when that
+evaluation's outcome is `satisfied`; settlement cannot turn `unsatisfied`
+or `unknown` into satisfaction, and a human keystroke never substitutes
+for missing evidence. `incomplete` records the gap (the unresolved
+elements) and a reason. Exactly one settlement per generation; replay
+returns it. Settlement is interactive, requires the authenticated OS user
+to own the root, and accepts only the typed confirmation
 `COMPLETE-GOAL <goal>/<version>` or `INCOMPLETE-GOAL <goal>/<version>`.
-The decision (`goal_drive.goal_completion_decided`) binds the claim's turn,
-final checkpoint, and generation digest; exactly one is admitted, and a
-replay returns it. `complete` makes the generation complete, and goal-drive
-refuses further turns on it. `incomplete` records the owner's finding, and
-the way forward is a successor WorkPlan through the existing lifecycle.
-There is no non-interactive path, so a model cannot mint Goal completion.
-Continuous mode therefore advances A → B → C and stops at the provisional
-claim; supervised mode still terminates after one progressed checkpoint.
+That principal is the current holder of settlement authority, not a
+property of the evidence path: the seam between evaluation and settlement
+lets a delegated authority generation hold settlement later.
+
+**What COMPLETE means.** Exactly: this immutable Goal generation (id,
+version, digest) is settled complete at this final checkpoint under this
+evaluation at this instant. It says nothing about the logical Goal
+identity forever, nothing about the eternal truth of validity predicates
+(ongoing validity is applicability: `reuse | delta | replan`, ADR-045),
+and it does not grant execution authority to anything above it.
+`incomplete` is a distinct disposition; cancellation, abandonment, and
+supersession are further dispositions the status enum leaves room for and
+this decision does not force into COMPLETE.
+
+**Succession.** INCOMPLETE must not dead-end the Goal, and COMPLETE must
+not prohibit legitimate later work. `goals-lifecycle --operation=succeed
+--reason` (owner, typed `SUCCEED-GOAL <goal>/<version>`) is valid after
+any settlement. It creates generation N+1 with the same contract, the
+predecessor digest, no WorkPlan, and evidence references binding
+generation N's decision, evaluation digest, final checkpoint, and gap;
+records `goal_drive.goal_succeeded` on N; and never rewrites N or its
+completed units. The successor is planned through the ordinary lifecycle
+(propose, review, request, decide, accept, attach), which yields the
+drivable generation N+2 with an empty completion ledger. `inspect` on the
+successor renders `predecessor_completion`. Continuous mode therefore
+advances A → B → C and stops at the candidate; supervised mode still
+terminates after one progressed checkpoint.
 
 ### Product surface
 
 `goals-lifecycle inspect` renders `work_set`: each unit's durable
 completion (turn, checkpoint, instant), readiness and blockers, the unit
-goal-drive would select next, the mechanical Goal completion assessment,
-the provisional claim and the owner's decision when they exist, the literal
-`complete_with` and `reject_with` commands while a claim awaits evaluation,
-and the completion proposal contract.
+goal-drive would select next, the structural assessment (coverage only),
+the candidate, the latest evaluation with its items, the settlement and
+succession when they exist, and the literal next commands
+(`evaluate_with`, `complete_with` only when the latest evaluation is
+satisfied, `reject_with`, `succeed_with`).
 
 ## Consequences
 
@@ -140,7 +191,12 @@ and the completion proposal contract.
   after turns 2 and 3) are not retroactively complete: no proposal was ever
   verified. The next turn on that unit lets the worker propose completion of
   the already-published work; nothing is marked by hand.
-- Goal completion rests on structural coverage of success criteria plus the
-  repository's own validation, which is deterministic and evidence-backed;
-  the human judgment of the outcome remains the supervising decision
-  between invocations (ADR-060).
+- Goal completion rests on a durable evaluation of the final integrated
+  consequence against the original contract. Deterministic verification
+  reaches exactly the elements the contract binds to the declared
+  validator; every other element requires an evaluator's judgment and is
+  UNKNOWN until one is recorded. Coverage by the WorkPlan is recorded as
+  evidence and never promoted to satisfaction.
+- A generation settled INCOMPLETE proceeds through governed succession;
+  its completed units, evaluation, checkpoint, and gap remain immutable
+  evidence for the successor's planning.

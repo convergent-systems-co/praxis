@@ -78,7 +78,7 @@ func (s *transcriptCostStore) counts() (int, int) {
 	return s.loads, s.appendCalls
 }
 
-func TestProviderCLIWorkerPersistsLargeQueuedTranscriptWithoutQuadraticReload(t *testing.T) {
+func TestProviderCLIWorkerPersistsLargeQueuedTranscriptWithBoundedResultBuffer(t *testing.T) {
 	store := &transcriptCostStore{Store: eventstore.NewMemoryStore(), loadBudget: 200}
 	activity := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
 	request := providerWorkerRequest()
@@ -89,16 +89,10 @@ func TestProviderCLIWorkerPersistsLargeQueuedTranscriptWithoutQuadraticReload(t 
 		ProviderID:  request.ProviderID,
 		Command:     []string{os.Args[0], "-test.run=^TestProviderTranscriptHelperProcess$"},
 		Env:         []string{"LC_PRAXIS_PROVIDER_HELPER=1"},
-		OutputLimit: 2 << 20,
+		OutputLimit: 64,
 	}
 
-	result, err := worker.Execute(context.Background(), request)
-	if err != nil {
-		t.Fatalf("large queued provider transcript must persist completely: %v", err)
-	}
-	if result.Outcome != OutcomeContinue {
-		t.Fatalf("provider outcome changed while persisting its transcript: %+v", result)
-	}
+	result, executeErr := worker.Execute(context.Background(), request)
 	events, err := activity.Load(context.Background(), request.InvocationID, request.TurnID, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -117,6 +111,12 @@ func TestProviderCLIWorkerPersistsLargeQueuedTranscriptWithoutQuadraticReload(t 
 	loads, appends := store.counts()
 	if loads > store.loadBudget || appends >= len(events)/10 {
 		t.Fatalf("provider transcript persistence remained effectively per-line: loads=%d appends=%d events=%d", loads, appends, len(events))
+	}
+	if executeErr != nil {
+		t.Fatalf("successful provider must not fail when only its bounded result buffer truncates: %v", executeErr)
+	}
+	if result.Outcome != OutcomeContinue {
+		t.Fatalf("provider outcome changed while persisting its transcript: %+v", result)
 	}
 }
 

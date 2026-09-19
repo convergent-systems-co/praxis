@@ -70,6 +70,16 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	now := time.Now().UTC()
 
 	switch operation {
+	case "establish":
+		path, err := filepath.Abs(inputPath)
+		if err != nil {
+			return err
+		}
+		established, replay, err := establishGoalBaseline(ctx, repo, path, input, now)
+		if err != nil {
+			return err
+		}
+		return printJSON(map[string]any{"operation": operation, "goal_id": established.ID, "goal_version": established.Version, "goal_digest": established.Digest, "source_ref": established.ImportSourceRef, "source_digest": established.ImportSourceDigest, "status": "authoritative", "replay": replay, "inspect_with": "praxis goals-lifecycle --operation=inspect --goal-id=" + established.ID + " --goal-version=" + established.Version})
 	case "import":
 		path, err := filepath.Abs(inputPath)
 		if err != nil {

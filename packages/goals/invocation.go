@@ -57,8 +57,8 @@ func LifecycleInvocation() contracts.InvocationContract {
 		GraphID: "praxis.package.goals.default", GraphVersion: "0.3.0", EntryPointID: "goals-lifecycle",
 		Aliases: []string{"goals-lifecycle"},
 		Options: []contracts.InvocationOption{
-			{Name: "operation", Type: "enum", Required: true, Description: "import, propose, review, request, accept, attach, or inspect (bind is an alias of accept)"},
-			{Name: "input", Type: "path", Required: false, Description: "document path: the canonical baseline import for import, the planner's decomposition for propose, or a legacy full lifecycle document"},
+			{Name: "operation", Type: "enum", Required: true, Description: "establish, import, propose, review, request, accept, attach, or inspect (bind is an alias of accept)"},
+			{Name: "input", Type: "path", Required: false, Description: "document path: an external Goal outcome for establish, a canonical historical baseline for import, the planner's decomposition for propose, or a legacy full lifecycle document"},
 			{Name: "goal-id", Type: "string", Required: false, Description: "exact Goal identity (inspect, request, attach)"},
 			{Name: "goal-version", Type: "string", Required: false, Description: "exact Goal Baseline generation (inspect, request, attach)"},
 			{Name: "proposal-digest", Type: "string", Required: false, Description: "exact durable WorkPlan proposal digest (review, request)"},

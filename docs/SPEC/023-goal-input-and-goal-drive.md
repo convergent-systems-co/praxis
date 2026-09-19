@@ -21,6 +21,30 @@ immutable generation. Missing input is allowed only when the active
 InvocationContract explicitly permits interactive discovery. Ambiguous or
 multiple forms fail before a Goal is created.
 
+## Governed Goal establishment
+
+The supported non-interactive admission boundary is:
+
+```text
+praxis goals-lifecycle --operation=establish --input=<goal.json>
+```
+
+`goal.json` SHALL be a schema-version `1` outcome document containing a stable
+`goal_id`, original intent, refined outcome, at least one success criterion,
+rigor, and recommendation mode; it MAY contain scope, constraints, non-goals,
+validity predicates, evidence references, assumptions, artifacts, and a plan
+reference. Praxis SHALL derive immutable generation `1`, the Goal digest, the
+canonical absolute source reference, and the SHA-256 digest of the exact source
+bytes. The caller SHALL NOT supply a Goal digest, predecessor, import
+provenance, accepted WorkPlan, or other hidden state through this transition.
+
+An exact replay is idempotent. Different source content under the same Goal
+identity and generation SHALL fail as a conflict; it SHALL NOT replace durable
+history. Historical canonical baselines continue to cross the distinct
+`--operation=import` boundary. Successful establishment returns the exact Goal
+identity, generation, digest, source evidence, and an executable inspection
+command for the next governed lifecycle transition.
+
 ## Controller authority
 
 The controller SHALL own:

@@ -67,8 +67,8 @@ func TestRuntimeContinuousModeRepeatsBoundedTransitionsAndStopsAtCompletion(t *t
 	worker := &continuousWorker{repo: checkout}
 	runtime := Runtime{Controller: Controller{Ledger: Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Worker: worker, NoProgressLimit: 2}, Baselines: supervisionBaselineStore{baseline: baseline}, Repository: checkout, GraphID: "graph", GraphVersion: "1"}
 	record, err := runtime.Execute(context.Background(), InvocationRequest{Input: contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: baseline.ID}, GoalVersion: baseline.Version, Mode: ModeContinuous, InvocationID: "continuous-1", ProviderID: "provider", MaxTurns: 3})
-	if err != nil || record.Outcome != OutcomeComplete || worker.calls != 2 || !record.UnitCompleted {
-		t.Fatalf("continuous execution did not stop at qualified completion: record=%+v calls=%d err=%v", record, worker.calls, err)
+	if err != nil || record.Outcome != OutcomeUserDecisionRequired || worker.calls != 2 || !record.UnitCompleted {
+		t.Fatalf("continuous execution did not stop at the provisional Goal completion claim: record=%+v calls=%d err=%v", record, worker.calls, err)
 	}
 }
 

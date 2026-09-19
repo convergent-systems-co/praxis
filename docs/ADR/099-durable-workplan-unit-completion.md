@@ -89,21 +89,50 @@ exactly like any other turn.
 A turn's outcome is `CONTINUE` whenever the checkpoint is valid, whether or
 not it completed a unit; `unit_completed` and `completion_claim` on the
 turn record say what happened to the unit. A worker-reported `COMPLETE` is
-no longer honoured. The turn outcome becomes `COMPLETE` only when the
-controller's Goal assessment holds: every WorkPlan unit is durably complete
-and every success criterion of the generation is covered by a requirement
-(`<goal>/<version>#success_criteria/<n>`) of a completed unit. An uncovered
-criterion keeps the Goal incomplete with a durable `validation.completed`
-activity naming it. Continuous mode therefore advances A → B → C and stops
-at Goal COMPLETE; supervised mode still terminates after one progressed
-checkpoint.
+no longer honoured.
+
+All-unit completion is provisional evidence of Goal completion, never Goal
+completion itself: the WorkPlan may have been incomplete against the Goal.
+When every WorkPlan unit is durably complete and every success criterion of
+the generation is covered by a requirement
+(`<goal>/<version>#success_criteria/<n>`) of a completed unit, the
+controller records a durable provisional claim
+(`goal_drive.goal_completion_claimed`: claiming turn, final checkpoint,
+generation digest, units, assessment), emits `completion.claimed` with
+`authoritative:false`, and ends the turn `USER_DECISION_REQUIRED`. Both
+modes stop there; goal-drive refuses further turns on the generation while
+the claim awaits evaluation. An uncovered criterion keeps the Goal
+incomplete with a durable `validation.completed` activity naming it.
+
+Authoritative Goal completion is the installation owner's re-evaluation of
+the original Goal contract:
+
+```
+praxis goals-lifecycle --operation=complete --goal-id=<id> --goal-version=<v> [--status=incomplete --reason=<text>]
+```
+
+It is interactive and owner-only (authenticated OS user must own the root),
+re-evaluates the claim from durable state, shows the Goal's intent, refined
+outcome, scope, success criteria, constraints, and non-goals beside every
+completed unit with its checkpoint, and accepts only the typed confirmation
+`COMPLETE-GOAL <goal>/<version>` or `INCOMPLETE-GOAL <goal>/<version>`.
+The decision (`goal_drive.goal_completion_decided`) binds the claim's turn,
+final checkpoint, and generation digest; exactly one is admitted, and a
+replay returns it. `complete` makes the generation complete, and goal-drive
+refuses further turns on it. `incomplete` records the owner's finding, and
+the way forward is a successor WorkPlan through the existing lifecycle.
+There is no non-interactive path, so a model cannot mint Goal completion.
+Continuous mode therefore advances A → B → C and stops at the provisional
+claim; supervised mode still terminates after one progressed checkpoint.
 
 ### Product surface
 
 `goals-lifecycle inspect` renders `work_set`: each unit's durable
 completion (turn, checkpoint, instant), readiness and blockers, the unit
-goal-drive would select next, the Goal completion assessment, and the
-completion proposal contract.
+goal-drive would select next, the mechanical Goal completion assessment,
+the provisional claim and the owner's decision when they exist, the literal
+`complete_with` and `reject_with` commands while a claim awaits evaluation,
+and the completion proposal contract.
 
 ## Consequences
 

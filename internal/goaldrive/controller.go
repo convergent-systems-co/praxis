@@ -13,6 +13,8 @@ import (
 var (
 	ErrUnsafeRepository       = errors.New("Goal-drive repository state is not safe for a worker turn")
 	ErrNoProgressLimit        = errors.New("Goal-drive no-progress limit reached")
+	ErrGoalComplete           = errors.New("Goal generation is complete")
+	ErrGoalCompletionPending  = errors.New("Goal completion awaits the owner's evaluation")
 	ErrSupervisedTerminated   = errors.New("supervised Goal-drive invocation terminated after its persisted checkpoint")
 	ErrInvocationModeMismatch = errors.New("Goal-drive invocation mode cannot change across turns")
 )
@@ -125,6 +127,16 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 			return nil, TurnRequest{}, fmt.Errorf("load unit completions: %w", err)
 		}
 		req.WorkCandidates = ApplyCompletions(req.WorkCandidates, completions)
+		goalState, err := c.Ledger.LoadGoalCompletion(ctx, req.GoalID, req.GoalVersion)
+		if err != nil {
+			return nil, TurnRequest{}, fmt.Errorf("load Goal completion state: %w", err)
+		}
+		if goalState.Decision != nil && goalState.Decision.Status == GoalComplete {
+			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s is complete (decided by %s at %s)", ErrGoalComplete, req.GoalID, req.GoalVersion, goalState.Decision.DecidedBy.ID, goalState.Decision.DecidedAt.UTC().Format(time.RFC3339))
+		}
+		if goalState.Claim != nil && goalState.Decision == nil {
+			return nil, TurnRequest{}, fmt.Errorf("%w: Goal %s/%s completion was claimed by turn %s and awaits the owner's evaluation: praxis goals-lifecycle --operation=complete --goal-id=%s --goal-version=%s", ErrGoalCompletionPending, req.GoalID, req.GoalVersion, goalState.Claim.TurnID, req.GoalID, req.GoalVersion)
+		}
 		candidate, err := contracts.SelectRunnableWork(req.WorkCandidates, req.WorkRelationships)
 		if err != nil {
 			if errors.Is(err, contracts.ErrNoRunnableWork) && c.AuthorityRequests != nil {

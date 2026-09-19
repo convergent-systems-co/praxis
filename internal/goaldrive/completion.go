@@ -212,3 +212,145 @@ func successCriterionIndex(sourceRef string) (int, bool) {
 	}
 	return index, true
 }
+
+// GoalCompletionClaim is the controller's provisional evidence that a Goal
+// generation may be complete: every WorkPlan unit is durably complete and
+// every success criterion is covered. It is not authoritative. The WorkPlan
+// itself may have been incomplete, so the installation owner re-evaluates
+// the original Goal contract before Goal completion is recorded (#158).
+type GoalCompletionClaim struct {
+	GoalID       string                   `json:"goal_id"`
+	GoalVersion  string                   `json:"goal_version"`
+	GoalDigest   string                   `json:"goal_digest"`
+	InvocationID string                   `json:"invocation_id"`
+	TurnID       string                   `json:"turn_id"`
+	FinalHead    string                   `json:"final_head"`
+	Units        []UnitCompletion         `json:"units"`
+	Assessment   GoalCompletionAssessment `json:"assessment"`
+	ClaimedAt    time.Time                `json:"claimed_at"`
+}
+
+// GoalCompletionStatus is the owner's authoritative re-evaluation outcome.
+type GoalCompletionStatus string
+
+const (
+	GoalComplete   GoalCompletionStatus = "complete"
+	GoalIncomplete GoalCompletionStatus = "incomplete"
+)
+
+// GoalCompletionDecision is the owner's authoritative evaluation of a claim
+// against the original Goal contract.
+type GoalCompletionDecision struct {
+	GoalID      string                 `json:"goal_id"`
+	GoalVersion string                 `json:"goal_version"`
+	GoalDigest  string                 `json:"goal_digest"`
+	ClaimTurnID string                 `json:"claim_turn_id"`
+	FinalHead   string                 `json:"final_head"`
+	Status      GoalCompletionStatus   `json:"status"`
+	DecidedBy   contracts.PrincipalRef `json:"decided_by"`
+	Reason      string                 `json:"reason,omitempty"`
+	DecidedAt   time.Time              `json:"decided_at"`
+}
+
+// GoalCompletionState is the durable Goal-level completion state of a
+// generation: the provisional claim, if any, and the owner's decision.
+type GoalCompletionState struct {
+	Claim    *GoalCompletionClaim    `json:"claim,omitempty"`
+	Decision *GoalCompletionDecision `json:"decision,omitempty"`
+}
+
+const (
+	goalCompletionClaimedEventType = "goal_drive.goal_completion_claimed"
+	goalCompletionDecidedEventType = "goal_drive.goal_completion_decided"
+)
+
+func goalCompletionAggregate(goalID, version string) string {
+	return "goal-drive-goal-completion:" + goalID + ":" + version
+}
+
+// LoadGoalCompletion returns the generation's provisional claim and the
+// owner's decision, when they exist.
+func (l Ledger) LoadGoalCompletion(ctx context.Context, goalID, goalVersion string) (GoalCompletionState, error) {
+	if l.Store == nil {
+		return GoalCompletionState{}, errors.New("Goal drive event store is required")
+	}
+	events, err := l.Store.LoadAggregate(ctx, goalCompletionAggregate(goalID, goalVersion), 0)
+	if err != nil {
+		return GoalCompletionState{}, err
+	}
+	var state GoalCompletionState
+	for _, event := range events {
+		switch event.Type {
+		case goalCompletionClaimedEventType:
+			var claim GoalCompletionClaim
+			if err := json.Unmarshal(event.Payload, &claim); err != nil {
+				return GoalCompletionState{}, fmt.Errorf("decode Goal completion claim: %w", err)
+			}
+			state.Claim = &claim
+		case goalCompletionDecidedEventType:
+			var decision GoalCompletionDecision
+			if err := json.Unmarshal(event.Payload, &decision); err != nil {
+				return GoalCompletionState{}, fmt.Errorf("decode Goal completion decision: %w", err)
+			}
+			state.Decision = &decision
+		default:
+			return GoalCompletionState{}, fmt.Errorf("unexpected Goal completion event %q", event.Type)
+		}
+	}
+	return state, nil
+}
+
+// RecordGoalCompletionClaim persists the provisional claim once.
+func (l Ledger) RecordGoalCompletionClaim(ctx context.Context, claim GoalCompletionClaim) error {
+	if claim.GoalID == "" || claim.GoalVersion == "" || claim.TurnID == "" || claim.FinalHead == "" || !claim.Assessment.Complete {
+		return errors.New("Goal completion claim requires the generation, the claiming turn, the final checkpoint, and a complete assessment")
+	}
+	state, err := l.LoadGoalCompletion(ctx, claim.GoalID, claim.GoalVersion)
+	if err != nil {
+		return err
+	}
+	if state.Claim != nil {
+		return fmt.Errorf("Goal %s/%s completion was already claimed by turn %s", claim.GoalID, claim.GoalVersion, state.Claim.TurnID)
+	}
+	return l.appendGoalCompletion(ctx, claim.GoalID, claim.GoalVersion, 0, goalCompletionClaimedEventType, "goal-drive:goal-completion-claim:"+claim.TurnID, claim, claim.ClaimedAt)
+}
+
+// RecordGoalCompletionDecision persists the owner's evaluation of the
+// claim. It requires a claim, binds the decision to the claim's turn and
+// final checkpoint, and admits exactly one decision.
+func (l Ledger) RecordGoalCompletionDecision(ctx context.Context, decision GoalCompletionDecision) error {
+	if decision.Status != GoalComplete && decision.Status != GoalIncomplete {
+		return fmt.Errorf("Goal completion status must be %q or %q", GoalComplete, GoalIncomplete)
+	}
+	if err := decision.DecidedBy.Validate(); err != nil {
+		return fmt.Errorf("Goal completion decider: %w", err)
+	}
+	state, err := l.LoadGoalCompletion(ctx, decision.GoalID, decision.GoalVersion)
+	if err != nil {
+		return err
+	}
+	if state.Claim == nil {
+		return fmt.Errorf("Goal %s/%s has no provisional completion claim to evaluate", decision.GoalID, decision.GoalVersion)
+	}
+	if state.Decision != nil {
+		return fmt.Errorf("Goal %s/%s completion was already decided (%s) by %s", decision.GoalID, decision.GoalVersion, state.Decision.Status, state.Decision.DecidedBy.ID)
+	}
+	if decision.ClaimTurnID != state.Claim.TurnID || decision.FinalHead != state.Claim.FinalHead || decision.GoalDigest != state.Claim.GoalDigest {
+		return errors.New("Goal completion decision must bind the exact claim turn, final checkpoint, and generation digest")
+	}
+	return l.appendGoalCompletion(ctx, decision.GoalID, decision.GoalVersion, 1, goalCompletionDecidedEventType, "goal-drive:goal-completion-decision:"+decision.ClaimTurnID, decision, decision.DecidedAt)
+}
+
+func (l Ledger) appendGoalCompletion(ctx context.Context, goalID, goalVersion string, expected int64, eventType, commandID string, payload any, at time.Time) error {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	aggregate := goalCompletionAggregate(goalID, goalVersion)
+	_, err = l.Store.Append(ctx, aggregate, expected, []eventstore.Event{{
+		ID: aggregate + ":" + eventType, AggregateType: "goal_drive_goal_completion", Type: eventType, Version: "1",
+		Actor: l.Actor, CommandID: commandID, CorrelationID: aggregate, Trust: contracts.TrustObserved,
+		Payload: encoded, CreatedAt: at,
+	}})
+	return err
+}

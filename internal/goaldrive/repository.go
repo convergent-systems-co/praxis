@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -429,7 +430,19 @@ func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, recor
 		return record, err
 	}
 	if assessment.Complete {
-		record.Outcome = OutcomeComplete
+		// Provisional only: every unit is complete and every criterion is
+		// covered, but the WorkPlan itself may have been incomplete. The
+		// owner re-evaluates the original Goal contract before Goal
+		// completion is authoritative; the invocation stops for that
+		// decision.
+		claim := GoalCompletionClaim{GoalID: req.GoalID, GoalVersion: req.GoalVersion, GoalDigest: req.GoalBaseline.Digest, InvocationID: req.InvocationID, TurnID: req.TurnID, FinalHead: record.EndHead, Units: completions, Assessment: assessment, ClaimedAt: time.Now().UTC()}
+		if err := c.Ledger.RecordGoalCompletionClaim(ctx, claim); err != nil {
+			return record, fmt.Errorf("record Goal completion claim: %w", err)
+		}
+		if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"scope": "goal", "final_head": record.EndHead, "units": strconv.Itoa(len(completions)), "authoritative": "false", "decide_with": "praxis goals-lifecycle --operation=complete --goal-id=" + req.GoalID + " --goal-version=" + req.GoalVersion}); err != nil {
+			return record, err
+		}
+		record.Outcome = OutcomeUserDecisionRequired
 	} else if assessment.AllUnitsComplete {
 		if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "goal-completion", "passed": "false", "uncovered_criteria": strings.Join(assessment.UncoveredCriteria, ",")}); err != nil {
 			return record, err

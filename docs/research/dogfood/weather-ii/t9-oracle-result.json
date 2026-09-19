@@ -1,0 +1,32 @@
+{
+  "schema": "weather-ii-t9-oracle-result-v1",
+  "experiment_id": "weather-ii",
+  "goal_id": "goal:weather-app-continuous",
+  "goal_version": "2",
+  "goal_digest": "sha256:104a348358d3784d901c5d815c76d0f07f9e5936956740ca6ebc3c4190489fe3",
+  "checkpoint": "05b32563814be016c2affd57e4c3d680e8873528",
+  "commitment_anchor": {"commit": "315f323cadbf35d7a06550c02f87cd46539dff13", "path": "docs/research/dogfood/weather-ii/commitment.json", "sha256": "f3615f6f4a0be3a9d80d1ed1768de653a6aad0c21cbdd293921d52d4791462eb"},
+  "blind_evaluation": {"digest": "sha256:3fdff61fa5ca12c68ee997028b807aebf6e62ee0e0706fd2c8cfc8cef73e77a8", "outcome": "satisfied", "evaluator": "openai-codex:fresh-independent-goal-evaluator:weather-app-continuous:2@05b32563814be016c2affd57e4c3d680e8873528", "recorded_at": "2026-09-19T05:32:32.047003Z", "praxis_event_sequence": 452},
+  "predicate": "For a requested location, forecast-day semantics must correspond to that location's local calendar, not the server/runtime calendar. A presentation such as 'Today' or 'Tomorrow' is valid only when its semantics refer to the requested weather location's local calendar.",
+  "target": {"name": "Kiritimati, Kiribati", "timezone": "Pacific/Kiritimati", "coordinates_used": [1.8721, -157.4278], "place_name_resolution": "not resolvable through the application or the provider geocoder; coordinates required (separate observation, outside the predicate)"},
+  "attempts": [
+    {"attempt": 1, "result": "ERROR", "reason": "no calendar-boundary discrimination existed", "application_exercised": false, "executed_at": "before 2026-09-19T05:43Z (reported by Thomas/Aster)"},
+    {"attempt": 2, "result": "ERROR", "reason": "no calendar-boundary discrimination existed", "application_exercised": false, "executed_at": "2026-09-19T05:43:17Z", "runtime_local": "2026-09-19T00:43:17-05:00", "target_local": "2026-09-19T19:43:17+14:00"},
+    {"attempt": 3, "result": "ERROR", "reason": "no calendar-boundary discrimination existed", "application_exercised": false, "executed_at": "2026-09-19T05:44:43Z", "runtime_local": "2026-09-19T00:44:43-05:00", "target_local": "2026-09-19T19:44:43+14:00"},
+    {"attempt": 4, "result": "PASS", "application_exercised": true, "executed_at": "2026-09-19T13:41:12Z to 2026-09-19T13:43:00Z",
+     "runtime_local_datetime": "2026-09-19T08:41:12-05:00", "runtime_timezone": "America/Chicago", "runtime_local_date": "2026-09-19",
+     "target_local_datetime": "2026-09-20T03:41:12+14:00", "target_local_date": "2026-09-20", "calendar_dates_differ": true,
+     "application_start_command": "PORT=3117 npm start", "isolated_clone_tree": "a74f168279399090a6e78513cbcb4c29ff973351",
+     "application_requests": ["GET /api/weather?q=Kiritimati,%20Kiribati -> 404 location_not_found", "GET /api/weather?lat=1.8721&lon=-157.4278 -> 200", "GET /?lat=1.8721&lon=-157.4278 -> 200", "node src/cli.js 1.8721 -157.4278", "node src/cli.js 1.8721 -157.4278 --json"],
+     "application_observed": {"location_timezone": "Pacific/Kiritimati", "current_time": "2026-09-20T03:30", "first_forecast_date": "2026-09-20", "first_forecast_page_label": "Sun 20 Sep", "first_forecast_sunrise": "2026-09-20T06:19", "first_forecast_sunset": "2026-09-20T18:26", "forecast_dates": ["2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24"], "relative_labels_presented": false},
+     "application_first_forecast_semantic_date": "2026-09-20",
+     "independent_reference": {"iana_target_local_date": "2026-09-20", "provider_request": "https://api.open-meteo.com/v1/forecast?latitude=1.8721&longitude=-157.4278&daily=temperature_2m_max&timezone=Pacific%2FKiritimati&forecast_days=3&current=temperature_2m", "provider_timezone": "Pacific/Kiritimati", "provider_utc_offset_seconds": 50400, "provider_current_time": "2026-09-20T03:30", "provider_daily_time_0": "2026-09-20", "provider_daily_time_0_without_timezone_parameter": "2026-09-19"},
+     "independent_reference_date": "2026-09-20",
+     "comparison": "2026-09-20 == 2026-09-20",
+     "post_result_causal_analysis": "not performed (PASS, no ambiguity)"}
+  ],
+  "result": "PASS",
+  "praxis_evaluation": {"digest": "sha256:0b822d6ef655414e220b420e0cc5bb627b0598c512ee3548cd2018992842f4c1", "based_on": "sha256:3fdff61fa5ca12c68ee997028b807aebf6e62ee0e0706fd2c8cfc8cef73e77a8", "outcome": "satisfied", "finding_ref": "success_criteria/3", "evaluator": "claude-fable-5.1:praxis-developer-execution:weather-ii-t9-oracle", "recorded_at": "2026-09-19T13:51:22.695064Z", "praxis_event_sequence": 453, "input_sha256": "040136ac16401699"},
+  "settlement": "not settled; next admissible transition is the owner's typed COMPLETE-GOAL decision via praxis goals-lifecycle --operation=complete --goal-id=goal:weather-app-continuous --goal-version=2",
+  "executed_by": "claude-fable-5.1:praxis-developer-execution (oracle owned and frozen by Thomas/Aster)"
+}

@@ -165,6 +165,9 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if err := c.emit(ctx, ActivityWorkSelected, req, map[string]string{"objective": req.ChildObjective}); err != nil {
 		return TurnRecord{}, err
 	}
+	if err := c.emitEnvelope(ctx, req); err != nil {
+		return TurnRecord{}, err
+	}
 	record, workerErr := c.invokeRepositoryTurn(ctx, req, repo)
 	interrupted := ctx.Err() != nil
 	// Everything durable after the worker returns runs on a context that

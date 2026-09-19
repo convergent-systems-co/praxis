@@ -105,7 +105,7 @@ func TestDispatchRefusesWorkerWithoutRequiredCapabilities(t *testing.T) {
 func TestWorkerReceivesGovernedContext(t *testing.T) {
 	req := contractRequest("unit:one")
 	req.RepositoryPath, req.RepositoryBranch, req.StartHead = "/work", "main", "abc123"
-	ctx, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, nil, "unit:one", WorkerRepositoryContext{Path: "/work", Branch: "main", StartHead: "abc123"}, ClaudeSubscriptionCapabilities(), false, "", nil)
+	ctx, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, nil, "unit:one", WorkerRepositoryContext{Path: "/work", Branch: "main", StartHead: "abc123"}, ClaudeSubscriptionCapabilities(), false, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestWorkerReceivesGovernedContext(t *testing.T) {
 			t.Fatalf("prompt lacks %q:\n%s", want, prompt)
 		}
 	}
-	if _, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, nil, "unit:other", WorkerRepositoryContext{}, nil, false, "", nil); err == nil {
+	if _, err := BuildWorkerContext(req.GoalBaseline, req.WorkCandidates, nil, "unit:other", WorkerRepositoryContext{}, nil, false, "", nil, nil); err == nil {
 		t.Fatal("an objective outside the accepted plan must be refused")
 	}
 }

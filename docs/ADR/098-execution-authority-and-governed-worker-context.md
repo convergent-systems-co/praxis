@@ -147,6 +147,25 @@ only the new invocation identity is operator intent.
 contract. The registry refuses undeclared options, so the surface ships as
 the immutable successor `praxis.package.goals@0.1.3`.
 
+## Execution envelope (#170)
+
+The capability declaration says which consequences a launch can bring
+about; it did not say under which execution envelope. The first-party
+profiles launch non-interactively (`claude --permission-prompts none
+--allowedTools <fixed list>`, `codex exec --sandbox workspace-write`), so
+any call outside the envelope is denied with no approval surface. The
+Weather II workers discovered this mid-turn on turns 3, 4, 6 and 7 (shell
+loops, pipes to `tail`, `git check-ignore`, `npm --version`, `tar -t`,
+`grep -c`) and re-ran work each time. A launch contract now declares a
+`WorkerExecutionEnvelope` (interactive or not, exact tool patterns, shell
+policy, denial policy); the worker context carries it and the prompt
+renders it under "Execution envelope"; the controller records it as the
+durable activity `execution.envelope` before the provider starts, so the
+conditions a turn ran under are evidence; `praxis providers` lists it. A
+worker that declares no envelope is rendered without one. Counting
+individual denials requires the provider's structured event stream and
+stays with #116.
+
 ## Consequences
 
 - An impossible outcome fails at dispatch, before implementation, with the

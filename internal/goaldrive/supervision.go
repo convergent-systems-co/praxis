@@ -58,8 +58,11 @@ const (
 	ActivityCancelRequested      ActivityType = "execution.cancel_requested"
 	ActivityCancelled            ActivityType = "execution.cancelled"
 	ActivityResumed              ActivityType = "execution.resumed"
-	ActivityCompletionClaimed    ActivityType = "completion.claimed"
-	ActivityCompletionQualified  ActivityType = "completion.qualified"
+	// ActivityExecutionEnvelope records, before the provider starts, the
+	// non-interactive execution envelope the turn runs under (#170).
+	ActivityExecutionEnvelope   ActivityType = "execution.envelope"
+	ActivityCompletionClaimed   ActivityType = "completion.claimed"
+	ActivityCompletionQualified ActivityType = "completion.qualified"
 )
 
 var activityTypes = map[ActivityType]struct{}{
@@ -68,7 +71,7 @@ var activityTypes = map[ActivityType]struct{}{
 	ActivityCheckpointCreated: {}, ActivityBlockerDetected: {}, ActivityAuthorityRequired: {}, ActivityAuthorityResolved: {}, ActivityHumanComment: {},
 	ActivityHumanCorrection: {}, ActivityHumanConstraint: {}, ActivitySuspendRequested: {}, ActivitySuspended: {}, ActivityCancelRequested: {},
 	ActivityCancelled: {}, ActivityResumed: {}, ActivityCompletionClaimed: {}, ActivityCompletionQualified: {},
-	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {}, ActivityUnitCompleted: {}, ActivityExecutionInterrupted: {}, ActivityExecutionLost: {},
+	ActivityCapabilityUnsatisfied: {}, ActivityRecoveryBound: {}, ActivityTurnAllocated: {}, ActivityUnitCompleted: {}, ActivityExecutionInterrupted: {}, ActivityExecutionLost: {}, ActivityExecutionEnvelope: {},
 }
 
 const supervisionAggregateType = "goal_drive_supervision"

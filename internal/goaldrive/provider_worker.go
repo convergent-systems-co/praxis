@@ -36,9 +36,15 @@ type ProviderCLIWorker struct {
 	// are declared by the constructor, never inferred, and the controller
 	// refuses dispatch when they do not cover the checkpoint contract.
 	Granted []WorkerCapability
+	// Envelope is the non-interactive execution envelope the launch
+	// contract establishes (#170); nil when undeclared.
+	Envelope *WorkerExecutionEnvelope
 }
 
 func (w ProviderCLIWorker) RepositoryResultIsControllerOwned() bool { return true }
+
+// ExecutionEnvelope reports the launch contract's execution envelope.
+func (w ProviderCLIWorker) ExecutionEnvelope() *WorkerExecutionEnvelope { return w.Envelope }
 
 // Capabilities reports the launch contract's grants. A nil Granted (an
 // adapter constructed without a profile) asserts the full repository
@@ -255,6 +261,16 @@ func providerPrompt(request WorkerRequest) (string, error) {
 		writeList(&b, "\n## Checkpoint contract (Praxis verifies every item after you finish)", c.Checkpoint.Predicates)
 		fmt.Fprintf(&b, "\n## Authority\nGranted capabilities: %s\n", joinCapabilities(c.Authority.Granted))
 		writeList(&b, "Forbidden", c.Authority.Forbidden)
+		if e := c.Authority.Envelope; e != nil {
+			fmt.Fprintf(&b, "\n## Execution envelope\nInteractive prompts: %s\n", map[bool]string{true: "available", false: "none; this session is non-interactive"}[e.Interactive])
+			if e.ShellPolicy != "" {
+				fmt.Fprintf(&b, "Shell policy: %s\n", e.ShellPolicy)
+			}
+			if e.DenialPolicy != "" {
+				fmt.Fprintf(&b, "Outside the envelope: %s\n", e.DenialPolicy)
+			}
+			writeList(&b, "Allowed tools (exact patterns; anything else is outside the envelope)", e.Tools)
+		}
 		writeList(&b, "\n## Invariants", c.Invariants)
 	}
 	fmt.Fprintf(&b, "\nWhen the work is ready: stage the intended files and create a local Git commit with a message naming the unit. Then finish. Do not push, fetch, rewrite refs, alter Praxis durable state, or claim that a checkpoint is valid. Praxis inspects the clean changed repository, runs the declared validation if any, decides progress and checkpoint validity, publishes only through controller policy, and decides the next invocation.\n")
@@ -284,6 +300,23 @@ var claudeSubscriptionTools = []string{
 	"Bash(ls:*)", "Bash(cat:*)", "Bash(chmod +x:*)", "Bash(mkdir:*)",
 }
 
+// ClaudeSubscriptionEnvelope is the execution envelope of the Claude
+// subscription launch: prompts disabled, the exact tool allowlist, one
+// allowed command per shell call.
+func ClaudeSubscriptionEnvelope() *WorkerExecutionEnvelope {
+	return &WorkerExecutionEnvelope{Interactive: false, Tools: append([]string(nil), claudeSubscriptionTools...),
+		ShellPolicy:  "one allowed command per shell call, matched against the allowed patterns by its first words; pipes, loops, command lists (&&, ;, ||) and command substitution are outside the envelope even when every part would be allowed alone",
+		DenialPolicy: "a call outside the envelope is denied without a prompt and no human can approve it during the turn; plan within the envelope, use the file tools for reading and searching, and never retry a denied call"}
+}
+
+// CodexSubscriptionEnvelope is the execution envelope of the Codex
+// subscription launch: a non-interactive workspace-write sandbox.
+func CodexSubscriptionEnvelope() *WorkerExecutionEnvelope {
+	return &WorkerExecutionEnvelope{Interactive: false, Tools: []string{"shell (sandboxed: workspace-write inside the repository, no network)"},
+		ShellPolicy:  "shell commands run inside the workspace-write sandbox; writes outside the repository and network access are outside the envelope",
+		DenialPolicy: "a call outside the sandbox fails without a prompt and no human can approve it during the turn; plan within the sandbox and never retry a denied call"}
+}
+
 // ClaudeSubscriptionCapabilities are the consequences the Claude
 // subscription launch contract grants (see claudeSubscriptionTools).
 func ClaudeSubscriptionCapabilities() []WorkerCapability {
@@ -309,7 +342,7 @@ func NewCodexSubscriptionWorker(providerID, dir, model string, activity *Activit
 		args = append(args, "--model", model)
 	}
 	args = append(args, "-")
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: CodexSubscriptionCapabilities()}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: CodexSubscriptionCapabilities(), Envelope: CodexSubscriptionEnvelope()}, nil
 }
 
 func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *ActivityLog) (Worker, error) {
@@ -325,5 +358,5 @@ func NewClaudeSubscriptionWorker(providerID, dir, model string, activity *Activi
 	if model != "" {
 		args = append(args, "--model", model)
 	}
-	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: ClaudeSubscriptionCapabilities()}, nil
+	return ProviderCLIWorker{ProviderID: providerID, Command: append([]string{executable}, args...), Dir: dir, Activity: activity, Granted: ClaudeSubscriptionCapabilities(), Envelope: ClaudeSubscriptionEnvelope()}, nil
 }

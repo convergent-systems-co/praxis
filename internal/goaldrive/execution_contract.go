@@ -201,7 +201,7 @@ type EnvelopeDeclaringWorker interface {
 	ExecutionEnvelope() *WorkerExecutionEnvelope
 }
 
-// WorkerRecoveryContext describes uncommitted consequence bound from an
+// WorkerRecoveryContext describes unpublished consequence bound from an
 // earlier BLOCKED turn of the same objective that this turn must validate
 // and commit, correct, or deliberately discard.
 type WorkerRecoveryContext struct {
@@ -210,6 +210,11 @@ type WorkerRecoveryContext struct {
 	Blocker         string   `json:"blocker"`
 	Fingerprint     string   `json:"fingerprint"`
 	Files           []string `json:"files"`
+	// BaseHead is the published branch HEAD against which Commits were bound.
+	// It lets the controller inspect completion claims in an unchanged,
+	// already-valid recovered commit span without treating the recovery turn's
+	// starting HEAD as the span's base.
+	BaseHead string `json:"base_head,omitempty"`
 	// Commits are the turn's local commits not yet published to the remote
 	// (for example the evidence commit retained after a failed declared
 	// validation), oldest first.

@@ -212,6 +212,7 @@ func TestRecoveryPublishesAnUnchangedValidatedConsequence(t *testing.T) {
 	runGitTest(t, workDir, "commit", "-m", "select MVP", "-m", "Praxis-Unit-Complete: unit:one")
 
 	repo := GitRepository{Dir: workDir, Remote: "origin", Branch: "main"}
+	baseHead := strings.TrimSpace(runGitOutput(t, workDir, "rev-parse", "origin/main"))
 	fingerprint, files, commits, err := repo.Fingerprint(ctx)
 	if err != nil || len(files) != 0 || len(commits) != 1 {
 		t.Fatalf("fingerprint retained commit: %s %v %v %v", fingerprint, files, commits, err)
@@ -221,7 +222,8 @@ func TestRecoveryPublishesAnUnchangedValidatedConsequence(t *testing.T) {
 	worker := ProviderCLIWorker{ProviderID: "local", Dir: workDir, Command: []string{"/bin/sh", "-c", "cat >/dev/null"}}
 	controller, _ := contractController(t, root, worker)
 	req := contractRequest("unit:one")
-	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: "inv-blocked:turn:1", Objective: "unit:one", Blocker: "provider supervision failed after the commit", Fingerprint: fingerprint, Commits: commits, Provenance: RecoveryProvenanceRecorded}
+	req.GoalBaseline.WorkPlan = &contracts.WorkPlan{BaselineDigest: req.GoalBaseline.Digest, AuthorityRef: "authority:test", AuthorityDigest: "sha256:" + strings.Repeat("3", 64), AcceptanceRef: "acceptance:test", AcceptanceDigest: "sha256:" + strings.Repeat("4", 64), AcceptedBy: contracts.PrincipalRef{ID: "human", Kind: "human"}, ProposalDigest: "sha256:" + strings.Repeat("5", 64), Candidates: req.WorkCandidates}
+	req.Recovery = &WorkerRecoveryContext{RecoveredTurnID: "inv-blocked:turn:1", Objective: "unit:one", Blocker: "provider supervision failed after the commit", Fingerprint: fingerprint, BaseHead: baseHead, Commits: commits, Provenance: RecoveryProvenanceRecorded}
 	record, err := controller.ExecuteTurnWithRepository(ctx, req, bound)
 	if err != nil || !record.Progress || !record.CheckpointPublished || record.CompletionClaim != "unit:one" || !containsString(record.CheckpointEvidence, "repository:declared-validation-passed") {
 		t.Fatalf("unchanged valid recovery consequence must publish and carry its completion claim: %+v %v", record, err)

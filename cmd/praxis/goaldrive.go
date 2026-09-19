@@ -400,6 +400,13 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 	if len(files) == 0 && len(commits) == 0 {
 		return nil, "", errors.New("checkout is clean and published; there is no consequence to recover")
 	}
+	baseHead := ""
+	if len(commits) > 0 {
+		baseHead, err = gitOutput(ctx, repository.Dir, "rev-parse", "refs/remotes/"+repository.Remote+"/"+repository.Branch+"^{commit}")
+		if err != nil {
+			return nil, "", fmt.Errorf("read recovery published base HEAD: %w", err)
+		}
+	}
 	provenance := goaldrive.RecoveryProvenanceRecorded
 	if recorded := recovered.ConsequenceFingerprint; recorded != "" {
 		if fingerprint != recorded {
@@ -411,7 +418,7 @@ func bindRecoveredTurn(ctx context.Context, ledger goaldrive.Ledger, repository 
 		// provenance is durable on the recovery turn.
 		provenance = goaldrive.RecoveryProvenanceObserved
 	}
-	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files, Commits: commits, Provenance: provenance}, fingerprint, nil
+	return &goaldrive.WorkerRecoveryContext{RecoveredTurnID: recovered.TurnID, Objective: recovered.ChildObjective, Blocker: recovered.Blocker, Fingerprint: fingerprint, Files: files, BaseHead: baseHead, Commits: commits, Provenance: provenance}, fingerprint, nil
 }
 
 func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {

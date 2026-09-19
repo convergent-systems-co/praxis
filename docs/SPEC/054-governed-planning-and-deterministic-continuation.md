@@ -24,8 +24,9 @@ uniquely derivable transition until it reaches one of these boundaries:
   proposal;
 - `owner_authority_required`: the installation owner must approve or reject
   an exact pending request;
-- `planning_revision_required`: an owner rejection is durable and is never
-  retried implicitly; or
+- `planning_revision_required`: a non-acceptable review or owner rejection
+  returns control to planning, and rejected authority is never retried
+  implicitly; or
 - `drivable`: an accepted WorkPlan is attached to an immutable successor Goal
   generation and Goal-drive is the next admissible transition.
 

@@ -136,6 +136,8 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		return result, nil
 	}
 	var reviewed []reviewedProposal
+	var unreviewed bool
+	var revisionRequired bool
 	for i, proposal := range proposals {
 		_, proposalVersion, err := repo.LoadWorkPlanProposalByDigest(ctx, proposalDigests[i], now)
 		if err != nil {
@@ -145,10 +147,15 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		if err != nil {
 			return nil, err
 		}
+		if len(reviews) == 0 {
+			unreviewed = true
+		}
 		for j, review := range reviews {
 			key := proposalDigests[i] + "\x00" + review.ReviewDigest
 			if review.Status == contracts.ReviewAcceptableForAuthority && !requestedReview[key] {
 				reviewed = append(reviewed, reviewedProposal{proposal: proposal, proposalVersion: proposalVersion, proposalDigest: proposalDigests[i], review: review, reviewVersion: reviewVersions[j]})
+			} else if review.Status != contracts.ReviewAcceptableForAuthority {
+				revisionRequired = true
 			}
 		}
 	}
@@ -156,10 +163,17 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		return nil, fmt.Errorf("deterministic continuation refused: Goal %s/%s has %d independently acceptable unrequested proposal/review pairs", goalID, version, len(reviewed))
 	}
 	if len(reviewed) == 0 {
-		if len(rejected) > 0 {
+		if unreviewed {
+			result["status"] = "independent_review_required"
+			result["next_admissible_transition"] = "an independent reviewer evaluates an exact proposal"
+		} else if len(rejected) > 0 || revisionRequired {
 			result["status"] = "planning_revision_required"
-			result["rejected_request_digests"] = rejected
-			result["next_admissible_transition"] = "an authorized planner revises the decomposition; rejected authority is never retried implicitly"
+			if len(rejected) > 0 {
+				result["rejected_request_digests"] = rejected
+				result["next_admissible_transition"] = "an authorized planner revises the decomposition; rejected authority is never retried implicitly"
+			} else {
+				result["next_admissible_transition"] = "an authorized planner revises the decomposition after a non-acceptable independent review"
+			}
 		} else {
 			result["status"] = "independent_review_required"
 			result["next_admissible_transition"] = "an independent reviewer evaluates an exact proposal"
@@ -227,7 +241,16 @@ func attachContinuedPlan(ctx context.Context, repo goalstore.Repository, source 
 	}
 	successor, err := repo.AttachAcceptedWorkPlan(ctx, source.ID, source.Version, source.Digest, plan.AcceptanceRef, "1", successorVersion, now, nil)
 	if err != nil {
-		return nil, err
+		// The immutable successor may have been committed by a concurrent
+		// continuation even when this writer observed a conflict or an
+		// ambiguous persistence error. Accept only the exact derived lineage;
+		// otherwise preserve the original failure.
+		existing, loadErr := repo.Load(ctx, source.ID, successorVersion, now)
+		if loadErr != nil || existing.PredecessorDigest != source.Digest || existing.WorkPlan == nil || existing.WorkPlan.AcceptanceRef != plan.AcceptanceRef {
+			return nil, err
+		}
+		successor = existing
+		result["replay"] = true
 	}
 	result["status"] = "drivable"
 	result["goal_version"] = successor.Version

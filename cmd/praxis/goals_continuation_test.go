@@ -141,3 +141,27 @@ func TestGovernedPlanningContinuationPreservesRejectAndAmbiguityBoundaries(t *te
 		t.Fatalf("rejected authority was retried: %v", result)
 	}
 }
+
+func TestGovernedPlanningContinuationReportsTheExactRevisionAndReviewFrontier(t *testing.T) {
+	ctx := context.Background()
+	governed, _, _, dir := lifecycleFixture(t, ctx)
+	const goalID = "goal:pending-surface"
+
+	first := proposeFixture(t, ctx, governed, dir, "revision-required")
+	reviewBySelector(t, ctx, governed, dir, first, string(contracts.ReviewRevisionRequired))
+	result := continueFixture(t, ctx, governed, goalID, "1")
+	if result["status"] != "planning_revision_required" || result["next_admissible_transition"] != "an authorized planner revises the decomposition after a non-acceptable independent review" {
+		t.Fatalf("a completed revision-required review must expose its exact planning frontier: %v", result)
+	}
+	if _, ok := result["rejected_request_digests"]; ok {
+		t.Fatalf("a review outcome must not be reported as an owner rejection: %v", result)
+	}
+
+	// A new revision is a new exact proposal. Even though the old proposal's
+	// review remains durable, the new proposal now waits at its own independent
+	// review boundary.
+	proposeFixture(t, ctx, governed, dir, "revised-unreviewed")
+	if result := continueFixture(t, ctx, governed, goalID, "1"); result["status"] != "independent_review_required" {
+		t.Fatalf("a revised unreviewed proposal must expose its independent review boundary: %v", result)
+	}
+}

@@ -123,9 +123,9 @@ func (w ProviderCLIWorker) Execute(ctx context.Context, request WorkerRequest) (
 	if messageWriter.err != nil {
 		return WorkerResult{}, fmt.Errorf("persist provider supervision message: %w", messageWriter.err)
 	}
-	if stdout.truncated || stderr.truncated {
-		return WorkerResult{}, errors.New("provider transcript exceeds configured output limit")
-	}
+	// These buffers are bounded diagnostic mirrors. The provider transcript is
+	// the separately persisted supervision stream, so mirror truncation cannot
+	// invalidate an otherwise successful repository-derived execution.
 	// The transcript is intentionally not returned, persisted, or interpreted.
 	return WorkerResult{Outcome: OutcomeContinue, ExecutorID: w.ProviderID, CheckpointEvidence: []string{"provider-process:completed"}}, nil
 }

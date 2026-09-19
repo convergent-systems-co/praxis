@@ -179,6 +179,7 @@ type providerMessageWriter struct {
 	mu       sync.Mutex
 	cond     *sync.Cond
 	ctx      context.Context
+	cancel   context.CancelFunc
 	request  WorkerRequest
 	provider string
 	buffer   strings.Builder
@@ -188,8 +189,11 @@ type providerMessageWriter struct {
 	err      error
 }
 
+const providerMessageShutdownTimeout = 30 * time.Second
+
 func newProviderMessageWriter(ctx context.Context, request WorkerRequest, provider string) *providerMessageWriter {
-	w := &providerMessageWriter{ctx: ctx, request: request, provider: provider, done: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	w := &providerMessageWriter{ctx: ctx, cancel: cancel, request: request, provider: provider, done: make(chan struct{})}
 	w.cond = sync.NewCond(&w.mu)
 	go w.persist()
 	return w
@@ -222,7 +226,10 @@ func (w *providerMessageWriter) Flush() {
 	w.closed = true
 	w.cond.Broadcast()
 	w.mu.Unlock()
+	timer := time.AfterFunc(providerMessageShutdownTimeout, w.cancel)
 	<-w.done
+	timer.Stop()
+	w.cancel()
 }
 
 func (w *providerMessageWriter) enqueue(message string) {

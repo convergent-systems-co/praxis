@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
 func providerWorkerRequest() WorkerRequest {
@@ -19,6 +22,41 @@ func TestProviderCLIWorkerKeepsTranscriptOutsideWorkerResult(t *testing.T) {
 	}
 	if result.Outcome != OutcomeContinue || result.EndHead != "" || result.CheckpointValid {
 		t.Fatalf("provider transcript must not mint protocol authority: %+v", result)
+	}
+}
+
+type delayedAppendStore struct {
+	eventstore.Store
+	delay time.Duration
+}
+
+func (s delayedAppendStore) Append(ctx context.Context, aggregateID string, expectedVersion int64, events []eventstore.Event) ([]eventstore.Event, error) {
+	time.Sleep(s.delay)
+	return s.Store.Append(ctx, aggregateID, expectedVersion, events)
+}
+
+func TestProviderCLIWorkerDoesNotApplyPipeWaitDelayToDurableTranscriptPersistence(t *testing.T) {
+	store := delayedAppendStore{Store: eventstore.NewMemoryStore(), delay: 2200 * time.Millisecond}
+	activity := &ActivityLog{Store: store, Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	request := providerWorkerRequest()
+	request.InvocationID = "slow-persistence-1"
+	request.ProviderID = "codex-subscription"
+	request.Activity = activity
+	worker := ProviderCLIWorker{ProviderID: request.ProviderID, Command: []string{"/bin/sh", "-c", "printf 'provider completed\\n'"}}
+
+	result, err := worker.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatalf("successful provider output must drain before waiting for durable persistence: %v", err)
+	}
+	if result.Outcome != OutcomeContinue {
+		t.Fatalf("successful provider result changed: %+v", result)
+	}
+	events, err := activity.Load(context.Background(), request.InvocationID, request.TurnID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Type != ActivityProviderMessage || events[0].Data["message"] != "provider completed" {
+		t.Fatalf("durable provider transcript mismatch: %+v", events)
 	}
 }
 

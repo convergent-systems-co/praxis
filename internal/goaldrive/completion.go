@@ -133,7 +133,7 @@ func (l Ledger) RecordCompletion(ctx context.Context, completion UnitCompletion)
 	aggregate := completionAggregate(completion.GoalID, completion.GoalVersion)
 	_, err = l.Store.Append(ctx, aggregate, int64(len(current)), []eventstore.Event{{
 		ID: aggregate + ":unit:" + completion.UnitID, AggregateType: "goal_drive_completion", Type: unitCompletedEventType, Version: "1",
-		Actor: l.Actor, CommandID: "goal-drive:completion:" + completion.TurnID + ":" + completion.UnitID, CorrelationID: aggregate, Trust: contracts.TrustObserved,
+		Actor: l.Actor, CommandID: aggregate + ":" + completion.TurnID + ":" + completion.UnitID, CorrelationID: aggregate, Trust: contracts.TrustObserved,
 		Payload: payload, CreatedAt: completion.CompletedAt,
 	}})
 	return err

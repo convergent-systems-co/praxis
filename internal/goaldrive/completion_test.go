@@ -320,3 +320,31 @@ func TestNoPushProposalDoesNotComplete(t *testing.T) {
 		t.Fatalf("no completion may be recorded without publication: %+v", completions)
 	}
 }
+
+// TestCompletionRecordsAreUniquePerGeneration proves that two Goal
+// generations with identical turn, unit, and step names record their unit
+// completions, candidates, and evaluations independently: command ids are
+// store-wide idempotency keys and must carry the generation identity.
+func TestCompletionRecordsAreUniquePerGeneration(t *testing.T) {
+	ctx := context.Background()
+	db, err := state.OpenSQLite(ctx, filepath.Join(t.TempDir(), "praxis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ledger := Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	for _, goal := range []string{"goal:one", "goal:two"} {
+		completion := UnitCompletion{GoalID: goal, GoalVersion: "2", UnitID: "unit:a", InvocationID: "q-1", TurnID: "q-1:turn:1", EndHead: "h", Evidence: []string{"x"}, CompletedAt: time.Now().UTC()}
+		if err := ledger.RecordCompletion(ctx, completion); err != nil {
+			t.Fatalf("%s unit completion: %v", goal, err)
+		}
+		candidate := GoalCompletionCandidate{GoalID: goal, GoalVersion: "2", GoalDigest: "sha256:" + strings.Repeat("a", 64), InvocationID: "q-1", TurnID: "q-1:turn:1", FinalHead: "h", Assessment: GoalCompletionAssessment{AllUnitsComplete: true}, CandidateAt: time.Now().UTC()}
+		if err := ledger.RecordGoalCompletionCandidate(ctx, candidate); err != nil {
+			t.Fatalf("%s candidate: %v", goal, err)
+		}
+		evaluation := GoalCompletionEvaluation{GoalID: goal, GoalVersion: "2", GoalDigest: candidate.GoalDigest, CandidateTurnID: "q-1:turn:1", FinalHead: "h", Evaluator: ledger.Actor, EvaluatorKind: EvaluatorDeterministic, Items: []PredicateEvaluation{{Kind: ItemIntegratedValidator, Ref: IntegratedValidator, Result: ResultUnknown, Predicate: "none"}}, EvaluatedAt: time.Now().UTC()}
+		if _, err := ledger.RecordGoalEvaluation(ctx, evaluation); err != nil {
+			t.Fatalf("%s evaluation: %v", goal, err)
+		}
+	}
+}

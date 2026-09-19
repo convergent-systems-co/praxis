@@ -234,8 +234,11 @@ func (l Ledger) appendGoalCompletion(ctx context.Context, goalID, goalVersion st
 		return err
 	}
 	aggregate := goalCompletionAggregate(goalID, goalVersion)
+	// Command ids are idempotency keys across the whole store, so they carry
+	// the aggregate identity, never just the step name.
+	commandID = aggregate + ":" + commandID
 	_, err = l.Store.Append(ctx, aggregate, expected, []eventstore.Event{{
-		ID: aggregate + ":" + commandID, AggregateType: "goal_drive_goal_completion", Type: eventType, Version: "1",
+		ID: commandID, AggregateType: "goal_drive_goal_completion", Type: eventType, Version: "1",
 		Actor: l.Actor, CommandID: commandID, CorrelationID: aggregate, Trust: contracts.TrustObserved,
 		Payload: encoded, CreatedAt: at,
 	}})

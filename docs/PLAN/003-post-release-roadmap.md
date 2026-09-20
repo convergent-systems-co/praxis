@@ -27,6 +27,8 @@ A post-release issue may therefore have one of three dispositions:
 6. Issue completion is not equivalent to product-goal completion; each wave has its own integration and qualification gate.
 7. Do not re-open the frozen PLAN-001 OI denominator for post-release features unless evidence proves an original-intent decomposition error and the governed denominator-transition process is followed.
 8. Executor optimization, learned routing, and token management may never outrank capability, security, evidence, or explicit transport/API policy.
+9. Work selection may block only on provenance-bound authoritative hard-dependency edges; consumer, interaction, advisory, and model-proposed relationships remain non-blocking context until governed.
+10. Durable Goal requirements must not be inferred into executable children. An accepted, digest-bound decomposition is required before Goal-drive can materialize selector input; absent decomposition fails closed as authority insufficiency.
 
 ## Wave P0: Release follow-through and terminology
 
@@ -49,6 +51,180 @@ Deliverables include detailed README, installation, getting started, architectur
 
 Dependency: qualified PLAN-001 release; naming decision #95 should be resolved first if it changes terminology.
 
+### #103 — Shared GoalInput and deterministic `goal-drive` controller
+
+The first dogfood pass exercised the supported Go Goals/session and encrypted
+Goal Baseline interfaces and demonstrated that no user-facing Goal or parent
+controller command currently exists. Treat this as a post-release capability
+boundary, not a v2.0.0 qualification defect.
+
+Implement ADR-060 and SPEC-023 before adding a native command. The controller
+is the prerequisite for safely dogfooding issue-oriented work and for the
+first-party Goals/Develop and supervision waves. Qualification must include
+the repository state machine, immutable input generations, provider-neutral
+worker boundary, restart-safe ledger, bounded progress/no-progress semantics,
+and fail-closed authority behavior. It must also prove that supervised mode
+terminates after one persisted progressed checkpoint, while only explicit
+continuous mode permits bounded repetition.
+
+The controller must consume a provenance-bound runnable candidate set and
+select one unit deterministically by readiness, priority, and sequence;
+ambiguous or insufficient authoritative state must fail closed.
+
+The accepted decomposition supplying that set is an optional digest-bound
+`WorkPlan` on the Goal Baseline. Goal-drive may materialize only that persisted
+plan; it must not infer child objectives from Goal prose, success criteria, or
+`PlanRef`. Public ingestion and provider-backed execution remain separate
+#103 obligations.
+
+Proposal and acceptance records now have an immutable encrypted GoalStore
+boundary. This is persistence infrastructure only: no proposal generator,
+independent review surface, acceptance authority, or baseline successor
+attachment is implied by the store API. Those lifecycle entries remain
+separate #103 governance work and must preserve the ADR-064/SPEC-027
+proposer/reviewer/accepter boundary.
+
+The next governed foundation is baseline attachment: reload the exact accepted
+record and source baseline, then persist a successor generation with immutable
+predecessor/source-digest lineage. This operation must not create a mutable
+current pointer, infer a latest generation, or attach an accepted record to a
+different baseline.
+
+Proposal generation/review remains upstream of acceptance. The Goals package
+foundation may bind explicitly supplied proposal candidates to a verified
+baseline and the GoalStore persists an independent review record, but no
+proposal is generated from prose and no review grants execution authority.
+
+Authority insufficiency is a generic durable request/decision boundary. Pending
+requests preserve affected, transitively blocked, and unrelated runnable work;
+structured decisions bind the exact request and least scope. Public human UX
+remains a subsequent surface. The bounded controller
+projection now reads requests for the exact active Goal generation only after
+deterministic selection reports no runnable work; it returns the structured
+authority-required result and continues to allow unrelated runnable siblings.
+Public supervision remains a separate follow-on surface. The acceptance
+boundary must consume
+only an exact durable approval and derive its authority fields from the bound
+request/decision; successor-baseline attachment remains separate.
+Exact authority decisions may be invalidated only by immutable revocation
+evidence; acceptance and attachment must fail closed after effective
+revocation, while historical records remain retained. The encrypted GoalStore
+now supplies the minimal durable authority-generation registry: immutable
+generation records bind reference/version, principal, scope, provenance, and
+effective time; immutable invalidation records mark exact generations revoked
+or superseded. Decision issuance, exact revocation, acceptance, attachment,
+and generation invalidation share the generation record's SQLite transaction
+lock, so commit order is the recoverable authority timeline. Decisions must
+bind the exact generation digest; stale, legacy-unbound, or unavailable
+generation validation fails closed. A future external policy registry may
+implement the same validator boundary without changing GoalStore semantics.
+
+The preceding proposal-to-acceptance transition is governed by ADR-064/SPEC-027:
+proposal, independent review, and acceptance are distinct records. A missing or
+unresolved acceptance is surfaced as authority insufficiency rather than
+converted into global blockage or implicit runnable work.
+
+DF-032 identified and resolves the first-installation root-of-authority gap:
+`key-bootstrap` establishes protected key possession but does not authenticate
+or enroll a governance principal. ADR-069/SPEC-032 add the explicit core
+`authority bootstrap` boundary. It requires an opened production bootstrap
+provider, the current OS session, and interactive least-scope confirmation;
+the resulting immutable generation is encrypted, digest-bound to the
+bootstrap record, restart-readable, and distinct from WorkPlan acceptance.
+No conversational approval, owner string, environment variable, provider, or
+model can create the root. The current dogfood WorkPlan remains unaccepted
+until a durable AuthorityDecision is created through this enrolled authority.
+
+DF-033 confirms checkpoint ownership for first-party provider adapters. The
+provider may create one local commit for its bounded implementation result;
+Praxis owns repository validation, progress/checkpoint eligibility, ledger
+evidence, and remote publication. Praxis must never commit a dirty tree on the
+provider's behalf because pre-existing human work, untracked files, generated
+artifacts, or secrets could be captured. Preserved uncommitted work therefore
+remains an explicit blocked recovery state and does not rewrite its original
+turn outcome.
+
+Parent readiness must retain child-level blocked evidence and derive
+`runnable`, `blocked`, or `complete` from the full authoritative candidate set;
+one blocked child must not suppress a ready sibling.
+
+Dogfood evidence must distinguish test-local controller ledger records from
+restart-readable production turn records and repository-backed checkpoint
+publication. A fake worker or in-memory store is not release or Goal-progress
+evidence for issue execution.
+
+The first production-backed slice may use the provider-neutral explicit-argv
+worker contract and concrete Git repository adapter with a durable SQLite
+ledger. The reusable supervised runtime now recovers an exact `goal-id` plus
+`goal-version`, loads the immutable baseline through GoalStore, materializes
+only its accepted WorkPlan, resolves a setup-registered worker, and executes
+one controller-owned Git-backed turn. The native CLI now routes `goal-drive`
+through the same parser and fails closed at runtime construction rather than
+presenting normalized options as execution. External Codex/Claude credentials,
+durable key-wrapper construction, and public provider registration remain
+separate #103 integration work.
+
+DF-026 records the crypto bootstrap boundary. ADR-065/SPEC-028 establish an
+explicit metadata-only, provider-neutral bootstrap registry without changing
+GoalStore envelope semantics or allowing implicit fallback. Native runtime
+construction remains blocked until an audited first-party backend is selected
+and implemented for at least one supported platform; platform adapters and
+portable age-compatible wrapping are separate bounded work, not permission to
+use fake providers or weaken protection.
+
+The macOS implementation slice adds a direct Security.framework Keychain
+backend for Intel and Apple Silicon behind `BootstrapBackend`. It uses a
+Keychain-held random 256-bit wrapping key, existing AES-GCM envelope semantics,
+explicit platform binding, and a non-secret material hash that rejects same
+identity item substitution. Live Keychain qualification remains environment
+dependent: an environment returning Keychain authorization/unavailability
+must fail closed and cannot be treated as successful bootstrap evidence.
+
+The direct Security.framework backend has since passed live bootstrap, restart,
+missing-item, identity-substitution, duplicate-bootstrap, and no-fallback tests
+outside the repository sandbox. The earlier OSStatus `100001` was identified
+as the sandbox's `UNIX[Operation not permitted]` restriction; sandboxed runs
+remain intentionally classified as unavailable rather than weakening the
+backend.
+
+DF-028 closes the first-run state deadlock. `state-init` is the explicit
+bootstrap-bound SQLite initializer, while native `goal-drive` may bypass only
+the pre-runtime package-registry read so runtime-owned migration can handle a
+new configured database. Existing dynamic/package commands continue to require
+registry resolution; no package authority is created by the bypass.
+
+Do not mark #103 complete from this slice alone. Completion still requires the
+native invocation/dispatch and authority-backed acceptance obligations recorded
+in the dogfood qualification audit; missing external provider/key authority
+must remain an explicit blocker rather than a weakened contract.
+
+Human-facing invocation summaries must project the durable turn record without
+conflating verification activity with progress: `NO_PROGRESS` and unchanged
+checkpoints must not be summarized as publication or parent Goal advancement.
+
+DF-029 is resolved for the currently qualified Darwin subset by ADR-066 and
+SPEC-029. The release builder now selects cgo per target, proves the native
+macOS Keychain capability in each Darwin artifact, and records target/build
+provenance. The full six-platform matrix remains intentionally blocked until
+audited Windows and Linux bootstrap backends exist; no unsupported artifact is
+published as production-ready.
+
+DF-030 establishes the first-party provider worker boundary under ADR-067 and
+SPEC-030. Subscription CLI profiles are adapters, not WorkerResult protocol
+implementations: provider transcripts remain non-authoritative, environment
+inheritance is allowlisted, and the controller derives repository progress
+after process exit. Completion and human-decision outcomes remain governed
+control-plane evidence rather than model claims.
+
+DF-031 establishes the explicit Goal Baseline import boundary under ADR-068 and
+SPEC-031. Repository evidence is not authority: only a complete canonical
+baseline with verified digest, source provenance, and present predecessor
+lineage may be admitted through `praxis goal import`. Exact duplicate import is
+idempotent and conflicting or malformed generations fail closed. Import does
+not create a WorkPlan or authority grant. The existing dogfood v2 summary
+manifest is intentionally not importable because it is not a canonical
+GoalBaseline payload.
+
 ## Wave P1: Executor targeting and first-party product bundles
 
 ### #102 — Governed executor affinity and model-routing targets for agents and graphs
@@ -56,6 +232,18 @@ Dependency: qualified PLAN-001 release; naming decision #95 should be resolved f
 Issue #102 is the execution-selection foundation for multi-agent first-party bundles.
 
 Architecture is governed by ADR-091 and SPEC-051.
+
+The first post-release foundation slice implements the versioned provider-neutral
+`ExecutionTarget` contract in `pkg/contracts`, including transport/API policy
+conflict checks. Deterministic eligibility merging, routing evidence, and
+concrete executor surfaces remain subsequent #102 work.
+
+The merge foundation now applies deterministic authority ordering, conservative
+transport intersection, and non-relaxable API/prohibition policy. Executor
+eligibility discovery and durable selection evidence remain subsequent work.
+
+Relationship semantics for readiness are governed separately by ADR-062 and
+SPEC-025; #102 interactions with #100/#101 are not thereby hard prerequisites.
 
 Deliverables:
 
@@ -139,6 +327,18 @@ Do not restore old bespoke `/develop` runtime mechanics if Praxis 2 provides the
 Add architecture-from-intent / inversion review so implementation location cannot silently become architectural ownership.
 
 Integrate with Goal/design review and governed learning. Include both universal-mechanism and genuinely domain-specific counterexamples.
+
+ADR-061 and SPEC-024 define the post-release boundary. The first implementation
+is an advisory, evidence-bound evaluator with fail-closed provenance checks;
+integration into interactive Goals and governed retrospective learning remains
+a follow-on learning integration task. The Goals graph now exposes a versioned
+deterministic review stage and human-resolution branch. The first consumer seams now require an exact
+Goal Baseline digest and keep the blind learning derivation digest separate
+from the advisory result; governed learning now persists that advisory record
+across restart without making it promotion authority. Qualification must prove that implementation
+location alone cannot establish ownership, that universal mechanisms require
+separate policy evidence, and that domain-specific counterexamples prevent
+over-generalization without promoting themselves.
 
 ### #97 — Retrospective learning from Praxis construction history
 
@@ -283,6 +483,16 @@ The following currently open issues are explicitly accounted for by this plan:
 - #102 — governed executor affinity, targeting, fallback, and token/budget routing
 
 ## Completion
+
+### DF-034 — turn-owned provider workspace recovery
+
+The provider checkpoint recovery deadlock is governed by ADR-070/SPEC-033.
+The controller-created worktree foundation and encrypted lifecycle-record
+contract are implemented as a post-release integration slice. Runtime wiring
+of provider execution, checkpoint validation/publication, and workspace
+cleanup remains a separately qualified child. The pre-existing dirty
+authoritative checkout from the blocked historical turn is not retroactively
+isolated and remains pending explicit migration/reconciliation authority.
 
 PLAN-003 is complete when every issue listed above has been either:
 

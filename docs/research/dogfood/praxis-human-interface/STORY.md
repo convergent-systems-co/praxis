@@ -400,3 +400,56 @@ has a material consequence requiring human authority.
 This finding is evidence discovered while exercising the authoritative
 praxis-human-interface/1 Goal. It clarifies an already-authoritative success
 criterion; it does not silently mutate Goal generation 1.
+
+## Dogfood Finding: Planner Workspace and Artifact Handoff
+
+Bootstrapping the governed planning surface exposed an additional orchestration
+requirement.
+
+An external planner successfully analyzed the authoritative Goal and produced a
+complete advisory decomposition, but its planning artifact was written into a
+provider-private workspace. A subsequent invocation could not read that
+artifact.
+
+Moving the artifact to /tmp did not solve the problem because the provider's
+non-interactive execution envelope could not read that path. Moving it into a
+repository-local scratch directory made it readable, but the provider was then
+not authorized to write the resulting proposal artifact there.
+
+The planner correctly refused to bypass these permission decisions through
+alternate shell commands.
+
+This demonstrates that an ordinary Praxis user must not be responsible for
+transporting planner state across provider execution envelopes.
+
+When Praxis orchestrates planning, Praxis must own a governed planner workspace
+and artifact-handoff boundary.
+
+The planning orchestration must:
+
+- provide the planner with the exact authoritative Goal generation and complete
+  baseline digest without requiring the human to transport those values;
+- provide all required human-source and repository evidence through an
+  authorized execution envelope;
+- provide an authorized location for advisory planner outputs;
+- collect the resulting proposal without asking the planner to bypass its
+  provider security boundary;
+- preserve provenance between planner invocation, planner generation, input
+  evidence, and produced proposal;
+- validate the proposal before lifecycle admission;
+- keep temporary planner artifacts from contaminating the governed product
+  repository;
+- survive provider/invocation boundaries without requiring the human to copy
+  files between provider-private directories, /tmp, or repository-local
+  scratch locations;
+- preserve provider sandboxing and least privilege rather than broadening
+  permissions merely to make orchestration convenient.
+
+Provider permission failures are not product-authority decisions and should not
+normally be surfaced to the ordinary human when Praxis can satisfy the required
+handoff through its governed orchestration boundary.
+
+This finding clarifies the already-authoritative success criteria requiring
+Praxis to orchestrate planning and hide internal lifecycle machinery from the
+ordinary user. It does not grant the planner execution, acceptance, or product
+authority.

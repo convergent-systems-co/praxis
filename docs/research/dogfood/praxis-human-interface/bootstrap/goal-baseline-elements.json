@@ -1,0 +1,301 @@
+{
+  "schema": "praxis-goal-element-manifest/1",
+  "goal_id": "praxis-human-interface",
+  "goal_version": "1",
+  "goal_digest": "sha256:afda0866398d14a223f3a090d554c820e9e945922a936e6f1edb9c06d9177530",
+  "import_source": {
+    "path": "docs/research/dogfood/praxis-human-interface/bootstrap/goal-establish-source.json",
+    "sha256": "sha256:1881e31e9185b3c517c8a8b7eecf1aa965edcd9c8a7388883e4016136b6b8f0e"
+  },
+  "counts": {
+    "success_criteria": 12,
+    "constraints": 10,
+    "non_goals": 5,
+    "assumptions": 4
+  },
+  "element_count": 31,
+  "element_list_digest": "sha256:8579dae2b561fb7b8717abd065333c030c0df5588323a50c64eeb98d7b8d8bfb",
+  "element_list_digest_definition": "sha256 over 31 LF-terminated lines '<kind>\\t<stored_index>\\t<text_sha256 hex>' in stored order, kinds ordered success_criteria, constraints, non_goals, assumptions",
+  "id_definition": "<kind>:sha256:<sha256 of exact UTF-8 element text>",
+  "elements": [
+    {
+      "label": "SC1",
+      "kind": "success_criteria",
+      "stored_index": 1,
+      "canonical_index": 3,
+      "text": "An ordinary user can provide a human-readable description of a desired outcome without manually constructing canonical GoalBaseline JSON.",
+      "text_sha256": "sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+      "id": "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c"
+    },
+    {
+      "label": "SC2",
+      "kind": "success_criteria",
+      "stored_index": 2,
+      "canonical_index": 8,
+      "text": "Praxis preserves the exact human source artifact and cryptographically binds it to the canonical governed interpretation.",
+      "text_sha256": "sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+      "id": "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6"
+    },
+    {
+      "label": "SC3",
+      "kind": "success_criteria",
+      "stored_index": 3,
+      "canonical_index": 12,
+      "text": "The user can inspect what Praxis understood before or as authority is established.",
+      "text_sha256": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+      "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+    },
+    {
+      "label": "SC4",
+      "kind": "success_criteria",
+      "stored_index": 4,
+      "canonical_index": 6,
+      "text": "Praxis asks the human only for material ambiguities or decisions that genuinely require human authority rather than requiring the human to populate internal schemas.",
+      "text_sha256": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+      "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+    },
+    {
+      "label": "SC5",
+      "kind": "success_criteria",
+      "stored_index": 5,
+      "canonical_index": 7,
+      "text": "Praxis can establish governed execution from the human-facing interaction without requiring the ordinary user to manually provide Goal generations, invocation IDs, WorkPlans, proposal digests, review digests, request digests, or acceptance references.",
+      "text_sha256": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+      "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+    },
+    {
+      "label": "SC6",
+      "kind": "success_criteria",
+      "stored_index": 6,
+      "canonical_index": 11,
+      "text": "The human-facing interface supports authoritative requirement evolution after a Goal has been established or while it is executing.",
+      "text_sha256": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+      "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+    },
+    {
+      "label": "SC7",
+      "kind": "success_criteria",
+      "stored_index": 7,
+      "canonical_index": 9,
+      "text": "Requirement evolution performs deterministic impact analysis and preserves still-valid qualified consequences and immutable historical authority.",
+      "text_sha256": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+      "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+    },
+    {
+      "label": "SC8",
+      "kind": "success_criteria",
+      "stored_index": 8,
+      "canonical_index": 2,
+      "text": "After governed reconciliation of changed human requirements, Praxis can autonomously derive and schedule resulting work without human-authored implementation task decomposition.",
+      "text_sha256": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+      "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+    },
+    {
+      "label": "SC9",
+      "kind": "success_criteria",
+      "stored_index": 9,
+      "canonical_index": 1,
+      "text": "A normal user can determine whether Praxis is working, what outcome is being pursued, whether human authority is required, what meaningful progress has occurred, and whether execution is complete, blocked, recovering, paused, or merely at an invocation boundary.",
+      "text_sha256": "sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+      "id": "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece"
+    },
+    {
+      "label": "SC10",
+      "kind": "success_criteria",
+      "stored_index": 10,
+      "canonical_index": 5,
+      "text": "Operator and forensic interfaces retain access to exact Goals, generations, turns, providers, recoveries, digests, authority lineage, provenance, evidence, and lifecycle records.",
+      "text_sha256": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+      "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b"
+    },
+    {
+      "label": "SC11",
+      "kind": "success_criteria",
+      "stored_index": 11,
+      "canonical_index": 4,
+      "text": "Capabilities present in canonical Praxis source are truthfully exposed and discoverable through the installed product surface.",
+      "text_sha256": "sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+      "id": "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1"
+    },
+    {
+      "label": "SC12",
+      "kind": "success_criteria",
+      "stored_index": 12,
+      "canonical_index": 10,
+      "text": "The delivered interface is dogfooded by using it for the next real human-authored Praxis or product requirement without manually recreating the bootstrap ceremony used for this Goal.",
+      "text_sha256": "sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9",
+      "id": "success_criteria:sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9"
+    },
+    {
+      "label": "C1",
+      "kind": "constraints",
+      "stored_index": 1,
+      "canonical_index": 6,
+      "text": "Preserve deterministic authority boundaries and immutable historical evidence.",
+      "text_sha256": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+      "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+    },
+    {
+      "label": "C2",
+      "kind": "constraints",
+      "stored_index": 2,
+      "canonical_index": 7,
+      "text": "Preserve exact provenance between human-readable source input and Praxis canonical interpretation.",
+      "text_sha256": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+      "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+    },
+    {
+      "label": "C3",
+      "kind": "constraints",
+      "stored_index": 3,
+      "canonical_index": 4,
+      "text": "Model interpretation must not manufacture human authority, requirements, constraints, risk acceptance, or material product decisions.",
+      "text_sha256": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+      "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+    },
+    {
+      "label": "C4",
+      "kind": "constraints",
+      "stored_index": 4,
+      "canonical_index": 3,
+      "text": "Material ambiguity must be surfaced to the human as a focused consequential decision.",
+      "text_sha256": "sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+      "id": "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276"
+    },
+    {
+      "label": "C5",
+      "kind": "constraints",
+      "stored_index": 5,
+      "canonical_index": 1,
+      "text": "Existing qualified consequences must remain valid historical product reality unless new authoritative input genuinely invalidates them.",
+      "text_sha256": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+      "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+    },
+    {
+      "label": "C6",
+      "kind": "constraints",
+      "stored_index": 6,
+      "canonical_index": 8,
+      "text": "Provider-owned work must not be silently rewritten or destroyed when human requirements evolve.",
+      "text_sha256": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+      "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+    },
+    {
+      "label": "C7",
+      "kind": "constraints",
+      "stored_index": 7,
+      "canonical_index": 9,
+      "text": "Reuse existing Praxis establishment, GoalBaseline, GoalStore, WorkPlan, review, authority, attachment, Goal-drive, supervision, recovery, settlement, and successor machinery where semantically correct.",
+      "text_sha256": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+      "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+    },
+    {
+      "label": "C8",
+      "kind": "constraints",
+      "stored_index": 8,
+      "canonical_index": 10,
+      "text": "Simplifying the ordinary human interface must not remove operator or governance/forensic access to exact underlying state.",
+      "text_sha256": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+      "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+    },
+    {
+      "label": "C9",
+      "kind": "constraints",
+      "stored_index": 9,
+      "canonical_index": 2,
+      "text": "Installed package manifests, help, dynamic entry points, implementation, and documented user ceremony must remain coherent.",
+      "text_sha256": "sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+      "id": "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5"
+    },
+    {
+      "label": "C10",
+      "kind": "constraints",
+      "stored_index": 10,
+      "canonical_index": 5,
+      "text": "Operational identifiers that do not represent meaningful human choices should normally be generated and managed by Praxis while preserving deterministic identity and replay properties.",
+      "text_sha256": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+      "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+    },
+    {
+      "label": "N1",
+      "kind": "non_goals",
+      "stored_index": 1,
+      "canonical_index": 4,
+      "text": "Remove or weaken Praxis deterministic governance, authority, provenance, evidence, review, recovery, or settlement machinery.",
+      "text_sha256": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+      "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+    },
+    {
+      "label": "N2",
+      "kind": "non_goals",
+      "stored_index": 2,
+      "canonical_index": 2,
+      "text": "Hide low-level governance and forensic interfaces from operators or auditors.",
+      "text_sha256": "sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+      "id": "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+    },
+    {
+      "label": "N3",
+      "kind": "non_goals",
+      "stored_index": 3,
+      "canonical_index": 3,
+      "text": "Predetermine whether Story, Intent, Requirement, Goal, Feature, or Task is the correct final human-facing ontology.",
+      "text_sha256": "sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+      "id": "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3"
+    },
+    {
+      "label": "N4",
+      "kind": "non_goals",
+      "stored_index": 4,
+      "canonical_index": 1,
+      "text": "Create a parallel governance system solely to simplify the CLI.",
+      "text_sha256": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+      "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+    },
+    {
+      "label": "N5",
+      "kind": "non_goals",
+      "stored_index": 5,
+      "canonical_index": 5,
+      "text": "Require the human-facing interface to use any particular command names proposed in the source Story.",
+      "text_sha256": "sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+      "id": "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba"
+    },
+    {
+      "label": "A1",
+      "kind": "assumptions",
+      "stored_index": 1,
+      "canonical_index": 4,
+      "text": "The existing deterministic Praxis lifecycle is substantially correct and should be composed rather than replaced.",
+      "text_sha256": "sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421",
+      "id": "assumptions:sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421"
+    },
+    {
+      "label": "A2",
+      "kind": "assumptions",
+      "stored_index": 2,
+      "canonical_index": 1,
+      "text": "Human-readable Markdown is an appropriate initial human input format but the final architecture may support additional human-facing forms.",
+      "text_sha256": "sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+      "id": "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b"
+    },
+    {
+      "label": "A3",
+      "kind": "assumptions",
+      "stored_index": 3,
+      "canonical_index": 3,
+      "text": "The correct relationship among Story, Intent, Requirement, and Goal remains an architectural question to resolve rather than an assumption of this Goal.",
+      "text_sha256": "sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158",
+      "id": "assumptions:sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158"
+    },
+    {
+      "label": "A4",
+      "kind": "assumptions",
+      "stored_index": 4,
+      "canonical_index": 2,
+      "text": "Provider routing may remain explicitly controllable by operators even if ordinary human workflows eventually use governed defaults or policy.",
+      "text_sha256": "sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6",
+      "id": "assumptions:sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6"
+    }
+  ]
+}

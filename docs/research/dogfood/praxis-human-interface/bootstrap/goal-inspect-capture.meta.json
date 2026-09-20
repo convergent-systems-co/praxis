@@ -1,0 +1,26 @@
+{
+  "schema": "praxis-inspect-capture-meta/1",
+  "command": [
+    "praxis",
+    "goals-lifecycle",
+    "--operation=inspect",
+    "--goal-id=praxis-human-interface",
+    "--goal-version=1"
+  ],
+  "read_only": true,
+  "lifecycle_transition_performed": false,
+  "praxis_version_output": [
+    "2.0.0-dev",
+    "commit: f539b74f7678e323f4dcfbe820bffa833d2b5c44",
+    "modified: false",
+    "vcs_time: 2026-09-19T18:31:09Z"
+  ],
+  "started_utc": "2026-09-20T20:47:49Z",
+  "finished_utc": "2026-09-20T20:47:50Z",
+  "exit_code": 0,
+  "stdout_bytes": 9000,
+  "stdout_sha256": "sha256:4bd7b2dd85cef92f558960116cd956bd239c39c5e72f6a3eb00ba2aa793a609d",
+  "stderr_bytes": 0,
+  "environment_note": "PRAXIS_DB and PRAXIS_BOOTSTRAP_RECORD were set in the operator environment; their values are not recorded",
+  "capture_file": "docs/research/dogfood/praxis-human-interface/bootstrap/goal-inspect-capture.json (exact stdout bytes)"
+}

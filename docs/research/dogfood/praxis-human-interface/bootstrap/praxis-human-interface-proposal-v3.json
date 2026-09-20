@@ -1,0 +1,1598 @@
+{
+  "BaselineID": "praxis-human-interface",
+  "BaselineVersion": "1",
+  "ProposalVersion": "3",
+  "proposal": {
+    "id": "praxis-human-interface-workplan-proposal-3",
+    "proposed_by": {
+      "id": "model:claude-sonnet-5:advisory-plan-materializer",
+      "kind": "model"
+    },
+    "proposer_generation": "claude-sonnet-5/advisory-plan-v3@sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+    "candidates": [
+      {
+        "id": "unit:hi-governance-decision-dossier",
+        "completed": false,
+        "priority": 1,
+        "sequence": 1,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-governance-decision-dossier",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/3",
+            "source_digest": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+          },
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+            "source_ref": "goal:praxis-human-interface/1#constraints/5",
+            "source_digest": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+          },
+          {
+            "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+            "source_ref": "goal:praxis-human-interface/1#constraints/6",
+            "source_digest": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+          },
+          {
+            "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/1",
+            "source_digest": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+          },
+          {
+            "id": "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/3",
+            "source_digest": "sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-authority-gate-mechanism",
+        "completed": false,
+        "priority": 1,
+        "sequence": 2,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-authority-gate-mechanism",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/1",
+            "source_digest": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+          },
+          {
+            "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/4",
+            "source_digest": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+          }
+        ]
+      },
+      {
+        "id": "gate:hi-authority-ceremony",
+        "completed": false,
+        "priority": 1,
+        "sequence": 3,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/gate:hi-authority-ceremony",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/3",
+            "source_digest": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+          },
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          }
+        ]
+      },
+      {
+        "id": "gate:hi-review-independence",
+        "completed": false,
+        "priority": 1,
+        "sequence": 4,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/gate:hi-review-independence",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/1",
+            "source_digest": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+          }
+        ]
+      },
+      {
+        "id": "gate:hi-supersession-and-active-turn",
+        "completed": false,
+        "priority": 1,
+        "sequence": 5,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/gate:hi-supersession-and-active-turn",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/7",
+            "source_digest": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+            "source_ref": "goal:praxis-human-interface/1#constraints/5",
+            "source_digest": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+          },
+          {
+            "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+            "source_ref": "goal:praxis-human-interface/1#constraints/6",
+            "source_digest": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-requirement-identity-and-binding",
+        "completed": false,
+        "priority": 2,
+        "sequence": 6,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-requirement-identity-and-binding",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/7",
+            "source_digest": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+          },
+          {
+            "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/8",
+            "source_digest": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-operational-identity-allocation",
+        "completed": false,
+        "priority": 2,
+        "sequence": 7,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-operational-identity-allocation",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+            "source_ref": "goal:praxis-human-interface/1#constraints/10",
+            "source_digest": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-advisory-evidence-staging",
+        "completed": false,
+        "priority": 2,
+        "sequence": 8,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-advisory-evidence-staging",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-advisory-result-intake-and-recovery",
+        "completed": false,
+        "priority": 2,
+        "sequence": 9,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-advisory-result-intake-and-recovery",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/8",
+            "source_digest": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+            "source_ref": "goal:praxis-human-interface/1#constraints/10",
+            "source_digest": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-surface-skew-conformance",
+        "completed": false,
+        "priority": 2,
+        "sequence": 10,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-surface-skew-conformance",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/10",
+            "source_digest": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b"
+          },
+          {
+            "id": "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/11",
+            "source_digest": "sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/9",
+            "source_digest": "sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5"
+          },
+          {
+            "id": "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/2",
+            "source_digest": "sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-provider-advisory-transport",
+        "completed": false,
+        "priority": 2,
+        "sequence": 11,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-provider-advisory-transport",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/1",
+            "source_digest": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-provider-routing-policy",
+        "completed": false,
+        "priority": 2,
+        "sequence": 12,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-provider-routing-policy",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "assumptions:sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6",
+            "source_ref": "goal:praxis-human-interface/1#assumptions/4",
+            "source_digest": "sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-review-principal-provenance",
+        "completed": false,
+        "priority": 3,
+        "sequence": 13,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-review-principal-provenance",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/1",
+            "source_digest": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-ontology-and-surface-contract",
+        "completed": false,
+        "priority": 3,
+        "sequence": 14,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-ontology-and-surface-contract",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/3",
+            "source_digest": "sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3"
+          },
+          {
+            "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/4",
+            "source_digest": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+          },
+          {
+            "id": "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/5",
+            "source_digest": "sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba"
+          },
+          {
+            "id": "assumptions:sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421",
+            "source_ref": "goal:praxis-human-interface/1#assumptions/1",
+            "source_digest": "sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421"
+          },
+          {
+            "id": "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+            "source_ref": "goal:praxis-human-interface/1#assumptions/2",
+            "source_digest": "sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b"
+          },
+          {
+            "id": "assumptions:sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158",
+            "source_ref": "goal:praxis-human-interface/1#assumptions/3",
+            "source_digest": "sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-source-bound-goal-establishment",
+        "completed": false,
+        "priority": 3,
+        "sequence": 15,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-source-bound-goal-establishment",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/1",
+            "source_digest": "sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c"
+          },
+          {
+            "id": "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/2",
+            "source_digest": "sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6"
+          },
+          {
+            "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/3",
+            "source_digest": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+          },
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+            "source_ref": "goal:praxis-human-interface/1#assumptions/2",
+            "source_digest": "sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-governed-planning-orchestration",
+        "completed": false,
+        "priority": 4,
+        "sequence": 16,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-governed-planning-orchestration",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/8",
+            "source_digest": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+          },
+          {
+            "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/10",
+            "source_digest": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+            "source_ref": "goal:praxis-human-interface/1#constraints/10",
+            "source_digest": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+          },
+          {
+            "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/4",
+            "source_digest": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "completed": false,
+        "priority": 4,
+        "sequence": 17,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-model-assisted-interpretation-and-ambiguity",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/1",
+            "source_digest": "sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c"
+          },
+          {
+            "id": "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/2",
+            "source_digest": "sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6"
+          },
+          {
+            "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/3",
+            "source_digest": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+          },
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+            "source_ref": "goal:praxis-human-interface/1#constraints/4",
+            "source_digest": "sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-requirement-evolution-classification-and-successor",
+        "completed": false,
+        "priority": 5,
+        "sequence": 18,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-requirement-evolution-classification-and-successor",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/7",
+            "source_digest": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+            "source_ref": "goal:praxis-human-interface/1#constraints/5",
+            "source_digest": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-evolution-execution-boundary",
+        "completed": false,
+        "priority": 5,
+        "sequence": 19,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-evolution-execution-boundary",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/7",
+            "source_digest": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+            "source_ref": "goal:praxis-human-interface/1#constraints/5",
+            "source_digest": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+          },
+          {
+            "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+            "source_ref": "goal:praxis-human-interface/1#constraints/6",
+            "source_digest": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-human-lifecycle-flow",
+        "completed": false,
+        "priority": 5,
+        "sequence": 20,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-human-lifecycle-flow",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/8",
+            "source_digest": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+          },
+          {
+            "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+            "source_ref": "goal:praxis-human-interface/1#constraints/10",
+            "source_digest": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+          },
+          {
+            "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/4",
+            "source_digest": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-status-and-control-projection",
+        "completed": false,
+        "priority": 5,
+        "sequence": 21,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-status-and-control-projection",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/9",
+            "source_digest": "sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece"
+          },
+          {
+            "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/10",
+            "source_digest": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/2",
+            "source_digest": "sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-installed-human-surface-packaging",
+        "completed": false,
+        "priority": 6,
+        "sequence": 22,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-installed-human-surface-packaging",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/11",
+            "source_digest": "sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/9",
+            "source_digest": "sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5"
+          },
+          {
+            "id": "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/2",
+            "source_digest": "sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+          },
+          {
+            "id": "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+            "source_ref": "goal:praxis-human-interface/1#non_goals/5",
+            "source_digest": "sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba"
+          }
+        ]
+      },
+      {
+        "id": "unit:hi-dogfood-acceptance",
+        "completed": false,
+        "priority": 7,
+        "sequence": 23,
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md#candidate/unit:hi-dogfood-acceptance",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal",
+        "requirements": [
+          {
+            "id": "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/1",
+            "source_digest": "sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c"
+          },
+          {
+            "id": "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/2",
+            "source_digest": "sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6"
+          },
+          {
+            "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/3",
+            "source_digest": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8"
+          },
+          {
+            "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/4",
+            "source_digest": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8"
+          },
+          {
+            "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/5",
+            "source_digest": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b"
+          },
+          {
+            "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/6",
+            "source_digest": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f"
+          },
+          {
+            "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/7",
+            "source_digest": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42"
+          },
+          {
+            "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/8",
+            "source_digest": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d"
+          },
+          {
+            "id": "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/9",
+            "source_digest": "sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece"
+          },
+          {
+            "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/10",
+            "source_digest": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b"
+          },
+          {
+            "id": "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/11",
+            "source_digest": "sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1"
+          },
+          {
+            "id": "success_criteria:sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9",
+            "source_ref": "goal:praxis-human-interface/1#success_criteria/12",
+            "source_digest": "sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9"
+          },
+          {
+            "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/1",
+            "source_digest": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5"
+          },
+          {
+            "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+            "source_ref": "goal:praxis-human-interface/1#constraints/2",
+            "source_digest": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4"
+          },
+          {
+            "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+            "source_ref": "goal:praxis-human-interface/1#constraints/3",
+            "source_digest": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+          },
+          {
+            "id": "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+            "source_ref": "goal:praxis-human-interface/1#constraints/4",
+            "source_digest": "sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276"
+          },
+          {
+            "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+            "source_ref": "goal:praxis-human-interface/1#constraints/5",
+            "source_digest": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb"
+          },
+          {
+            "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+            "source_ref": "goal:praxis-human-interface/1#constraints/6",
+            "source_digest": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+          },
+          {
+            "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+            "source_ref": "goal:praxis-human-interface/1#constraints/7",
+            "source_digest": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+          },
+          {
+            "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+            "source_ref": "goal:praxis-human-interface/1#constraints/8",
+            "source_digest": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571"
+          },
+          {
+            "id": "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+            "source_ref": "goal:praxis-human-interface/1#constraints/9",
+            "source_digest": "sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5"
+          },
+          {
+            "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+            "source_ref": "goal:praxis-human-interface/1#constraints/10",
+            "source_digest": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "dependent": "gate:hi-authority-ceremony",
+        "prerequisite": "unit:hi-governance-decision-dossier",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "gate:hi-review-independence",
+        "prerequisite": "unit:hi-governance-decision-dossier",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "gate:hi-supersession-and-active-turn",
+        "prerequisite": "unit:hi-governance-decision-dossier",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "gate:hi-authority-ceremony",
+        "prerequisite": "unit:hi-authority-gate-mechanism",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "gate:hi-review-independence",
+        "prerequisite": "unit:hi-authority-gate-mechanism",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "gate:hi-supersession-and-active-turn",
+        "prerequisite": "unit:hi-authority-gate-mechanism",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-review-principal-provenance",
+        "prerequisite": "gate:hi-review-independence",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-review-principal-provenance",
+        "prerequisite": "unit:hi-requirement-identity-and-binding",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-ontology-and-surface-contract",
+        "prerequisite": "gate:hi-authority-ceremony",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-source-bound-goal-establishment",
+        "prerequisite": "gate:hi-authority-ceremony",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "gate:hi-authority-ceremony",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-evolution-execution-boundary",
+        "prerequisite": "gate:hi-supersession-and-active-turn",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-provider-advisory-transport",
+        "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-review-principal-provenance",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-advisory-evidence-staging",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-requirement-identity-and-binding",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-source-bound-goal-establishment",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-evolution-execution-boundary",
+        "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-governed-planning-orchestration",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-source-bound-goal-establishment",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-ontology-and-surface-contract",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-human-lifecycle-flow",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-status-and-control-projection",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-surface-skew-conformance",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-installed-human-surface-packaging",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-evolution-execution-boundary",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-provider-advisory-transport",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-provider-routing-policy",
+        "kind": "hard_dependency",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-source-bound-goal-establishment",
+        "prerequisite": "unit:hi-requirement-identity-and-binding",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-provider-advisory-transport",
+        "prerequisite": "unit:hi-advisory-evidence-staging",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-advisory-evidence-staging",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-source-bound-goal-establishment",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-review-principal-provenance",
+        "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-provider-advisory-transport",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-ontology-and-surface-contract",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-evolution-execution-boundary",
+        "prerequisite": "unit:hi-governed-planning-orchestration",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-provider-advisory-transport",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-evolution-execution-boundary",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-status-and-control-projection",
+        "prerequisite": "unit:hi-governed-planning-orchestration",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-status-and-control-projection",
+        "prerequisite": "unit:hi-evolution-execution-boundary",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-status-and-control-projection",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-status-and-control-projection",
+        "prerequisite": "unit:hi-human-lifecycle-flow",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-status-and-control-projection",
+        "prerequisite": "unit:hi-ontology-and-surface-contract",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-source-bound-goal-establishment",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-governed-planning-orchestration",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-human-lifecycle-flow",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-dogfood-acceptance",
+        "prerequisite": "unit:hi-status-and-control-projection",
+        "kind": "consumer",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-source-bound-goal-establishment",
+        "prerequisite": "unit:hi-ontology-and-surface-contract",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-advisory-evidence-staging",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-advisory-result-intake-and-recovery",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-provider-advisory-transport",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-provider-routing-policy",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-governed-planning-orchestration",
+        "prerequisite": "unit:hi-provider-routing-policy",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-governed-planning-orchestration",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-evolution-execution-boundary",
+        "prerequisite": "unit:hi-operational-identity-allocation",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-human-lifecycle-flow",
+        "prerequisite": "unit:hi-provider-routing-policy",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-provider-routing-policy",
+        "prerequisite": "unit:hi-provider-advisory-transport",
+        "kind": "interaction",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-ontology-and-surface-contract",
+        "prerequisite": "unit:hi-surface-skew-conformance",
+        "kind": "advisory",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-provider-routing-policy",
+        "kind": "advisory",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      },
+      {
+        "dependent": "unit:hi-installed-human-surface-packaging",
+        "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+        "kind": "advisory",
+        "source_ref": "docs/research/dogfood/praxis-human-interface/plans/workplan-v3-claude.md",
+        "source_digest": "sha256:966d193d57d41402e414435999aaac138c4af00162101f472ec475470ae963f5",
+        "provenance": "model_proposal"
+      }
+    ]
+  }
+}

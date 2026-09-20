@@ -1,0 +1,107 @@
+{
+  "acceptances": [],
+  "authority_requests": [],
+  "continue_with": "praxis goals-lifecycle --operation=continue --goal-id=praxis-human-interface --goal-version=1",
+  "drivable": false,
+  "goal": {
+    "id": "praxis-human-interface",
+    "version": "1",
+    "digest": "sha256:afda0866398d14a223f3a090d554c820e9e945922a936e6f1edb9c06d9177530",
+    "original_intent": "Make Praxis usable through human intent. An ordinary user should be able to express what they want in human-readable form, have Praxis preserve the source and produce a governed canonical interpretation, resolve only genuine human ambiguities or authority decisions, establish governed execution, evolve requirements over time, and observe or control execution without understanding Praxis internal governance machinery.",
+    "refined_outcome": "Praxis provides a coherent human-facing product interface over its existing deterministic lifecycle. Human-readable input can establish and evolve governed product intent while exact source provenance, canonical interpretation, authority, immutable history, qualified consequences, execution safety, restart/replay behavior, and forensic inspectability remain preserved.",
+    "scope": "Praxis human-facing Goal and product-intent admission, interpretation, establishment, evolution, execution-control, progress, decision, and observability surfaces, including coherence with installed package discovery and help.",
+    "non_goals": [
+      "Remove or weaken Praxis deterministic governance, authority, provenance, evidence, review, recovery, or settlement machinery.",
+      "Hide low-level governance and forensic interfaces from operators or auditors.",
+      "Predetermine whether Story, Intent, Requirement, Goal, Feature, or Task is the correct final human-facing ontology.",
+      "Create a parallel governance system solely to simplify the CLI.",
+      "Require the human-facing interface to use any particular command names proposed in the source Story."
+    ],
+    "constraints": [
+      "Preserve deterministic authority boundaries and immutable historical evidence.",
+      "Preserve exact provenance between human-readable source input and Praxis canonical interpretation.",
+      "Model interpretation must not manufacture human authority, requirements, constraints, risk acceptance, or material product decisions.",
+      "Material ambiguity must be surfaced to the human as a focused consequential decision.",
+      "Existing qualified consequences must remain valid historical product reality unless new authoritative input genuinely invalidates them.",
+      "Provider-owned work must not be silently rewritten or destroyed when human requirements evolve.",
+      "Reuse existing Praxis establishment, GoalBaseline, GoalStore, WorkPlan, review, authority, attachment, Goal-drive, supervision, recovery, settlement, and successor machinery where semantically correct.",
+      "Simplifying the ordinary human interface must not remove operator or governance/forensic access to exact underlying state.",
+      "Installed package manifests, help, dynamic entry points, implementation, and documented user ceremony must remain coherent.",
+      "Operational identifiers that do not represent meaningful human choices should normally be generated and managed by Praxis while preserving deterministic identity and replay properties."
+    ],
+    "success_criteria": [
+      "An ordinary user can provide a human-readable description of a desired outcome without manually constructing canonical GoalBaseline JSON.",
+      "Praxis preserves the exact human source artifact and cryptographically binds it to the canonical governed interpretation.",
+      "The user can inspect what Praxis understood before or as authority is established.",
+      "Praxis asks the human only for material ambiguities or decisions that genuinely require human authority rather than requiring the human to populate internal schemas.",
+      "Praxis can establish governed execution from the human-facing interaction without requiring the ordinary user to manually provide Goal generations, invocation IDs, WorkPlans, proposal digests, review digests, request digests, or acceptance references.",
+      "The human-facing interface supports authoritative requirement evolution after a Goal has been established or while it is executing.",
+      "Requirement evolution performs deterministic impact analysis and preserves still-valid qualified consequences and immutable historical authority.",
+      "After governed reconciliation of changed human requirements, Praxis can autonomously derive and schedule resulting work without human-authored implementation task decomposition.",
+      "A normal user can determine whether Praxis is working, what outcome is being pursued, whether human authority is required, what meaningful progress has occurred, and whether execution is complete, blocked, recovering, paused, or merely at an invocation boundary.",
+      "Operator and forensic interfaces retain access to exact Goals, generations, turns, providers, recoveries, digests, authority lineage, provenance, evidence, and lifecycle records.",
+      "Capabilities present in canonical Praxis source are truthfully exposed and discoverable through the installed product surface.",
+      "The delivered interface is dogfooded by using it for the next real human-authored Praxis or product requirement without manually recreating the bootstrap ceremony used for this Goal."
+    ],
+    "evidence_refs": [
+      "/tmp/praxis-intent-evolution-goal.md",
+      "cmd/praxis/goal_establish.go",
+      "cmd/praxis/goals_lifecycle.go",
+      "internal/goaldrive/invocation.go",
+      "internal/goaldrive/runtime.go",
+      "packages/goals/invocation.go",
+      "docs/PLAN/003-post-release-roadmap.md",
+      "docs/research/dogfood/praxis-issues-96-plus/"
+    ],
+    "assumptions": [
+      "The existing deterministic Praxis lifecycle is substantially correct and should be composed rather than replaced.",
+      "Human-readable Markdown is an appropriate initial human input format but the final architecture may support additional human-facing forms.",
+      "The correct relationship among Story, Intent, Requirement, and Goal remains an architectural question to resolve rather than an assumption of this Goal.",
+      "Provider routing may remain explicitly controllable by operators even if ordinary human workflows eventually use governed defaults or policy."
+    ],
+    "rigor": "rigorous",
+    "recommendation_mode": "review_all",
+    "import_source_ref": "/tmp/praxis-human-interface-establish.json",
+    "import_source_digest": "sha256:1881e31e9185b3c517c8a8b7eecf1aa965edcd9c8a7388883e4016136b6b8f0e"
+  },
+  "governing_state": "unattached",
+  "pending_authority": null,
+  "proposals": [
+    {
+      "candidates": 13,
+      "id": "praxis-human-interface-workplan-proposal-1",
+      "proposal_digest": "sha256:c3903f9f586deca42dfb81cdf1c9b0b2bd59f68c0a06029f6e1d4f62d02a9030",
+      "proposed_by": {
+        "id": "model:claude-sonnet-5:advisory-plan-materializer",
+        "kind": "model"
+      },
+      "proposer_generation": "claude-sonnet-5/advisory-plan@sha256:7556d606fc1a0af36d6cb569f70b3cd12b1cd5d9ae5ff9ebcc31f1dedeb322c6",
+      "review_accept_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:c3903f9f586deca42dfb81cdf1c9b0b2bd59f68c0a06029f6e1d4f62d02a9030 --status=acceptable_for_authority_decision",
+      "review_revise_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:c3903f9f586deca42dfb81cdf1c9b0b2bd59f68c0a06029f6e1d4f62d02a9030 --status=revision_required"
+    },
+    {
+      "candidates": 18,
+      "id": "praxis-human-interface-workplan-proposal-2",
+      "proposal_digest": "sha256:0a451d8b7dfe41dee4e753957e4c17eee7e069341b46a4ae01082dcb9b37a198",
+      "proposed_by": {
+        "id": "model:claude-sonnet-5:advisory-plan-materializer",
+        "kind": "model"
+      },
+      "proposer_generation": "claude-sonnet-5/advisory-plan@sha256:6070c772dfa57e2b3bd85df98d193fd40cbd4488b00139eeddce8c9fa32c922f",
+      "review_accept_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:0a451d8b7dfe41dee4e753957e4c17eee7e069341b46a4ae01082dcb9b37a198 --status=acceptable_for_authority_decision",
+      "review_revise_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:0a451d8b7dfe41dee4e753957e4c17eee7e069341b46a4ae01082dcb9b37a198 --status=revision_required"
+    }
+  ],
+  "reviews": [
+    {
+      "proposal_digest": "sha256:c3903f9f586deca42dfb81cdf1c9b0b2bd59f68c0a06029f6e1d4f62d02a9030",
+      "review_digest": "sha256:b131b45b340e9944287c830af9f92a1ed2ecc1ccfa714667ab4ea2b46882efcb",
+      "review_ref": "review:praxis-human-interface-workplan-proposal-1:model:codex-gpt-5.6-sol:independent-review:1789931114482455000",
+      "reviewed_by": {
+        "id": "model:codex-gpt-5.6-sol:independent-review",
+        "kind": "model"
+      },
+      "status": "revision_required"
+    }
+  ]
+}

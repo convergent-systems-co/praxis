@@ -4,13 +4,13 @@
   "classification": "pre-v4-bootstrap-kernel-qualification",
   "base_commit": "ff146000aadae0ef60981d445056089f52815869",
   "source_manifest": "source-manifest.json",
-  "source_manifest_digest": "sha256:7e02999f0ec246e44ba7d248ae539ef9f859a8d406f6508c91293b26343c3c2b",
+  "source_manifest_digest": "sha256:65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1",
   "results": [
     {
       "command": "go test -count=1 ./pkg/contracts ./internal/bootstrapv4 ./internal/goaldrive ./internal/goalstore ./internal/state ./internal/goalspublication ./internal/publisher ./internal/lifecycle ./internal/faa/... ./internal/crypto ./packages/goals ./cmd/praxis (PRAXIS_REQUIRE_KEYCHAIN=1: no real-Keychain test may skip)",
       "result": "PASS",
       "evidence": [
-        "repair-7-evidence/qualification/focused.log"
+        "repair-7-evidence/qualification/post-commit/focused.log"
       ],
       "summary": "every affected package ok on the frozen source, including the re-key lifecycle tests (rotation on every advance and undo, opaque-file replay refusal, crash recovery at every step, failed and refused re-key, current/pending password-state matrix, missing re-key entry point) against the REAL Keychain backend, with user interaction disabled and a unique service identity per run"
     },
@@ -19,7 +19,7 @@
       "result": "PASS_AFTER_RED",
       "evidence": [
         "repair-7-evidence/qualification/red-n17-unfixed-resolver.log",
-        "repair-7-evidence/qualification/focused.log"
+        "repair-7-evidence/qualification/post-commit/focused.log"
       ],
       "summary": "RED first: with the resolver's currentness edit reverted, a retired delegated package.publish generation still resolves and, after its invalidation row is deleted, reaches the protected signer (calls=1) at both BuildSigningPreview and SignWithPreview; with the repair every predicate passes. Equivalent paths G2-G7 and a child of a superseded root were each reproduced RED before being fixed."
     },
@@ -33,7 +33,7 @@
     {
       "command": "go test -race -count=1 (the affected packages)",
       "result": "PASS",
-      "evidence": "repair-7-evidence/qualification/race.log",
+      "evidence": "repair-7-evidence/qualification/post-commit/race.log",
       "summary": "12 affected packages ok under the race detector, no failure and no data race reported"
     },
     {
@@ -51,8 +51,8 @@
       "command": "go run bootstrap-v4/verify/specification_bundle.go and an independent Python recomputation",
       "result": "PASS",
       "evidence": [
-        "repair-7-evidence/qualification/specification-bundle.log",
-        "repair-7-evidence/qualification/bundle-independent-python.log"
+        "repair-7-evidence/qualification/post-commit/specification-bundle.log",
+        "repair-7-evidence/qualification/post-commit/bundle-independent-python.log"
       ],
       "summary": "the governed specification contract is unchanged by Repair 6 (canonical digest sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a)"
     },
@@ -65,9 +65,9 @@
       "command": "replay of every preserved independent-review probe, unchanged, through go test -overlay (Reviews 2, 3, 4, 5 and 6/N16), each outcome set compared with the recorded one",
       "result": "COUNTEREXAMPLES_NO_LONGER_REPRODUCE",
       "evidence": [
-        "repair-7-evidence/qualification/probe-replay-summary.log",
-        "repair-7-evidence/qualification/image-probe-replay-summary.log",
-        "repair-7-evidence/qualification/probe-replays/",
+        "repair-7-evidence/qualification/post-commit/probe-replay-summary.log",
+        "repair-7-evidence/qualification/post-commit/image-probe-replay-summary.log",
+        "repair-7-evidence/qualification/post-commit/probe-replays/",
         "repair-7-evidence/probes/replay_review_probes.py",
         "repair-7-evidence/probes/image_probe_replay.py"
       ],
@@ -77,7 +77,7 @@
       "command": "boundary and semantic-coverage artifacts: 256-subset evidence powerset (anchor detached and anchored), 4096-store mixed-snapshot enumeration (full, not -short)",
       "result": "PASS",
       "evidence": [
-        "repair-7-evidence/qualification/powerset-and-mixed-snapshot.log"
+        "repair-7-evidence/qualification/post-commit/powerset-and-mixed-snapshot.log"
       ],
       "summary": "TestRepair5EvidencePowersetClassificationQualification (256 subsets, anchor detached and anchored) and TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority (4096 stores) pass in full (not -short) against the Repair 6 source"
     },
@@ -112,7 +112,7 @@
     {
       "command": "independent rebuild of core and plugin (go build ./cmd/praxis, go build ./packages/goals/plugin)",
       "result": "PASS",
-      "evidence": "repair-7-evidence/qualification/rebuild.log",
+      "evidence": "repair-7-evidence/qualification/post-commit/rebuild.log",
       "summary": "core, plugin, package archive and package manifest rebuilt with a fresh GOCACHE are byte-identical to the candidate artifacts"
     },
     {
@@ -203,12 +203,12 @@
     "Recovery of Goal classifications made in an interval lost to a backup restore unless the owner names those Goals in the re-anchor ceremony",
     "The Keychain anchor cannot be silently deleted or, during the unlocked window of a genuine operation, overwritten by another process of the same OS user: measured, deletion is not protected by the platform and is fail-closed (missing or corrupt) with only the governed re-anchor recovering it; overwrite, add and read without the password are refused",
     "Portability or long-term stability of the Keychain re-key: it depends on SecKeychainChangePassword, an exported but undocumented Security.framework entry point, measured only on macOS 26.6.2 arm64; where it is missing or refused every anchor advance fails closed",
+    "Revocation of an already-derived package-deployment approval: it is a bearer approval and a decision revocation or generation invalidation after derivation does not revoke it for its lifetime (an architecture question, not decided here)",
+    "Execution of the goalspublication recovery integration tests, which need externally supplied signed Goals artifacts (PRAXIS_GOALS_QUALIFICATION_ASSETS) that were not available",
     "Universal mutation completeness or exhaustive rollback coverage: the inventory is defined over the enumerated guard universe, and rollback is covered by explicit state-transition tests and by exhaustive enumeration over the finite classes named in the report (256 evidence subsets, 4096 mixed stores), not by syntactic mutation",
     "Resistance to anchor destruction combined with wiping the whole installation (indistinguishable from a new installation), or to a coordinated restore of the database, the dedicated Keychain file and the corresponding earlier login-Keychain password state (R-K2, corrected by Repair 6)",
     "Rollback resistance on platforms without a first-party anchor backend: governed operations there fail closed (no backend, no governed operation)",
-    "Authentication of the plaintext event ledger (settlement decisions, admission fence, activity); no single-row deletion there lets a fresh controller act after revocation because every consequence is re-established from sealed, anchored state at the point of effect",
-    "Revocation of an already-derived package-deployment approval: it is a bearer approval and a decision revocation or generation invalidation after derivation does not revoke it for its lifetime (an architecture question, not decided here)",
-    "Execution of the goalspublication recovery integration tests, which need externally supplied signed Goals artifacts (PRAXIS_GOALS_QUALIFICATION_ASSETS) that were not available"
+    "Authentication of the plaintext event ledger (settlement decisions, admission fence, activity); no single-row deletion there lets a fresh controller act after revocation because every consequence is re-established from sealed, anchored state at the point of effect"
   ],
   "review_repair": {
     "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review.md",

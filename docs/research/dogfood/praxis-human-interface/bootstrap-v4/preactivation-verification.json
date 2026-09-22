@@ -1,7 +1,7 @@
 {
   "activation_claimed": false,
-  "candidate_core_digest": "sha256:86d79f214dac247cc0c56e99b024d23049092494c233097967ffa05600f64996",
-  "candidate_package_content_digest": "sha256:b36792eaee121f5ed906a020cf1716634244a1d2959e4a39ea8363651a1fbd84",
+  "candidate_core_digest": "sha256:0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856",
+  "candidate_package_content_digest": "sha256:96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a",
   "classification": "complete-pre-activation-candidate-evidence",
   "counts": {
     "candidates": 22,
@@ -10,8 +10,8 @@
   },
   "private_or_temporary_inputs": 0,
   "proposal_v4_materialized": false,
-  "qualification_evidence_digest": "sha256:e5bd0da0e3a2fc892f0453467e7706a817308aee808fad72817c83d742d08d9c",
-  "source_manifest_digest": "sha256:7e02999f0ec246e44ba7d248ae539ef9f859a8d406f6508c91293b26343c3c2b",
+  "qualification_evidence_digest": "sha256:39a0ce0026592d698ab4a9cd10868f807c31155b08053ab5492113c71633bdb5",
+  "source_manifest_digest": "sha256:65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1",
   "specification_bundle_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
   "status": "PASS"
 }

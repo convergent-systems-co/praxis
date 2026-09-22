@@ -57,56 +57,56 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit("qualification evidence does not support the record: " + message)
 
 
-race = qlog("qualification/post-commit/race.log")
+race = qlog("post-commit/race.log")
 require("FAIL" not in race and race.count("\nok ") + race.startswith("ok ") == 12, "race.log must show 12 ok packages and no failure")
 python_log = qlog("python.log")
 require("EXIT=0" in python_log and " passed" in python_log, "python.log must show a passing pytest run")
 python_summary = [l for l in python_log.splitlines() if " passed" in l][-1].strip("= ")
 require(json.loads(qlog("specification-bundle.log"))["status"] == "PASS", "specification-bundle.log status")
 require("sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a" in qlog("bundle-independent-python.log"), "independent bundle recomputation")
-focused = qlog("qualification/post-commit/focused.log")
+focused = qlog("post-commit/focused.log")
 require("FAIL" not in focused and focused.count("\nok ") + focused.startswith("ok ") == 12, "focused.log must show 12 ok packages")
 tc = qlog("test-current.log")  # pre-commit run; content identical to committed bytes
 require(tc.rstrip().endswith("EXIT=0"), "test-current.log exit status")
-probe = qlog("qualification/post-commit/probe-replay-summary.log")
+probe = qlog("post-commit/probe-replay-summary.log")
 require(probe.count("OUTCOME SET IDENTICAL") == 8 and "DIFFERENCES" not in probe, "probe replays must all match their recorded outcome sets")
-require("IDENTICAL to Repair 5 replay" in qlog("qualification/post-commit/image-probe-replay-summary.log") and "scenarios=14" in qlog("qualification/post-commit/image-probe-replay-summary.log"), "the process-image A/B drive replay")
-powerset = qlog("qualification/post-commit/powerset-and-mixed-snapshot.log")
+require("IDENTICAL to Repair 5 replay" in qlog("post-commit/image-probe-replay-summary.log") and "scenarios=14" in qlog("post-commit/image-probe-replay-summary.log"), "the process-image A/B drive replay")
+powerset = qlog("post-commit/powerset-and-mixed-snapshot.log")
 require("FAIL" not in powerset and powerset.count("\nok ") + powerset.startswith("ok ") == 2, "powerset and mixed-snapshot enumerations")
 red = qlog("red-n17-unfixed-resolver.log")
 require("N17: a retired delegated package.publish generation still resolves" in red and "re-authorized signing: calls=1" in red, "the RED baseline must show the N17 counterexample reaching the protected signer")
 rebuild = qlog("rebuild.log")
 require(rebuild.count("BYTE-IDENTICAL") == 4 and "DIFFERENT" not in rebuild, "independent rebuild must be byte-identical for all four artifacts")
-require("vet exit 0" in qlog("qualification/post-commit/vet-all.log") and "diff-check exit 0" in qlog("qualification/post-commit/diffcheck.log"), "vet and diff-check")
+require("vet exit 0" in qlog("post-commit/vet-all.log") and "diff-check exit 0" in qlog("post-commit/diffcheck.log"), "vet and diff-check")
 
 qualification["results"] = [
     {"command": "go test -count=1 ./pkg/contracts ./internal/bootstrapv4 ./internal/goaldrive ./internal/goalstore ./internal/state ./internal/goalspublication ./internal/publisher ./internal/lifecycle ./internal/faa/... ./internal/crypto ./packages/goals ./cmd/praxis (PRAXIS_REQUIRE_KEYCHAIN=1: no real-Keychain test may skip)", "result": "PASS",
-     "evidence": [f"{EVIDENCE}/qualification/focused.log"],
+     "evidence": [f"{EVIDENCE}/qualification/post-commit/focused.log"],
      "summary": "every affected package ok on the frozen source, including the re-key lifecycle tests (rotation on every advance and undo, opaque-file replay refusal, crash recovery at every step, failed and refused re-key, current/pending password-state matrix, missing re-key entry point) against the REAL Keychain backend, with user interaction disabled and a unique service identity per run"},
     {"command": "N17 and equivalent-path regressions (internal/goalstore n17_*_test.go, internal/goalspublication n17_owner_currentness_test.go, TestEveryImmutableGenerationConsumerIsClassified)", "result": "PASS_AFTER_RED",
-     "evidence": [f"{EVIDENCE}/qualification/red-n17-unfixed-resolver.log", f"{EVIDENCE}/qualification/focused.log"],
+     "evidence": [f"{EVIDENCE}/qualification/red-n17-unfixed-resolver.log", f"{EVIDENCE}/qualification/post-commit/focused.log"],
      "summary": "RED first: with the resolver's currentness edit reverted, a retired delegated package.publish generation still resolves and, after its invalidation row is deleted, reaches the protected signer (calls=1) at both BuildSigningPreview and SignWithPreview; with the repair every predicate passes. Equivalent paths G2-G7 and a child of a superseded root were each reproduced RED before being fixed."},
     {"command": ".praxis/validate integrated", "effective_command": "make test-current", "result": "PASS",
      "evidence": f"{EVIDENCE}/qualification/test-current.log", "summary": "all packages ok, exit 0"},
-    {"command": "go test -race -count=1 (the affected packages)", "result": "PASS", "evidence": f"{EVIDENCE}/qualification/race.log", "summary": "12 affected packages ok under the race detector, no failure and no data race reported"},
+    {"command": "go test -race -count=1 (the affected packages)", "result": "PASS", "evidence": f"{EVIDENCE}/qualification/post-commit/race.log", "summary": "12 affected packages ok under the race detector, no failure and no data race reported"},
     {"command": "go vet ./...", "result": "PASS", "evidence": f"{EVIDENCE}/qualification/vet-all.log"},
     {"command": "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider", "result": "PASS",
      "evidence": f"{EVIDENCE}/qualification/python.log", "summary": python_summary},
     {"command": "go run bootstrap-v4/verify/specification_bundle.go and an independent Python recomputation", "result": "PASS",
-     "evidence": [f"{EVIDENCE}/qualification/specification-bundle.log", f"{EVIDENCE}/qualification/bundle-independent-python.log"],
+     "evidence": [f"{EVIDENCE}/qualification/post-commit/specification-bundle.log", f"{EVIDENCE}/qualification/post-commit/bundle-independent-python.log"],
      "summary": "the governed specification contract is unchanged by Repair 6 (canonical digest sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a)"},
     {"command": "python3 bootstrap-v4/verify/preactivation_evidence.py", "result": "PASS",
      "summary": "run after this file was written; see preactivation-verification.json"},
     {"command": "replay of every preserved independent-review probe, unchanged, through go test -overlay (Reviews 2, 3, 4, 5 and 6/N16), each outcome set compared with the recorded one", "result": "COUNTEREXAMPLES_NO_LONGER_REPRODUCE",
-     "evidence": [f"{EVIDENCE}/qualification/probe-replay-summary.log", f"{EVIDENCE}/qualification/image-probe-replay-summary.log", f"{EVIDENCE}/qualification/probe-replays/", f"{EVIDENCE}/probes/replay_review_probes.py", f"{EVIDENCE}/probes/image_probe_replay.py"],
+     "evidence": [f"{EVIDENCE}/qualification/post-commit/probe-replay-summary.log", f"{EVIDENCE}/qualification/post-commit/image-probe-replay-summary.log", f"{EVIDENCE}/qualification/post-commit/probe-replays/", f"{EVIDENCE}/probes/replay_review_probes.py", f"{EVIDENCE}/probes/image_probe_replay.py"],
      "summary": "scripts probes/replay_review_probes.py (Reviews 2-6, eight outcome sets identical to the recorded ones) and probes/image_probe_replay.py (Review 3 process-image A/B drive, 14 scenarios, transcript identical to Repair 5 after normalising digests, temporary paths and the probe binary's code-directory hash); Review 6/N16 is expected to FAIL at its attack step (the probe asserts the replay succeeded), which it now does: the earlier dedicated-Keychain file cannot be unlocked with the current password item"},
     {"command": "boundary and semantic-coverage artifacts: 256-subset evidence powerset (anchor detached and anchored), 4096-store mixed-snapshot enumeration (full, not -short)", "result": "PASS",
-     "evidence": [f"{EVIDENCE}/qualification/powerset-and-mixed-snapshot.log"],
+     "evidence": [f"{EVIDENCE}/qualification/post-commit/powerset-and-mixed-snapshot.log"],
      "summary": "TestRepair5EvidencePowersetClassificationQualification (256 subsets, anchor detached and anchored) and TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority (4096 stores) pass in full (not -short) against the Repair 6 source"},
     {"command": "consolidated guard/mutation inventory (harness in repair-6-evidence/mutation)", "result": "SEE_SUMMARY",
      "evidence": f"{EVIDENCE}/mutation-inventory.md", "summary": inventory},
     {"command": "independent rebuild of core and plugin (go build ./cmd/praxis, go build ./packages/goals/plugin)", "result": "PASS",
-     "evidence": f"{EVIDENCE}/qualification/rebuild.log",
+     "evidence": f"{EVIDENCE}/qualification/post-commit/rebuild.log",
      "summary": "core, plugin, package archive and package manifest rebuilt with a fresh GOCACHE are byte-identical to the candidate artifacts"},
     {"command": "go test ./internal/conformance", "result": "FAIL_IMMUTABLE_ATTESTATION_STALE_PREEXISTING", "evidence": f"{EVIDENCE}/qualification/historical.log",
      "observations": ["the suite was already red on the base commit and on the Repair 5 candidate (immutable attestations of source that later work legitimately changed); it stops at the first stale attested source, which varies between runs",
@@ -237,10 +237,10 @@ activation = {
     "specification_bundle": previous["specification_bundle"],
     "specification_bundle_digest": spec["canonical_contract_digest"],
     "activation_blockers": [
-        "fresh complete independent review (Astra Review #8) of this seventh repair; no review clears an area it did not test",
+        "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_7",
+        "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414) and rebuilt from that clean tree; candidate_binary.vcs_modified is now false and this record's identities are recomputed from that committed, rebuilt state",
         "decide, as a separate human/product matter, how an installation whose authority records predate liveness records and the forward authority anchor migrates (a governed re-anchor plus fresh decisions); this candidate performs no backfill",
-        "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance now also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
-        "after review, commit the approved source and rebuild/requalify from a clean tree so the installable core reports vcs_modified:false and the final evidence binds that committed identity",
+        "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
         "separate explicit human authorization for atomic core-binary replacement",
         "governed deployment of the exact goals package candidate after core replacement",
         "after authorized installation/deployment, create a separate final activation manifest containing the exact qualification and specification-bundle digests without rewriting this pre-activation record",

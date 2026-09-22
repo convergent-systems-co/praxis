@@ -2,23 +2,23 @@
   "version": "1",
   "status": "COMPLETE_PRE_ACTIVATION_CANDIDATE",
   "kernel_version": "praxis-human-interface-bootstrap-v4/1",
-  "source_commit": "ff146000aadae0ef60981d445056089f52815869",
-  "source_tree_digest": "sha256:7e02999f0ec246e44ba7d248ae539ef9f859a8d406f6508c91293b26343c3c2b",
-  "build_modified": true,
+  "source_commit": "40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9",
+  "source_tree_digest": "sha256:65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1",
+  "build_modified": false,
   "intended_active_binary_path": "/Users/polliard/bin/praxis",
   "candidate_binary": {
     "path": "artifacts/praxis-candidate",
-    "sha256": "sha256:86d79f214dac247cc0c56e99b024d23049092494c233097967ffa05600f64996",
+    "sha256": "sha256:0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856",
     "version": "2.0.0-dev",
-    "vcs_revision": "ff146000aadae0ef60981d445056089f52815869",
-    "vcs_modified": true
+    "vcs_revision": "40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9",
+    "vcs_modified": false
   },
   "candidate_goals_package": {
     "package_id": "praxis.package.goals",
     "version": "0.1.5",
-    "content_digest": "sha256:b36792eaee121f5ed906a020cf1716634244a1d2959e4a39ea8363651a1fbd84",
-    "manifest_digest": "sha256:fc3e692563f552ca0ee43ea901673ebf5cab2390d3b5d516ca0f197df2bb11d4",
-    "executable_digest": "sha256:b2f8ea655c2199573dfa244102d06ce770eb2c9c4c889974c1d2b880b722d6ff",
+    "content_digest": "sha256:96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a",
+    "manifest_digest": "sha256:e69beead490802288a4c478eb0b62c3c961a9b1b9b53df63399d39b664a99cd3",
+    "executable_digest": "sha256:a4c87cd2dbbb0e948fa1ddd5cc26661f0e01669685832bb9c83982f6b04b3c4c",
     "contract_digest": "sha256:5acebd861e0d87f9ea230201a3136bbe2798424a4fc30ffff7c49a1fd4e2f043",
     "manifest_path": "artifacts/package/praxis-package.json",
     "archive_path": "artifacts/package/praxis-package.tar.gz"
@@ -29,7 +29,7 @@
     "description_path": "validation-profile.json",
     "description_sha256": "sha256:12d3f0a1e97a33591d1a320213ba55e9db008bc9d234297c3057b45bc2d1a55a"
   },
-  "qualification_evidence_digest": "sha256:e5bd0da0e3a2fc892f0453467e7706a817308aee808fad72817c83d742d08d9c",
+  "qualification_evidence_digest": "sha256:39a0ce0026592d698ab4a9cd10868f807c31155b08053ab5492113c71633bdb5",
   "specification_bundle": {
     "manifest_path": "specification-bundle/manifest.json",
     "manifest_sha256": "sha256:5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215",
@@ -40,10 +40,10 @@
   },
   "specification_bundle_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
   "activation_blockers": [
-    "fresh complete independent review (Astra Review #8) of this seventh repair; no review clears an area it did not test",
+    "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_7",
+    "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414) and rebuilt from that clean tree; candidate_binary.vcs_modified is now false and this record's identities are recomputed from that committed, rebuilt state",
     "decide, as a separate human/product matter, how an installation whose authority records predate liveness records and the forward authority anchor migrates (a governed re-anchor plus fresh decisions); this candidate performs no backfill",
-    "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance now also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
-    "after review, commit the approved source and rebuild/requalify from a clean tree so the installable core reports vcs_modified:false and the final evidence binds that committed identity",
+    "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
     "separate explicit human authorization for atomic core-binary replacement",
     "governed deployment of the exact goals package candidate after core replacement",
     "after authorized installation/deployment, create a separate final activation manifest containing the exact qualification and specification-bundle digests without rewriting this pre-activation record",

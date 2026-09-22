@@ -1,18 +1,17 @@
-# Repair 7 post-commit rebuild (clean tree, vcs.modified=false) vs. fresh independent rebuild
-# committed at: fd68f8b0a4144e4212531eb361db90b1743d43d8
-# source manifest sha256: 65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1
-a73ae1b364e01a9e660df7e84c7230eafb137d919c283c0f6b129a2ee4db3d13  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-candidate
-a73ae1b364e01a9e660df7e84c7230eafb137d919c283c0f6b129a2ee4db3d13  independent rebuild  BYTE-IDENTICAL
-0672058fc3bc8b1ab9c114ace4dca248f637dca3b973df357840f22bc444f7ba  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-goals-plugin-candidate
-0672058fc3bc8b1ab9c114ace4dca248f637dca3b973df357840f22bc444f7ba  independent rebuild  BYTE-IDENTICAL
-d84d8d0783acada6486e097fafe7531841f6b3c22a44d826b6e786117bc17c7d  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.tar.gz
-d84d8d0783acada6486e097fafe7531841f6b3c22a44d826b6e786117bc17c7d  independent rebuild  BYTE-IDENTICAL
-58ca3a04ea4d131e1e66fe629f7caa8aa030d0fa9edb97f2d9cecfa774b5b2de  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.json
-58ca3a04ea4d131e1e66fe629f7caa8aa030d0fa9edb97f2d9cecfa774b5b2de  independent rebuild  BYTE-IDENTICAL
+# Repair 7 FINAL post-commit rebuild vs. independent fresh-cache rebuild
+# source-identity commit: 40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9
+0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-candidate
+0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856  independent rebuild  BYTE-IDENTICAL
+a4c87cd2dbbb0e948fa1ddd5cc26661f0e01669685832bb9c83982f6b04b3c4c  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-goals-plugin-candidate
+a4c87cd2dbbb0e948fa1ddd5cc26661f0e01669685832bb9c83982f6b04b3c4c  independent rebuild  BYTE-IDENTICAL
+96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.tar.gz
+96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a  independent rebuild  BYTE-IDENTICAL
+e69beead490802288a4c478eb0b62c3c961a9b1b9b53df63399d39b664a99cd3  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.json
+e69beead490802288a4c478eb0b62c3c961a9b1b9b53df63399d39b664a99cd3  independent rebuild  BYTE-IDENTICAL
 	build	CGO_ENABLED=1
 	build	GOARCH=arm64
 	build	GOOS=darwin
 	build	vcs=git
-	build	vcs.revision=719fa52a5e855856e88c027f4f1ecc1485ee602f
-	build	vcs.time=2026-09-22T09:40:56Z
+	build	vcs.revision=40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9
+	build	vcs.time=2026-09-22T09:54:44Z
 	build	vcs.modified=false

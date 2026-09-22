@@ -72,35 +72,99 @@ func localDigest(b []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// Symlink policy (Astra Review 2, finding L2): a lexical containment check
+// alone (filepath.Abs + filepath.Rel) proves nothing about the filesystem —
+// a directory symlink placed lexically beneath Root can resolve to a
+// filesystem object outside it, and os.ReadFile follows it regardless of
+// what the lexical path claims. This package does not need symlink support
+// for its stated purpose (acquiring a package an operator built and placed
+// under one canonical directory), so the policy is the simplest coherent
+// one: every path component strictly below the resolved Root, for every
+// file this adapter reads, must not be a symlink. Root itself MAY be a
+// symlink — it is operator-supplied configuration, not attacker-influenced
+// input — and is canonicalized once via filepath.EvalSymlinks so later
+// containment comparisons are against the real, resolved root rather than
+// an alias of it.
+//
+// Combined with the existing lexical containment check, this is sufficient:
+// if no component below Root is a symlink, the lexical path and the real
+// filesystem path are identical, so lexical containment IS filesystem
+// containment. There is no separate "resolve symlinks and re-check
+// containment" step, because symlinks below Root are refused outright
+// rather than followed and re-validated.
+
+// noSymlinksBelow refuses if any path component strictly below root, up to
+// and including target, is itself a symlink (checked with os.Lstat, which
+// does not follow symlinks, so a symlinked component is observed directly
+// rather than resolved through). target must already be known to be a
+// lexical descendant of root.
+func noSymlinksBelow(root, target string) error {
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s is not beneath %s", target, root)
+	}
+	current := root
+	for _, segment := range strings.Split(rel, string(filepath.Separator)) {
+		if segment == "" {
+			continue
+		}
+		current = filepath.Join(current, segment)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%s is a symlink; local-first-party acquisition refuses a symlinked path component", current)
+		}
+	}
+	return nil
+}
+
 // versionDir resolves the on-disk directory for one package id/version and
-// requires it to remain a descendant of Root. repo and version are attacker
+// requires it to remain a descendant of the resolved Root, with no symlink
+// anywhere in the path between them. repo and version are attacker
 // influenced (a package.PackageID has no character restriction, and repo is
 // taken directly from a package.deploy-intent-preview CLI argument), so
 // filepath.Join alone is not a containment guarantee: a crafted "../"-shaped
-// segment can walk outside Root. This is resolved with filepath.Abs on both
-// Root and the joined candidate and a filepath.Rel containment check,
-// refusing (not merely warning) whenever the resolved directory is not
-// exactly Root or a descendant of it.
-func (a LocalFirstParty) versionDir(repo, version string) (string, error) {
+// segment can walk outside Root lexically, and a symlink placed beneath Root
+// can resolve outside it at the filesystem level even when the lexical path
+// looks contained. Both are refused here, not merely warned about.
+func (a LocalFirstParty) versionDir(repo, version string) (root, dir string, err error) {
 	if a.Root == "" {
-		return "", errors.New("local-first-party adapter requires an explicit Root")
+		return "", "", errors.New("local-first-party adapter requires an explicit Root")
 	}
 	if repo == "" || version == "" {
-		return "", errors.New("local-first-party package id and version are required")
+		return "", "", errors.New("local-first-party package id and version are required")
 	}
-	root, err := filepath.Abs(a.Root)
+	root, err = filepath.EvalSymlinks(a.Root)
 	if err != nil {
-		return "", fmt.Errorf("resolve local-first-party root: %w", err)
+		return "", "", fmt.Errorf("resolve local-first-party root: %w", err)
 	}
-	dir, err := filepath.Abs(filepath.Join(root, repo, version))
+	dir, err = filepath.Abs(filepath.Join(root, repo, version))
 	if err != nil {
-		return "", fmt.Errorf("resolve local package %s/%s directory: %w", repo, version, err)
+		return "", "", fmt.Errorf("resolve local package %s/%s directory: %w", repo, version, err)
 	}
 	rel, err := filepath.Rel(root, dir)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("local package %s/%s resolves outside the configured local package root", repo, version)
+		return "", "", fmt.Errorf("local package %s/%s resolves outside the configured local package root", repo, version)
 	}
-	return dir, nil
+	if err := noSymlinksBelow(root, dir); err != nil {
+		return "", "", fmt.Errorf("local package %s/%s: %w", repo, version, err)
+	}
+	return root, dir, nil
+}
+
+// readContainedFile reads name from dir, first refusing if name itself (or
+// any component above it down to root, already checked by versionDir for
+// dir) is a symlink. Every file this adapter reads goes through this, not
+// through a bare os.ReadFile, so the symlink policy above applies uniformly
+// to identity.json, manifest.json, artifact.tar.gz, and signature.json.
+func readContainedFile(root, dir, name string) ([]byte, error) {
+	path := filepath.Join(dir, name)
+	if err := noSymlinksBelow(root, path); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
 }
 
 // load reads, pins, and cross-checks one local package version. Every
@@ -111,11 +175,11 @@ func (a LocalFirstParty) load(ref PackageRef, version string) (Release, []byte, 
 	if ref.Source != SourceLocalFirstParty {
 		return Release{}, nil, fmt.Errorf("local-first-party adapter cannot resolve source %q", ref.Source)
 	}
-	dir, err := a.versionDir(ref.Repo, version)
+	root, dir, err := a.versionDir(ref.Repo, version)
 	if err != nil {
 		return Release{}, nil, err
 	}
-	pinnedBytes, err := os.ReadFile(filepath.Join(dir, "identity.json"))
+	pinnedBytes, err := readContainedFile(root, dir, "identity.json")
 	if err != nil {
 		return Release{}, nil, fmt.Errorf("local package %s/%s: missing pinned identity: %w", ref.Repo, version, err)
 	}
@@ -123,14 +187,14 @@ func (a LocalFirstParty) load(ref PackageRef, version string) (Release, []byte, 
 	if err := json.Unmarshal(pinnedBytes, &pinned); err != nil || pinned.ManifestDigest == "" || pinned.ArtifactDigest == "" {
 		return Release{}, nil, fmt.Errorf("local package %s/%s: pinned identity is malformed", ref.Repo, version)
 	}
-	manifestBytes, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	manifestBytes, err := readContainedFile(root, dir, "manifest.json")
 	if err != nil {
 		return Release{}, nil, fmt.Errorf("local package %s/%s: missing manifest: %w", ref.Repo, version, err)
 	}
 	if d := localDigest(manifestBytes); d != pinned.ManifestDigest {
 		return Release{}, nil, fmt.Errorf("local package %s/%s: manifest on disk does not match its pinned identity (got %s, want %s)", ref.Repo, version, d, pinned.ManifestDigest)
 	}
-	artifactBytes, err := os.ReadFile(filepath.Join(dir, "artifact.tar.gz"))
+	artifactBytes, err := readContainedFile(root, dir, "artifact.tar.gz")
 	if err != nil {
 		return Release{}, nil, fmt.Errorf("local package %s/%s: missing artifact: %w", ref.Repo, version, err)
 	}
@@ -151,7 +215,7 @@ func (a LocalFirstParty) load(ref PackageRef, version string) (Release, []byte, 
 		Ref: ref, Tag: version, ManifestDigest: pinned.ManifestDigest,
 		Manifest: manifest, ManifestBytes: manifestBytes,
 	}
-	if sigBytes, err := os.ReadFile(filepath.Join(dir, "signature.json")); err == nil {
+	if sigBytes, err := readContainedFile(root, dir, "signature.json"); err == nil {
 		var sig packagecatalog.SignatureEnvelope
 		if err := json.Unmarshal(sigBytes, &sig); err != nil {
 			return Release{}, nil, fmt.Errorf("local package %s/%s: malformed signature envelope: %w", ref.Repo, version, err)

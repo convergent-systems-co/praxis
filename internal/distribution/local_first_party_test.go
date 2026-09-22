@@ -361,3 +361,172 @@ func TestLocalFirstPartyRefusesPathTraversalEvenWithMatchingManifestID(t *testin
 		t.Fatal("ResolveLocked escaped the configured Root via a traversal-shaped dependency PackageID")
 	}
 }
+
+// --- Astra Review 2, finding L2: symlink-based containment escapes. ---
+//
+// Each test below plants a self-consistent, correctly-pinned package
+// fixture entirely OUTSIDE a configured Root, then makes it reachable from
+// inside Root only through a symlink at one specific point in the chain
+// (package directory, version directory, identity.json, manifest.json, or
+// artifact.tar.gz), matching Review 2's exact reproduction shape. Every one
+// must be refused; a bare identity/digest match is not sufficient evidence
+// of containment, since the whole point of this class of test is that the
+// lexical path can look contained while the filesystem object is not.
+
+func writeFixtureFilesAt(t *testing.T, dir string, artifact []byte, packageID, version string) {
+	t.Helper()
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: packageID, Version: version, ContentDigest: sha256Digest(artifact)}
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), manifestBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "artifact.tar.gz"), artifact, 0600); err != nil {
+		t.Fatal(err)
+	}
+	identity := localPinnedIdentity{ManifestDigest: sha256Digest(manifestBytes), ArtifactDigest: manifest.ContentDigest}
+	identityBytes, err := json.Marshal(identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "identity.json"), identityBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertLocalAcquisitionRefused(t *testing.T, root, repo, version string) {
+	t.Helper()
+	adapter := LocalFirstParty{Root: root}
+	ref := PackageRef{Source: SourceLocalFirstParty, Owner: "local", Repo: repo}
+	if _, err := adapter.Resolve(context.Background(), ref, version); err == nil {
+		t.Fatalf("Resolve(%q,%q) escaped Root through a symlink and must have been refused", repo, version)
+	}
+	if _, err := adapter.Info(context.Background(), ref, version); err == nil {
+		t.Fatalf("Info(%q,%q) escaped Root through a symlink and must have been refused", repo, version)
+	}
+	dep := packagecatalog.Dependency{PackageID: repo, Version: version, SourceKind: SourceLocalFirstParty, SourceRef: repo}
+	if _, err := adapter.ResolveLocked(context.Background(), dep); err == nil {
+		t.Fatalf("ResolveLocked(%q,%q) escaped Root through a symlink and must have been refused", repo, version)
+	}
+}
+
+func TestLocalFirstPartyRefusesPackageDirectorySymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFixtureFilesAt(t, filepath.Join(outside, "alias", "pkg", "1"), []byte("outside bytes via package-dir symlink"), "alias/pkg", "1")
+	if err := os.Symlink(filepath.Join(outside, "alias"), filepath.Join(root, "alias")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "alias/pkg", "1")
+}
+
+func TestLocalFirstPartyRefusesVersionDirectorySymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFixtureFilesAt(t, filepath.Join(outside, "evil-version"), []byte("outside bytes via version-dir symlink"), "pkg", "1")
+	if err := os.MkdirAll(filepath.Join(root, "pkg"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "evil-version"), filepath.Join(root, "pkg", "1")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "pkg", "1")
+}
+
+func TestLocalFirstPartyRefusesIntermediateSymlinkComponent(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFixtureFilesAt(t, filepath.Join(outside, "ns-target", "pkg", "1"), []byte("outside bytes via intermediate namespace symlink"), "ns/pkg", "1")
+	if err := os.Symlink(filepath.Join(outside, "ns-target"), filepath.Join(root, "ns")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "ns/pkg", "1")
+}
+
+func TestLocalFirstPartyRefusesIdentityFileSymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	dir := filepath.Join(root, "pkg", "1")
+	writeFixtureFilesAt(t, dir, []byte("legitimate bytes"), "pkg", "1")
+	// Plant a different identity.json outside and replace the real one with
+	// a symlink to it.
+	outsideIdentity := filepath.Join(outside, "identity.json")
+	if err := os.WriteFile(outsideIdentity, []byte(`{"manifest_digest":"sha256:00","artifact_digest":"sha256:00"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "identity.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideIdentity, filepath.Join(dir, "identity.json")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "pkg", "1")
+}
+
+func TestLocalFirstPartyRefusesManifestSymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	dir := filepath.Join(root, "pkg", "1")
+	writeFixtureFilesAt(t, dir, []byte("legitimate bytes"), "pkg", "1")
+	outsideManifest := filepath.Join(outside, "manifest.json")
+	if err := os.WriteFile(outsideManifest, []byte(`{"package_id":"pkg","version":"1"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "manifest.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideManifest, filepath.Join(dir, "manifest.json")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "pkg", "1")
+}
+
+func TestLocalFirstPartyRefusesArchiveSymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	dir := filepath.Join(root, "pkg", "1")
+	writeFixtureFilesAt(t, dir, []byte("legitimate bytes"), "pkg", "1")
+	outsideArchive := filepath.Join(outside, "artifact.tar.gz")
+	if err := os.WriteFile(outsideArchive, []byte("different outside bytes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "artifact.tar.gz")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideArchive, filepath.Join(dir, "artifact.tar.gz")); err != nil {
+		t.Fatal(err)
+	}
+	assertLocalAcquisitionRefused(t, root, "pkg", "1")
+}
+
+// TestLocalFirstPartyAllowsRootItselfToBeASymlink establishes the explicit
+// policy for Root itself (as opposed to anything below it): Root is
+// operator-supplied configuration, not attacker-influenced input, so it may
+// be a symlink to the operator's real package directory. Ordinary
+// acquisition of a legitimate package placed entirely beneath the real
+// directory that Root points at must still succeed.
+func TestLocalFirstPartyAllowsRootItselfToBeASymlink(t *testing.T) {
+	real := t.TempDir()
+	artifact := []byte("exact qualified goals package bytes")
+	writeFixtureFilesAt(t, filepath.Join(real, "praxis.package.goals", "0.1.5"), artifact, "praxis.package.goals", "0.1.5")
+	parent := t.TempDir()
+	rootLink := filepath.Join(parent, "root-symlink")
+	if err := os.Symlink(real, rootLink); err != nil {
+		t.Fatal(err)
+	}
+	adapter := LocalFirstParty{Root: rootLink}
+	ref := PackageRef{Source: SourceLocalFirstParty, Owner: "local", Repo: "praxis.package.goals"}
+	release, err := adapter.Resolve(context.Background(), ref, "0.1.5")
+	if err != nil {
+		t.Fatalf("a legitimate package under a symlinked Root must still be acquirable: %v", err)
+	}
+	got, err := adapter.FetchArtifact(context.Background(), release)
+	if err != nil || string(got) != string(artifact) {
+		t.Fatalf("FetchArtifact through a symlinked Root: got=(%q,%v)", got, err)
+	}
+}

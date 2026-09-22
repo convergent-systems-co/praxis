@@ -269,7 +269,7 @@ func parseGitHubPackageRef(raw string) (distribution.PackageRef, string, error) 
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return distribution.PackageRef{}, "", fmt.Errorf("GitHub package reference must be owner/repo[@tag], got %q", raw)
 	}
-	return distribution.PackageRef{Source: "github-releases", Owner: parts[0], Repo: parts[1]}, version, nil
+	return distribution.PackageRef{Source: distribution.SourceGitHubReleases, Owner: parts[0], Repo: parts[1]}, version, nil
 }
 
 func verifyReleasePackage(release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (packagecatalog.VerifiedPackage, error) {
@@ -298,19 +298,29 @@ func verifyReleasePackage(release distribution.Release, artifact []byte, getenv 
 	return verified, nil
 }
 
-func resolveReleasePackages(ctx context.Context, adapter distribution.GitHubReleases, release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (distribution.Resolution, error) {
+// resolveReleasePackages verifies one root release and its locked
+// dependency closure. adapter is whichever transport actually resolved
+// release; it is registered under release.Ref.Source, the same source
+// string that release's dependency locks (if any) must themselves carry to
+// be resolvable. This keeps transport selection purely a routing decision:
+// packagecatalog.VerifyPackage runs identically regardless of which
+// distribution.RootAdapter supplied the bytes.
+func resolveReleasePackages(ctx context.Context, adapter distribution.RootAdapter, release distribution.Release, artifact []byte, getenv func(string) string, allowPQPreferredFallback bool, at time.Time) (distribution.Resolution, error) {
 	if err := checkGoalsPublicationAcquisition(ctx, release, artifact, getenv); err != nil {
 		return distribution.Resolution{}, err
 	}
 	if len(artifact) == 0 || len(release.ManifestBytes) == 0 {
 		return distribution.Resolution{}, errors.New("immutable downloaded manifest and artifact bytes are required")
 	}
+	if release.Ref.Source == "" {
+		return distribution.Resolution{}, errors.New("release has no distribution source")
+	}
 	keys, err := loadTrustedPublisherKeys(getenv)
 	if err != nil {
 		return distribution.Resolution{}, err
 	}
 	resolver := distribution.Resolver{
-		Sources:         map[string]distribution.LockedAdapter{"github-releases": adapter},
+		Sources:         map[string]distribution.LockedAdapter{release.Ref.Source: adapter},
 		Verifiers:       []packagecatalog.SignatureVerifier{packagecatalog.Ed25519Verifier{TrustedKeys: keys}},
 		AllowPQFallback: allowPQPreferredFallback,
 		VerifiedAt:      at,

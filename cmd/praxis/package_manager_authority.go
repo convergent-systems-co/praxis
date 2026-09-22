@@ -334,6 +334,35 @@ func runPackageManagerDeploymentApprove(args []string, getenv func(string) strin
 	return printJSONTo(out, map[string]any{"operation": "authority.package-deploy-approve", "request_digest": requestDigest, "decision": decision, "approval_id": approvalID})
 }
 
+// parsePackageDeployRef routes one package-deploy-intent-preview argument to
+// its exact transport. "local:<package-id>@<version>" selects the
+// local-first-party adapter, rooted at the required PRAXIS_LOCAL_PACKAGES_DIR;
+// anything else is parsed exactly as before, unchanged, as a GitHub
+// owner/repo[@tag] reference. An argument that matches neither recognized
+// form fails closed through parseGitHubPackageRef's own format error; there
+// is no silent default transport.
+func parsePackageDeployRef(raw string, getenv func(string) string) (distribution.PackageRef, string, distribution.RootAdapter, error) {
+	if strings.HasPrefix(raw, "local:") {
+		spec := strings.TrimPrefix(raw, "local:")
+		at := strings.LastIndex(spec, "@")
+		if at <= 0 || at == len(spec)-1 {
+			return distribution.PackageRef{}, "", nil, fmt.Errorf("local package reference must be local:<package-id>@<version>, got %q", raw)
+		}
+		packageID, version := spec[:at], spec[at+1:]
+		root := getenv("PRAXIS_LOCAL_PACKAGES_DIR")
+		if root == "" {
+			return distribution.PackageRef{}, "", nil, errors.New("PRAXIS_LOCAL_PACKAGES_DIR is required for a local-first-party package reference")
+		}
+		ref := distribution.PackageRef{Source: distribution.SourceLocalFirstParty, Owner: "local", Repo: packageID}
+		return ref, version, distribution.LocalFirstParty{Root: root}, nil
+	}
+	ref, version, err := parseGitHubPackageRef(raw)
+	if err != nil {
+		return distribution.PackageRef{}, "", nil, err
+	}
+	return ref, version, distribution.GitHubReleases{Token: getenv("GITHUB_TOKEN")}, nil
+}
+
 func runPackageDeploymentIntentPreview(args []string, getenv func(string) string, out io.Writer) error {
 	f := flag.NewFlagSet("authority package-deploy-intent-preview", flag.ContinueOnError)
 	output := f.String("output", "", "optional system-produced intent preview JSON path")
@@ -341,13 +370,12 @@ func runPackageDeploymentIntentPreview(args []string, getenv func(string) string
 		return err
 	}
 	if f.NArg() != 1 {
-		return errors.New("usage: praxis authority package-deploy-intent-preview <owner/repo[@tag]> [--output <file>]")
+		return errors.New("usage: praxis authority package-deploy-intent-preview <owner/repo[@tag]|local:<package-id>@<version>> [--output <file>]")
 	}
-	ref, version, err := parseGitHubPackageRef(f.Arg(0))
+	ref, version, adapter, err := parsePackageDeployRef(f.Arg(0), getenv)
 	if err != nil {
 		return err
 	}
-	adapter := distribution.GitHubReleases{Token: getenv("GITHUB_TOKEN")}
 	release, err := adapter.Resolve(context.Background(), ref, version)
 	if err != nil {
 		return err

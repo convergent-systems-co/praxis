@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -529,4 +530,76 @@ func TestLocalFirstPartyAllowsRootItselfToBeASymlink(t *testing.T) {
 	if err != nil || string(got) != string(artifact) {
 		t.Fatalf("FetchArtifact through a symlinked Root: got=(%q,%v)", got, err)
 	}
+}
+
+// TestLocalFirstPartyResolveRaceCannotObserveExternalBytesAcrossSwaps
+// reproduces Astra Review 3's finding L3 shape (a component checked as safe
+// is swapped for an escaping symlink before the bytes are actually read)
+// against the os.Root-based implementation. Unlike the prior
+// check-then-open code, there is no separate check to interleave against:
+// every read is a single os.Root call. This test cannot prove a negative
+// for all time, but it races many concurrent resolutions against a
+// background goroutine continuously alternating a path component between a
+// symlink that stays within Root (safe, and must be followed) and one that
+// escapes it (must always be refused) and asserts that no successful read,
+// across thousands of iterations under concurrent mutation, ever observes
+// the external bytes.
+func TestLocalFirstPartyResolveRaceCannotObserveExternalBytesAcrossSwaps(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	insideArtifact := []byte("inside-bytes")
+	outsideArtifact := []byte("OUTSIDE-BYTES-MUST-NEVER-BE-OBSERVED")
+	// A real, permanent directory INSIDE root: a symlink to this is a safe,
+	// non-escaping reference os.Root must be willing to follow.
+	writeFixtureFilesAt(t, filepath.Join(root, "pivot-real", "pkg", "1"), insideArtifact, "pivot/pkg", "1")
+	// A real, permanent directory OUTSIDE root: a symlink to this must
+	// always be refused, no matter when it is observed.
+	writeFixtureFilesAt(t, filepath.Join(outside, "pivot-outside", "pkg", "1"), outsideArtifact, "pivot/pkg", "1")
+
+	pivot := filepath.Join(root, "pivot")
+	safeTarget := filepath.Join(root, "pivot-real")
+	escapingTarget := filepath.Join(outside, "pivot-outside")
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		toggle := false
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			_ = os.Remove(pivot)
+			if toggle {
+				_ = os.Symlink(safeTarget, pivot)
+			} else {
+				_ = os.Symlink(escapingTarget, pivot)
+			}
+			toggle = !toggle
+		}
+	}()
+
+	adapter := LocalFirstParty{Root: root}
+	ref := PackageRef{Source: SourceLocalFirstParty, Owner: "local", Repo: "pivot/pkg"}
+	const iterations = 4000
+	for i := 0; i < iterations; i++ {
+		release, err := adapter.Resolve(context.Background(), ref, "1")
+		if err != nil {
+			continue // pivot mid-swap (removed) or correctly refused -- both fine
+		}
+		got, err := adapter.FetchArtifact(context.Background(), release)
+		if err != nil {
+			continue // refused between Resolve and FetchArtifact -- fine, not the failure mode under test
+		}
+		if string(got) == string(outsideArtifact) {
+			close(stop)
+			wg.Wait()
+			t.Fatalf("iteration %d: FetchArtifact returned external bytes acquired through a racing symlink swap", i)
+		}
+	}
+	close(stop)
+	wg.Wait()
 }

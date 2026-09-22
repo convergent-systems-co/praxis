@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[6]
 BASE = ROOT / "docs/research/dogfood/praxis-human-interface/bootstrap-v4"
 EVIDENCE = "repair-7-evidence"
+POST_COMMIT = EVIDENCE + "/qualification/post-commit"
 
 
 def digest(path: Path) -> str:
@@ -56,27 +57,27 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit("qualification evidence does not support the record: " + message)
 
 
-race = qlog("race.log")
+race = qlog("qualification/post-commit/race.log")
 require("FAIL" not in race and race.count("\nok ") + race.startswith("ok ") == 12, "race.log must show 12 ok packages and no failure")
 python_log = qlog("python.log")
 require("EXIT=0" in python_log and " passed" in python_log, "python.log must show a passing pytest run")
 python_summary = [l for l in python_log.splitlines() if " passed" in l][-1].strip("= ")
 require(json.loads(qlog("specification-bundle.log"))["status"] == "PASS", "specification-bundle.log status")
 require("sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a" in qlog("bundle-independent-python.log"), "independent bundle recomputation")
-focused = qlog("focused.log")
+focused = qlog("qualification/post-commit/focused.log")
 require("FAIL" not in focused and focused.count("\nok ") + focused.startswith("ok ") == 12, "focused.log must show 12 ok packages")
-tc = qlog("test-current.log")
+tc = qlog("test-current.log")  # pre-commit run; content identical to committed bytes
 require(tc.rstrip().endswith("EXIT=0"), "test-current.log exit status")
-probe = qlog("probe-replay-summary.log")
+probe = qlog("qualification/post-commit/probe-replay-summary.log")
 require(probe.count("OUTCOME SET IDENTICAL") == 8 and "DIFFERENCES" not in probe, "probe replays must all match their recorded outcome sets")
-require("IDENTICAL to Repair 5 replay" in qlog("image-probe-replay-summary.log") and "scenarios=14" in qlog("image-probe-replay-summary.log"), "the process-image A/B drive replay")
-powerset = qlog("powerset-and-mixed-snapshot.log")
+require("IDENTICAL to Repair 5 replay" in qlog("qualification/post-commit/image-probe-replay-summary.log") and "scenarios=14" in qlog("qualification/post-commit/image-probe-replay-summary.log"), "the process-image A/B drive replay")
+powerset = qlog("qualification/post-commit/powerset-and-mixed-snapshot.log")
 require("FAIL" not in powerset and powerset.count("\nok ") + powerset.startswith("ok ") == 2, "powerset and mixed-snapshot enumerations")
 red = qlog("red-n17-unfixed-resolver.log")
 require("N17: a retired delegated package.publish generation still resolves" in red and "re-authorized signing: calls=1" in red, "the RED baseline must show the N17 counterexample reaching the protected signer")
 rebuild = qlog("rebuild.log")
 require(rebuild.count("BYTE-IDENTICAL") == 4 and "DIFFERENT" not in rebuild, "independent rebuild must be byte-identical for all four artifacts")
-require("vet exit 0" in qlog("vet-all.log") and "diff-check exit 0" in qlog("diffcheck.log"), "vet and diff-check")
+require("vet exit 0" in qlog("qualification/post-commit/vet-all.log") and "diff-check exit 0" in qlog("qualification/post-commit/diffcheck.log"), "vet and diff-check")
 
 qualification["results"] = [
     {"command": "go test -count=1 ./pkg/contracts ./internal/bootstrapv4 ./internal/goaldrive ./internal/goalstore ./internal/state ./internal/goalspublication ./internal/publisher ./internal/lifecycle ./internal/faa/... ./internal/crypto ./packages/goals ./cmd/praxis (PRAXIS_REQUIRE_KEYCHAIN=1: no real-Keychain test may skip)", "result": "PASS",

@@ -37,6 +37,30 @@ Everything the transition invalidates was re-run against this exact committed so
 
 **Remaining activation blockers**, per the regenerated `candidate-activation-requirements.json`: the migration decision for authority records predating liveness/the anchor; the per-build Keychain access prompt after core replacement; separate explicit human authorization for atomic core-binary replacement; governed deployment of the exact goals package; a separate final activation manifest after authorized installation; persisting that manifest and running read-only restart/skew probes. **None of these is authorized by this transition.** Nothing was installed, deployed, activated, pushed, or materialized as Proposal v4; Gates A/B/C remain undecided; the active core `807359e4…48fe7` is unchanged.
 
+## Finding N18 and its fix: the rebuild above was not reproducible (Astra Review #9)
+
+**Astra Review #9** (`reviews/bootstrap-v4-kernel-astra-review-9.md`, sha256 `dbd9061183fa60fef6b5762699ed4eff0ddf6e3185b76b6d8de31dd43e684d8d`) independently reconstructed the candidate above from a **fresh clone of the exact committed source at a different absolute path** and got **different bytes** for all four artifacts. Root cause: every "independent rebuild" check in this evidence chain, across Repairs 5, 6, 7 and the clean-commit transition, rebuilt in the *same* checkout directory with only `GOCACHE` varied — that tests cache-independence, not the location-independence "reproducible" actually requires. The compiled binaries embedded the absolute checkout path (confirmed by Review #9 via `strings`).
+
+**Fix.** Building the same commit at two different absolute paths without `-trimpath` reproduces the mismatch; with `-trimpath` alone — no other flag, measured sufficient even though this binary has `CGO_ENABLED=1` for the Keychain bindings — all four artifacts are byte-identical across paths. `verify/build_candidate_artifacts.sh` is now the single versioned build recipe (`go build -trimpath` for core and plugin, then the existing package-wrapping step), replacing prose instructions an operator had to type correctly by hand.
+
+**Re-verification, at commit `25c7330` (this fix committed, tree clean):** rebuilt in the real checkout and independently in a genuine fresh clone at a different absolute path with a different `GOCACHE`; **byte-for-byte identical (`cmp`, not hash-only)** for all four artifacts; neither binary's strings contain either checkout root (`repair-7-evidence/qualification/post-review-9/rebuild-location-independent.log`).
+
+**Final identities** (superseding the table above):
+
+| Item | SHA-256 |
+|---|---|
+| Core (`vcs.revision=25c7330…`, `vcs.modified=false`) | `42cb404ff30b77b375505a2593f5541b9be63587b39e87c1792d9231851de821` |
+| Goals plugin | `08514f2078c0e4a7a9093e41b4a78ec72069f7053a6e5bf670ff426ec1888829` |
+| Package archive | `06e0ebaea3c0ad549d7efdf37f9894283360b36b9dfa4ccf8fa9e0a45d96cc62` |
+| Package manifest | `e8894b79d8e7589cff37e98f93e31e22adb7fba885a02c19ac46156e534111d2` |
+| Source manifest (unchanged) | `65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1` |
+| Qualification results | `affdb9b1e3c8fd93c8f4c072b31536c3320a46e6b2e76ccfe8b6c3c2abd1b4fb` |
+| Activation requirements | `a961ad31d27e4f84c40ac74f3071a54d8a459fcf168c322047c6dfd2192dff8d` |
+
+**What did not change.** N18 is a build-recipe defect, not a source defect: `source-manifest.json`'s digest is unchanged, and Review #9 independently confirmed every one of the 125 source files is byte-identical to what Review #8 accepted. Review #9 also re-ran N17 currentness and the real-Keychain N16/re-key targets on this candidate (both passed) and reconfirmed Review #8's residuals unchanged (listed above).
+
+**What this fix does not establish.** This exact location-independent identity has **not itself been independently reviewed** — Review #9 found and diagnosed the defect but disposed `REVISION_REQUIRED` on the pre-fix identity; a fresh independent review (**Astra Review #10**) of this rebuilt identity is required before it may be treated as accepted. Whether other build environments, OS versions, or Go toolchain versions also reproduce these exact bytes was not tested. Nothing was installed, deployed, activated, pushed, or materialized as Proposal v4; Gates A/B/C remain undecided; the active core `807359e4…48fe7` is unchanged.
+
 The candidate has been repaired seven times against independent adverse review:
 
 | Review | Disposition | SHA-256 | Findings |

@@ -7,7 +7,35 @@ Base commit: `ff146000aadae0ef60981d445056089f52815869`
 
 ## Disposition
 
-This is a **frozen PRE-ACTIVATION review candidate** produced by the seventh repair (Review #7 finding N17). It is **modified:true, inactive, uninstalled and undeployed**. Nothing was committed, pushed, installed, deployed or activated. Proposal v4 is unmaterialized and unsubmitted; Gates A, B and C are undecided; the active Praxis core and installed goals package are unchanged.
+This is a **frozen PRE-ACTIVATION review candidate** produced by the seventh repair (Review #7 finding N17), **independently accepted by Astra Review #8**, and then carried through the clean-commit transition described below. It is **inactive, uninstalled and undeployed**. Nothing was installed, deployed, activated, or pushed. Proposal v4 is unmaterialized and unsubmitted; Gates A, B and C are undecided; the active Praxis core and installed goals package are unchanged. Sections below dated 2026-09-21 describe the pre-commit (`modified:true`) candidate exactly as Review #8 reviewed it; the clean-commit section is the current state.
+
+## Clean-commit transition (2026-09-22, post-Review-#8)
+
+Astra Review #8 (`reviews/bootstrap-v4-kernel-astra-review-8.md`, sha256 `7a197c7a29305972e6b9dec611f6c850983dc391f6acdce38dbb3b1ffc48fac3`) independently accepted the Repair 7 candidate described below, disposition **REVIEW_8_ACCEPTED**. Per this report's own §16 step 2 ("commit exactly the reviewed source/evidence → clean tree → rebuild and requalify → obtain `modified:false` identities → independently verify exact identities and evidence"), and under an explicit human authorization limited to exactly that transition, the reviewed source and evidence were committed on `feature/intent-evolution`:
+
+- `d931809` — the 125-file source-manifest.json inventory (Go/shell source, tests, `.praxis/validate`, `.gitignore`); the reviewed candidate, byte-for-byte.
+- `719fa52` — repair-2-evidence through repair-7-evidence, reviews 2-8 and their evidence, the specification bundle, and the byte-exact preserved superseded Repair 5/6 candidates (binaries deliberately excluded: this repository has never committed a binary of that size, they are fully reproducible from committed source, and their SHA-256 identity is already fixed throughout the evidence; `.gitignore` now excludes `bootstrap-v4/**/artifacts/`).
+- `fd68f8b`, `fea9528`, `40ba414`, `392802f` — tooling and regenerated evidence (a post-commit source-manifest script, the re-run qualification chain, and the final regenerated qualification/activation/pre-activation records). **None of these four commits touches a file in source-manifest.json's 125-file inventory**; the candidate source is unchanged since `d931809`, confirmed by an unchanged 125-file list and unchanged per-file hashes when the manifest was recomputed from git history instead of working-tree status.
+
+Everything the transition invalidates was re-run against this exact committed source, not assumed to transfer from the `modified:true` evidence: the focused suite, `go vet`, `git diff --check`, race testing, the Python suite, the specification-bundle recomputation, the 256-subset powerset and 4096-store mixed-snapshot enumerations, and every preserved review-probe replay plus the process-image A/B drive — all pass, all identical to the pre-commit run (`repair-7-evidence/qualification/post-commit/`). `make test-current` and the 364-mutation inventory are unaffected by commit state (they measure source bytes, which did not change) and were not re-run; their pre-commit evidence remains authoritative.
+
+**Final identities** (`repair-7-evidence/qualification/post-commit/rebuild.log`; independently rebuilt with a fresh Go build cache, byte-identical):
+
+| Item | SHA-256 |
+|---|---|
+| Core (`vcs.revision=40ba414…`, **`vcs.modified=false`**) | `0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856` |
+| Goals plugin | `a4c87cd2dbbb0e948fa1ddd5cc26661f0e01669685832bb9c83982f6b04b3c4c` |
+| Package archive | `96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a` |
+| Package manifest | `e69beead490802288a4c478eb0b62c3c961a9b1b9b53df63399d39b664a99cd3` |
+| Source manifest | `65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1` |
+| Qualification results | `39a0ce0026592d698ab4a9cd10868f807c31155b08053ab5492113c71633bdb5` |
+| Activation requirements | `fa5fe5176032e4a3e2ebcc0c325d53ec4c892018d848c2daf5e9cf8975ae68aa` |
+
+`preactivation_evidence.py`: **PASS**. `candidate-activation-requirements.json.status`: `COMPLETE_PRE_ACTIVATION_CANDIDATE`, `candidate_binary.vcs_modified`: **`false`**.
+
+**Residuals, unchanged and not addressed by this transition** (Review #8's own list): package-deployment approvals remain bearer approvals through their expiry; `CheckAuthorityInForceInTx` returns success with no FAA configured; `state.Store.PublisherGeneration`'s mutable `State` field is outside the immutable-generation audit; goalspublication recovery integration tests remain unexecuted without `PRAXIS_GOALS_QUALIFICATION_ASSETS`; Keychain portability off the measured Darwin environment is unestablished; R-K2 (Repair 6) is unchanged.
+
+**Remaining activation blockers**, per the regenerated `candidate-activation-requirements.json`: the migration decision for authority records predating liveness/the anchor; the per-build Keychain access prompt after core replacement; separate explicit human authorization for atomic core-binary replacement; governed deployment of the exact goals package; a separate final activation manifest after authorized installation; persisting that manifest and running read-only restart/skew probes. **None of these is authorized by this transition.** Nothing was installed, deployed, activated, pushed, or materialized as Proposal v4; Gates A/B/C remain undecided; the active core `807359e4…48fe7` is unchanged.
 
 The candidate has been repaired seven times against independent adverse review:
 

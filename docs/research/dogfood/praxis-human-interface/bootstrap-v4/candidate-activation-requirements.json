@@ -29,7 +29,7 @@
     "description_path": "validation-profile.json",
     "description_sha256": "sha256:12d3f0a1e97a33591d1a320213ba55e9db008bc9d234297c3057b45bc2d1a55a"
   },
-  "qualification_evidence_digest": "sha256:affdb9b1e3c8fd93c8f4c072b31536c3320a46e6b2e76ccfe8b6c3c2abd1b4fb",
+  "qualification_evidence_digest": "sha256:a4e09225426bdf0ed1c231bf12161e52d5c5e318319d5805531825f40ca5fc7b",
   "specification_bundle": {
     "manifest_path": "specification-bundle/manifest.json",
     "manifest_sha256": "sha256:5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215",
@@ -43,7 +43,7 @@
     "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_8",
     "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414, 392802f, a9da0c3) and rebuilt from that clean tree; candidate_binary.vcs_modified was false, but Astra Review #9 (sha256 dbd9061183fa60fef6b5762699ed4eff0ddf6e3185b76b6d8de31dd43e684d8d) found the rebuild was not reproducible from a fresh clone at a different absolute path (N18) -- see review_repair_9",
     "COMPLETE: N18 fixed with verify/build_candidate_artifacts.sh (go build -trimpath); re-verified byte-identical against a genuine fresh clone at a different absolute path with a different build cache, with no checkout-path strings embedded in either binary -- this record's identities are recomputed from that location-independent rebuild",
-    "a fresh complete independent review (Astra Review #10) of this location-independent rebuild is required; Review #9 accepted the N17/N16 source-level findings on their own scope but did not review this exact artifact identity",
+    "COMPLETE: fresh independent review (Astra Review #10, see review_repair_10) independently reproduced the N18 fix from two of its own fresh clones at distinct absolute paths and disposed ACCEPTED for this exact HEAD/source identity, not clearing any of the six retained residuals",
     "decide, as a separate human/product matter, how an installation whose authority records predate liveness records and the forward authority anchor migrates (a governed re-anchor plus fresh decisions); this candidate performs no backfill",
     "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
     "separate explicit human authorization for atomic core-binary replacement",

@@ -398,5 +398,26 @@
       "whether other, non-Darwin build environments or Go toolchain versions also reproduce these exact bytes was not tested"
     ],
     "review_limitations_note": "This repair does not clear any area of Review #8 or Review #9; a fresh complete independent review (Astra Review #10) is required."
+  },
+  "review_repair_10": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-10.md",
+    "independent_review_sha256": "sha256:d20d1576cb4c76950ad245496a431b8cf71a6f7b344c24ba55bec0644b57a9b6",
+    "disposition": "ACCEPTED, of this exact HEAD 9edca1e5735f77ab8a4b76431749c542aa338dc7 / source-identity 25c73305fbca532e6b402b9d4aa1ed3412305169 candidate",
+    "established": [
+      "N18 closed: two independent fresh clones at distinct absolute paths, independent GOCACHE, output outside both worktrees, produced byte-identical artifacts equal to the candidate; zero absolute-path strings in either binary",
+      "25c7330..HEAD touches zero of the 125 source-manifest files",
+      "qualification generator predicates independently read against their actual referenced logs, not merely trusted as internally consistent",
+      "N17 currentness targets and real-Keychain N16/re-key tests independently re-run and passed"
+    ],
+    "not_cleared": [
+      "bearer package approvals",
+      "CheckAuthorityInForceInTx with no anchor configured",
+      "state.Store.PublisherGeneration mutable state",
+      "goalspublication recovery integration (needs PRAXIS_GOALS_QUALIFICATION_ASSETS)",
+      "Keychain portability off the measured Darwin environment",
+      "reproducibility on non-Darwin build environments or other Go toolchain versions"
+    ],
+    "bounded_observation": "build_candidate_artifacts.sh invoked with an in-worktree, non-ignored output directory can flip Go's vcs.modified mid-build-sequence; does not affect the qualified candidate, whose documented build path is outside the worktree",
+    "authorization_granted": "none beyond acceptance itself: no install, deploy, activation, Proposal v4 materialization, push, or Gate A/B/C decision"
   }
 }

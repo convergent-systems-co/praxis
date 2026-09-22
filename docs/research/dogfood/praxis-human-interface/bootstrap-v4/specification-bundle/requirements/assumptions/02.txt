@@ -1,0 +1,1 @@
+Human-readable Markdown is an appropriate initial human input format but the final architecture may support additional human-facing forms.

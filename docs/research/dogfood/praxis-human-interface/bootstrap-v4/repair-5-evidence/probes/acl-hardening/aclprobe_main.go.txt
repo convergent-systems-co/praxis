@@ -1,0 +1,353 @@
+package main
+
+/*
+#cgo LDFLAGS: -framework Security -framework CoreFoundation
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+static void cfs(CFTypeRef r, char *buf, size_t n) {
+	buf[0] = 0;
+	if (!r) { snprintf(buf, n, "(null)"); return; }
+	CFStringRef d = CFCopyDescription(r);
+	CFStringGetCString(d, buf, n, kCFStringEncodingUTF8);
+	CFRelease(d);
+}
+
+static OSStatus add_item(const char *svc, const char *acct, const char *val, int withAccess, int trustSelf) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFDataRef d = CFDataCreate(NULL, (const UInt8*)val, strlen(val));
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecValueData, d);
+	if (withAccess) {
+		SecAccessRef access = NULL;
+		CFArrayRef trusted = NULL;
+		SecTrustedApplicationRef self = NULL;
+		if (trustSelf) {
+			SecTrustedApplicationCreateFromPath(NULL, &self);
+			trusted = CFArrayCreate(NULL, (const void**)&self, 1, &kCFTypeArrayCallBacks);
+		} else {
+			trusted = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
+		}
+		OSStatus st = SecAccessCreate(CFSTR("praxis FAA"), trusted, &access);
+		if (st != errSecSuccess) return st;
+		if (trustSelf == 2) {
+			CFArrayRef list = NULL;
+			st = SecAccessCopyACLList(access, &list);
+			if (st != errSecSuccess) return st;
+			for (CFIndex i = 0; i < CFArrayGetCount(list); i++) {
+				SecACLRef acl = (SecACLRef)CFArrayGetValueAtIndex(list, i);
+				CFArrayRef auths = SecACLCopyAuthorizations(acl);
+				int narrow = 0;
+				for (CFIndex j = 0; j < CFArrayGetCount(auths); j++) {
+					CFStringRef au = (CFStringRef)CFArrayGetValueAtIndex(auths, j);
+					if (CFStringCompare(au, CFSTR("ACLAuthorizationEncrypt"), 0) == kCFCompareEqualTo ||
+					    CFStringCompare(au, CFSTR("ACLAuthorizationIntegrity"), 0) == kCFCompareEqualTo) narrow = 1;
+				}
+				if (narrow) {
+					CFArrayRef oa = NULL; CFStringRef od = NULL; SecKeychainPromptSelector os = 0;
+					st = SecACLCopyContents(acl, &oa, &od, &os);
+					OSStatus st2 = SecACLSetContents(acl, trusted, od ? od : CFSTR("praxis FAA"), 0);
+					printf("narrow ACL[%ld] copy=%d set=%d\n", (long)i, (int)st, (int)st2);
+				}
+			}
+		}
+		CFDictionarySetValue(q, kSecAttrAccess, access);
+	}
+	OSStatus st = SecItemAdd(q, NULL);
+	return st;
+}
+
+static void dump_acl(const char *svc, const char *acct) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecReturnRef, kCFBooleanTrue);
+	CFTypeRef ref = NULL;
+	OSStatus st = SecItemCopyMatching(q, &ref);
+	printf("copy ref status %d\n", (int)st);
+	if (st != errSecSuccess) return;
+	SecAccessRef access = NULL;
+	st = SecKeychainItemCopyAccess((SecKeychainItemRef)ref, &access);
+	printf("copy access status %d\n", (int)st);
+	if (st != errSecSuccess) return;
+	CFArrayRef list = NULL;
+	st = SecAccessCopyACLList(access, &list);
+	printf("acl list status %d count %ld\n", (int)st, list ? (long)CFArrayGetCount(list) : -1);
+	for (CFIndex i = 0; list && i < CFArrayGetCount(list); i++) {
+		SecACLRef acl = (SecACLRef)CFArrayGetValueAtIndex(list, i);
+		CFArrayRef auths = SecACLCopyAuthorizations(acl);
+		char buf[2048];
+		cfs(auths, buf, sizeof buf);
+		printf("ACL[%ld] auths=%s\n", (long)i, buf);
+		CFArrayRef apps = NULL; CFStringRef desc = NULL; SecKeychainPromptSelector sel = 0;
+		st = SecACLCopyContents(acl, &apps, &desc, &sel);
+		char db[512]; cfs(desc, db, sizeof db);
+		printf("   contents status %d apps=%ld desc=%s selector=%u\n", (int)st, apps ? (long)CFArrayGetCount(apps) : -1, db, (unsigned)sel);
+		for (CFIndex j = 0; apps && j < CFArrayGetCount(apps); j++) {
+			CFDataRef data = NULL;
+			SecTrustedApplicationCopyData((SecTrustedApplicationRef)CFArrayGetValueAtIndex(apps, j), &data);
+			printf("   app[%ld] datalen=%ld\n", (long)j, data ? (long)CFDataGetLength(data) : -1);
+		}
+	}
+}
+static OSStatus upd_item(const char *svc, const char *acct, const char *val) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFDataRef d = CFDataCreate(NULL, (const UInt8*)val, strlen(val));
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFMutableDictionaryRef u = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(u, kSecValueData, d);
+	return SecItemUpdate(q, u);
+}
+static OSStatus read_item(const char *svc, const char *acct, char *out, int n) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecReturnData, kCFBooleanTrue);
+	CFTypeRef r = NULL;
+	OSStatus st = SecItemCopyMatching(q, &r);
+	if (st == errSecSuccess) { CFDataGetBytes((CFDataRef)r, CFRangeMake(0, CFDataGetLength((CFDataRef)r) < n-1 ? CFDataGetLength((CFDataRef)r) : n-1), (UInt8*)out); out[CFDataGetLength((CFDataRef)r) < n-1 ? CFDataGetLength((CFDataRef)r) : n-1] = 0; }
+	return st;
+}
+static OSStatus restrict_all(const char *svc, const char *acct) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecReturnRef, kCFBooleanTrue);
+	CFTypeRef ref = NULL;
+	OSStatus st = SecItemCopyMatching(q, &ref);
+	if (st) return st;
+	SecAccessRef access = NULL;
+	st = SecKeychainItemCopyAccess((SecKeychainItemRef)ref, &access);
+	if (st) return st;
+	CFArrayRef list = NULL;
+	st = SecAccessCopyACLList(access, &list);
+	if (st) return st;
+	SecTrustedApplicationRef self = NULL;
+	SecTrustedApplicationCreateFromPath(NULL, &self);
+	CFArrayRef trusted = CFArrayCreate(NULL, (const void**)&self, 1, &kCFTypeArrayCallBacks);
+	for (CFIndex i = 0; i < CFArrayGetCount(list); i++) {
+		SecACLRef acl = (SecACLRef)CFArrayGetValueAtIndex(list, i);
+		CFArrayRef oa = NULL; CFStringRef od = NULL; SecKeychainPromptSelector os = 0;
+		OSStatus c = SecACLCopyContents(acl, &oa, &od, &os);
+		if (c) { printf("ACL[%ld] copy %d\n", (long)i, (int)c); continue; }
+		OSStatus w = SecACLSetContents(acl, trusted, od ? od : CFSTR("praxis FAA"), 0);
+		printf("ACL[%ld] set %d\n", (long)i, (int)w);
+	}
+	st = SecKeychainItemSetAccess((SecKeychainItemRef)ref, access);
+	printf("setaccess %d\n", (int)st);
+	return st;
+}
+static OSStatus add_dp(const char *svc, const char *acct) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFDataRef d = CFDataCreate(NULL, (const UInt8*)"v", 1);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecValueData, d);
+	CFDictionarySetValue(q, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+	CFErrorRef err = NULL;
+	SecAccessControlRef ac = SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, kSecAccessControlDevicePasscode, &err);
+	if (ac) CFDictionarySetValue(q, kSecAttrAccessControl, ac);
+	return SecItemAdd(q, NULL);
+}
+static OSStatus dk_create(const char *path, const char *pw, const char *svc, const char *acct) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainCreate(path, (UInt32)strlen(pw), pw, false, NULL, &kc);
+	printf("create %d\n", (int)st);
+	if (st) return st;
+	st = SecKeychainAddGenericPassword(kc, (UInt32)strlen(svc), svc, (UInt32)strlen(acct), acct, 2, "v1", NULL);
+	printf("add %d\n", (int)st);
+	OSStatus l = SecKeychainLock(kc);
+	printf("lock %d\n", (int)l);
+	SecKeychainSettings set; set.version = SEC_KEYCHAIN_SETTINGS_VERS1; set.lockOnSleep = false; set.useLockInterval = false; set.lockInterval = 0;
+	return st;
+}
+static OSStatus dk_read(const char *path, const char *pw, const char *svc, const char *acct, int unlock) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainOpen(path, &kc);
+	if (st) return st;
+	if (unlock) { st = SecKeychainUnlock(kc, (UInt32)strlen(pw), pw, true); printf("unlock %d\n", (int)st); if (st) return st; }
+	UInt32 n = 0; void *data = NULL;
+	CFArrayRef list = CFArrayCreate(NULL, (const void**)&kc, 1, &kCFTypeArrayCallBacks);
+	st = SecKeychainFindGenericPassword(kc, (UInt32)strlen(svc), svc, (UInt32)strlen(acct), acct, &n, &data, NULL);
+	printf("find %d len %u data=%.*s\n", (int)st, n, (int)n, (char*)data);
+	return st;
+}
+static CFArrayRef kc_list(const char *path) {
+	SecKeychainRef kc = NULL;
+	if (SecKeychainOpen(path, &kc)) return NULL;
+	return CFArrayCreate(NULL, (const void**)&kc, 1, &kCFTypeArrayCallBacks);
+}
+static CFMutableDictionaryRef base_q(const char *svc, const char *acct, const char *path) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	CFDictionarySetValue(q, kSecMatchSearchList, kc_list(path));
+	return q;
+}
+static OSStatus d2_create(const char *path, const char *pw, const char *svc, const char *acct) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainCreate(path, (UInt32)strlen(pw), pw, false, NULL, &kc);
+	if (st) return st;
+	CFMutableDictionaryRef q = base_q(svc, acct, path);
+	CFDictionaryRemoveValue(q, kSecMatchSearchList);
+	CFDictionarySetValue(q, kSecUseKeychain, kc);
+	CFDictionarySetValue(q, kSecValueData, CFDataCreate(NULL, (const UInt8*)"v1", 2));
+	st = SecItemAdd(q, NULL);
+	SecKeychainLock(kc);
+	return st;
+}
+static OSStatus d2_unlock(const char *path, const char *pw) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainOpen(path, &kc);
+	if (st) return st;
+	return SecKeychainUnlock(kc, (UInt32)strlen(pw), pw, true);
+}
+static OSStatus d2_lock(const char *path) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainOpen(path, &kc);
+	if (st) return st;
+	return SecKeychainLock(kc);
+}
+static OSStatus d2_read(const char *svc, const char *acct, const char *path, char *out, int n) {
+	CFMutableDictionaryRef q = base_q(svc, acct, path);
+	CFDictionarySetValue(q, kSecReturnData, kCFBooleanTrue);
+	CFTypeRef r = NULL;
+	OSStatus st = SecItemCopyMatching(q, &r);
+	out[0] = 0;
+	if (st == errSecSuccess) { CFIndex l = CFDataGetLength((CFDataRef)r); if (l > n-1) l = n-1; CFDataGetBytes((CFDataRef)r, CFRangeMake(0,l), (UInt8*)out); out[l] = 0; }
+	return st;
+}
+static OSStatus d2_update(const char *svc, const char *acct, const char *path, const char *val) {
+	CFMutableDictionaryRef q = base_q(svc, acct, path);
+	CFMutableDictionaryRef u = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(u, kSecValueData, CFDataCreate(NULL, (const UInt8*)val, strlen(val)));
+	return SecItemUpdate(q, u);
+}
+static OSStatus d2_delete(const char *svc, const char *acct, const char *path) {
+	return SecItemDelete(base_q(svc, acct, path));
+}
+static OSStatus d2_add(const char *svc, const char *acct, const char *path, const char *val) {
+	SecKeychainRef kc = NULL;
+	OSStatus st = SecKeychainOpen(path, &kc);
+	if (st) return st;
+	CFMutableDictionaryRef q = base_q(svc, acct, path);
+	CFDictionaryRemoveValue(q, kSecMatchSearchList);
+	CFDictionarySetValue(q, kSecUseKeychain, kc);
+	CFDictionarySetValue(q, kSecValueData, CFDataCreate(NULL, (const UInt8*)val, strlen(val)));
+	return SecItemAdd(q, NULL);
+}
+static void noui(void) { SecKeychainSetUserInteractionAllowed(false); }
+static OSStatus del_item(const char *svc, const char *acct) {
+	CFStringRef s = CFStringCreateWithCString(NULL, svc, kCFStringEncodingUTF8);
+	CFStringRef a = CFStringCreateWithCString(NULL, acct, kCFStringEncodingUTF8);
+	CFMutableDictionaryRef q = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(q, kSecClass, kSecClassGenericPassword);
+	CFDictionarySetValue(q, kSecAttrService, s);
+	CFDictionarySetValue(q, kSecAttrAccount, a);
+	return SecItemDelete(q);
+}
+*/
+import "C"
+import (
+	"fmt"
+	"os"
+	"unsafe"
+)
+
+var tag = "creator"
+
+func main() {
+	sv, ac := "aclprobe.svc", "acct"
+	if v := os.Getenv("SVC"); v != "" {
+		sv = v
+	}
+	if v := os.Getenv("ACCT"); v != "" {
+		ac = v
+	}
+	svc, acct := C.CString(sv), C.CString(ac)
+	defer C.free(unsafe.Pointer(svc))
+	defer C.free(unsafe.Pointer(acct))
+	mode := os.Args[1]
+	switch mode {
+	case "add-default":
+		fmt.Println("add", C.add_item(svc, acct, C.CString("v1"), 0, 0))
+	case "add-self":
+		fmt.Println("add", C.add_item(svc, acct, C.CString("v1"), 1, 1))
+	case "add-hardened":
+		fmt.Println("add", C.add_item(svc, acct, C.CString("v1"), 1, 2))
+	case "add-none":
+		fmt.Println("add", C.add_item(svc, acct, C.CString("v1"), 1, 0))
+	case "dump":
+		C.dump_acl(svc, acct)
+	case "upd":
+		fmt.Println("upd", C.upd_item(svc, acct, C.CString(os.Args[2])))
+	case "read":
+		buf := (*C.char)(C.malloc(256))
+		st := C.read_item(svc, acct, buf, 256)
+		fmt.Println("read", st, C.GoString(buf))
+	case "restrict":
+		fmt.Println("restrict", C.restrict_all(svc, acct))
+	case "adddp":
+		fmt.Println("adddp", C.add_dp(svc, acct))
+	case "dk-create":
+		fmt.Println("dk-create", C.dk_create(C.CString(os.Args[2]), C.CString("s3cret-pw"), svc, acct))
+	case "dk-read":
+		fmt.Println("dk-read", C.dk_read(C.CString(os.Args[2]), C.CString("s3cret-pw"), svc, acct, 1))
+	case "d2-create":
+		fmt.Println("d2-create", C.d2_create(C.CString(os.Args[2]), C.CString("probe-random-pw"), svc, acct))
+	case "d2-unlock":
+		fmt.Println("d2-unlock", C.d2_unlock(C.CString(os.Args[2]), C.CString("probe-random-pw")))
+	case "d2-lock":
+		fmt.Println("d2-lock", C.d2_lock(C.CString(os.Args[2])))
+	case "d2-read":
+		if os.Getenv("NOUI") == "1" {
+			C.noui()
+		}
+		buf := (*C.char)(C.malloc(256))
+		fmt.Println("d2-read", C.d2_read(svc, acct, C.CString(os.Args[2]), buf, 256), C.GoString(buf))
+	case "d2-update":
+		if os.Getenv("NOUI") == "1" {
+			C.noui()
+		}
+		fmt.Println("d2-update", C.d2_update(svc, acct, C.CString(os.Args[2]), C.CString("attacker")))
+	case "d2-delete":
+		if os.Getenv("NOUI") == "1" {
+			C.noui()
+		}
+		fmt.Println("d2-delete", C.d2_delete(svc, acct, C.CString(os.Args[2])))
+	case "d2-add":
+		if os.Getenv("NOUI") == "1" {
+			C.noui()
+		}
+		fmt.Println("d2-add", C.d2_add(svc, C.CString("other"), C.CString(os.Args[2]), C.CString("attacker")))
+	case "del":
+		fmt.Println("del", C.del_item(svc, acct))
+	}
+}

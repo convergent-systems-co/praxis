@@ -1,0 +1,38 @@
+package conformance
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"testing"
+)
+
+func TestZZScanAllStale(t *testing.T) {
+	root := "../.."
+	files, _ := filepath.Glob(filepath.Join(root, "docs/research/conformance/attestations/*.json"))
+	var out []string
+	for _, f := range files {
+		b, _ := os.ReadFile(f)
+		var a ExecutionAttestation
+		if json.Unmarshal(b, &a) != nil {
+			continue
+		}
+		for ref, want := range a.SourceDigests {
+			got, err := SourceSetDigest(root, []string{ref})
+			if err != nil {
+				out = append(out, fmt.Sprintf("ERR %s %s %v", filepath.Base(f), ref, err))
+				continue
+			}
+			if got != want {
+				out = append(out, fmt.Sprintf("STALE %s %s", filepath.Base(f), ref))
+			}
+		}
+	}
+	sort.Strings(out)
+	for _, l := range out {
+		fmt.Println(l)
+	}
+	fmt.Println("TOTAL", len(out), "of", len(files), "attestations")
+}

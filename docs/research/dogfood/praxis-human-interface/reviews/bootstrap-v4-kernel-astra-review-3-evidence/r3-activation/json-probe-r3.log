@@ -1,0 +1,24 @@
+baseline                                   err=<nil> | status="undecided" alts=[] cons=map[] nestedA=0
+trailing object                            err=safety-bearing JSON must be exactly one complete unambiguous value: trailing content after the first value | status="undecided" alts=[] cons=map[] nestedA=0
+trailing garbage                           err=safety-bearing JSON must be exactly one complete unambiguous value: trailing content after the first value | status="undecided" alts=[] cons=map[] nestedA=0
+trailing whitespace                        err=<nil> | status="undecided" alts=[] cons=map[] nestedA=0
+dup exact key                              err=safety-bearing JSON must be exactly one complete unambiguous value: duplicate object key "status" | status="" alts=[] cons=map[] nestedA=0
+dup unicode-escaped key                    err=safety-bearing JSON must be exactly one complete unambiguous value: duplicate object key "status" | status="" alts=[] cons=map[] nestedA=0
+CASE-FOLD dup key Status/status            err=<nil> | status="approved" alts=[] cons=map[] nestedA=0
+CASE-FOLD dup STATUS/status                err=<nil> | status="approved" alts=[] cons=map[] nestedA=0
+dup nested                                 err=safety-bearing JSON must be exactly one complete unambiguous value: duplicate object key "A" | status="" alts=[] cons=map[] nestedA=0
+CASE-FOLD nested a/A                       err=<nil> | status="" alts=[] cons=map[] nestedA=2
+dup within array element                   err=safety-bearing JSON must be exactly one complete unambiguous value: duplicate object key "x" | status="" alts=[] cons=map[] nestedA=0
+map key case differ (legit distinct)       err=<nil> | status="" alts=[] cons=map[X:2 x:1] nestedA=0
+unknown field                              err=json: unknown field "extra" | status="a" alts=[] cons=map[] nestedA=0
+BOM                                        err=invalid character '\ufeff' looking for beginning of value | status="" alts=[] cons=map[] nestedA=0
+invalid utf8 in string                     err=<nil> | status="a�" alts=[] cons=map[] nestedA=0
+null status                                err=<nil> | status="" alts=[] cons=map[] nestedA=0
+null root                                  err=<nil> | status="" alts=[] cons=map[] nestedA=0
+empty                                      err=safety-bearing JSON must be exactly one complete unambiguous value: input is empty or exceeds 1048576 bytes | status="" alts=[] cons=map[] nestedA=0
+oversize                                   err=safety-bearing JSON must be exactly one complete unambiguous value: input is empty or exceeds 1048576 bytes | status="" alts=[] cons=map[] nestedA=0
+big number into int                        err=json: cannot unmarshal number 1e999 into Go value of type float64 | status="" alts=[] cons=map[] nestedA=0
+float into int                             err=json: cannot unmarshal number 1.5 into Go struct field D.nested.A of type int | status="" alts=[] cons=map[] nestedA=0
+array root into struct                     err=json: cannot unmarshal array into Go value of type main.D | status="" alts=[] cons=map[] nestedA=0
+depth 10000                                err=json: cannot unmarshal array into Go value of type main.D | status="" alts=[] cons=map[] nestedA=0
+MaxGovernedArtifactBytes 1048576

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-source-bound-goal-establishment","kind":"consumer","prerequisite":"unit:hi-requirement-identity-and-binding","provenance":"model_proposal","rationale":"unit:hi-source-bound-goal-establishment consumes unit:hi-requirement-identity-and-binding outputs as non-blocking context."}

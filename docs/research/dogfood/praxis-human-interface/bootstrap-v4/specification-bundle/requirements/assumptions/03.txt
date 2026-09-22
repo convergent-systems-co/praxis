@@ -1,0 +1,1 @@
+The correct relationship among Story, Intent, Requirement, and Goal remains an architectural question to resolve rather than an assumption of this Goal.

@@ -1,0 +1,64 @@
+[
+ {
+  "id": "R5.79j",
+  "guard": "joint: malformed password item (length check + unlock failure classification)",
+  "invariants": "I13",
+  "group": "R5.keychain-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if len(raw) != 64 {",
+    "if false && len(raw) != 64 {",
+    1
+   ],
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain:",
+    "case false && (status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers",
+  "skipped": [],
+  "tail": "",
+  "secs": 30.8
+ },
+ {
+  "id": "R5.82j",
+  "guard": "joint: a read never creates the keychain (early return + cleanup of an unpopulated keychain)",
+  "invariants": "I13",
+  "group": "R5.keychain-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    "if false && !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    1
+   ],
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil && created {",
+    "if err != nil && created && false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorRemovedFileReadsAsMissing",
+  "skipped": [],
+  "tail": "",
+  "secs": 5.9
+ }
+]

@@ -1,0 +1,52 @@
+?   	github.com/convergent-systems-co/praxis/cmd/inspectauth	[no test files]
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	100.569s
+?   	github.com/convergent-systems-co/praxis/cmd/praxis-conformance	[no test files]
+?   	github.com/convergent-systems-co/praxis/docs/research/dogfood/praxis-human-interface/bootstrap-v4/verify	[no test files]
+?   	github.com/convergent-systems-co/praxis/gen/praxis/v1	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/adaptation	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/agent	2.137s
+ok  	github.com/convergent-systems-co/praxis/internal/approval	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/architecturereview	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/bootstrapv4	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/boundexec	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/capability	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/client	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/clientadapt	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/distribution	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/dogfood	1.460s
+ok  	github.com/convergent-systems-co/praxis/internal/effect	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/eventstore	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/faa	(cached)
+?   	github.com/convergent-systems-co/praxis/internal/faa/faatest	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	170.202s
+ok  	github.com/convergent-systems-co/praxis/internal/goalspublication	26.083s
+ok  	github.com/convergent-systems-co/praxis/internal/goalstore	51.951s
+ok  	github.com/convergent-systems-co/praxis/internal/inference	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/kernel	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/learning	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/lifecycle	4.941s
+ok  	github.com/convergent-systems-co/praxis/internal/mediation	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/packagecatalog	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/plugin	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/policy	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/preference	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/processresolver	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/projection	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/publisher	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/routingauthority	2.860s
+ok  	github.com/convergent-systems-co/praxis/internal/runcontrol	3.181s
+ok  	github.com/convergent-systems-co/praxis/internal/scheduler	(cached)
+ok  	github.com/convergent-systems-co/praxis/internal/state	8.913s
+ok  	github.com/convergent-systems-co/praxis/internal/stateprovider	3.632s
+ok  	github.com/convergent-systems-co/praxis/internal/sync	4.446s
+?   	github.com/convergent-systems-co/praxis/internal/transfer	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/trustboundary	(cached)
+ok  	github.com/convergent-systems-co/praxis/migrations/sqlite	(cached)
+ok  	github.com/convergent-systems-co/praxis/packages/develop	4.810s
+ok  	github.com/convergent-systems-co/praxis/packages/goals	(cached)
+ok  	github.com/convergent-systems-co/praxis/packages/goals/plugin	(cached)
+ok  	github.com/convergent-systems-co/praxis/packages/research	(cached)
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	(cached)
+ok  	github.com/convergent-systems-co/praxis/plugins/workspace	(cached)
+EXIT=0

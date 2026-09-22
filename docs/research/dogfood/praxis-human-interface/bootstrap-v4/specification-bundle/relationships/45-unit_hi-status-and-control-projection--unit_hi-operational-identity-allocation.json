@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-status-and-control-projection","kind":"consumer","prerequisite":"unit:hi-operational-identity-allocation","provenance":"model_proposal","rationale":"unit:hi-status-and-control-projection consumes unit:hi-operational-identity-allocation outputs as non-blocking context."}

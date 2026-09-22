@@ -1,0 +1,8 @@
+KILLED        R4.05    liveness sealing refuses every non-liveness namespace  TestLivenessSealingAndProbeRefuseOtherNamespaces
+KILLED        R4.02    in-tx revoked-or-not-live: absent liveness refuses  TestUnlessRevokedWriteRequiresGenerationLiveness
+KILLED        R4.05b   in-tx liveness probe refuses non-liveness namespaces  TestLivenessSealingAndProbeRefuseOtherNamespaces
+KILLED        R4.23    owner-decision authority requires issuing generation livenes  TestConcurrentInstallationFanoutAcrossProcesses
+KILLED        R4.29    derivation fails closed on an unreadable generation  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+SURVIVED      R4.28    derivation fails closed on an unreadable proposal  
+KILLED        R4.28j   joint: proposal decrypt failure + decode failure both swallo  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+RESTORE-CHECK OK

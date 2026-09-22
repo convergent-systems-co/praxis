@@ -1,0 +1,791 @@
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	0.665s
+ok  	github.com/convergent-systems-co/praxis/internal/bootstrapv4	20.878s
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	174.471s
+ok  	github.com/convergent-systems-co/praxis/internal/goalstore	2.036s
+ok  	github.com/convergent-systems-co/praxis/packages/goals	1.088s
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.26s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=146ms
+    concurrency_fanout_test.go:452: lease contention: 27 exclusive holds across 4 processes, 73 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+  "goal_id": "goal:scratch-weather",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+  "goal_id": "goal:scratch-weather",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "acceptances": [],
+  "authority_requests": [],
+  "continue_with": "praxis goals-lifecycle --operation=continue --goal-id=goal:scratch-weather --goal-version=1",
+  "drivable": false,
+  "goal": {
+    "id": "goal:scratch-weather",
+    "version": "1",
+    "digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "original_intent": "Prove the external bootstrap path",
+    "refined_outcome": "One small Goal drives one real turn",
+    "rigor": "direct",
+    "recommendation_mode": "review_all",
+    "import_source_ref": "/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestGoalsLifecycleImportReachesTheImportBoundary4126668682/002/baseline.json",
+    "import_source_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6"
+  },
+  "governing_state": "unattached",
+  "next_step": "propose: a planner supplies the WorkPlan decomposition with praxis goals-lifecycle --operation=propose --input=\u003cplanner-proposal.json\u003e",
+  "pending_authority": null,
+  "proposals": [],
+  "reviews": []
+}
+{
+  "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+  "goal_id": "goal:scratch-weather",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "operation": "propose",
+  "proposal": {
+    "id": "proposal:scratch-weather",
+    "goal_id": "goal:scratch-weather",
+    "goal_version": "1",
+    "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "proposed_by": {
+      "id": "planner:scratch",
+      "kind": "model"
+    },
+    "proposer_generation": "planner-generation-1",
+    "candidates": [
+      {
+        "id": "unit:first-turn",
+        "completed": false,
+        "priority": 0,
+        "sequence": 0,
+        "source_ref": "issue:scratch/1",
+        "source_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "provenance": "issue",
+        "requirements": [
+          {
+            "id": "req:progress-log",
+            "source_ref": "goal:scratch-weather/requirement/1",
+            "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      }
+    ]
+  },
+  "proposal_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+  "record_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+  "review_accept_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b --status=acceptable_for_authority_decision",
+  "review_revise_with": "praxis goals-lifecycle --operation=review --proposal-digest=sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b --status=revision_required"
+}
+{
+  "operation": "review",
+  "review": {
+    "proposal_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+    "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "review_ref": "review:scratch-weather",
+    "review_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "reviewed_by": {
+      "id": "reviewer:scratch",
+      "kind": "agent"
+    },
+    "reviewer_generation": "reviewer-generation-1",
+    "status": "acceptable_for_authority_decision",
+    "covered_requirements": [
+      "req:progress-log"
+    ]
+  }
+}
+{
+  "operation": "request",
+  "record_digest": "sha256:5fa01cd4fdb30045388d14ee03ed0f227f20d2867aa1d47b658d18d4c9d2bae8",
+  "request": {
+    "id": "workplan-accept:scratch-weather",
+    "version": "1",
+    "baseline_id": "goal:scratch-weather",
+    "baseline_version": "1",
+    "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "proposal_id": "proposal:scratch-weather",
+    "proposal_version": "1",
+    "proposal_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+    "review_ref": "review:scratch-weather",
+    "review_version": "1",
+    "review_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "requested_authority": "workplan.accept",
+    "requested_scope": "installation-governance:sha256:e65f9cf0d044e74090c00c31ba39cdb501c33245d5dc7749b9afd22da2922a68",
+    "reason": "accept the small scratch WorkPlan",
+    "status": "pending"
+  }
+}
+{
+  "operation": "accept",
+  "plan": {
+    "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "authority_ref": "installation-governance:sha256:e65f9cf0d044e74090c00c31ba39cdb501c33245d5dc7749b9afd22da2922a68",
+    "authority_digest": "sha256:e32893f3acd1f8fdafcfd839537e16cbae0409aeba353e4c908db86b14bc126d",
+    "acceptance_ref": "acceptance:scratch-weather",
+    "acceptance_digest": "sha256:f7af3c8c0bec125ecc376334ae1d2a7adba5bcb0ef7ab0c5574493f0d5f55392",
+    "accepted_by": {
+      "id": "installation-owner:sha256:e65f9cf0d044e74090c00c31ba39cdb501c33245d5dc7749b9afd22da2922a68",
+      "kind": "human"
+    },
+    "proposal_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+    "authority_request_id": "workplan-accept:scratch-weather",
+    "authority_request_version": "1",
+    "authority_decision_ref": "decision:scratch-weather",
+    "authority_decision_version": "1",
+    "authority_version": "1",
+    "authority_generation_digest": "sha256:2f99eca63f687a6a7c8cb78596df4b6f4358f7de304a6395141c3786c30a2bd3",
+    "candidates": [
+      {
+        "id": "unit:first-turn",
+        "completed": false,
+        "priority": 0,
+        "sequence": 0,
+        "source_ref": "issue:scratch/1",
+        "source_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "provenance": "issue",
+        "requirements": [
+          {
+            "id": "req:progress-log",
+            "source_ref": "goal:scratch-weather/requirement/1",
+            "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      }
+    ]
+  }
+}
+{
+  "baseline_digest": "sha256:bd6becd8549db6fd7684f06ecf468a1aaf6e0a46c98320fb0137eae7d3d1a937",
+  "goal_id": "goal:scratch-weather",
+  "goal_version": "2",
+  "operation": "attach",
+  "predecessor_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+  "work_plan_candidates": 1
+}
+{
+  "acceptances": [],
+  "authority_requests": [],
+  "blocked_turns": [],
+  "drivable": true,
+  "drive_template": {
+    "available_providers": [
+      "claude",
+      "claude-subscription",
+      "codex",
+      "codex-subscription"
+    ],
+    "command": "praxis goal-drive --goal-id=goal:scratch-weather --goal-version=2 --mode=supervised",
+    "goal_id": "goal:scratch-weather",
+    "goal_version": "2",
+    "operator_supplies": [
+      "--provider=\u003cregistered provider\u003e",
+      "--invocation-id=\u003cdurable invocation identity\u003e",
+      "--repo=\u003crepository path\u003e",
+      "--branch=\u003cexact branch\u003e"
+    ],
+    "providers_with": "praxis providers"
+  },
+  "goal": {
+    "id": "goal:scratch-weather",
+    "version": "2",
+    "digest": "sha256:bd6becd8549db6fd7684f06ecf468a1aaf6e0a46c98320fb0137eae7d3d1a937",
+    "predecessor_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "original_intent": "Prove the external bootstrap path",
+    "refined_outcome": "One small Goal drives one real turn",
+    "rigor": "direct",
+    "recommendation_mode": "review_all",
+    "import_source_ref": "/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/TestGoalsLifecycleGovernsAWorkPlanToADrivableGeneration2862339999/002/baseline.json",
+    "import_source_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+    "work_plan": {
+      "baseline_digest": "sha256:afe870ccdd8b80a32633d27285a05d73c664901e592be2a91bb9e66b5b9202c6",
+      "authority_ref": "installation-governance:sha256:e65f9cf0d044e74090c00c31ba39cdb501c33245d5dc7749b9afd22da2922a68",
+      "authority_digest": "sha256:e32893f3acd1f8fdafcfd839537e16cbae0409aeba353e4c908db86b14bc126d",
+      "acceptance_ref": "acceptance:scratch-weather",
+      "acceptance_digest": "sha256:f7af3c8c0bec125ecc376334ae1d2a7adba5bcb0ef7ab0c5574493f0d5f55392",
+      "accepted_by": {
+        "id": "installation-owner:sha256:e65f9cf0d044e74090c00c31ba39cdb501c33245d5dc7749b9afd22da2922a68",
+        "kind": "human"
+      },
+      "proposal_digest": "sha256:40e9caa233f08f9a14c4937fd1772b461ede0ab145fce4bd658a4dcca7b1680b",
+      "authority_request_id": "workplan-accept:scratch-weather",
+      "authority_request_version": "1",
+      "authority_decision_ref": "decision:scratch-weather",
+      "authority_decision_version": "1",
+      "authority_version": "1",
+      "authority_generation_digest": "sha256:2f99eca63f687a6a7c8cb78596df4b6f4358f7de304a6395141c3786c30a2bd3",
+      "candidates": [
+        {
+          "id": "unit:first-turn",
+          "completed": false,
+          "priority": 0,
+          "sequence": 0,
+          "source_ref": "issue:scratch/1",
+          "source_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "provenance": "issue",
+          "requirements": [
+            {
+              "id": "req:progress-log",
+              "source_ref": "goal:scratch-weather/requirement/1",
+              "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "governing_state": "drivable",
+  "pending_authority": null,
+  "proposals": [],
+  "reviews": [],
+  "turn_records": [],
+  "turns": 0,
+  "work_set": {
+    "active_turns": [],
+    "completion_proposal": "a worker proposes completion of the selected unit with the line `Praxis-Unit-Complete: \u003cunit id\u003e` standing alone on a line of the final commit message (any paragraph after the subject); Praxis records completion only after the checkpoint is published and validated",
+    "goal_complete": false,
+    "goal_completion_assessment": {
+      "all_units_complete": false,
+      "incomplete_units": [
+        "unit:first-turn"
+      ],
+      "structurally_complete": false
+    },
+    "lost_turns": [],
+    "next_unit": "unit:first-turn",
+    "state": "runnable",
+    "units": [
+      {
+        "completed": false,
+        "readiness": "ready",
+        "unit": "unit:first-turn"
+      }
+    ]
+  }
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:e1ccc29d0012211e37ca89f655abec9655f7fc614ebb050fd02dd9fa13c9be33",
+  "drive_template": {
+    "available_providers": [
+      "claude",
+      "claude-subscription",
+      "codex",
+      "codex-subscription"
+    ],
+    "command": "praxis goal-drive --goal-id=goal:pending-surface --goal-version=2 --mode=supervised",
+    "goal_id": "goal:pending-surface",
+    "goal_version": "2",
+    "operator_supplies": [
+      "--provider=\u003cregistered provider\u003e",
+      "--invocation-id=\u003cdurable invocation identity\u003e",
+      "--repo=\u003crepository path\u003e",
+      "--branch=\u003cexact branch\u003e"
+    ],
+    "providers_with": "praxis providers"
+  },
+  "goal_id": "goal:pending-surface",
+  "goal_version": "2",
+  "operation": "attach",
+  "predecessor_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "work_plan_candidates": 1
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+flag provided but not defined: -approval-id
+Usage of publisher enroll:
+  -approval string
+    	exact system-produced publisher enrollment approval digest
+{
+  "accepted": true,
+  "invocation_id": "inv-1",
+  "turn_id": "turn-1",
+  "type": "human.comment"
+}
+{"id":"activity-4c327a844af85fcd58eaa031","type":"human.comment","goal_id":"goal-1","goal_version":"1","invocation_id":"inv-1","turn_id":"turn-1","actor":{"id":"human-operator","kind":"human"},"source":"human.cli","trust":"user_confirmed","data":{"text":"check the bounded assumption"},"created_at":"2026-09-21T04:35:51.942923Z","stream_version":1}
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	32.894s
+FAIL
+EXIT=1

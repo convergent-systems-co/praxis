@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"interaction","prerequisite":"unit:hi-provider-routing-policy","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow and unit:hi-provider-routing-policy require a non-blocking interaction contract."}

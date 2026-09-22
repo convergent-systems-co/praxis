@@ -1,0 +1,307 @@
+# Praxis Human Interface Pre-v4 Bootstrap Kernel — Implementation and Qualification
+
+Date: 2026-09-21 (fourth repair)  
+Goal: `praxis-human-interface/1`  
+Classification: pre-v4 bootstrap work, not Proposal v4 execution  
+Base commit: `ff146000aadae0ef60981d445056089f52815869`
+
+## Disposition
+
+This is a **frozen PRE-ACTIVATION review candidate** produced by the fourth repair. It is **modified:true, inactive, uninstalled and undeployed**. Nothing was committed, pushed, installed, deployed or activated. Proposal v4 is unmaterialized and unsubmitted; Gates A, B and C are undecided; the active Praxis core and installed goals package are unchanged.
+
+The candidate has been repaired four times against independent adverse review:
+
+| Review | Disposition | SHA-256 | Findings |
+|---|---|---|---|
+| #1 (Codex) | REVISION_REQUIRED | `4857c10783f6692e4c76959f6ca54b2abdf8a35c34c9b8074a60421c807a6a4a` | B1–B2 (stopped early); B3–B4 found while repairing |
+| #2 (Codex) | REVISION_REQUIRED | `c2704e9d12ac6fd1efd515755a9afde2716fa3c19e1823e73b2095c171d2eb30` | B5–B14; B15 found while repairing |
+| #3 (Astra) | REVISION_REQUIRED | `0ce799f512a1fac53499aa1c1f36bc4bd7349ab20ec3a1ba40fcc6114915fd92` | N1–N6, five surviving post-worker mutations; Repair 3 found N7 |
+| #4 (Astra, Daybreak replay) | REVISION_REQUIRED | `71ed5bc796749fe48f71f78f4cff637cc9cdd5293bc05d974ff589d97657c8a6` | N8, N9 (both survive restart); **this repair** finds N10–N13 |
+
+**No review clears an area it did not test.** The reviews established, again and again, that defects sit where a repaired local mechanism meets a neighbouring boundary. Repair 3 was driven by invariants (I1–I11) and by the *shared boundaries* they imply, then by a consolidated guard/mutation inventory, rather than by the six counterexamples alone. A fresh, complete independent review (Astra Review #5) is required before this source is treated as the basis for a clean rebuild.
+
+Provenance of the work: the invariant derivation, the shared boundaries for I9/I10/I11 (classification, sealed completions and gate-lineage re-resolution, effect authorization, settlement/inspect consumption), the wiring of N4/N5/N6 into production paths, all regression additions to the existing suites, the Path A promotion, the consolidated mutation harness and its triage, qualification and evidence regeneration were performed by the primary implementer. Two forked implementer sessions each produced a self-contained part under strict file ownership: **N3** (Darwin process-image identity, `internal/bootstrapv4`) and **N4/N5/N6** (type-directed exact JSON, content-bound git validation, bounded output collector; `pkg/contracts/exact_json*.go`, `internal/goaldrive/git_repository.go`, `validation_process_*.go`). Their reports are preserved unedited in `repair-3-evidence/fork-reports/`. The N4/N5/N6 fork did not finish its own mutation triage; the primary implementer investigated and resolved its unexplained survivors (three real test gaps were closed and two dead/redundant checks were removed or classified — see §7).
+
+Repair 4 was performed entirely by the primary implementer (no forked sessions): invariant derivation, equivalent-path search, the shared-boundary repair, regressions and sweeps, the extended mutation catalogue and its triage, qualification, artifact rebuild and evidence regeneration.
+
+The historical `internal/conformance` attestation suite is red, **identically at the untouched base commit and at this candidate** (see §11). No attestation was edited.
+
+
+## Repair 4 in one page
+
+Review #4 found that a **keyless writer of the SQLite file** (no storage key, no ceremony) could widen authority with one `DELETE`: removing the `authority_revocation` row restored a revoked decision and a fresh controller minted a *new* sealed gate completion (N8); removing the `goal_safety_classification` row let a stripped plan through the supported import and a worker be dispatched with activation absent (N9). Both survive close/reopen. Repair 3's mutation inventory had explicitly *excluded* "deletion of authenticated rows by a raw writer", so its 134 kills said nothing about either.
+
+Both are one defect: **a consequence-permitting predicate was defined by the absence of a row.** This repair states the invariant that defect violates (**I12, deletion-monotonicity**, §1), repairs the *shared boundary* instead of two rows, and reports what it does **not** defend.
+
+| | |
+|---|---|
+| Mechanism | A decision or authority generation grants nothing unless its sealed **liveness** record is present. Revocation, invalidation and root succession retire (delete) that record; it is written in the same transaction as the fact it keeps alive; an identical resubmission never recreates a retired one. Goal classification is re-derived from surviving safety-bearing proposals and accepted-plan generations when its own row is missing; an unreadable row is an error. |
+| Also found and repaired | N10 generation-invalidation deletion; N11 root rollback by deleting the successor and the predecessor's supersession; N12 a revoked decision eligible for ordinary re-request; N13 publication and recovery admission treating absence as "current" (§3a). |
+| Covered adversary | **A1, a keyless delete-only writer:** no combination of deletions widens authority (single-row and paired sweeps over every sealed row). |
+| **Not covered (documented, reproduced)** | **A2** delete **plus replay** of a previously copied sealed row (a rollback); **A3** total erasure of a Goal's governance history; the unauthenticated plaintext ledger. Closing A2/A3 needs a forward-only anchor outside the database file (for example a keychain monotonic counter): a new architectural component, deliberately not built. `repair-4-evidence/probes/residual_rollback_replay_test.go.txt` reproduces A2. |
+| Unchanged | the accepted storage-key trust root; no product semantics or authority added; no `AUTHORITY_CONFLICT` was needed. |
+| **Migration consequence** | Decisions and generations written before liveness records existed are **not in force** under this candidate. An installation that predates it obtains liveness through governed root succession (which now writes it atomically) and fresh decisions. Nothing is backfilled. |
+
+Design record: `repair-4-evidence/design/i12-deletion-monotonicity.md`.
+
+## 1. Final invariants I1–I12
+
+| | Invariant |
+|---|---|
+| I1 | Execution-derived state cannot be supplied as accepted intent. |
+| I2 | Every safety-bearing ingress receives equivalent enforcement. |
+| I3 | Historical authority is not necessarily current executable authority. |
+| I4 | Missing required evidence cannot become success. |
+| I5 | Evidence is exact, unambiguous, bounded, and bound to what was actually executed and published. |
+| I6 | Activation verifies the runtime actually acting. |
+| I7 | Authority gates never reach a provider. |
+| I8 | Protected decisions require authentic ceremony lineage. |
+| **I9** | **Downgrade resistance.** A governed object cannot escape stronger safety semantics by removing, omitting, weakening, relabeling or corrupting the metadata that identifies them; classification never depends solely on a self-declared field of the object being admitted. |
+| **I10** | **Outward-effect equivalence.** Every externally observable or irreversible effect is guarded by the same current authority, activation, binding and evidence predicates required to admit it as governed durable consequence, established *before* the effect. A residual check-to-effect interval is bound to the exact object (the qualified commit id) or detected and recorded as ungoverned. |
+| **I11** | **Authenticated completion consumption.** Execution-derived completion affects future eligibility only if its exact evidence and governing lineage are authenticated and re-validated at the point of consumption. Historical completion stays history; current eligibility is separately established. |
+| **I12** | **Deletion-monotonicity.** Every predicate that permits a consequence is monotone *decreasing* in the set of governance rows: removing, corrupting or failing to read any row may leave permission unchanged or smaller, never larger. "No negative record exists" is anti-monotone and is not admissible as evidence that anything is permitted; permission requires positive, authenticated presence. |
+
+I1–I8 were reconciled against the frozen v4 plan and are unchanged in meaning. I5 was tightened (bounded; bound to what was *published*, not only executed). I12 is new in Repair 4 and is a strengthening common to I3, I9, I10 and I11 (I3 says a revoked fact must not be current but not how "revoked" is known; I9 says classification may not depend on a self-declared field but not that it may not depend on one row's survival; I10 and I11 inherit both because the decision they re-validate could be resurrected). It changes no frozen v4 semantics and adds no authority: the liveness record is the implementation of the existing predicate "this decision or generation is current authority". I9–I11 are new in Repair 3; each derives from a Review #3 finding and none changes frozen v4 semantics: I9 enforces plan §2.2's rule that a plan enters only through the authority-backed path; I10 and I11 enforce §3/§4's fail-closed completion and gate semantics. No invariant strengthens the ceremony trust model beyond frozen plan §9 ("V4 does not claim stronger cryptographic human authentication than current Praxis provides").
+
+### I9 classification lineage — what was evaluated
+
+| Candidate lineage | Independent of the mutable `WorkPlan.Safety` claim? | Verdict |
+|---|---|---|
+| Goal identity + an authenticated store record | yes: sealed under the installation storage key, written before the proposal it protects | **chosen** (`goal_safety_classification`) |
+| Proposal / accepted-WorkPlan identity | the records carry the binding, but a downgraded baseline need not name them truthfully and a legacy plan needs none | not sufficient alone |
+| Specification bundle digest; activation bindings | live inside the plan | not independent |
+| Candidate/specification identity (kinds, preserved specification bytes, gate provenance) | kernel-shaped vocabulary an attacker can blank | used as a *content* guard, cannot classify by itself |
+
+No new product ontology: one immutable fact per Goal identity, set by the first safety-bearing proposal (and idempotently at attachment), monotone thereafter.
+
+## 2. Invariant → finding → enforcement-boundary matrix
+
+| Invariant | Findings / mutations | State transitions | Outward effects | Shared enforcement boundary |
+|---|---|---|---|---|
+| I9 | N1; R1-G (attach to another Goal) | proposal, review, acceptance, attachment, `Save`/Import/Finalize/establish, drive admission, materialization | none (persistence) | `goalstore.Repository` Goal classification (`GoalSafetyKernel`, `requireSafetyConsistent`, `markGoalSafetyBearing`); `contracts.RejectKernelShapedWithoutSafety`; `Controller.safetyBearing` (pointer *or* classified; classified without the pointer is refused) |
+| I11 | N2, N7 | completion recording, selection/eligibility, assessment, Goal candidate derivation and settlement, lifecycle status | gate completion record | `goaldrive.AuthenticateCompletions` / `LoadEffectiveCompletions` / `RecordSealedCompletion`; `goalstore.SealCompletion`, `LoadSealedCompletion`, `VerifyGateCompletion`; `VerifyCandidateCompletions` at both settlement surfaces |
+| I10 | pre-publication revalidation; surviving mutations M2b, M2c, M2d, M6b; R3-A3 | publication, unit completion, gate completion | checkpoint push | `Controller.authorizeEffect` (activation, governing authority, lease, content binding) at three call sites; publication pushes the exact object id; post-publication refusal recorded as published-but-ungoverned |
+| I5 / I4 | N4, N5, N6 | validation, qualification, publication | validator execution, push | `contracts.UnmarshalExactJSON` (type-directed); `GitRepository.RunBoundValidation` over an exact checkpoint export + `bindCheckpoint`; bounded collector with tree termination |
+| I6 | N3 | every protected transition | — | `bootstrapv4.verifyProcessImage` (kernel exec-time code identity on darwin) |
+| I1 | M12 | claim → completion | checkpoint push | claim must equal the selected unit at checkpoint inspection, before publication and at settlement |
+| I12 | N8, N9, N10, N11, N12, N13 | every read of a decision, generation, root, or classification | any authority-bound write, gate/plan consumption, publication, recovery admission | `internal/state` in-transaction predicate `revokedOrNotLiveInTx` and the liveness records; `goalstore.Repository.requireLive` / `LoadAuthorityDecision` / `ValidateAuthorityGeneration` / `ValidateAuthorityGenerationLineage` / `loadInstallationRoot` (liveness read in the same snapshot as the generations) / `SaveAuthorityRevocation` and `SaveAuthorityGenerationInvalidation` (retire first) / `GoalSafetyKernel` (derive from positive evidence) |
+| I7, I8, I2, I3 (plan level) | preserved from repair 2 | — | — | unchanged boundaries (`Controller.worker`, `SaveOwnerCeremony`/`verifyDecisionCeremony`, `VerifyGoverningAuthority`), now with per-field regressions |
+
+## 3. N1–N7 corrections
+
+**N1 — safety downgrade (I9, P1).** Every fence used to key on `WorkPlan.Safety != nil`, a field inside the plan bytes that `Save`/Import accept. Now: (a) the first safety-bearing proposal for a Goal writes an authenticated, immutable classification record before the proposal is persisted (attachment re-marks idempotently); (b) `Save`/Import/Finalize/establish refuse *any* WorkPlan for a classified Goal; (c) proposal, review, legacy acceptance, the authority-backed acceptance bridge and attachment each refuse a binding-less artifact for a classified Goal, and a binding for another kernel version; (d) the Goal-drive controller, runtime admission fence and materialization treat a classified Goal whose generation lacks the binding as `ErrSafetyDowngrade` **before** any admission or worker (a store fault is never "legacy": it fails closed); (e) content guard: a plan with kinds, preserved specification bytes or gate provenance but no binding is refused at proposal and accepted-plan validation, each tell on its own; (f) attachment binds the accepted plan to the Goal it was accepted for (Astra R1-G). Genuinely unclassified legacy Goals are untouched (control tests). A plan-less successor of a classified Goal may be persisted (it is not a plan) but cannot be driven.
+
+**N2 — completion authentication (I11, I3, P1).** A ledger row is now evidence only if (1) it is structurally the evidence its kind requires, (2) its exact bytes carry a seal authenticated under the installation storage key (written by the controller after qualification, before the ledger append; keyed by the completion digest and scoped to the Goal generation), and (3) for a gate, the request its dossier implies, the recorded request, the decision, the dossier and the owner-ceremony record are re-resolved from authenticated state at every consumption. An unresolvable citation is an error (forgery/corruption). An authentic decision that is no longer effective (revoked, rejected, expired) **demotes** the completion — and every unit that hard-depends on it — to *historical*: it stays in the ledger and stays readable, but authorizes nothing. Consumption sites: selection (both branches of `prepare`), Goal candidate derivation, structural assessment, lifecycle status (`inspect` reports why and is not drivable when a completion cannot be authenticated), and the explicit/recovered objective, which must also be currently *runnable* (Astra R2-F5).
+
+**N3 — Darwin process-image identity (I6, P2).** Verified empirically on this machine (darwin/arm64, go1.27.1, no cgo): the kernel's exec-time code-directory hash (`csops CS_OPS_CDHASH`) of the process stays the *original* value after an in-place overwrite, a truncate-and-write, and an atomic rename (`3b5f3690…b8857`, flags `0x22020201`, process unharmed and still running A). Verification now requires the kernel value to equal the hash of a CodeDirectory embedded in the file bytes read through the retained descriptor, every code page of those bytes to re-hash to that CodeDirectory's page hashes, the code limit to end exactly at the embedded signature, `CS_VALID` to be set, and the file's full SHA-256 to equal the manifest digest. This closes the in-place overwrite **and** the replacement between kernel exec and package initialization, which a hash-once fallback could not have closed. Fail-closed: unsigned executables, universal binaries, scatter signing, malformed signatures, `csops` failure. Uncovered: bytes after the signed code (only the manifest digest covers the signature container). Non-darwin: no kernel identity is consulted; the claim rests on the OS refusing writes to a running executable (Linux `ETXTBSY`), from code and documentation only; Windows is unqualified; darwin/amd64 compiles and fails closed for unsigned builds. The mechanism uses `syscall.Syscall6` (deprecated but present); if a future macOS or Go removes it, verification fails closed. `go.mod` is unchanged.
+
+**N4 — semantic duplicate keys (I5, P2).** `UnmarshalExactJSON` walks the tokens against the destination type: keys resolve to fields by exact JSON name, a key that matches only by case folding (ASCII, Kelvin sign, long s) is refused, textual duplicates are refused at every depth, invalid UTF-8 and unpaired surrogate escapes are refused, input is bounded (1 MiB), nesting is bounded (64), exactly one value is accepted, and unknown fields are refused where requested. A 400-case differential test checks that random case-mutations are refused exactly when `encoding/json` would have accepted them. Wired into: dossiers, gate contracts, governed-output contracts, candidate/relationship specifications, activation manifest, ceremony and classification records, **the baseline import document, all six lifecycle request bodies, the evaluation document, the worker result, and the baseline load**. Not wired, by design (see §13): plaintext ledger payloads (the seal is the control) and store-authenticated proposal/acceptance/request/decision records (authenticated ciphertext; the 1 MiB cap is a risk for those larger records). A dead second duplicate check was removed rather than left as a guard that cannot fire.
+
+**N5 — index hints and byte identity (I5, I10, P2).** Validation no longer runs in the worker checkout. `RunBoundValidation` exports the exact checkpoint commit into a private directory (a fresh clone that copies objects but not hooks, config, excludes, index or hints; hooks, fsmonitor, replace refs and global/system config are disabled), runs the validator there, then proves the export is still the checkpoint by HEAD, tree, hint-flag scan, status, untracked/excluded scan **and** a content re-hash into a fresh index, and re-proves the worker checkout's HEAD/branch/validator binding. Publication pushes the exact object id (not `HEAD`) and verifies the remote ref afterwards. Tests cover assume-unchanged, skip-worktree, staged/unstaged drift, index/worktree disagreement, `.git/info/exclude`, fsmonitor and hooks, tree/checkpoint substitution, a status-blind same-size rewrite that only the content re-hash can see, a validator that reaches back and moves the worker checkout, a HEAD-moving export, non-object-id checkpoints, a remote that ends elsewhere, replace refs, and clean legitimate publication. Behaviour change: a validator that relied on untracked or ignored files of the worker checkout no longer sees them.
+
+**N6 — output bound (I4, I5, P2).** The collector no longer embeds `bytes.Buffer` (whose promoted `ReadFrom` bypassed the bound). The 1 MiB budget is shared by stdout+stderr; overflow cancels the process group and the run fails closed **whatever the exit status**; the tree is terminated after the validator returns. Tests drive real processes: exactly at the bound passes, one byte over fails, stdout/stderr/interleaved, exit 0 and nonzero after overflow, unbounded stream, no deadlock, surviving descendants.
+
+**N7 — Goal completion candidate (I11, new in this repair).** Found by the equivalent-path search: the candidate an owner is shown as "controller-verified" before settlement is a plaintext ledger record embedding unit completions. Both `--operation=evaluate` and `--operation=complete` now refuse a candidate that is not exactly the authenticated, currently effective set.
+
+**Surviving post-worker mutations (I10, I1).** Each of the five was reproduced against the Review #3 candidate (M2b settle-time authority, M2c pre-gate-completion, M2d settle-time activation, M6b settle-time binding, M12 claim of a non-selected unit) and now has a regression that turns red when its guard is removed (§7): a drifting verifier per boundary proves that on failure *before* publication nothing is pushed and no completion is recorded, and that on failure *after* publication the turn is durably recorded `BLOCKED`, `CheckpointPublished:true`, `UnitCompleted:false` ("published but governed completion was refused"). A lost lease records nothing, as before. Dispatch-boundary tests additionally prove that a mismatched validation profile, revoked authority and a failed activation stop execution *before the worker runs*, not only before publication.
+
+## 3a. N8–N13 corrections (Repair 4)
+
+**N8 — deleting a revocation restores authority (I3, I10, I11, P1).** `LoadAuthorityDecision` treated "no `authority_revocation` row" as "in force". Now a decision grants only while its sealed liveness record (`authority_decision_live`) is present and names the exact decision digest. `SaveAuthorityRevocation` deletes that record *before* writing the revocation (a crash between leaves the decision not live, the fail-closed direction; a retry completes it). The liveness record is written in the **same transaction** as the decision (and, for delegated decision+generation, in the same transaction as both), so no replay is ever needed to create it, and an identical resubmission of a stored decision *requires* the record instead of recreating it (`ErrAuthorityDecisionNotLive`, which is also an `ErrAuthorityDecisionRevoked`, so every caller that refuses a revoked decision refuses it). Preserved probe: after the keyless `DELETE` the decision is refused and no new completion is minted; regression `TestRepair4N8RevocationRowDeletionDoesNotRestoreAuthority`, plus store-level `TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision`.
+
+**N9 — deleting the classification removes the downgrade fence (I9, P1).** `GoalSafetyKernel` treated "no `goal_safety_classification` row" as "legacy Goal". Classification is now the sealed row **or**, when it is missing, derived from every surviving safety-bearing artifact of the Goal (proposals and accepted-plan generations; attributed by Goal identity, conflicting kernel versions refused, an undecryptable or mismatched candidate row is an *error*, never "unclassified"). A classification can only *add* governance, so it cannot be made monotone by one positive row; deriving it from at least two independent surviving artifacts means no single deletion removes it (`TestRepair4SweepSingleRowDeletionNeverUnclassifiesGoal`, `TestRepair4SweepClassificationRowPlusAnyOtherRowStillClassified`). Total erasure of every artifact of the Goal is residual A3. Preserved probe: the stripped import is refused; regression `TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport`.
+
+**N10 — deleting a generation's invalidation restores it (I3, I12; found by equivalent-path search).** `ValidateAuthorityGeneration`, the lineage walk, the in-transaction fences of both `PutSecureBlobUnlessRevoked` and `PutSecureBlobsUnlessRevoked`, and the lifecycle repair guard's `IsSecureBlobRevokedInTx` all read "no invalidation row" as "live". They now share one in-transaction predicate (revoked **or not live**) and one goalstore predicate (`requireLive`); a generation is live only while its sealed `authority_generation_live` record is present, retired by invalidation or supersession.
+
+**N11 — root rollback by deletion (I3, I12).** `loadInstallationRoot` accepted "exactly one root without an invalidation". Deleting the successor's generation row and the predecessor's supersession record left the superseded predecessor as the sole "active" root. The liveness records are now read **in the same snapshot statement as the generations** (reading them separately reintroduced the very race that snapshot exists to prevent: a concurrent succession produced spurious "installation root ... liveness record is missing" errors in 18 of 60 fan-out runs before this was fixed), a current-form root must be positively live, and `PutRootAuthoritySuccessor` retires the predecessor and admits the successor in the transaction that supersedes it. The pre-delegation root read under a source-schema migration view predates liveness records and is verified against its own bytes, unchanged.
+
+**N12 — revoked decision eligible for ordinary re-request (I3, I12).** `verifyHistoricalReRequestPredecessor` refused a *revoked* decision only if the revocation row existed; deleting it made a revoked decision look merely expired. The predecessor decision must now still have its liveness record.
+
+**N13 — publication and recovery admission read absence as "current" (I10, I12).** `CheckGoalsPublicationInvalidation` and the in-transaction `RevalidateGoalsPublicationRecoveryAuthorizationTx` required only that no revocation/invalidation row exist. Both now also require the decision's and every generation's liveness record.
+
+Every one of N10–N13 has a regression that fails when its guard is removed (mutations `R4.*`, §7). None was replayed against the Repair 3 binary; the evidence that each was a real hole is that the regression turns red when only the Repair 4 guard is disabled. Regressions are keyless SQL deletions with no `Crypto` or `KeyRef` involved (`cmd/praxis/bootstrap_v4_repair4_test.go`, `internal/goalstore/liveness_test.go`, `internal/state/liveness_test.go`); the sweeps delete every sealed row of the gate fixture singly (and, for classification, in pairs with the classification row) and every sweepable non-sealed row (schema-bookkeeping rows make the installation refuse to open, which fails closed; a few are protected by foreign keys and refuse the delete).
+
+**Existing fixtures.** Test fixtures that wrote decisions or generations through the low-level store now write liveness records the way production code does (`MarkLive` on `PutAuthorityGeneration`; `SealedLivenessRecord` for the fixture decisions in `internal/goalspublication` and `authority_rerequest_test`). No assertion was weakened.
+
+## 4. Equivalent-path and downgrade inventory (independent search)
+
+| Surface | Paths found | Enforcement |
+|---|---|---|
+| Safety/legacy discriminators | `WorkPlan.Safety` pointer (self-declared); candidate `Kind`, `Specification`, gate provenance; `CeremonyProfile != ""` (a request field); ledger `safety_kernel` activity marker | pointer: backed by Goal classification; kinds/spec/provenance: content guard; ceremony profile: safety requests are built with it and the plan-level lineage requires it; activity marker: written from the classified baseline, and a downgraded baseline cannot run |
+| WorkPlan persistence | `Save`, `ImportBaseline`, `Finalize`, establish, `SaveReplanningSuccessor`, `AttachAcceptedWorkPlan`, `SaveAcceptedWorkPlan`(legacy), authority-backed bridge | `Save` (all four generic paths) refuses plans for classified Goals; successor writes no plan; attach is the only safety writer and binds Goal identity |
+| Acceptance / attachment | legacy acceptance, bridge, attach, continuation | classification + activation + lineage at each |
+| AuthorityDecision / ceremony | `SaveAuthorityDecision`, delegation variants, `SaveOwnerCeremony` | unchanged (I8); per-field regressions promoted from Astra's R1-E matrix |
+| Completion creation | controller unit/gate completion, materialization, raw `Ledger.RecordCompletion` | controller paths go through `RecordSealedCompletion`; materialization refuses classified/safety Goals; raw appends are unauthenticated and refused at consumption |
+| Completion consumption | `prepare` (selection and explicit objective), `deriveGoalCandidate`, `AssessGoalCompletion` (via effective set), lifecycle `inspect`, settlement (`evaluate`, `complete`) | all through `LoadEffectiveCompletions` / `VerifyCandidateCompletions` |
+| Provider dispatch | `Controller.worker` from `invoke`, `invokeRepositoryTurn`, `prepare` | unchanged single fence; adversarial spellings retested |
+| Publication / outward effects | checkpoint push (`PushAndVerify`), branch ref update, unit/gate completion record | `authorizeEffect` before each; exact object id; remote ref verified. Package deployment/publication surfaces are pre-existing, specialized ceremonies outside this kernel and were not changed |
+| Activation / image / package | `newGovernedRepository`, `newGoalDriveController`, `lifecycleSafetyActivation`, `verifyProcessImage` | per-call resolution, no cache; kernel code identity on darwin |
+| Validation | `RunBoundValidation`, `RunDeclaredValidation*` | safety turns use only the export-bound runner; advisory paths (non-safety, Goal evaluation) still execute the worker checkout — output bound and tree kill apply there |
+| JSON decoders | see §3 N4 and §13 | exact for external and safety-bearing inputs |
+| Restart / recovery | all through `prepare` | ledger is the only completion source, now authenticated |
+| Governing facts decided by absence (Repair 4) | decision revoked; generation invalidated/superseded; installation root current; Goal safety-bearing; revoked-vs-expired for re-request; publication and recovery "still current"; delegated child; activation requirement; ceremony/consent evidence; gate pending/decided; ledger completions, settlement, admission fence | liveness records (positive presence) read in one predicate per layer, atomic with admission, retired before the negative record; classification derived from positive evidence; activation, ceremony, seals and requirements were already positive-presence; a deleted decision returns a gate to *pending* (never grants); the plaintext ledger is unauthenticated but no single-row deletion lets a fresh controller act after revocation. Full matrix: `repair-4-evidence/design/i12-deletion-monotonicity.md` §5 |
+
+## 5. Path A — promoted end-to-end regression
+
+`cmd/praxis/bootstrap_v4_repair3_test.go: TestPathAEndToEndFromAuthorityThroughRestartAndGate` (promoted from Astra's independently constructed test; no live provider): real lifecycle proposal → review → protected request → owner decision → continuation acceptance and attachment → production Goal-drive constructor (`buildGoalDriveRuntime`) over a real SQLite ledger, GoalStore verifiers and activation check → a deterministic `CommandWorker` over a real Git remote → bound integrated and conformance validation on an exact checkpoint export → pre-effect revalidation → publication → sealed qualified completion → a *fresh runtime* (restart) → exactly one pending gate request → the real owner ceremony → gate completion → a complete plan selects nothing further. It also asserts the earned completion is authentic through `LoadEffectiveCompletions`. The test uses the production constructors and the production ceremony; it needed only two additions to the shared fixture (a governed-output declaration on the producer unit and a plan profile digest equal to the validator actually run), which are now part of the harness. Note on evidence strength: no mutation in the inventory is killed *by this test* (its stages are each covered by the finer-grained regressions named in §7 and §9); its value is that the composition holds end to end, not that it is the mutation oracle for any single guard.
+
+## 6. Ceremony trust statement (unchanged disposition, made precise)
+
+Astra's disposition stands: **ACCEPTABLE_BOOTSTRAP_TRUST_ASSUMPTION**. No HSM, out-of-process attestation or hardware confirmation was added.
+
+- **What possession of the installation storage key (or a `Repository` handle carrying it) permits:** writing any authenticated record — a syntactically valid `OwnerCeremonyEvidence` for the enrolled OS user, an `AuthorityDecision`, roots, requests, the **Goal classification record**, and **completion seals**. The R1-F probe still shows a gate approved with no TTY. This is the frozen v4 trust root: the OS-user/keychain-held key plus the interactive TTY check (which accepts any character device).
+- **What write access to the SQLite file *without* the key permits (revised in Repair 4).** *Delete-only (A1):* appending plaintext ledger and activity events (completions among them are refused at every consumption for lack of a seal) and deleting rows. Deleting a seal fails closed; deleting a revocation, invalidation, supersession or classification row **no longer widens anything** (§3a, I12). *Delete plus replay (A2):* a writer who also holds a byte-exact copy of an earlier state of the same installation's sealed rows can re-insert them without any key, restoring earlier authenticated state; this is a rollback, it is reproduced by `repair-4-evidence/probes/residual_rollback_replay_test.go.txt`, and it needs a forward-only anchor outside the database file to close. *Total erasure (A3):* with every safety-bearing record of a Goal deleted there is no positive evidence left from which to derive its classification. Review #4 correctly held that arbitrary database-file write access must not be treated as equal to the storage-key trust root; Repair 4 therefore raises the floor to "A1 cannot widen anything" and states the A2/A3 boundary precisely instead of folding it into the accepted key-holder assumption.
+- **Consequence for N2:** the completion consumption boundary is exactly as strong as the accepted trust root and no weaker; Review #3's finding that the ledger was a *weaker*, key-less boundary is closed.
+
+## 7. Consolidated mutation inventory
+
+Full detail: `repair-4-evidence/mutation-inventory.md` / `.json`; harness `repair-4-evidence/mutation/harness.py`, catalogue `catalogue.py`. All mutations run in scratch copies (never the real tree), files re-hashed after each (`RESTORE-CHECK OK`).
+
+**Universe and claim scope.** Safety guards in the non-test source of `pkg/contracts`, `internal/bootstrapv4`, `internal/state` (secure-blob boundary), `internal/goalstore`, `internal/goaldrive` and the lifecycle/decide/settlement/inspect surfaces of `cmd/praxis`, as enumerated in the catalogue: Repair 3's 155 guards carried forward, plus **37 Repair 4 guards for I12** (the in-transaction revoked-or-not-live predicate; the liveness retire, seal and atomic-write APIs; liveness at every consumer; root succession's atomic retire/admit; and each layer of classification derivation). **B12 (stale package cache) has no mutation** because no cache remains. **Not a universal completeness claim.**
+
+**Change of universe.** Review #4 was right that Repair 3's universe *excluded* "deletion of authenticated rows by a raw writer", the exact attack behind N8/N9. That exclusion is removed: keyless row deletion (A1) is now inside the universe and the Repair 4 guards are mutated against regressions that perform keyless SQL deletions. **Still excluded:** raw OS signals; forging by a storage-key holder; **A2 rollback by replay and A3 total erasure (residuals, reproduced but not defended)**; non-Unix validation fallback; Windows and Linux (only darwin/arm64 run); states this platform will not produce on demand; pure error wrapping; advisory validation paths.
+
+| Measure | Count |
+|---|---|
+| Mutations applied | **192** |
+| Single-guard mutations (= enumerated guards) | **182** |
+| Joint mutations (redundant layers removed together) | 10 |
+| Killed by a relevant regression | **169** (160 single-guard + 9 joint) |
+| Surviving | **23** (22 single-guard + 1 joint), **all classified, none unexplained** |
+| — redundant layer (another layer enforces it; a joint mutation is killed) | 13 |
+| — redundant by construction (state unreachable once an earlier boundary holds, or the OS refuses) | 7 |
+| — equivalent mutant | 2 |
+| — unmodeled on this platform | 1 |
+| Repair 4 guards killed / total | 35 / 37 |
+
+**Provenance of the numbers.** The counted results are one fresh pass of the whole catalogue against the frozen Repair 4 source (`mutation/results-final4.json`); earlier passes (a first Repair 4 pass whose definitions included four that failed to build or targeted the wrong occurrence, the Repair 4-only passes, targeted re-runs) are preserved and not counted. Mutations that first *survived* were treated as test gaps, not reclassified: R4.16 (lineage walk), R4.18–R4.21 (publication fence, recovery admission), R4.02/R4.05/R4.05b/R4.06 (in-transaction predicate and liveness APIs), R4.29/R4.31 (derivation from generations) each led to a new regression, and a test that had exercised the list-validation layer instead of the intended decrypt layer was corrected. **Kills attributable only to load-sensitive unrelated tests are not counted as kills** (R4.23's single-guard kill was such a case and is classified redundant-layer; its joint mutation R4.23j is killed by the generation-liveness regressions).
+
+Every survivor, with its class and reason, is listed in `mutation-inventory.md`. The Repair 3 survivors are unchanged in nature (N2.10, B9.13, B9.11, M12.01, the N5 layers, N4.04/05, N6.05, N3.07). The Repair 4 survivors are R4.23 (owner-decision generation liveness is checked again in `ValidateAuthorityGeneration`; joint R4.23j killed) and R4.28 (an undecryptable proposal is refused at load and again when its empty payload fails to decode; joint R4.28j killed).
+
+## 8. Preserved-probe replay
+
+- **Review #2** (implementer's as-replayed adaptations, sources untouched): 13 adverse probes no longer reproduce; the positive control (`GateRequestConflictPreservesOriginal`) still passes. As noted before, four of the thirteen now fail earlier for "no verifier configured" reasons, so their closure evidence is the newer regressions.
+- **Review #3** (Astra's sources, via `go test -overlay`, unmodified): R1-A/B/C (stripped/fabricated plans) refused; R1-D (root invalidation) refused; R1-E matrix refused (unbound decision fields still accepted — non-blocking, unchanged); R1-F (storage-key holder) behaves as documented; R1-G (cross-Goal attach) refused; R1-H (forged gate completion) refused as unauthenticated with zero requests manufactured; R2 goal-drive probes: completed-gate-not-revalidated, explicit-objective-skips-readiness, assume-unchanged/skip-worktree, output bound and surviving child — none reproduces; pending-gate-blocks-sibling (fail-closed, unchanged) and the I7 gate-dispatch variants behave as reviewed; the R2 revoked-gate probe no longer reproduces; the Path A probe passes. **A/B process-image drive** (rebuilt from current source): rename, unlink+recreate, symlink retarget, in-place truncate+write, in-place same-size overwrite (manifest binding A or B) and the **exec→init window** are all refused; hardlink/symlink launches and the control are accepted.
+- **Review #4** (Astra's sources, via `go test -overlay`, **unchanged**): both preserved probes now fail at the attack step (their `PASS` meant the counterexample reproduced). N8: after the keyless revocation-row `DELETE` and close/reopen the decision is refused (`no live authorization record`) and no completion is minted. N9: the stripped import is refused as a downgrade. Log: `repair-4-evidence/probes/review4-probes-replay-unchanged.log`.
+- **Documented residual** (`repair-4-evidence/probes/residual_rollback_replay_test.go.txt`): the control (deleting the revocation row alone) still refuses; re-inserting a copied sealed liveness row restores the decision. `PASS` means the residual reproduces.
+- Repair 4 replays of the Review #2 and #3 probes have **per-test outcome sets identical** to Repair 3's; the image A/B drive differs only in temporary directory names (`internal/bootstrapv4` is unchanged by this repair). Logs: `repair-4-evidence/qualification/` (`review2-replay-*.log`, `review3-*-replay.log`, `image-probe-replay.log`).
+
+## 9. Composed paths
+
+| Path | Qualified by |
+|---|---|
+| A normal execution | `TestPathAEndToEndFromAuthorityThroughRestartAndGate` (§5) |
+| B DOS → gate | `TestGoalGateCompletesThroughTheSupportedOwnerCeremony`, `TestKernelRepair2PathB…`, `TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState`, `TestKernelRepair3N2CompletionCitingARejectedGateDecisionIsNotEffective` |
+| C revocation (including deletion of the revocation, Repair 4) | `TestRepair4N8RevocationRowDeletionDoesNotRestoreAuthority`, `TestRepair4SweepSingleRowDeletionNeverRestoresRevokedDecision`, `TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork` (history kept, authority stopped), `TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField` (fields, persisted generation, scope, revoked root), repair-2 B9 tests |
+| D activation drift | `TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens`, `TestKernelRepair3FailedActivationIsRefusedBeforeTheWorkerRuns`, repair-2 B12/Path D |
+| E validation drift | `TestGitBound*` (export, hints, substitution, tamper), `TestValidationOutputBound…`, `TestValidationDriftAfterAdmission…`, `TestMissingValidatorAfterWorkerBlocksSafetyCheckpoint` |
+| F gate dispatch routes | `TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider`, `TestKernelRepair3ExplicitObjectiveMustBe…`, `TestKernelRepair3ClassifiedGoalWithoutSafetyBindingIsRefusedBeforeAnyWorker` |
+
+## 10. Qualification
+
+All against the frozen source identified by the source manifest. Logs: `repair-4-evidence/qualification/` and `repair-4-evidence/probes/`; machine-readable record `qualification-results.json`.
+
+| Check | Result |
+|---|---|
+| Focused contracts/bootstrapv4/goaldrive/goalstore/state/goalspublication/goals/cmd tests (`-count=1`) | PASS |
+| `.praxis/validate integrated` (`make test-current`) | PASS — 44 packages ok |
+| Race tests, the same eight packages | PASS |
+| `go vet ./...` | PASS |
+| Python suite | PASS — 1,683 passed, 1 skipped |
+| Go specification verifier + independent Python recomputation | PASS — 22 candidates, 68 relationships, 31/31 requirements; digest `17e36c33…` unchanged |
+| Pre-activation verifier | PASS (see `preactivation-verification.json`) |
+| Preserved Review #2 / #3 / #4 probes | see §8 |
+| Consolidated mutation inventory | see §7 |
+| Independent rebuild of core and plugin | byte-identical |
+| `git diff --check` | PASS |
+| Historical `internal/conformance` | FAIL — pre-existing, see §11 |
+
+Failures encountered and how they were treated (nothing was re-run until green without an explanation):
+
+- **A real regression introduced and fixed in this repair.** Measuring the known-flaky fan-out test on the candidate showed **18 failures in 60 runs** with a *new* text ("reader reported errors: installation root: governance liveness record is missing"). Cause: `loadInstallationRoot` read the generations in one snapshot and the root's liveness record in a later statement, so a concurrent root succession was observed half-applied. Fix: the liveness records are read in the same snapshot statement as the generations (§3a N11). That intermediate 60-run log was overwritten by the post-fix measurement and is **described here, not preserved**. After the fix the entire chain (focused, `make test-current`, race, replays, scan, mutation) was re-run on the final source.
+- **`TestConcurrentInstallationFanoutAcrossProcesses` (`cmd/praxis`) is intermittently red, and pre-existing, with two failure modes** ("losing migrator must be refused by the maintenance lease ... got: <nil>" and "succession contender failed: root-authority succession predecessor is stale"). Measured on the final source: **1 failure in 120 runs on an untouched extract of base commit `ff14600` and 2 in 120 on this candidate** (`qualification/flaky-runs-base-ff14600.log`, `flaky-runs-candidate.log`), all with those two texts (Repair 3 measured 1/60 and 1/60). It is an unrelated concurrency test; it was not modified. A single red focused run is not by itself evidence of a regression; the focused run in this chain was green.
+- The mutation harness first ran with scratch copies that lacked `.git` (Repair 3) and, in this repair, with four mutation definitions that failed to build or targeted the wrong occurrence; both were corrected and the affected mutations re-run (§7).
+
+## 11. Historical conformance
+
+`internal/conformance` is red. Independently verified, twice: an **untouched extract of `ff14600`** and this candidate contain the **identical 1,236 stale immutable attestation entries across 278 attestations** (per-entry scan and its result files are preserved in `repair-4-evidence/qualification/`: `stale-attestations-base-ff14600.txt`, `stale-attestations-candidate-repair4.txt`; the two entry lists are diff-identical, re-scanned on the Repair 4 candidate). The suite stops at the first stale entry it meets, so which package it names varies between runs. `cmd/praxis`, `internal/goaldrive`, `internal/goalstore`, `pkg/contracts` and `packages/goals` were **already stale at the base commit**; the earlier statement that only `internal/goalstore` was "legitimately changed" was inaccurate and is withdrawn. This candidate introduces no new stale attestation. No attestation, oracle or historical evidence was modified, and whole-system historical conformance is not claimed.
+
+## 12. Candidate identities (regenerated; all earlier identities are stale)
+
+### Core binary
+- artifact: `artifacts/praxis-candidate`; SHA-256 `sha256:b270805ecf6c59c9c4d6e0e8a72cbf9d3c49b0ce13b0372b26a042e17e45d972` (an independent rebuild yields identical bytes); version `2.0.0-dev`
+- VCS revision `ff146000aadae0ef60981d445056089f52815869`; **VCS modified: `true`** (review candidate; not installable under the frozen clean-commit plan)
+- source manifest `source-manifest.json`, SHA-256 `sha256:80812fc66afca4dcad00b7f84f7242e1947c08fa2b0558836ef22aa4b5db3e11` (83 files: every changed or untracked non-evidence file, derived from `git status`, so a new file cannot be omitted)
+
+### Goals package candidate (byte-identical to Repair 3: the changed source does not reach it)
+- `praxis.package.goals@0.1.5`; content/archive digest `sha256:cc6d98db19f62687c4105984e1227093100c4f4f6eedf883ef2679035b72922d`; manifest digest `sha256:e4bc2024e9817d11318d76d8d839fe25a2e1a4d2e77edbc73dca0e92bfb9c8b6`
+- plugin executable digest `sha256:5ec013468a9630aaa9d66d27cd9b70f3ae8e55be4a01cabc0be592d25c1118fa` (byte-identical on independent rebuild, and to the Repair 3 plugin)
+- invocation-contract-set digest `sha256:5acebd861e0d87f9ea230201a3136bbe2798424a4fc30ffff7c49a1fd4e2f043` (unchanged)
+
+### Other identities
+- specification bundle `sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a` (**unchanged**: the governed specification contract did not change); manifest file `5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215`
+- validation profile: validator `5c7f1924c19784d966f94d386ddcbd67ace8adcdf5f4f94f9b0020a33bea8f0c`, description `12d3f0a1e97a33591d1a320213ba55e9db008bc9d234297c3057b45bc2d1a55a` (**unchanged**)
+- qualification results `sha256:efa40e90b72b7e81872951d69d320aa1fb96d4340ebc71359e5f50d0d0a82e93`; candidate activation requirements `sha256:5d25493151ce72e38488ab21998e98defdf8ae5a7de61131322a2d5c9059faea`; pre-activation verification `sha256:c6d4a7aa405cca5cc4170b9836e34e8b3bb529f33178adc0c3b490eaa643c7b1`
+
+### Superseded (stale) candidate identities
+Repair 3 candidate: core `663cf610f647aa2f00d071a75c2d8e53c9db9895f9563e5dda418e7ecd08aec1`, source manifest `fe8708766da7a35933ba3368ff0f68e730681b7db953204a600f50490495dbe1`, qualification `8f0b46e497ab8e923350263ef149f78e03ba9358ea6b3e477b0502aaf3e6a0c2`, activation requirements `ee4f982b626dd82d624309dbd9d37b48532a53eba6c094abe81d04098a437913`, pre-activation `3fdbd498ab3434a0f9166a62c222eb2440ace1c767c9fddfa98df0967dba6eb9` (its package and plugin identities equal the current ones).
+Repair 2 candidate: core `5e617aab7343e015f4f0ea43cf6ed107e46187cf0ea94e3c8e550886d3525129`, package content `72f09a85783a0cf115f9a74be63c304f4fff7103cd9e096f00cd1776a1828d63`, manifest `8b71a8155ceb5f29eb638e079b300a02c84db768bc21041aefb0d39d9afe30e6`, plugin `1def4aac85b508502489077957a4811e2e6eecd863f51db61f39612279763c50`, source manifest `d130352ba8cf8244988e067c5d4d7bc13bafe79b76139cf772d67d3ffa403620`, qualification `c5217905ea6313293dbfd742284182141cb5d3677d83848102eb12de0d1dc6b3`. Earlier candidates are listed in `candidate-activation-requirements.json`.
+
+## 13. Scope assessment, non-blocking items and what was deliberately not done
+
+**Scope.** The candidate remains a bounded PRE-V4 safety kernel. New durable record kinds (`goal_safety_classification`, `goal_completion_seal`, and in Repair 4 `authority_decision_live` and `authority_generation_live`) are kernel infrastructure implied by I9/I11/I12 and add no product ontology or authority semantics. No Proposal-v4 product unit, human interface, reviewer policy, provider routing or Gate answer was introduced. The ceremony trust model was not strengthened.
+
+**Deliberately unchanged Review #3 non-blocking items:** the ceremony record does not bind `DecisionRef`/`ExpiresAt`/`IssuedAt`/`AuthorityDigest` (unbound-field acceptance); `isInteractiveTerminal` accepts any character device (the frozen authentication root); a pending gate halts drive even with independent ready siblings (fail-closed; plan says siblings "may" run); the activation manifest cannot carry plan step-9 fields; `build_modified:true` is accepted when the binary agrees (clean-build is procedural); test fixtures still hand-build the `Repository`; installed executable bytes are not re-hashed by the activation verifier. Addressed: cross-Goal attach (R1-G), publication not re-verified before push and the pushed-but-unrecorded turn (R3-A3/R1-4), explicit objective skipping readiness (R2-F5), the missing "timeout with surviving child" negative test (§3 N6).
+
+**Not wired to the exact parser (with reason):** plaintext ledger and activity payloads (unauthenticated; the seal is the control — strict parsing is defense in depth only); store-authenticated proposal, acceptance, request and decision records (authenticated ciphertext; their payloads can approach the 1 MiB cap, so a hard cap there would create an availability risk); other GoalStore payload families that carry no safety classification and were not audited line by line; the lifecycle selector probe (a heuristic map decode).
+
+## 14. Unresolved blockers and residual limits
+
+0. **A fresh, complete independent review (Astra Review #5) is required.** Four reviews each found defects only after crossing component boundaries; Repairs 3 and 4 also found N7 and N10–N13 by inventory. Unreviewed surface may remain.
+1. **Storage-key holder** can still forge any authenticated record, including the classification record, completion seals and liveness records (accepted bootstrap trust root, §6).
+2. **Raw SQLite writers without the key** (revised in Repair 4). A keyless *delete-only* writer can no longer widen authority (I12, §3a). Two residuals remain, both needing a forward-only anchor outside the database file that was deliberately not built: **A2 rollback** (delete plus replay of previously copied sealed rows, reproduced) and **A3 total erasure of a Goal's governance history**. The plaintext ledger (settlement, admission fence, activity) is unauthenticated by design; sweeps show no single-row deletion there lets a fresh controller act after revocation.
+2a. **Migration.** Authority records that predate liveness records are not in force under this candidate; migration is governed root succession plus fresh decisions, with no silent backfill. How an existing installation migrates is a separate human/product decision.
+3. **Validation isolation.** The export removes the worker checkout from the byte-identity question, but validation is still not an OS sandbox (a descendant that changes process group escapes the group kill; no tree kill on non-Unix); the validator can still reach the worker checkout through the export's `origin` (its effect on HEAD/branch is now caught, its effect on the worker's *working tree* is not evidence for anything); advisory validation paths still execute the worker checkout; `qualifiedTrees` is process-global and is lost on restart, after which only the recompute-and-compare inside a run applies.
+4. **Platform claims.** N3's kernel-identity guarantee is darwin/arm64 and depends on a signed binary (the Go linker signs arm64; darwin/amd64 needs `codesign -s -`) and on a deprecated-but-present `syscall.Syscall6` path; Linux relies on the OS's `ETXTBSY` (untested here); Windows unqualified. The CS_VALID and csops-error guards cannot be exercised here.
+5. **Mutation inventory is bounded** (§7): 23 classified survivors (two guards — N2.10, B9.13 — would need a root-succession fixture to observe individually); no universal completeness claim.
+6. `TestConcurrentInstallationFanoutAcrossProcesses` is a **pre-existing intermittent failure with two failure modes** (1 in 120 at base, 2 in 120 at the candidate on the final source). It is unrelated to this repair and was not modified, but a single red focused run is not by itself evidence of a regression; the reviewer should judge whether to fix it separately. A regression this repair itself introduced into the same test's root-reader was found by that measurement and fixed (§10).
+7. External `json.Unmarshal` remains on the payload families listed in §13.
+8. Core-binary replacement still lacks a governed Praxis driver and requires the separately authorized external human-controlled install described in the frozen plan.
+9. The candidate reports `vcs.modified:true`; the approved source must be committed and rebuilt/requalified from a clean tree before installation, and every identity above will then change.
+10. The exact goals package must then be deployed through the existing governed mechanism before a final activation manifest can truthfully claim coherence.
+11. Historical whole-system conformance remains red (pre-existing, §11).
+
+## 15. Active vs candidate state (read-only observation)
+
+The active core file was re-hashed at the end of this repair (`shasum -a 256 /Users/polliard/bin/praxis` = `807359e4…48fe7`, unchanged). The installed-package table was **not re-read** in this repair; the values below are those last observed read-only in repair 2, and no command that could alter installation state (install, deploy, activate, package-deploy-approve) was run in this repair.
+
+| Identity | Active | Candidate |
+|---|---|---|
+| core (`/Users/polliard/bin/praxis`) | `807359e48b2626abb1bcfca3ec302da743f1a0238644d6b0c64a0f888ec48fe7` (clean, rev `f539b74f…`) — **unchanged** | `sha256:b270805ecf6c59c9c4d6e0e8a72cbf9d3c49b0ce13b0372b26a042e17e45d972` (modified, rev `ff146000…`) |
+| goals package | `0.1.3`, content `e70c751c6667c83c3027dd18719449165200d19763bb8924fda30387d9a577b5` — **unchanged**; installed-but-inactive `0.1.1`, `0.1.2` unchanged; no `0.1.5` in state | `0.1.5`, content `sha256:cc6d98db19f62687c4105984e1227093100c4f4f6eedf883ef2679035b72922d` |
+| invocation-contract set | as previously recorded (active package) | `sha256:5acebd861e0d87f9ea230201a3136bbe2798424a4fc30ffff7c49a1fd4e2f043` |
+
+The active and candidate identities do not match. Nothing was installed or deployed.
+
+## 16. Remaining human action (bounded sequence)
+
+1. Independent review of this candidate (Astra Review #5).
+2. If acceptable: freeze review → commit exactly the reviewed source/evidence → clean tree → rebuild and requalify → obtain `modified:false` identities → independently verify exact identities and evidence.
+3. Separate human authorization for atomic replacement of `/Users/polliard/bin/praxis` (preserving the predecessor, quiescing mutations); verify path, SHA-256, VCS revision, clean-build identity.
+4. Deploy the exact clean-commit `praxis.package.goals@0.1.5` through the governed package lifecycle.
+5. Create and persist a separate final activation manifest; set the governed manifest path; run read-only restart/skew probes.
+6. Only then may Proposal v4 be materialized for independent review and authority.
+
+Steps 2–6 were not performed. Before step 3 an installation that predates liveness records needs the governed migration described in §14 item 2a.
+
+## Explicit non-actions
+
+Proposal v4 has not been materialized, submitted, reviewed, authorized, accepted, attached or driven. No Praxis review record was persisted. No WorkPlan unit was executed. No provider was invoked. Gate A, Gate B and Gate C remain undecided. No commit or push was made. No active binary or package was replaced, installed, deployed or activated. No final activation manifest exists. No historical attestation was rewritten.
+
+## Appendix — First, second and third repairs (preserved history)
+
+**Repair 1 (B1–B4).** B1: gate request authority scope vs subject scope separated (`RequestedScope` = installation governance scope; `SubjectScope` = exactly the Goal generation). B2: `goals-lifecycle continue` and the GoalStore persistence boundary enforce activation. B3: accepted-plan validation admits exactly the two provenance rewrites (`model_proposal→plan`, `model_gate_proposal→authority_gate`) and nothing else. B4: gate reconciliation is idempotent (existing byte-identical request reused, a different one under the same identity refused).
+
+**Repair 2 (B5–B15).** B5 completed-flag substitution closed at `validateSafetyGraph`/`ApplyCompletions`/`VerifyPlanCompletions`; B6 production wiring through `newGovernedRepository`/`newGoalDriveController`; B7 `Repository.Save` refuses safety-bearing plans (**extended by N1 in repair 3: the guard now also refuses any plan for a classified Goal**); B8 durable `OwnerCeremonyEvidence` resolved and matched by every protected decision; B9 `VerifyGoverningAuthority` at every turn boundary (**extended by N2 to gate decisions in repair 3**); B10 checkpoint-and-profile-bound validation (**re-founded in repair 3: validation now runs on an exact export, N5**); B11 loaded-image verification (**replaced in repair 3 by kernel code identity on darwin, N3; the repair-2 statement that in-place rewrite is refused by the OS was false on darwin and is withdrawn**); B12 per-boundary package resolution; B13 exact-value parser (**made type-directed in repair 3, N4**); B14 provider fence in `Controller.prepare`/`worker`; B15 gate replay enforces activation at the shared boundary.
+
+**Repair 3 (N1–N7, I9–I11).** Path A promoted; consolidated 155-mutation inventory; classification (I9), authenticated completion consumption (I11), outward-effect equivalence (I10), Darwin process-image identity, exact JSON, bound validation over an exact export, bounded output. Evidence: `repair-3-evidence/`. Its qualification identities are listed as stale in §12.

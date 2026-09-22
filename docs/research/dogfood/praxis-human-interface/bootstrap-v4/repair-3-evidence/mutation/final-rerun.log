@@ -1,0 +1,12 @@
+KILLED        B10.02   bound validator required for safety checkpoint  TestMissingValidatorAfterWorkerBlocksSafetyCheckpoint
+KILLED        N5.10    joint: every export post-run layer (status+hint+untracked+co  TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidation
+SURVIVED      N5.11    committed validator digest at checkpoint (bind)  
+KILLED        B10.01   post-worker validator missing blocks (M5)  TestMissingValidatorAfterWorkerBlocksSafetyCheckpoint
+SURVIVED      N5.12    exported validator digest  
+KILLED        N5.13    joint: committed and exported validator digest  TestGitBoundValidationRefusesValidatorThatDiffersFromTheProfile,TestValidationDriftAfterAd
+SURVIVED      N5.14    validator executable mode at checkpoint  
+SURVIVED      N5.14x   exported validator executable mode  
+SURVIVED      N5.14j   joint: validator executable mode (bind + export)  
+KILLED        N5.24    controller git ignores replace objects  TestGitBoundValidationIgnoresReplaceRefsInTheWorkerCheckout
+KILLED        N5.18    joint: every HEAD-equality layer  TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationRefusesCheckpointAndTreeS
+RESTORE-CHECK OK

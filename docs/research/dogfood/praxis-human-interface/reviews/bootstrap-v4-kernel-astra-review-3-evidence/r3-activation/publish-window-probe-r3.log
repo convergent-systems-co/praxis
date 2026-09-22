@@ -1,0 +1,8 @@
+=== RUN   TestR3ActivationDriftDuringWorkerStillPublishesProgressCheckpoint
+    r3_probe_test.go:37: progress-only turn: err=<nil> published=true progress=true verifyCalls=1 remoteMoved=true
+--- PASS: TestR3ActivationDriftDuringWorkerStillPublishesProgressCheckpoint (0.77s)
+=== RUN   TestR3ActivationDriftDuringWorkerClaimTurn
+    r3_probe_test.go:41: claim turn: err=WorkPlan safety activation is absent or inconsistent: package identity drifted published=false completed=false verifyCalls=2 remoteMoved=true
+--- PASS: TestR3ActivationDriftDuringWorkerClaimTurn (0.76s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	1.922s

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-provider-routing-policy","kind":"interaction","prerequisite":"unit:hi-provider-advisory-transport","provenance":"model_proposal","rationale":"unit:hi-provider-routing-policy and unit:hi-provider-advisory-transport require a non-blocking interaction contract."}

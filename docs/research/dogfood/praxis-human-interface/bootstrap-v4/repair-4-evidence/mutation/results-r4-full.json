@@ -1,0 +1,5423 @@
+[
+ {
+  "id": "N1.03",
+  "guard": "Proposal refuses legacy proposal for classified Goal",
+  "invariants": "I9",
+  "group": "N1.proposal-layer",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 52.4
+ },
+ {
+  "id": "N1.02",
+  "guard": "Save refuses any plan for a classified Goal",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "} else if classified {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport,TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 53.9
+ },
+ {
+  "id": "N1.04",
+  "guard": "Review refuses legacy review for classified Goal",
+  "invariants": "I9",
+  "group": "N1.proposal-layer",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 54.3
+ },
+ {
+  "id": "N1.01",
+  "guard": "Save refuses safety-bearing plan (B7)",
+  "invariants": "I2,I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if baseline.WorkPlan.Safety != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair2B7BaselinePersistenceSurfacesRefuseSafetyBearingPlans",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 54.5
+ },
+ {
+  "id": "N1.05",
+  "guard": "Legacy acceptance refuses classified Goal",
+  "invariants": "I9",
+  "group": "N1.proposal-layer",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    3,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 56.2
+ },
+ {
+  "id": "N1.07",
+  "guard": "Attach refuses legacy plan for classified Goal",
+  "invariants": "I9",
+  "group": "N1.proposal-layer",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, source.ID, plan.Safety)",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 56.7
+ },
+ {
+  "id": "N1.06",
+  "guard": "Authority-backed acceptance bridge refuses classified Goal",
+  "invariants": "I9",
+  "group": "N1.proposal-layer",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    4,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyClassificationRefusesTheAuthorityBackedAcceptanceBridgeOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.1
+ },
+ {
+  "id": "N1.08",
+  "guard": "Safety proposal classifies its Goal (mark at proposal)",
+  "invariants": "I9",
+  "group": "N1.mark",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, proposal.GoalID, proposal.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.9
+ },
+ {
+  "id": "N1.12",
+  "guard": "Missing binding on classified Goal refused",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if binding == nil {",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEmittedNextActionsAreExecutableProductContracts,TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 41.4
+ },
+ {
+  "id": "N1.09",
+  "guard": "Attach classifies its Goal (mark at attach)",
+  "invariants": "I9",
+  "group": "N1.mark",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, source.ID, plan.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.5
+ },
+ {
+  "id": "N1.10",
+  "guard": "Classification kernel-version mismatch refused (consistency)",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if binding.KernelVersion != kernel {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyConsistencyRefusesAnotherKernelVersion",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 57.3
+ },
+ {
+  "id": "N1.11",
+  "guard": "Classification kernel-version mismatch refused (mark)",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if kernel != binding.KernelVersion {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 60.4
+ },
+ {
+  "id": "N1.13",
+  "guard": "Attach binds accepted plan to its Goal (R1-G)",
+  "invariants": "I9,I2",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if acceptedProposal.GoalID != source.ID || acceptedProposal.GoalVersion != source.Version {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3AcceptedPlanCannotAttachToADifferentGoal",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 49.0
+ },
+ {
+  "id": "N1.17",
+  "guard": "Kernel-shaped: explicit kind",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "candidate.Kind != \"\" ||",
+    "false ||",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.0
+ },
+ {
+  "id": "N1.18",
+  "guard": "Kernel-shaped: preserved specification bytes",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "len(candidate.Specification) > 0 ||",
+    "false ||",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.2
+ },
+ {
+  "id": "N1.19",
+  "guard": "Kernel-shaped: gate provenance",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "candidate.Provenance == ProvenanceAuthorityGate || candidate.Provenance == ProvenanceModelGateProposal",
+    "false",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.3
+ },
+ {
+  "id": "N1.14",
+  "guard": "Controller refuses classified-but-unbound generation",
+  "invariants": "I9,I7",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if classified && !claimed {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ClassifiedGoalWithoutSafetyBindingIsRefusedBeforeAnyWorker,TestKernelRepair3MaterializationRefusesAClassifiedGoalWithoutTheBinding,TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestKernelRepair3RuntimeRefusesADowngradedGenerationBeforeAdmission",
+  "skipped": [],
+  "tail": "",
+  "secs": 42.1
+ },
+ {
+  "id": "N1.20",
+  "guard": "Kernel-shaped: relationship specification",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan_safety.go",
+    "if len(relationship.Specification) > 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelShapedContentWithoutSafetyBindingIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.1
+ },
+ {
+  "id": "N1.21",
+  "guard": "Runtime admission fence uses classification",
+  "invariants": "I9,I2",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/runtime.go",
+    "safety, err := r.Controller.safetyBearing(ctx, &baseline)",
+    "safety, err := isSafetyBearing(&baseline), error(nil)",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3RuntimeRefusesADowngradedGenerationBeforeAdmission",
+  "skipped": [],
+  "tail": "",
+  "secs": 46.1
+ },
+ {
+  "id": "N1.22",
+  "guard": "Materialization refuses safety-bearing turns via classification",
+  "invariants": "I9,I1",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/materialization.go",
+    "if safety, safetyErr := c.safetyBearing(ctx, &baseline); safetyErr != nil {",
+    "if safety, safetyErr := isSafetyBearing(&baseline), error(nil); safetyErr != nil {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3MaterializationRefusesAClassifiedGoalWithoutTheBinding",
+  "skipped": [],
+  "tail": "",
+  "secs": 46.3
+ },
+ {
+  "id": "N1.16",
+  "guard": "Kernel-shaped content refused (proposal Validate)",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan.go",
+    "} else if err := RejectKernelShapedWithoutSafety(",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelShapedContentWithoutSafetyBindingIsRefused",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.4
+ },
+ {
+  "id": "N1.15",
+  "guard": "Kernel-shaped content refused (WorkPlan.Validate)",
+  "invariants": "I9",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan.go",
+    "} else if err := RejectKernelShapedWithoutSafety(",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelShapedContentWithoutSafetyBindingIsRefused",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 61.8
+ },
+ {
+  "id": "N1.09j",
+  "guard": "joint: both classification writers (proposal + attach)",
+  "invariants": "I9",
+  "group": "N1.mark-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, proposal.GoalID, proposal.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, source.ID, plan.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 62.2
+ },
+ {
+  "id": "N2.02",
+  "guard": "SealCompletion requires verified activation",
+  "invariants": "I11,I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.requireSafetyActivation(ctx, baseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCompletionSealsAuthenticateExactBytesOnly",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 71.5
+ },
+ {
+  "id": "N2.01",
+  "guard": "SealCompletion only for safety-bearing generation",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if baseline.WorkPlan == nil || baseline.WorkPlan.Safety == nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCompletionSealsAuthenticateExactBytesOnly",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 72.8
+ },
+ {
+  "id": "N2.03",
+  "guard": "SealCompletion refuses a conflicting existing seal",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if payloadDigest(existing) == digest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCompletionSealsAuthenticateExactBytesOnly",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 65.5
+ },
+ {
+  "id": "N2.04",
+  "guard": "LoadSealedCompletion checks digest equality",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if payloadDigest(payload) != digest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSealedCompletionWhoseBytesDoNotMatchItsKeyIsRefused",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 66.1
+ },
+ {
+  "id": "N2.05",
+  "guard": "Gate completion cites the request its dossier implies",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err != nil || derived != requestDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 66.4
+ },
+ {
+  "id": "N2.06",
+  "guard": "Gate request must be durably recorded (digest equality)",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if storedDigest, digestErr := stored.Digest(); digestErr != nil || storedDigest != requestDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N2GateCompletionRefusesARecordedRequestThatDiffersFromTheImpliedOne",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 89.3
+ },
+ {
+  "id": "N2.07",
+  "guard": "Gate decision citation equality",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if got, digestErr := evidence.Digest(); digestErr != nil || got != decisionDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 89.1
+ },
+ {
+  "id": "N2.08",
+  "guard": "Gate completion ceremony resolves",
+  "invariants": "I8,I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.verifyDecisionCeremony(ctx, stored, evidence, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 91.0
+ },
+ {
+  "id": "N2.10",
+  "guard": "Gate decision owner/root authority current",
+  "invariants": "I3,I8,I11",
+  "group": "N2.currency",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.validateGateDecisionAuthority(ctx, stored, decision, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 89.9
+ },
+ {
+  "id": "N2.11",
+  "guard": "Gate decision outcome must be approve",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if decision.Outcome != contracts.AuthorityApprove {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N2CompletionCitingARejectedGateDecisionIsNotEffective",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 89.4
+ },
+ {
+  "id": "N2.12",
+  "guard": "Revoked decision is not effective (LoadAuthorityDecision revocation)",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/completion_authentication.go",
+    "decision, err := r.LoadAuthorityDecision(ctx, request.ID, request.Version, now)",
+    "decision, err := r.LoadAuthorityDecisionEvidence(ctx, request.ID, request.Version, now)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.0
+ },
+ {
+  "id": "N2.13",
+  "guard": "Consumption: completion belongs to this Goal generation",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if completion.GoalID != baseline.ID || completion.GoalVersion != baseline.Version {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore",
+  "skipped": [],
+  "tail": "",
+  "secs": 61.6
+ },
+ {
+  "id": "N2.14",
+  "guard": "Consumption: sealed bytes equal ledger row",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if !bytes.Equal(sealed, payload) {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore",
+  "skipped": [],
+  "tail": "",
+  "secs": 63.5
+ },
+ {
+  "id": "N2.15",
+  "guard": "Consumption: seal must exist",
+  "invariants": "I11",
+  "group": "N2.seal-lookup-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "sealed, err := governance.LoadSealedCompletion(ctx, *baseline, digest, now)\n\t\tif err != nil {",
+    "sealed, err := governance.LoadSealedCompletion(ctx, *baseline, digest, now)\n\t\tif false && err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if !bytes.Equal(sealed, payload) {",
+    "if false && !bytes.Equal(sealed, payload) {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore,TestKernelRepair3ForgedLedgerGateCompletionIsRefusedNotTrusted,TestKernelRepair3ForgedLedgerUnitCompletionIsRefused,TestKernelRepair3InspectDoesNotDisplayAForgedCompletionAndIsNotDrivable,TestKernelRepair3LedgerRowAlteredAfterSealingIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 64.8
+ },
+ {
+  "id": "N2.16",
+  "guard": "Consumption: authentication skipped entirely",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if !isSafetyBearing(baseline) {\n\t\treturn EffectiveCompletions{Effective: completions}, nil\n\t}\n\tif governance == nil {",
+    "if true {\n\t\treturn EffectiveCompletions{Effective: completions}, nil\n\t}\n\tif governance == nil {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore,TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable,TestKernelRepair3ForgedLedgerGateCompletionIsRefusedNotTrusted",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.4
+ },
+ {
+  "id": "N2.17",
+  "guard": "Consumption: gate citations required",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if request == \"\" || decision == \"\" || completion.EndHead != \"authority:\"+decision {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GateCompletionWithoutItsCitationsIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 72.3
+ },
+ {
+  "id": "N2.18",
+  "guard": "Consumption: gate lineage re-verified",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "err = governance.VerifyGateCompletion(ctx, *baseline, units[completion.UnitID], artifacts, requestDigest, decisionDigest, now)",
+    "_, _ = requestDigest, decisionDigest\n\t\terr = nil",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable,TestKernelRepair3GateCompletionWithUnresolvableLineageIsRefused,TestKernelRepair3GoalCandidateIsDerivedOnlyFromEffectiveCompletions,TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions",
+  "skipped": [],
+  "tail": "",
+  "secs": 69.7
+ },
+ {
+  "id": "N2.19",
+  "guard": "Consumption: not-effective gate demoted to history",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "stale[completion.UnitID] = struct{}{}\n\t\tdefault:",
+    "_ = stale\n\t\tdefault:",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable,TestKernelRepair3GoalCandidateIsDerivedOnlyFromEffectiveCompletions,TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions,TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork",
+  "skipped": [],
+  "tail": "",
+  "secs": 64.2
+ },
+ {
+  "id": "N2.20",
+  "guard": "Consumption: demotion propagates over hard dependencies",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if relationship.Kind != contracts.RelationshipHardDependency {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships",
+  "skipped": [],
+  "tail": "",
+  "secs": 60.5
+ },
+ {
+  "id": "N2.21",
+  "guard": "Consumption: effective/historical split",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if _, isStale := stale[completion.UnitID]; isStale {",
+    "if _, isStale := stale[completion.UnitID]; false && isStale {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable,TestKernelRepair3GoalCandidateIsDerivedOnlyFromEffectiveCompletions,TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions,TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork",
+  "skipped": [],
+  "tail": "",
+  "secs": 62.1
+ },
+ {
+  "id": "N2.22",
+  "guard": "Recording seals before append",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if _, err := governance.SealCompletion(ctx, *baseline, payload, time.Now().UTC()); err != nil {",
+    "if _, err := governance.SealCompletion(ctx, *baseline, append([]byte(nil), payload[:0]...), time.Now().UTC()); err != nil {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA|GoalGate)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGoalGateCompletesThroughTheSupportedOwnerCeremony,TestGoalGateOwnerCeremonyAdversarialRejections,TestGoalGateRejectionThroughTheOwnerCeremonyNeverCompletesTheGate,TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary,TestKernelRepair2B6NativeRuntimeGateRepositoryIsConfiguredByTheProductionConstructor,TestKernelRepair2B7BaselinePersistenceSurfacesRefuseSafetyBearingPlans",
+  "skipped": [],
+  "tail": "",
+  "secs": 63.3
+ },
+ {
+  "id": "N2.23",
+  "guard": "Controller prepare consumes authenticated completions (select)",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\t\tif err != nil {\n\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t}\n\t\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\t\tif err != nil {\n\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t}\n\t\tcompletions := raw",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ForgedLedgerGateCompletionIsRefusedNotTrusted,TestKernelRepair3ForgedLedgerUnitCompletionIsRefused,TestKernelRepair3GateCompletionWithUnresolvableLineageIsRefused,TestKernelRepair3N2ForgedLedgerGateCompletionIsRefused,TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork,TestKernelRepair3RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.0
+ },
+ {
+  "id": "N2.24",
+  "guard": "Controller consumes authenticated completions (explicit objective)",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\t\t\tif err != nil {\n\t\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t\t}\n\t\t\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\t\t\tif err != nil {\n\t\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t\t}\n\t\t\tcompletions := raw",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.6
+ },
+ {
+  "id": "N2.25",
+  "guard": "Goal candidate derived from authenticated completions",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\tif err != nil {\n\t\treturn record, err\n\t}\n\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\tif err != nil {\n\t\treturn record, err\n\t}\n\tcompletions := raw",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GoalCandidateIsDerivedOnlyFromEffectiveCompletions",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.7
+ },
+ {
+  "id": "N2.26",
+  "guard": "Explicit objective must be currently runnable",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if item.Candidate.ID == candidate.ID && item.Readiness != contracts.WorkReady {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.2
+ },
+ {
+  "id": "N7.01",
+  "guard": "Candidate completions: historical refuses settlement",
+  "invariants": "I3,I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if len(effective.Historical) != 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions",
+  "skipped": [],
+  "tail": "",
+  "secs": 67.0
+ },
+ {
+  "id": "N7.04",
+  "guard": "Settlement operation verifies candidate",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goal_complete.go",
+    "if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {\n\t\treturn fmt.Errorf(\"Goal %s/%s cannot be settled: %w\", goalID, version, err)\n\t}",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3N7SettlementSurfacesRefuseAForgedCompletionCandidate",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 59.1
+ },
+ {
+  "id": "N7.05",
+  "guard": "Evaluation operation verifies candidate",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goal_complete.go",
+    "if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {\n\t\treturn fmt.Errorf(\"Goal %s/%s evaluation refused: %w\", goalID, version, err)\n\t}",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N7SettlementSurfacesRefuseAForgedCompletionCandidate",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.6
+ },
+ {
+  "id": "N7.02",
+  "guard": "Candidate completions: count equality",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if len(candidate.Units) != len(authenticated) {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions",
+  "skipped": [],
+  "tail": "",
+  "secs": 68.2
+ },
+ {
+  "id": "N7.03",
+  "guard": "Candidate completions: per-unit equality",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if authenticated[completion.UnitID] != payloadDigest(payload) {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions",
+  "skipped": [],
+  "tail": "",
+  "secs": 64.7
+ },
+ {
+  "id": "I10.02",
+  "guard": "authorizeEffect: verifier configured",
+  "invariants": "I6,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if c.SafetyActivation == nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EffectBoundaryFailsClosedWithoutAnActivationVerifier",
+  "skipped": [],
+  "tail": "",
+  "secs": 5.8
+ },
+ {
+  "id": "N7.07",
+  "guard": "Inspect: authentication error makes generation not drivable",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "cmd/praxis/goals_lifecycle.go",
+    "if authErr != nil {",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3InspectDoesNotDisplayAForgedCompletionAndIsNotDrivable",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 46.7
+ },
+ {
+  "id": "N7.06",
+  "guard": "Inspect consumes authenticated completions",
+  "invariants": "I11",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goals_lifecycle.go",
+    "effective, authErr := goaldrive.LoadEffectiveCompletions(ctx, ledger, repo, &baseline, goalID, version)\n\t\tcompletions := effective.Effective",
+    "raw, authErr := ledger.LoadCompletions(ctx, goalID, version)\n\t\teffective := goaldrive.EffectiveCompletions{Effective: raw}\n\t\tcompletions := effective.Effective",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3InspectDoesNotDisplayAForgedCompletionAndIsNotDrivable",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 47.9
+ },
+ {
+  "id": "I10.01",
+  "guard": "authorizeEffect: activation predicate",
+  "invariants": "I6,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.SafetyActivation.Verify(ctx, *req.GoalBaseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens",
+  "skipped": [],
+  "tail": "",
+  "secs": 58.3
+ },
+ {
+  "id": "I10.03",
+  "guard": "authorizeEffect: governing authority",
+  "invariants": "I3,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3GateCompletionIsAuthorizedAtTheMomentItIsRecorded",
+  "skipped": [],
+  "tail": "",
+  "secs": 60.4
+ },
+ {
+  "id": "I10.04",
+  "guard": "authorizeEffect: lease held",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "ErrLeaseLost, req.TurnID, effect)",
+    1,
+    -1
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3LostLeaseRefusesTheEffect",
+  "skipped": [],
+  "tail": "",
+  "secs": 57.6
+ },
+ {
+  "id": "I10.05",
+  "guard": "authorizeEffect: content binding",
+  "invariants": "I5,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := validator.VerifyValidationBinding(ctx, record.EndHead, req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens",
+  "skipped": [],
+  "tail": "",
+  "secs": 61.3
+ },
+ {
+  "id": "I10.06",
+  "guard": "call site: before checkpoint publication",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "err = c.authorizeEffect(ctx, req, \"checkpoint-publication\", repo, record)",
+    "err = nil",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3LostLeaseRefusesTheEffect",
+  "skipped": [],
+  "tail": "",
+  "secs": 64.2
+ },
+ {
+  "id": "I10.08",
+  "guard": "call site: before gate completion (M2c)",
+  "invariants": "I3,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if err := c.authorizeEffect(ctx, req, \"gate-completion\", nil, TurnRecord{}); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA|GoalGate|Approved)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GateCompletionIsAuthorizedAtTheMomentItIsRecorded",
+  "skipped": [],
+  "tail": "",
+  "secs": 59.0
+ },
+ {
+  "id": "I10.09",
+  "guard": "post-publication settlement failure recorded (published-but-ungoverned)",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CheckpointPublished && !errors.Is(err, ErrLeaseLost) {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens",
+  "skipped": [],
+  "tail": "",
+  "secs": 59.4
+ },
+ {
+  "id": "I10.07",
+  "guard": "call site: before completion record (M2b/M2d/M6b)",
+  "invariants": "I3,I6,I5,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.authorizeEffect(ctx, req, \"completion-record\", repo, record); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3LostLeaseRefusesTheEffect",
+  "skipped": [],
+  "tail": "",
+  "secs": 67.4
+ },
+ {
+  "id": "I10.10",
+  "guard": "lost lease records nothing after publication",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "if record.CheckpointPublished && !errors.Is(err, ErrLeaseLost) {",
+    "if record.CheckpointPublished {",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3LostLeaseRefusesTheEffect",
+  "skipped": [],
+  "tail": "",
+  "secs": 57.6
+ },
+ {
+  "id": "M12.01",
+  "guard": "claim == selected unit before publication",
+  "invariants": "I1",
+  "group": "M12.layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 57.3
+ },
+ {
+  "id": "M12.02",
+  "guard": "claim == selected unit at settlement",
+  "invariants": "I1",
+  "group": "M12.layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3SettlementRefusesANonSelectedClaimByItself",
+  "skipped": [],
+  "tail": "",
+  "secs": 62.0
+ },
+ {
+  "id": "M12.03",
+  "guard": "claim == selected unit at checkpoint inspection",
+  "invariants": "I1",
+  "group": "M12.layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if unit != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ClaimOfANonSelectedUnitPublishesNothing",
+  "skipped": [],
+  "tail": "",
+  "secs": 59.7
+ },
+ {
+  "id": "M12.04",
+  "guard": "joint: all three claim==selected layers",
+  "invariants": "I1",
+  "group": "M12.layers-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if unit != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ClaimOfANonSelectedUnitPublishesNothing,TestKernelRepair3SettlementRefusesANonSelectedClaimByItself",
+  "skipped": [],
+  "tail": "",
+  "secs": 61.0
+ },
+ {
+  "id": "B5.01",
+  "guard": "accepted plan refuses supplied Completed flag (M1a)",
+  "invariants": "I1",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan_safety.go",
+    "if candidate.Completed {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair2B5AcceptanceCannotInjectCompletedGate,TestSafetyPlanRejectsSuppliedCompletion",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 54.3
+ },
+ {
+  "id": "B9.03",
+  "guard": "gate reconcile: governing authority (M3)",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/authority_gate.go",
+    "if err := r.VerifyGoverningAuthority(ctx, baseline, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair2B9RevokedGoverningAuthorityStopsFutureExecution",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 32.5
+ },
+ {
+  "id": "B5.02",
+  "guard": "ApplyCompletions clears supplied flag (M1b)",
+  "invariants": "I1",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion.go",
+    "} else if candidate.Kind != \"\" {\n\t\t\tout[i].Completed = false\n\t\t}",
+    "}",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 96.6
+ },
+ {
+  "id": "B5.03",
+  "guard": "VerifyPlanCompletions structural check (M1c)",
+  "invariants": "I1,I4",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion.go",
+    "if plan == nil || plan.Safety == nil {\n\t\treturn nil\n\t}\n\tunits :=",
+    "if true {\n\t\treturn nil\n\t}\n\tunits :=",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence",
+  "skipped": [],
+  "tail": "",
+  "secs": 84.8
+ },
+ {
+  "id": "B9.02",
+  "guard": "prepare verifies governing authority",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3RevokedAuthorityIsRefusedBeforeTheWorkerRuns",
+  "skipped": [],
+  "tail": "",
+  "secs": 83.5
+ },
+ {
+  "id": "B9.01",
+  "guard": "controller verifies governing authority (M2a)",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "func (c Controller) verifyGoverningAuthority(ctx context.Context, baseline *goals.GoalBaseline) error {\n",
+    "func (c Controller) verifyGoverningAuthority(ctx context.Context, baseline *goals.GoalBaseline) error {\n\treturn nil\n",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3GateCompletionIsAuthorizedAtTheMomentItIsRecorded,TestKernelRepair3LostLeaseRefusesTheEffect,TestKernelRepair3RevokedAuthorityIsRefusedBeforeTheWorkerRuns,TestRevokedGoverningAuthorityRefusesTheNextTurn",
+  "skipped": [],
+  "tail": "",
+  "secs": 89.8
+ },
+ {
+  "id": "B9.04",
+  "guard": "gate reconcile: activation (B15)",
+  "invariants": "I2,I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/authority_gate.go",
+    "if err := r.requireSafetyActivation(ctx, baseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 33.5
+ },
+ {
+  "id": "B9.05",
+  "guard": "plan authority lineage present",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if plan.AuthorityRequestID == \"\" || plan.AuthorityRequestVersion == \"\"",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 42.6
+ },
+ {
+  "id": "B9.06",
+  "guard": "plan authority request is the acceptance request",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.RequestedAuthority != contracts.GovernedWorkPlanAccept ||",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 44.8
+ },
+ {
+  "id": "B9.07",
+  "guard": "plan authority request carries ceremony+activation binding",
+  "invariants": "I3,I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.CeremonyProfile != contracts.OwnerCeremonyProfile || request.ActivationManifestDigest",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 47.9
+ },
+ {
+  "id": "B9.08",
+  "guard": "plan authority decision matches plan lineage",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if decision.Outcome != contracts.AuthorityApprove || decision.DecisionRef != plan.AuthorityDecisionRef",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 45.4
+ },
+ {
+  "id": "B9.09",
+  "guard": "baseline is the persisted generation",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if stored.Digest != baseline.Digest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 44.5
+ },
+ {
+  "id": "B9.10",
+  "guard": "decision owner scope",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.RequestedScope != scope || decision.GrantedScope != scope {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 49.1
+ },
+ {
+  "id": "B9.11",
+  "guard": "decision by installation owner",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if decision.DecidedBy != owner {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 54.7
+ },
+ {
+  "id": "B9.12",
+  "guard": "decision authority generation valid (root revocation)",
+  "invariants": "I3",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if err := validator.ValidateAuthorityGeneration(ctx, decision, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 53.7
+ },
+ {
+  "id": "B9.13",
+  "guard": "gate decision issued by current root",
+  "invariants": "I3,I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if requireCurrentRoot {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 52.6
+ },
+ {
+  "id": "B8.01",
+  "guard": "protected decision requires resolvable ceremony record",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "} else if err := r.verifyDecisionCeremony(",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 51.3
+ },
+ {
+  "id": "B8.02",
+  "guard": "ceremony record must match decision",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if evidence.Profile != request.CeremonyProfile || !evidence.BindsDecision(decision) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState,TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 50.9
+ },
+ {
+  "id": "B14.01",
+  "guard": "worker fence refuses gate objective (M4a)",
+  "invariants": "I7",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "func refuseGateDispatch(req TurnRequest) error {\n",
+    "func refuseGateDispatch(req TurnRequest) error {\n\treturn nil\n",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|GateObjective|WorkerResolution|AuthorityGate)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestWorkerResolutionRefusesAuthorityGateObjective",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.7
+ },
+ {
+  "id": "B8.03",
+  "guard": "ceremony record: owner/root lineage",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if evidence.Owner != owner || evidence.RootRef != root.Ref",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 58.7
+ },
+ {
+  "id": "B8.04",
+  "guard": "ceremony record: enrolled OS user",
+  "invariants": "I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if !strings.HasSuffix(root.ProvenanceRef",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState,TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 59.7
+ },
+ {
+  "id": "B8.05",
+  "guard": "legacy acceptance refuses safety-bearing proposal",
+  "invariants": "I2,I8",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if proposal.Safety != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 59.4
+ },
+ {
+  "id": "B14.05",
+  "guard": "selected gate goes to coordination",
+  "invariants": "I7",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if candidate.Kind == contracts.WorkCandidateAuthorityGate {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|GateObjective|AuthorityGate|GoalGate)",
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider,TestGoalGateCompletesThroughTheSupportedOwnerCeremony,TestGoalGateOwnerCeremonyAdversarialRejections,TestGoalGateRejectionThroughTheOwnerCeremonyNeverCompletesTheGate,TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary,TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState",
+  "skipped": [],
+  "tail": "",
+  "secs": 45.1
+ },
+ {
+  "id": "B10.02",
+  "guard": "bound validator required for safety checkpoint",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "bound, ok := repo.(CheckpointValidator)",
+    1,
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestMissingValidatorAfterWorkerBlocksSafetyCheckpoint",
+  "skipped": [],
+  "tail": "",
+  "secs": 57.5
+ },
+ {
+  "id": "B14.02",
+  "guard": "explicit gate objective routed to coordination (M4b)",
+  "invariants": "I7",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "if candidate.Kind == contracts.WorkCandidateAuthorityGate {\n\t\t\t\treturn nil, TurnRequest{}, c.coordinateGate(ctx, req, candidate, completions)\n\t\t\t}\n\t\t\t// I3/I11",
+    "// I3/I11",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 162.9
+ },
+ {
+  "id": "B14.03",
+  "guard": "safety plan refuses objective outside plan (M4c)",
+  "invariants": "I7,I2",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if safety && !found {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ExplicitObjectiveMustBeAnOpenCandidateOfTheAcceptedPlan,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 159.1
+ },
+ {
+  "id": "B14.04",
+  "guard": "completed objective refused",
+  "invariants": "I1",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if completion.UnitID == candidate.ID {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ExplicitObjectiveMustBeAnOpenCandidateOfTheAcceptedPlan,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 159.2
+ },
+ {
+  "id": "B10.01",
+  "guard": "post-worker validator missing blocks (M5)",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !declared {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestMissingValidatorAfterWorkerBlocksSafetyCheckpoint",
+  "skipped": [],
+  "tail": "",
+  "secs": 164.4
+ },
+ {
+  "id": "B10.03",
+  "guard": "no-declared-validation never counts for safety (M9)",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "if !passed && !safetyBearing && containsEvidence",
+    "if !passed && containsEvidence",
+    1
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestNoDeclaredValidationCannotSettleASafetyCompletion,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 168.3
+ },
+ {
+  "id": "B10.04",
+  "guard": "preflight profile-digest mismatch (M11)",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if digest != req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3ProfileMismatchIsRefusedBeforeTheWorkerRuns,TestValidationCancellationTerminatesDescendants,TestValidationTerminatesTheWholeProcessTree",
+  "skipped": [],
+  "tail": "",
+  "secs": 182.6
+ },
+ {
+  "id": "B10.05",
+  "guard": "candidate conformance decided before publication (M7b)",
+  "invariants": "I4,I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.Progress && record.CompletionClaim != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFailedCandidateConformanceIsDecidedBeforePublication,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 174.5
+ },
+ {
+  "id": "N4.01",
+  "guard": "input empty/oversize refused",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if len(data) == 0 || len(data) > MaxGovernedArtifactBytes {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.4
+ },
+ {
+  "id": "N4.02",
+  "guard": "invalid UTF-8 refused",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if !utf8.Valid(data) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.6
+ },
+ {
+  "id": "N4.03",
+  "guard": "unpaired surrogate escape refused",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if err := rejectUnpairedSurrogateEscapes(data); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.0
+ },
+ {
+  "id": "N4.04",
+  "guard": "trailing content refused (walk)",
+  "invariants": "I5",
+  "group": "N4.trailing",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := walker.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.5
+ },
+ {
+  "id": "N4.05",
+  "guard": "trailing content refused (decode)",
+  "invariants": "I5",
+  "group": "N4.trailing",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := decoder.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.5
+ },
+ {
+  "id": "N4.06",
+  "guard": "trailing content refused (both layers)",
+  "invariants": "I5",
+  "group": "N4.trailing-joint",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := walker.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := decoder.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDossierResolutionRefusesMalformedOrAmbiguousBytes,TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.6
+ },
+ {
+  "id": "N4.07",
+  "guard": "nesting depth bound",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if depth > MaxExactJSONDepth {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONNestingBoundRefusesOtherwiseValidDocuments",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.5
+ },
+ {
+  "id": "B10.06",
+  "guard": "conformance acknowledgement required (M7a)",
+  "invariants": "I4,I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !acknowledged {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyCompletionRejectsMalformedConformanceEvidence,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 191.6
+ },
+ {
+  "id": "N4.08",
+  "guard": "textual duplicate key refused",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, duplicate := seen[key]; duplicate {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesSemanticDuplicateKeys",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.8
+ },
+ {
+  "id": "N4.10",
+  "guard": "case-folded key refused (N4)",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "} else if canonical, folded := fields.folded(key); folded {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONDifferentialAgainstEncodingJSON,TestUnmarshalExactJSONRefusesSemanticDuplicateKeys",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.1
+ },
+ {
+  "id": "N4.11",
+  "guard": "unknown fields refused when requested",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if disallowUnknown {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.8
+ },
+ {
+  "id": "B10.07",
+  "guard": "integrated-pass evidence required to qualify",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !containsEvidence(record.CheckpointEvidence, \"repository:declared-validation-passed\") {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3QualificationRequiresIntegratedPassEvidence,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 192.6
+ },
+ {
+  "id": "B10.08",
+  "guard": "settlement re-qualifies when not qualified before",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if qualification == nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSafetyCompletionRejectsMalformedConformanceEvidence",
+  "skipped": [],
+  "tail": "",
+  "secs": 99.2
+ },
+ {
+  "id": "N4.12",
+  "guard": "external import decoder is exact",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goalimport.go",
+    "import (\n",
+    "import (\n\t\"encoding/json\"\n",
+    1
+   ],
+   [
+    "sub",
+    "cmd/praxis/goalimport.go",
+    "contracts.UnmarshalExactJSON(body, &doc, false)",
+    "func() error { _ = contracts.MaxGovernedArtifactBytes; return json.Unmarshal(body, &doc) }()",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3N4ExternalImportRefusesSemanticDuplicateKeys",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 60.1
+ },
+ {
+  "id": "B10.09",
+  "guard": "governed output size bound",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if len(body) == 0 || len(body) > contracts.MaxGovernedArtifactBytes {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKernelRepair3GovernedOutputMustBePresentAndBounded,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 223.1
+ },
+ {
+  "id": "N5.01",
+  "guard": "validator runs in the private export, not the worker checkout",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "runValidationProcess(ctx, export.dir, filepath.Join(export.dir, declaredValidationPath), args)",
+    "runValidationProcess(ctx, r.Dir, filepath.Join(r.Dir, declaredValidationPath), args)",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationBindsToCommitContentNotWorkingTreeState,TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidationDetectsExportTamperingAndAlwaysCleansUp,TestGitBoundValidationRefusesAValidatorThatMovesTheWorkerCheckoutDuringTheRun,TestGitBoundValidationRefusesAnExportWhoseHeadMoved,TestGitBoundValidationRefusesAnIndexHintEvenWithoutAContentChange",
+  "skipped": [],
+  "tail": "",
+  "secs": 198.5
+ },
+ {
+  "id": "N5.02",
+  "guard": "export re-verified after the run",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := export.verify(ctx, checkpoint); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidationDetectsExportTamperingAndAlwaysCleansUp,TestGitBoundValidationRefusesAnExportWhoseHeadMoved,TestGitBoundValidationRefusesAnIndexHintEvenWithoutAContentChange,TestValidationThatMutatesTheCheckoutDuringExecutionDoesNotQualify",
+  "skipped": [],
+  "tail": "",
+  "secs": 208.4
+ },
+ {
+  "id": "N5.02b",
+  "guard": "export verified right after checkout (creation time)",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := export.verify(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 199.5
+ },
+ {
+  "id": "N5.03",
+  "guard": "checkpoint re-bound after the run",
+  "invariants": "I5,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if _, err := r.bindCheckpoint(ctx, checkpoint, profileDigest); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRefusesAValidatorThatMovesTheWorkerCheckoutDuringTheRun",
+  "skipped": [],
+  "tail": "",
+  "secs": 173.1
+ },
+ {
+  "id": "N5.04",
+  "guard": "export HEAD equals checkpoint",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(head) != checkpoint {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRefusesAnExportWhoseHeadMoved",
+  "skipped": [],
+  "tail": "",
+  "secs": 118.3
+ },
+ {
+  "id": "N5.05",
+  "guard": "export tree equals qualified tree",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(tree) != e.tree {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 122.6
+ },
+ {
+  "id": "N5.07",
+  "guard": "export status clean",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if strings.TrimSpace(status) != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 111.3
+ },
+ {
+  "id": "N5.06",
+  "guard": "export index hint flags refused",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if entry != \"\" && !strings.HasPrefix(entry, \"H \") {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRefusesAnIndexHintEvenWithoutAContentChange",
+  "skipped": [],
+  "tail": "",
+  "secs": 115.5
+ },
+ {
+  "id": "N5.08",
+  "guard": "export gained no untracked/excluded files",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if untracked != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 118.0
+ },
+ {
+  "id": "N5.09",
+  "guard": "export content re-hashed into a fresh index (stat/index-blind layer)",
+  "invariants": "I5",
+  "group": "N5.export-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return e.verifyContent(ctx)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite",
+  "skipped": [],
+  "tail": "",
+  "secs": 96.9
+ },
+ {
+  "id": "N5.10",
+  "guard": "joint: every export post-run layer (status+hint+untracked+content)",
+  "invariants": "I5",
+  "group": "N5.export-layers-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if entry != \"\" && !strings.HasPrefix(entry, \"H \") {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if strings.TrimSpace(status) != \"\" {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if untracked != \"\" {",
+    1,
+    0
+   ],
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return e.verifyContent(ctx)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidationDetectsExportTamperingAndAlwaysCleansUp,TestGitBoundValidationRefusesAnIndexHintEvenWithoutAContentChange,TestValidationThatMutatesTheCheckoutDuringExecutionDoesNotQualify",
+  "skipped": [],
+  "tail": "",
+  "secs": 89.0
+ },
+ {
+  "id": "N5.11",
+  "guard": "committed validator digest at checkpoint (bind)",
+  "invariants": "I5",
+  "group": "N5.validator-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if digestBytes(committed) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationCleansUpAfterTimeout",
+  "skipped": [],
+  "tail": "",
+  "secs": 104.9
+ },
+ {
+  "id": "N5.12",
+  "guard": "exported validator digest",
+  "invariants": "I5",
+  "group": "N5.validator-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || digestBytes(body) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 105.8
+ },
+ {
+  "id": "N5.13",
+  "guard": "joint: committed and exported validator digest",
+  "invariants": "I5",
+  "group": "N5.validator-layers-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if digestBytes(committed) != profileDigest {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || digestBytes(body) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRefusesValidatorThatDiffersFromTheProfile,TestValidationDriftAfterAdmissionFailsClosedBeforePublication",
+  "skipped": [],
+  "tail": "",
+  "secs": 106.4
+ },
+ {
+  "id": "N5.14",
+  "guard": "validator executable mode at checkpoint",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !strings.HasPrefix(entry, \"100755 blob \") {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 109.5
+ },
+ {
+  "id": "N5.14x",
+  "guard": "exported validator executable mode",
+  "invariants": "I5",
+  "group": "N5.mode-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 106.1
+ },
+ {
+  "id": "N5.14j",
+  "guard": "joint: validator executable mode (bind + export)",
+  "invariants": "I5",
+  "group": "N5.mode-layers-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !strings.HasPrefix(entry, \"100755 blob \") {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 110.9
+ },
+ {
+  "id": "N5.15",
+  "guard": "bind: HEAD is the checkpoint",
+  "invariants": "I5,I10",
+  "group": "N5.head-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 110.1
+ },
+ {
+  "id": "N5.16",
+  "guard": "bind: local branch points at checkpoint",
+  "invariants": "I5,I10",
+  "group": "N5.head-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(local) != checkpoint {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 123.3
+ },
+ {
+  "id": "N5.17",
+  "guard": "publish: HEAD is the checkpoint",
+  "invariants": "I10",
+  "group": "N5.head-layers",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, head); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationRefusesCheckpointAndTreeSubstitution,TestGitBoundValidationRefusesSubstitutionOnADetachedHead",
+  "skipped": [],
+  "tail": "",
+  "secs": 113.0
+ },
+ {
+  "id": "N5.18",
+  "guard": "joint: every HEAD-equality layer",
+  "invariants": "I5,I10",
+  "group": "N5.head-layers-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(local) != checkpoint {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, head); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRefusesCheckpointAndTreeSubstitution,TestGitBoundValidationRefusesSubstitutionOnADetachedHead",
+  "skipped": [],
+  "tail": "",
+  "secs": 113.4
+ },
+ {
+  "id": "N5.19",
+  "guard": "qualified tree recorded at run time is re-compared",
+  "invariants": "I5,I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "ok && recorded.(string) != tree {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationRefusesCheckpointAndTreeSubstitution",
+  "skipped": [],
+  "tail": "",
+  "secs": 116.6
+ },
+ {
+  "id": "N5.20",
+  "guard": "checkpoint must be a full object id",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !objectIDPattern.MatchString(checkpoint) {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationRequiresAFullObjectId",
+  "skipped": [],
+  "tail": "",
+  "secs": 117.3
+ },
+ {
+  "id": "N5.21",
+  "guard": "publication pushes the exact qualified object id",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "head+\":refs/heads/\"+r.Branch",
+    "\"HEAD:refs/heads/\"+r.Branch",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 115.3
+ },
+ {
+  "id": "N5.22",
+  "guard": "publication verifies the remote ref is the checkpoint",
+  "invariants": "I10",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if len(fields) < 1 || fields[0] != head {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationPublicationVerifiesTheRemoteRef",
+  "skipped": [],
+  "tail": "",
+  "secs": 108.7
+ },
+ {
+  "id": "N5.23",
+  "guard": "controller git runs without worker fsmonitor/hooks",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return []string{\"-C\", dir, \"-c\", \"core.fsmonitor=false\", \"-c\", \"core.hooksPath=\" + os.DevNull}",
+    "return []string{\"-C\", dir}",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationNeverExecutesWorkerCheckoutHooksOrFsmonitor,TestValidationCancellationTerminatesDescendants",
+  "skipped": [],
+  "tail": "",
+  "secs": 118.0
+ },
+ {
+  "id": "N5.24",
+  "guard": "controller git ignores replace objects",
+  "invariants": "I5",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return append(os.Environ(), \"GIT_NO_REPLACE_OBJECTS=1\")",
+    "return os.Environ()",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationIgnoresReplaceRefsInTheWorkerCheckout",
+  "skipped": [],
+  "tail": "",
+  "secs": 106.4
+ },
+ {
+  "id": "N6.03",
+  "guard": "overflow cancels (kills) the process group",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "o.cancel() // kills the process group; the run then fails closed",
+    "_ = o.cancel",
+    1
+   ]
+  ],
+  "run": "Test(ValidationOutput|BoundValidationOutput|ValidationTerminates)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationOutputBoundFailsClosedThroughTheRealCollector",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.6
+ },
+ {
+  "id": "N6.04",
+  "guard": "process tree terminated after validator returns",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "terminateValidationProcessTree(cmd)\n\toutput, exceeded",
+    "output, exceeded",
+    1
+   ]
+  ],
+  "run": "Test(ValidationTerminates|ValidationCancellation|ValidationOutput)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationCancellationTerminatesDescendants,TestValidationTerminatesTheWholeProcessTree",
+  "skipped": [],
+  "tail": "",
+  "secs": 30.8
+ },
+ {
+  "id": "N6.05",
+  "guard": "collector keeps draining after overflow (no deadlock)",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if o.exceeded {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(ValidationOutput|BoundValidationOutput)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.3
+ },
+ {
+  "id": "N6.01",
+  "guard": "output bound enforced in the production collector",
+  "invariants": "I4,I5",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if len(o.buffer)+len(p) > o.limit {",
+    1,
+    0
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestBoundValidationOutputOverflowFailsClosed,TestValidationCancellationTerminatesDescendants,TestValidationOutputBoundFailsClosedThroughTheRealCollector",
+  "skipped": [],
+  "tail": "",
+  "secs": 133.0
+ },
+ {
+  "id": "N6.02",
+  "guard": "overflow fails closed even with exit 0",
+  "invariants": "I4,I5",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "case exceeded:\n",
+    "case false && exceeded:\n",
+    1
+   ]
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestBoundValidationOutputOverflowFailsClosed,TestValidationOutputBoundFailsClosedThroughTheRealCollector",
+  "skipped": [],
+  "tail": "",
+  "secs": 103.2
+ },
+ {
+  "id": "N3.01",
+  "guard": "image digest equals manifest digest",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if got := sha256Digest(data); got != manifest.ActiveBinaryDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRunningImageManifestDigestMustBeTheImageDigest",
+  "skipped": [],
+  "tail": "",
+  "secs": 33.5
+ },
+ {
+  "id": "N3.02",
+  "guard": "loaded-code binding (kernel cdhash vs file)",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if err := bindExecutingCode(data); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRunningImageExecToInitWindow,TestRunningImageInPlaceOverwriteIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.9
+ },
+ {
+  "id": "N3.03",
+  "guard": "manifest path still names the executing file",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if !os.SameFile(image.info, pathInfo) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRunningImagePathnameMutationMatrix,TestRunningImageVerificationSurvivesPathnameReplacement",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.3
+ },
+ {
+  "id": "N3.04",
+  "guard": "kernel cdhash must match a CodeDirectory of the file",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if bytes.Equal(signature.directories[i].cdhash[:], kernelCDHash[:]) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDarwinKernelIdentityMatchesTheRunningFile,TestRunningImageExecToInitWindow,TestRunningImageManifestDigestMustBeTheImageDigest,TestRunningImagePathnameMutationMatrix,TestRunningImageVerificationSurvivesPathnameReplacement,TestVerifyExecutedImageAcceptsExactlyTheSignedImage",
+  "skipped": [],
+  "tail": "",
+  "secs": 32.9
+ },
+ {
+  "id": "N3.05",
+  "guard": "page hashes recomputed from file bytes",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if !bytes.Equal(h.Sum(nil)[:hashSize], slot) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyExecutedImageFailsClosedOnUnsupportedOrMalformedImages,TestVerifyExecutedImageRefusesEveryCodeChange",
+  "skipped": [],
+  "tail": "",
+  "secs": 33.4
+ },
+ {
+  "id": "R4.02",
+  "guard": "in-tx revoked-or-not-live: absent liveness refuses",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "return !present, nil",
+    "return false, nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "FAIL\tgithub.com/convergent-systems-co/praxis/internal/state [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalstore [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalspublication [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/state\ninternal/state/secure_blob.go:806:2: declared and not used: present\n",
+  "secs": 0.2
+ },
+ {
+  "id": "N3.06",
+  "guard": "code limit ends at the embedded signature",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if codeLimit != signature.codeSignatureOffset || codeLimit > uint64(len(data)) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyExecutedImageRefusesUnhashedBytesBeforeTheSignature",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.8
+ },
+ {
+  "id": "N3.07",
+  "guard": "kernel reports the signature valid",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/process_image_darwin.go",
+    "if flags&csFlagValid == 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 37.7
+ },
+ {
+  "id": "N3.08",
+  "guard": "image size change refused",
+  "invariants": "I6",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/process_image.go",
+    "if err != nil || current.Size() != i.info.Size() {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRunningImageLengthChangeIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 37.0
+ },
+ {
+  "id": "R4.01",
+  "guard": "in-tx revoked-or-not-live: negative record refuses",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if count != 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestIsSecureBlobRevokedInTx",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 44.0
+ },
+ {
+  "id": "R4.03",
+  "guard": "in-tx liveness exemption only for facts created by this transaction",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if record.Namespace == liveNamespace && record.ObjectID == id && record.ObjectVersion == version {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDecisionLivenessRowDeletionFailsClosed,TestDeleteLivenessRecordRefusesEveryOtherNamespace,TestDerivedPackageApprovalIsConsumableByDeployment,TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRowDeletionFailsClosed,TestInstallationRepairRequestsAreIndependentDurableDecisions",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 43.9
+ },
+ {
+  "id": "R4.08",
+  "guard": "succession makes the successor live in its own transaction",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "if err := insertSecureBlobTx(ctx, tx, liveRecord); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "FAIL\tgithub.com/convergent-systems-co/praxis/internal/state [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalstore [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalspublication [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/state\ninternal/state/secure_blob.go:620:2: declared and not used: liveRecord\n",
+  "secs": 0.2
+ },
+ {
+  "id": "R4.04",
+  "guard": "retire API refuses every non-liveness namespace",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if namespace != AuthorityDecisionLiveNamespace && namespace != AuthorityGenerationLiveNamespace {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 42.7
+ },
+ {
+  "id": "R4.05",
+  "guard": "liveness sealing refuses every non-liveness namespace",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if namespace != AuthorityDecisionLiveNamespace && namespace != AuthorityGenerationLiveNamespace {",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDeleteLivenessRecordRefusesEveryOtherNamespace",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 41.4
+ },
+ {
+  "id": "R4.06",
+  "guard": "atomic multi-write accepts liveness records only",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if record.Namespace != AuthorityDecisionLiveNamespace && record.Namespace != AuthorityGenerationLiveNamespace {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 41.0
+ },
+ {
+  "id": "R4.09",
+  "guard": "generation liveness commits with the generation",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "if write.MarkLive {",
+    "if false && write.MarkLive {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestAbandonmentConfirmationAppendsExactFrozenPayload,TestAbandonmentConfirmationRejectsChangedStateAndSubstitutedBytes,TestAbandonmentPreservesLineageAndPermanentlyFencesPredecessor,TestAbandonmentRejectsRequestIntentGenerationAndEffectSubstitution,TestAdoptAuthorityModelRejectsSubstitutionAndDowngrade,TestAdoptAuthorityModelRequiresExactOwnerConfirmationAndDoesNotDelegate",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 42.7
+ },
+ {
+  "id": "R4.07",
+  "guard": "succession retires the predecessor liveness in its own transaction",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "AuthorityGenerationLiveNamespace, predecessor.Ref, predecessor.Version); err != nil {",
+    "\"authority_generation_live_unused\", predecessor.Ref, predecessor.Version); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRootSuccessionRollbackByRowDeletionDoesNotReviveThePredecessor",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 45.2
+ },
+ {
+  "id": "R4.10",
+  "guard": "decision liveness commits with the decision",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "for _, item := range live {\n\t\tif err := insertSecureBlobTx(ctx, tx, item); err != nil {",
+    "for _, item := range live[:0] {\n\t\tif err := insertSecureBlobTx(ctx, tx, item); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDecisionLivenessRowDeletionFailsClosed,TestDerivedPackageApprovalIsConsumableByDeployment,TestInstallationRepairRequestsAreIndependentDurableDecisions,TestRepositoryConsumesApprovedAuthorityDecisionExactlyOnce,TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision,TestRoutingIssuanceRequiresAdoptedV6AndExactDelegatedAuthority",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 49.0
+ },
+ {
+  "id": "R4.11",
+  "guard": "LoadAuthorityDecision requires decision liveness",
+  "invariants": "I3,I12",
+  "group": "R4.decision-live",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "digest, now); err != nil {\n\t\treturn contracts.AuthorityDecision{}, fmt.Errorf(\"%w: %v\", ErrAuthorityDecisionNotLive, err)",
+    "digest, now); false && err != nil {\n\t\treturn contracts.AuthorityDecision{}, fmt.Errorf(\"%w: %v\", ErrAuthorityDecisionNotLive, err)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDecisionLivenessRowDeletionFailsClosed,TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 47.9
+ },
+ {
+  "id": "R4.12",
+  "guard": "identical decision replay cannot resurrect a retired decision",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "time.Now().UTC()); err != nil {\n\t\t\t\treturn fmt.Errorf(\"%w: %v\", ErrAuthorityDecisionNotLive, err)",
+    "time.Now().UTC()); false && err != nil {\n\t\t\t\treturn fmt.Errorf(\"%w: %v\", ErrAuthorityDecisionNotLive, err)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 49.5
+ },
+ {
+  "id": "R4.13",
+  "guard": "revocation retires the decision liveness record",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.retireLive(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 55.6
+ },
+ {
+  "id": "R4.14",
+  "guard": "generation invalidation retires the generation liveness record",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.retireLive(ctx, state.AuthorityGenerationLiveNamespace, invalidation.Ref, invalidation.Version); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 56.1
+ },
+ {
+  "id": "R4.15",
+  "guard": "ValidateAuthorityGeneration requires generation liveness",
+  "invariants": "I3,I12",
+  "group": "R4.gen-live",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "return r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRowDeletionFailsClosed",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 49.0
+ },
+ {
+  "id": "R4.16",
+  "guard": "lineage walk requires liveness of every generation",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now); err != nil {\n\t\t\treturn generation, err",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now); false && err != nil {\n\t\t\treturn generation, err",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 46.3
+ },
+ {
+  "id": "R4.17",
+  "guard": "current installation root must be positively live",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/root_authority_succession.go",
+    "if requireGovernanceScope {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRootLivenessRowDeletionLeavesNoCurrentRoot,TestRootSuccessionRollbackByRowDeletionDoesNotReviveThePredecessor",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 56.6
+ },
+ {
+  "id": "R4.18",
+  "guard": "publication consumer: generation liveness",
+  "invariants": "I10,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/goals_publication.go",
+    "if e := r.requireLiveIdentity(ctx, state.AuthorityGenerationLiveNamespace, ref, version, now); e != nil {",
+    "if e := error(nil); e != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 55.0
+ },
+ {
+  "id": "R4.19",
+  "guard": "publication consumer: decision liveness",
+  "invariants": "I10,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/goals_publication.go",
+    "if e := r.requireLiveIdentity(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion, now); e != nil {",
+    "if e := error(nil); e != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 54.5
+ },
+ {
+  "id": "R4.23",
+  "guard": "owner-decision authority requires issuing generation liveness",
+  "invariants": "I3,I8,I12",
+  "group": "R4.owner-gen-live",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/plan_authority.go",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "rRetainsRejectedPrivacyCandidate\n--- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.02s)\nPASS\nok  \tgithub.com/convergent-systems-co/praxis/internal/state\t2.755s\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalstore [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalspublication [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/cmd/praxis [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/goalstore\ninternal/goalstore/plan_authority.go:9:2: \"github.com/convergent-systems-co/praxis/internal/state\" imported and not used\n",
+  "secs": 3.8
+ },
+ {
+  "id": "R4.20",
+  "guard": "recovery admission: decision liveness",
+  "invariants": "I10,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/goals_publication_recovery.go",
+    "} else if !live {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 49.7
+ },
+ {
+  "id": "R4.21",
+  "guard": "recovery admission: generation liveness",
+  "invariants": "I10,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/goals_publication_recovery.go",
+    "} else if !live {",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 46.2
+ },
+ {
+  "id": "R4.22",
+  "guard": "ordinary re-request requires the predecessor decision liveness",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/authority_rerequest.go",
+    "if err := r.requireLiveIdentity(ctx, state.AuthorityDecisionLiveNamespace, prior.ID, prior.Version, time.Unix(0, 0).UTC()); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 50.6
+ },
+ {
+  "id": "R4.24e",
+  "guard": "classification derivation end-to-end (N9 counterexample)",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "return r.deriveGoalSafetyKernel(ctx, goalID)",
+    "return \"\", false, nil",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport,TestRepair4SweepClassificationRowPlusAnyOtherRowStillClassified,TestRepair4SweepSingleRowDeletionNeverUnclassifiesGoal",
+  "skipped": [],
+  "tail": "",
+  "secs": 22.6
+ },
+ {
+  "id": "R4.25",
+  "guard": "derivation reads surviving generations of the Goal",
+  "invariants": "I9,I12",
+  "group": "R4.derive-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if err := observe(baseline.WorkPlan.Safety); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4SweepClassificationRowPlusAnyOtherRowStillClassified",
+  "skipped": [],
+  "tail": "",
+  "secs": 24.3
+ },
+ {
+  "id": "R4.24",
+  "guard": "classification is derived when the classification row is missing",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "return r.deriveGoalSafetyKernel(ctx, goalID)",
+    "return \"\", false, nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 42.2
+ },
+ {
+  "id": "R4.26",
+  "guard": "derivation reads surviving proposals of the Goal",
+  "invariants": "I9,I12",
+  "group": "R4.derive-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if err := observe(attribution.Safety); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestRepair4SweepClassificationRowPlusAnyOtherRowStillClassified",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 54.1
+ },
+ {
+  "id": "R4.27",
+  "guard": "derivation refuses conflicting kernel evidence",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if kernel != \"\" && kernel != binding.KernelVersion {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 48.8
+ },
+ {
+  "id": "R4.29",
+  "guard": "derivation fails closed on an unreadable generation",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "baseline, err := r.Load(ctx, record.ObjectID, record.ObjectVersion, epoch)",
+    1,
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 46.7
+ },
+ {
+  "id": "R4.28",
+  "guard": "derivation fails closed on an unreadable proposal",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "payload, _, err := r.loadWorkPlanBlob(ctx, workPlanProposalNamespace",
+    1,
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 49.0
+ },
+ {
+  "id": "R4.30",
+  "guard": "derivation attributes proposals by Goal identity",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if attribution.GoalID != goalID {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 37.6
+ },
+ {
+  "id": "R4.32",
+  "guard": "decision liveness written atomically for delegated decision+generation",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "RelatedRecords: []state.SecureBlobRecord{decisionRecord, decisionLive},",
+    "RelatedRecords: []state.SecureBlobRecord{decisionRecord},",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "ssAgentTransferGeneralizesSanitizesPublishesAndAdoptsAcrossDomains/research (0.04s)\n=== RUN   TestCrossAgentTransferRetainsRejectedPrivacyCandidate\n--- PASS: TestCrossAgentTransferRetainsRejectedPrivacyCandidate (0.04s)\nPASS\nok  \tgithub.com/convergent-systems-co/praxis/internal/state\t4.813s\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalstore [build failed]\nFAIL\tgithub.com/convergent-systems-co/praxis/internal/goalspublication [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/goalstore\ninternal/goalstore/repository.go:1216:2: declared and not used: decisionLive\n",
+  "secs": 6.3
+ },
+ {
+  "id": "R4.31",
+  "guard": "derivation attributes generations by Goal identity",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if record.ObjectID != goalID {",
+    1,
+    0
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 20.7
+ },
+ {
+  "id": "R4.33",
+  "guard": "protected decision written with its liveness in one transaction",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "decision.AuthorityRef, decision.AuthorityVersion, authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion, liveRecord)",
+    "decision.AuthorityRef, decision.AuthorityVersion, authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestActivationRefusalSurvivesRestartAndRecoversOnlyWithRestoredActivation,TestContinuationAcceptsAndAttachesUnderValidActivation,TestContinuationCreatesProtectedRequestOnlyUnderValidActivation,TestContinuationRefusesAcceptanceWithoutActivationAndPersistsNothing,TestContinuationRefusesAttachmentWithoutActivationAndPersistsNoSuccessor,TestDecisionLivenessRowDeletionFailsClosed",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 28.0
+ }
+]

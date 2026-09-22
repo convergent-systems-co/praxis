@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-review-principal-provenance","kind":"hard_dependency","prerequisite":"gate:hi-review-independence","provenance":"model_proposal","rationale":"unit:hi-review-principal-provenance cannot be truthfully implemented or qualified until gate:hi-review-independence is complete."}

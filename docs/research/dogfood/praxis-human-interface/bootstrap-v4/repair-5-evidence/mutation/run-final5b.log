@@ -1,0 +1,115 @@
+KILLED        R4.03    in-tx liveness exemption only for facts created by this tran  TestDecisionLivenessRowDeletionFailsClosed,TestDeleteLivenessRecordRefusesEveryOtherNamesp
+KILLED        R4.05    liveness sealing refuses every non-liveness namespace  TestLivenessSealingAndProbeRefuseOtherNamespaces
+KILLED        R4.01    in-tx revoked-or-not-live: negative record refuses  TestIsSecureBlobRevokedInTx
+KILLED        R4.02    in-tx revoked-or-not-live: absent liveness refuses  TestUnlessRevokedWriteRequiresGenerationLiveness
+KILLED        R4.04    retire API refuses every non-liveness namespace  TestDeleteLivenessRecordRefusesEveryOtherNamespace
+KILLED        R4.05b   in-tx liveness probe refuses non-liveness namespaces  TestLivenessSealingAndProbeRefuseOtherNamespaces
+KILLED        R4.06    atomic multi-write accepts liveness records only  TestPutSecureBlobsAtomicallyAcceptsOnlyLivenessCompanions
+KILLED        R4.09    generation liveness commits with the generation  TestAbandonmentConfirmationAppendsExactFrozenPayload,TestAbandonmentConfirmationRejectsCha
+KILLED        R4.07    succession retires the predecessor liveness in its own trans  TestRootSuccessionRollbackByRowDeletionDoesNotReviveThePredecessor
+KILLED        R4.08    succession makes the successor live in its own transaction  TestHistoricalRootModernizationEstablishesSingleCurrentRoot,TestInstallationRepairRequests
+KILLED        R4.10    decision liveness commits with the decision  TestDecisionLivenessRowDeletionFailsClosed,TestDerivedPackageApprovalIsConsumableByDeploym
+KILLED        R4.11    LoadAuthorityDecision requires decision liveness  TestDecisionLivenessRowDeletionFailsClosed,TestFAACrashBetweenFactAndEffectsLeavesTheDecis
+KILLED        R4.12    identical decision replay cannot resurrect a retired decisio  TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision
+KILLED        R4.15    ValidateAuthorityGeneration requires generation liveness  TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotRes
+KILLED        R4.13    revocation retires the decision liveness record  TestFAAReplayOfACopiedLivenessRowDoesNotRestoreARevokedDecision,TestRevocationRowDeletionD
+KILLED        R4.17    current installation root must be positively live (same snap  TestRootLivenessRowDeletionLeavesNoCurrentRoot,TestRootSuccessionRollbackByRowDeletionDoes
+KILLED        R4.14    generation invalidation retires the generation liveness reco  TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration
+KILLED        R4.16    lineage walk requires liveness of every generation  TestLineageWalkRefusesAChildWithoutItsLivenessRecord
+KILLED        R4.18    publication consumer: generation liveness  TestPublicationFencesRequireLivenessRecords
+KILLED        R4.19    publication consumer: decision liveness  TestPublicationFencesRequireLivenessRecords
+KILLED        R4.20    recovery admission: decision liveness  TestRecoveryAdmissionRecheckRequiresLivenessRecords
+KILLED        R4.21    recovery admission: generation liveness  TestRecoveryAdmissionRecheckRequiresLivenessRecords
+KILLED        R4.22    ordinary re-request requires the predecessor decision livene  TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges
+KILLED        R4.24e   classification derivation end-to-end (N9 counterexample)  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R4.25    derivation reads surviving generations of the Goal  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R4.24    classification is derived when the classification row is mis  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+SURVIVED      R4.23    owner-decision authority requires issuing generation livenes  
+KILLED        R4.27    derivation refuses conflicting kernel evidence  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+SURVIVED      R4.28    derivation fails closed on an unreadable candidate  
+SURVIVED      R4.29    derivation fails closed on an unreadable generation  
+KILLED        R4.29j   joint: candidate decrypt failure + generation load failure b  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R4.31    derivation attributes generations by Goal identity  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R4.23j   joint: owner-decision generation liveness (plan authority +   TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotRes
+KILLED        R5.01    chain: fact belongs to this installation  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.02    chain: fact chains to its predecessor  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.03    chain: fact head matches its content  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R5.04    chain: gap refused outside a re-anchor  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.05    chain: must begin with a genesis or a re-anchor  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.06    chain: genesis only first, at 0, with a nonce  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R5.07    chain: re-anchor bridges exactly from the verified chain  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R5.08    chain: decision fact complete  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R4.26    derivation reads the safety binding of proposals  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestConcurrentInstallationF
+KILLED        R5.09    chain: generation fact complete  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R5.10    chain: classification fact complete  TestVerifyChainRefusesEveryStructuralFailure
+KILLED        R4.28j   joint: candidate decrypt failure + extraction failure both s  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R4.33    protected decision written with its liveness in one transact  TestActivationRefusalSurvivesRestartAndRecoversOnlyWithRestoredActivation,TestContinuation
+KILLED        R5.14    genesis requires a nonce and installation  TestGenesisIsBoundToItsNonceAndInstallation
+KILLED        R5.11    compare: store behind the anchor  TestCompareClassifiesTheStoreAgainstTheAnchor,TestFAAClassificationSurvivesErasureOfEveryE
+KILLED        R5.12    compare: store ahead of the anchor  TestCompareClassifiesTheStoreAgainstTheAnchor,TestFAAAnchorStatesFailClosed
+KILLED        R5.13    compare: same length, different head  TestCompareClassifiesTheStoreAgainstTheAnchor,TestFAAAnchorStatesFailClosed
+KILLED        R4.30    derivation attributes records by Goal identity  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R5.17    append: store related to anchor before extending  TestFAACrashAfterAnchorAdvanceBeforeCommitStrandsFailClosed
+KILLED        R5.18    lag is re-observed behind the writer lock only for a plain l  TestFAAReaderBarrierWaitsOutAnInFlightWriteAndRefusesRealDisagreement,TestFAARepositoryRef
+KILLED        R5.16    snapshot: store related to anchor (observation)  TestFAAAnchorStatesFailClosed,TestFAAClassificationSurvivesErasureOfEveryEvidenceRow,TestF
+KILLED        R4.32    decision liveness written atomically for delegated decision+  TestAbandonmentConfirmationAppendsExactFrozenPayload,TestAbandonmentConfirmationRejectsCha
+KILLED        R5.15    snapshot: anchor names this installation  TestFAARepositoryRefusesAnAnchorThatNamesAnotherInstallation
+KILLED        R5.20    append is idempotent for a recorded transition  TestFAACrashBetweenFactAndEffectsLeavesTheDecisionRetired
+KILLED        R5.21    append advances the anchor  TestFAAAnchorStatesFailClosed,TestFAAAnchorWriteThatDoesNotStickIsRefused,TestFAAClassific
+KILLED        R5.22    append reverts the anchor when the commit fails  TestFAACommitFailureRevertsTheAnchor
+KILLED        R5.23    an anchor is not created next to existing state  TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors
+KILLED        R5.24    a crashed initialisation is replaced only at sequence 0  TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors
+KILLED        R5.26    the in-transaction snapshot relates store to anchor  TestFAAAnchorStatesFailClosed,TestFAAClassificationSurvivesErasureOfEveryEvidenceRow,TestF
+KILLED        R5.19    admission is stamped with the anchor sequence  TestFAAAuthorityAdmittedAfterAReanchorIsCurrent
+SURVIVED      R5.76    a lag that resolves behind the writer lock is accepted  
+KILLED        R5.25    re-anchor voids earlier admissions  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAARootAdmittedBef
+KILLED        R5.27    decision load consults freshness first  TestFAAAnchorStatesFailClosed,TestFAAFactChainTruncationErasureAndDamageFailClosed,TestFAA
+KILLED        R5.28    liveness: retired by an anchored fact  TestFAACrashBetweenFactAndEffectsLeavesTheDecisionRetired,TestFAAEveryConsumerHonoursFacts
+KILLED        R5.31    liveness by identity: freshness consulted  TestFAAEveryConsumerHonoursFactsAndFreshness
+KILLED        R5.29    liveness: admitted before the latest re-anchor is void  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestRepair5WholeDataba
+SURVIVED      R5.75    a real disagreement behind the lock is refused at once  
+KILLED        R5.36    root resolution: retired root excluded  TestFAARootRetiredByFactAloneIsNotCurrent,TestFAARootSuccessionIsAnchoredAndItsRollbackByR
+KILLED        R5.30    liveness: freshness consulted (requireLive)  TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAWholeDatabaseRollbackFailsClosed
+KILLED        R5.32    revocation is anchored before its effects  TestFAAAnchorStatesFailClosed,TestFAAFactChainTruncationErasureAndDamageFailClosed,TestFAA
+KILLED        R5.34    succession anchors the supersession  TestFAARootSuccessionIsAnchoredAndItsRollbackByReplayIsRefused
+KILLED        R5.35    root resolution: snapshot refusal propagates  TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAReanchorCoversMissingUnreadableAndAhea
+KILLED        R5.33    invalidation is anchored before its effects  TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority
+KILLED        R5.41    classification is anchored when derived-classified  TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived
+KILLED        R5.42    evidence registry: proposal evidences governance  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestGoalEvidenceRegistryCov
+KILLED        R5.37    root resolution: pre-recovery root excluded  TestFAARootAdmittedBeforeTheReanchorIsNotCurrent
+KILLED        R5.38    classification: anchored fact is authoritative  TestFAAClassificationSurvivesErasureOfEveryEvidenceRow,TestFAAGovernedReanchorAfterRestore
+KILLED        R5.43    evidence registry: review evidences governance  TestGoalEvidenceRegistryCoversEveryGovernanceNamespace
+KILLED        R5.47    evidence registry: baseline generation evidences governance  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R5.44    evidence registry: acceptance evidences governance  TestGoalEvidenceRegistryCoversEveryGovernanceNamespace
+KILLED        R5.39    classification: freshness refusal propagates  TestFAAClassificationSurvivesErasureOfEveryEvidenceRow,TestFAAFactChainTruncationErasureAn
+KILLED        R5.40    classification is anchored when first marked  TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived
+KILLED        R5.45    evidence registry: request evidences governance  TestGoalEvidenceRegistryCoversEveryGovernanceNamespace
+KILLED        R5.46    evidence registry: decision evidences governance  TestGoalEvidenceRegistryCoversEveryGovernanceNamespace
+KILLED        R5.49    protected request without its proposal fails closed  TestProtectedRequestWithoutItsProposalFailsClosed
+KILLED        R5.50    recovery admission consults the anchored chain  TestFAARecoveryAdmissionRecheckConsultsTheAnchoredChain
+KILLED        R5.51    in-tx guard checks the decision  TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn
+KILLED        R5.52    in-tx guard checks the generation  TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn
+KILLED        R5.53    repair guard consults the anchor  TestRuntimeStateTransactionalGuardConsultsTheForwardAuthorityAnchor
+KILLED        R5.54    re-anchor is bound to the confirmed plan  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority
+KILLED        R5.55    re-anchor sequence exceeds the anchor's  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAReanchorCoversM
+KILLED        R5.56    re-anchor re-admits the attested root  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAReanchorCoversM
+KILLED        R5.57    re-anchor completes an interrupted re-admission  TestFAAReanchorRootSelectionAndIdempotence
+KILLED        R5.58    re-anchor preserves orphaned facts  TestFAAReanchorPreservesOrphanedFactsAndBridgesFromTheLastValidLink
+KILLED        R5.59    re-anchor needs exactly one un-retired root  TestFAAReanchorRootSelectionAndIdempotence
+KILLED        R5.60    re-anchor excludes a root retired by fact  TestFAAReanchorRootSelectionAndIdempotence
+KILLED        R5.61    re-anchor only completes; a consistent store writes nothing  TestFAAReanchorInterruptedBeforeRootReadmissionIsCompletedByTheSameCeremony,TestFAAReancho
+KILLED        R5.62    fact append reverts the anchor on commit failure  TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts
+KILLED        R5.63    only facts may be appended through the chain  TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts
+KILLED        R5.65    production constructor attaches the anchor  TestRepair5MissingAnchorFailsClosedAndTheCeremonyRecoversIt,TestRepair5N14ReplayedLiveness
+KILLED        R5.66    re-anchor requires an interactive terminal  TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony
+KILLED        R5.70    keychain: not strictly forward  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.71    keychain: expectation compared  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.72    keychain: create refuses an existing item  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.67    re-anchor requires the enrolling OS user  TestRepair5MissingAnchorFailsClosedAndTheCeremonyRecoversIt,TestRepair5WholeDatabaseRollba
+KILLED        R5.68    re-anchor requires the digest-bound confirmation  TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony
+SURVIVED      R5.73    keychain: read-back verified  
+KILLED        R5.74    keychain: another installation's state never returned  TestKeychainAnchorNeverReturnsAnotherInstallationsState
+KILLED        R5.69    status reports a store that is not consumable  TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony
+KILLED        R5.48    evidence registry: completion seal evidences governance  TestRepair5EvidencePowersetClassificationQualification
+SURVIVED      R5.64    the fact append takes the writer lock  
+RESTORE-CHECK OK

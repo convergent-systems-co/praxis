@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-review-principal-provenance","kind":"hard_dependency","prerequisite":"unit:hi-requirement-identity-and-binding","provenance":"model_proposal","rationale":"unit:hi-review-principal-provenance cannot be truthfully implemented or qualified until unit:hi-requirement-identity-and-binding is complete."}

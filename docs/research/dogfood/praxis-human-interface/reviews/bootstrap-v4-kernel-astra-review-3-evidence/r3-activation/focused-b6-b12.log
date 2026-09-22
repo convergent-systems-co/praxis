@@ -1,0 +1,15 @@
+  "operation": "import",
+  "status": "authoritative"
+}
+--- PASS: TestKernelRepair2PathDActivationDriftRefusesTheNextProtectedTransition (0.06s)
+=== RUN   TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+--- PASS: TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary (0.06s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.712s

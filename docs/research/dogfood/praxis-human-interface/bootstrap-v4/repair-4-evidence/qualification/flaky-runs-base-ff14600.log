@@ -1,0 +1,7 @@
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.60s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=83ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:496: succession contender failed: [root-authority succession predecessor is stale]
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	73.456s
+FAIL

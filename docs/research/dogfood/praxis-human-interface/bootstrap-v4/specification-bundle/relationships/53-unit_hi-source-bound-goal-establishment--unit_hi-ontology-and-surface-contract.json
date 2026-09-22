@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-source-bound-goal-establishment","kind":"interaction","prerequisite":"unit:hi-ontology-and-surface-contract","provenance":"model_proposal","rationale":"unit:hi-source-bound-goal-establishment and unit:hi-ontology-and-surface-contract require a non-blocking interaction contract."}

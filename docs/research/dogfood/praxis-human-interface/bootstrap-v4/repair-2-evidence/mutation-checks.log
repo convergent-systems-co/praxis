@@ -1,0 +1,13 @@
+KILLED   B5 completed check
+KILLED   B7 Save guard
+KILLED   B8 ceremony check
+KILLED   B8 legacy acceptance
+KILLED   B9 controller authority
+KILLED   B9 gate reconcile
+KILLED   B14 dispatch fence
+KILLED   B10 validator missing
+KILLED   B10 after-run binding
+KILLED   B10 pre-publication conformance
+KILLED   B11 same-file check
+KILLED   B12 stale cache
+KILLED   B13 trailing

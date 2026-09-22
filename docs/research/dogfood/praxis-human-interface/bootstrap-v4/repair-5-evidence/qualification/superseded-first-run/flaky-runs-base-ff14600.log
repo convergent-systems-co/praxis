@@ -1,0 +1,19 @@
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.48s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=20ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:496: succession contender failed: [root-authority succession predecessor is stale]
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.38s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=4ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:496: succession contender failed: [root-authority succession predecessor is stale]
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.05s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=86ms
+    concurrency_fanout_test.go:452: lease contention: 26 exclusive holds across 4 processes, 74 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (2.02s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=39ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	78.989s
+FAIL

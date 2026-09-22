@@ -1,0 +1,5 @@
+=== RUN   TestZZFAACrossProcessProbe
+    zz_faa_crossprocess_probe_test.go:42: anchor after the foreign process's attempts: equal-to-original=false err=forward authority anchor has no state for this installation
+--- PASS: TestZZFAACrossProcessProbe (1.05s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	2.058s

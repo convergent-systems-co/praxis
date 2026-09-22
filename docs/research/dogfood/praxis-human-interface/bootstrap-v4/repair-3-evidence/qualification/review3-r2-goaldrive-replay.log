@@ -1,0 +1,54 @@
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/assume-unchanged
+    zz_r2_git_probe_test.go:53: record.Progress=false published=false unitCompleted=false err=bound declared validation failed or its binding drifted; the local commit is retained as evidence and no checkpoint is valid: ./.praxis/validate : exit status 1 committed flag="bad" remote moved=false
+    zz_r2_git_probe_test.go:58: NOT REPRODUCED
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/skip-worktree
+    zz_r2_git_probe_test.go:53: record.Progress=false published=false unitCompleted=false err=bound declared validation failed or its binding drifted; the local commit is retained as evidence and no checkpoint is valid: ./.praxis/validate : exit status 1 committed flag="bad" remote moved=false
+    zz_r2_git_probe_test.go:58: NOT REPRODUCED
+--- FAIL: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint (2.33s)
+    --- FAIL: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/assume-unchanged (1.22s)
+    --- FAIL: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/skip-worktree (1.11s)
+=== RUN   TestR2BindingPredicateBlindToAssumeUnchanged
+    zz_r2_git_probe_test.go:73: control failed: plain tamper is not detected
+--- FAIL: TestR2BindingPredicateBlindToAssumeUnchanged (0.44s)
+=== RUN   TestR2ValidatorTimeoutSurvivingChildAndOutputBound
+    zz_r2_git_probe_test.go:104: timeout: elapsed=1.002s err=./.praxis/validate integrated: signal: killed outlen=0
+    zz_r2_git_probe_test.go:104: surviving-child-after-exit0: elapsed=5.008s err=./.praxis/validate integrated: exec: WaitDelay expired before I/O complete outlen=0
+    zz_r2_git_probe_test.go:104: output>1MiB-then-exit0: elapsed=54ms err=./.praxis/validate integrated: validation output exceeds the 1048576-byte bound; the result is refused, not truncated outlen=1048576
+    zz_r2_git_probe_test.go:113: surviving 'sleep 40' pids after validator returned: ""
+--- PASS: TestR2ValidatorTimeoutSurvivingChildAndOutputBound (6.13s)
+=== RUN   TestR2CompletedGateDecisionIsNotRevalidated
+    zz_r2_probe_test.go:52: err=load unit completions: completion of "g": completion is not authenticated by the installation's governed store worker.calls=0 gate-coordinator.calls=0
+    zz_r2_probe_test.go:54: NOT REPRODUCED: dependent did not run or decision was re-verified (calls=0 gates=0 err=load unit completions: completion of "g": completion is not authenticated by the installation's governed store)
+--- FAIL: TestR2CompletedGateDecisionIsNotRevalidated (0.00s)
+=== RUN   TestR2PendingGateBlocksReadySibling
+    zz_r2_probe_test.go:66: err=Goal-drive authority required for 1 pending request(s) worker.calls=0
+--- PASS: TestR2PendingGateBlocksReadySibling (0.00s)
+=== RUN   TestR2ExplicitObjectiveSkipsHardDependencyReadiness
+    zz_r2_probe_test.go:78: err=objective "u" is not currently runnable: blocked by g worker.calls=0
+    zz_r2_probe_test.go:80: NOT REPRODUCED: worker.calls=0 err=objective "u" is not currently runnable: blocked by g
+--- FAIL: TestR2ExplicitObjectiveSkipsHardDependencyReadiness (0.00s)
+=== RUN   TestR2GateObjectiveVariantsNeverReachWorker
+    zz_r2_probe_test.go:95: safety=true objective="g" worker.calls=0 err=Goal-drive authority required for 1 pending request(s)
+    zz_r2_probe_test.go:95: safety=true objective=" g" worker.calls=0 err=objective " g" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g " worker.calls=0 err=objective "g " is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="G" worker.calls=0 err=objective "G" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g\n" worker.calls=0 err=objective "g\n" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="\tg" worker.calls=0 err=objective "\tg" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g\x00" worker.calls=0 err=objective "g\x00" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="goal/1/g" worker.calls=0 err=objective "goal/1/g" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=false objective="g" worker.calls=0 err=Goal-drive authority required for 1 pending request(s)
+    zz_r2_probe_test.go:95: safety=false objective=" g" worker.calls=0 err=objective " g" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g " worker.calls=0 err=objective "g " is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="G" worker.calls=0 err=objective "G" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g\n" worker.calls=0 err=objective "g\n" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="\tg" worker.calls=0 err=objective "\tg" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g\x00" worker.calls=0 err=objective "g\x00" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="goal/1/g" worker.calls=0 err=objective "goal/1/g" is not a candidate of the accepted WorkPlan
+--- PASS: TestR2GateObjectiveVariantsNeverReachWorker (0.00s)
+=== RUN   TestR2NonSafetyPlanGateNeverReachesProvider
+    zz_r2_probe_test.go:109: err=work plan is not an accepted authoritative decomposition: plan carries safety-kernel content but no safety binding: candidate "g" worker.calls=0
+--- PASS: TestR2NonSafetyPlanGateNeverReachesProvider (0.00s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goaldrive	9.351s
+FAIL

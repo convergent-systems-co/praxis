@@ -1,0 +1,1 @@
+After governed reconciliation of changed human requirements, Praxis can autonomously derive and schedule resulting work without human-authored implementation task decomposition.

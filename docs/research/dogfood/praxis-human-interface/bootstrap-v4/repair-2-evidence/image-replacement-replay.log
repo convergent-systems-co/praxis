@@ -1,0 +1,2 @@
+[manifest binds replacement B] RUNNING A | VERIFY running=A result=running executable image digest mismatch: got sha256:509cc7b27884f34447501254c94e413b0c536ab6222b74980af9ec730121b743 want sha256:293c9b660f91cc961f4d1b59b54b6567ca94db6060ce57f3a10fb3e471e54e2e
+[manifest binds running A] RUNNING A | VERIFY running=A result=running executable image is no longer the file at /private/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/praxis-image-replay-3kzbrm3q/active-image; it was replaced while this process was running and must be restarted

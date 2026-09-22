@@ -1,0 +1,43 @@
+### control: no mutation, manifest for A [mutation ok]
+VERIFY running=A result=<nil>
+
+### atomic rename B over path, manifest binds B [mutation ok]
+VERIFY running=A result=running executable image digest mismatch: got sha256:65ca4311cfe5de8fd77ad5a545398327c203ff878ceb0e8d97dede0e558acf94 want sha256:533f4a96dc0da7dcf2e7746a4e16da546fdbd1eedb9c52563f8e656d8d3ac2ba
+
+### atomic rename B over path, manifest binds A [mutation ok]
+VERIFY running=A result=running executable image is no longer the file at /private/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/scn-5qfoyf9p/active; it was replaced while this process was running and must be restarted
+
+### unlink+recreate B, manifest binds B [mutation ok]
+VERIFY running=A result=running executable image digest mismatch: got sha256:65ca4311cfe5de8fd77ad5a545398327c203ff878ceb0e8d97dede0e558acf94 want sha256:533f4a96dc0da7dcf2e7746a4e16da546fdbd1eedb9c52563f8e656d8d3ac2ba
+
+### unlink+recreate B, manifest binds A [mutation ok]
+VERIFY running=A result=running executable image is no longer the file at /private/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/scn-kpec4x4i/active; it was replaced while this process was running and must be restarted
+
+### in-place truncate+write B (running exe), manifest binds B [mutation ok]
+VERIFY running=A result=the executable file does not carry the code identity this process was started with (kernel code-directory hash ea7c2e43387b1ff6117685a6adc6e3956ac16ac0): the file was replaced or rewritten after this process started and must be restarted
+
+### in-place same-size overwrite B, manifest binds B [mutation ok]
+VERIFY running=A result=the executable file does not carry the code identity this process was started with (kernel code-directory hash ea7c2e43387b1ff6117685a6adc6e3956ac16ac0): the file was replaced or rewritten after this process started and must be restarted
+
+### in-place same-size overwrite B, manifest binds A [mutation ok]
+VERIFY running=A result=running executable image digest mismatch: got sha256:533f4a96dc0da7dcf2e7746a4e16da546fdbd1eedb9c52563f8e656d8d3ac2ba want sha256:65ca4311cfe5de8fd77ad5a545398327c203ff878ceb0e8d97dede0e558acf94
+
+### identical bytes, new inode (cp+rename), manifest binds A [mutation ok]
+VERIFY running=A result=running executable image is no longer the file at /private/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/scn-2wkgj80u/active; it was replaced while this process was running and must be restarted
+
+### launched via hardlink, manifest path=active (same inode) [mutation ok]
+VERIFY running=A result=<nil>
+
+### launched via symlink, manifest path=symlink [mutation ok]
+VERIFY running=A result=<nil>
+
+### launched via symlink, manifest path=real [mutation ok]
+VERIFY running=A result=<nil>
+
+### launched via symlink, symlink retargeted to B, manifest path=sym binds B [mutation ok]
+VERIFY running=A result=running executable image digest mismatch: got sha256:65ca4311cfe5de8fd77ad5a545398327c203ff878ceb0e8d97dede0e558acf94 want sha256:533f4a96dc0da7dcf2e7746a4e16da546fdbd1eedb9c52563f8e656d8d3ac2ba
+
+### EXEC-TO-INIT WINDOW: A execs, path replaced by B before bootstrapv4 init, manifest binds B [mutation ok]
+RUNNING A
+VERIFY running=A result=the executable file does not carry the code identity this process was started with (kernel code-directory hash ea7c2e43387b1ff6117685a6adc6e3956ac16ac0): the file was replaced or rewritten after this process started and must be restarted
+

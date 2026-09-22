@@ -1,0 +1,50 @@
+go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/github.com/convergent-systems-co/praxis/@v/v0.0.0-20260920212447-ff146000aada.info260254090.tmp: operation not permitted
+?   	github.com/convergent-systems-co/praxis/cmd/inspectauth	[no test files]
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	21.354s
+?   	github.com/convergent-systems-co/praxis/cmd/praxis-conformance	[no test files]
+?   	github.com/convergent-systems-co/praxis/docs/research/dogfood/praxis-human-interface/bootstrap-v4/verify	[no test files]
+?   	github.com/convergent-systems-co/praxis/gen/praxis/v1	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/adaptation	1.293s
+ok  	github.com/convergent-systems-co/praxis/internal/agent	2.444s
+ok  	github.com/convergent-systems-co/praxis/internal/approval	2.437s
+ok  	github.com/convergent-systems-co/praxis/internal/architecturereview	1.054s
+ok  	github.com/convergent-systems-co/praxis/internal/bootstrapv4	0.575s
+ok  	github.com/convergent-systems-co/praxis/internal/boundexec	0.372s
+ok  	github.com/convergent-systems-co/praxis/internal/capability	3.151s
+ok  	github.com/convergent-systems-co/praxis/internal/client	1.505s
+ok  	github.com/convergent-systems-co/praxis/internal/clientadapt	2.653s
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	2.892s
+ok  	github.com/convergent-systems-co/praxis/internal/distribution	0.864s
+ok  	github.com/convergent-systems-co/praxis/internal/dogfood	3.509s
+ok  	github.com/convergent-systems-co/praxis/internal/effect	3.695s
+ok  	github.com/convergent-systems-co/praxis/internal/eventstore	3.918s
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	72.412s
+ok  	github.com/convergent-systems-co/praxis/internal/goalspublication	35.424s
+ok  	github.com/convergent-systems-co/praxis/internal/goalstore	6.053s
+ok  	github.com/convergent-systems-co/praxis/internal/inference	4.988s
+ok  	github.com/convergent-systems-co/praxis/internal/kernel	4.895s
+ok  	github.com/convergent-systems-co/praxis/internal/learning	4.993s
+ok  	github.com/convergent-systems-co/praxis/internal/lifecycle	6.440s
+ok  	github.com/convergent-systems-co/praxis/internal/mediation	5.118s
+ok  	github.com/convergent-systems-co/praxis/internal/packagecatalog	5.144s
+ok  	github.com/convergent-systems-co/praxis/internal/plugin	11.244s
+ok  	github.com/convergent-systems-co/praxis/internal/policy	4.703s
+ok  	github.com/convergent-systems-co/praxis/internal/preference	4.919s
+ok  	github.com/convergent-systems-co/praxis/internal/processresolver	4.849s
+ok  	github.com/convergent-systems-co/praxis/internal/projection	4.815s
+ok  	github.com/convergent-systems-co/praxis/internal/publisher	4.831s
+ok  	github.com/convergent-systems-co/praxis/internal/routingauthority	5.037s
+ok  	github.com/convergent-systems-co/praxis/internal/runcontrol	5.153s
+ok  	github.com/convergent-systems-co/praxis/internal/scheduler	4.051s
+ok  	github.com/convergent-systems-co/praxis/internal/state	5.893s
+ok  	github.com/convergent-systems-co/praxis/internal/stateprovider	4.402s
+ok  	github.com/convergent-systems-co/praxis/internal/sync	4.521s
+?   	github.com/convergent-systems-co/praxis/internal/transfer	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/trustboundary	4.339s
+ok  	github.com/convergent-systems-co/praxis/migrations/sqlite	4.566s
+ok  	github.com/convergent-systems-co/praxis/packages/develop	4.493s
+ok  	github.com/convergent-systems-co/praxis/packages/goals	4.380s
+ok  	github.com/convergent-systems-co/praxis/packages/goals/plugin	16.314s
+ok  	github.com/convergent-systems-co/praxis/packages/research	4.819s
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	4.843s
+ok  	github.com/convergent-systems-co/praxis/plugins/workspace	4.723s

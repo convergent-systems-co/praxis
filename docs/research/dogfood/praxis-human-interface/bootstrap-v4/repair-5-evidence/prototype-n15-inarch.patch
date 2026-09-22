@@ -1,0 +1,75 @@
+--- /Users/polliard/workspace/convergent-systems-co/praxis/internal/goalstore/safety_classification.go	2026-09-21 00:43:37
++++ internal/goalstore/safety_classification.go	2026-09-21 05:58:23
+@@ -5,6 +5,7 @@
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"strings"
+ 	"time"
+ 
+ 	"github.com/convergent-systems-co/praxis/internal/state"
+@@ -128,6 +129,64 @@
+ 			return "", false, err
+ 		}
+ 	}
++	// Repair 5 prototype: every OTHER surviving authenticated record that implies
++	// the Goal was put under the kernel is positive evidence too. A delete-only
++	// writer must remove all of them, not just the three Repair 4 consulted.
++	type embedded struct {
++		GoalID          string                           `json:"goal_id"`
++		Safety          *contracts.WorkPlanSafetyBinding `json:"safety"`
++		BaselineID      string                           `json:"baseline_id"`
++		CeremonyProfile string                           `json:"ceremony_profile"`
++	}
++	type attributed struct {
++		embedded
++		Proposal *embedded `json:"proposal"`
++		Request  *embedded `json:"request"`
++		Plan     *embedded `json:"plan"`
++	}
++	protectedRequest := func(e *embedded) bool { return e != nil && e.BaselineID == goalID && e.CeremonyProfile != "" }
++	for _, namespace := range []string{workPlanReviewNamespace, workPlanAcceptanceNamespace, authorityRequestNamespace, authorityDecisionNamespace} {
++		records, err := r.Store.ListSecureBlobs(ctx, namespace, epoch)
++		if err != nil {
++			return "", false, fmt.Errorf("derive Goal safety classification: %w", err)
++		}
++		for _, record := range records {
++			payload, _, err := r.loadWorkPlanBlob(ctx, namespace, record.ObjectID, record.ObjectVersion, epoch)
++			if err != nil {
++				return "", false, fmt.Errorf("derive Goal safety classification from %s %s/%s: %w", namespace, record.ObjectID, record.ObjectVersion, err)
++			}
++			var a attributed
++			if err := json.Unmarshal(payload, &a); err != nil {
++				return "", false, fmt.Errorf("derive Goal safety classification from %s %s/%s: %w", namespace, record.ObjectID, record.ObjectVersion, err)
++			}
++			if a.Proposal != nil && a.Proposal.GoalID == goalID {
++				if err := observe(a.Proposal.Safety); err != nil {
++					return "", false, err
++				}
++			}
++			if a.Plan != nil && a.Proposal != nil && a.Proposal.GoalID == goalID {
++				if err := observe(a.Plan.Safety); err != nil {
++					return "", false, err
++				}
++			}
++			if protectedRequest(&a.embedded) || protectedRequest(a.Request) {
++				if err := observe(&contracts.WorkPlanSafetyBinding{KernelVersion: contracts.WorkPlanSafetyKernelVersion}); err != nil {
++					return "", false, err
++				}
++			}
++		}
++	}
++	seals, err := r.Store.ListSecureBlobs(ctx, completionSealNamespace, epoch)
++	if err != nil {
++		return "", false, fmt.Errorf("derive Goal safety classification: %w", err)
++	}
++	for _, record := range seals {
++		if strings.HasPrefix(record.ObjectID, goalID+"/") {
++			if err := observe(&contracts.WorkPlanSafetyBinding{KernelVersion: contracts.WorkPlanSafetyKernelVersion}); err != nil {
++				return "", false, err
++			}
++		}
++	}
+ 	return kernel, kernel != "", nil
+ }
+ 

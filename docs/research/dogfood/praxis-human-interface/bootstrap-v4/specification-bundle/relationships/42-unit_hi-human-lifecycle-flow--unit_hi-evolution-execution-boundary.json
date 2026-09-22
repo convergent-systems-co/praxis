@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"consumer","prerequisite":"unit:hi-evolution-execution-boundary","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow consumes unit:hi-evolution-execution-boundary outputs as non-blocking context."}

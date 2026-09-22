@@ -1,0 +1,49 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/convergent-systems-co/praxis/internal/bootstrapv4"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+type D struct {
+	Status   string            `json:"status"`
+	Alts     []string          `json:"offered_alternatives"`
+	Cons     map[string]string `json:"consequences"`
+	Nested   struct{ A int }   `json:"nested"`
+}
+
+func try(name, in string) {
+	var d D
+	err := contracts.UnmarshalExactJSON([]byte(in), &d, true)
+	fmt.Printf("%-42s err=%v | status=%q alts=%v cons=%v nestedA=%d\n", name, err, d.Status, d.Alts, d.Cons, d.Nested.A)
+}
+func main() {
+	_ = bootstrapv4.Manifest{}
+	try("baseline", `{"status":"undecided"}`)
+	try("trailing object", `{"status":"undecided"}{"status":"approved"}`)
+	try("trailing garbage", `{"status":"undecided"} xx`)
+	try("trailing whitespace", "{\"status\":\"undecided\"}\n\n")
+	try("dup exact key", `{"status":"a","status":"b"}`)
+	try("dup unicode-escaped key", `{"status":"a","status":"b"}`)
+	try("CASE-FOLD dup key Status/status", `{"Status":"undecided","status":"approved"}`)
+	try("CASE-FOLD dup STATUS/status", `{"status":"undecided","STATUS":"approved"}`)
+	try("dup nested", `{"nested":{"A":1,"A":2}}`)
+	try("CASE-FOLD nested a/A", `{"nested":{"A":1,"a":2}}`)
+	try("dup within array element", `{"consequences":{"x":"1","x":"2"}}`)
+	try("map key case differ (legit distinct)", `{"consequences":{"x":"1","X":"2"}}`)
+	try("unknown field", `{"status":"a","extra":1}`)
+	try("BOM", "\xef\xbb\xbf"+`{"status":"a"}`)
+	try("invalid utf8 in string", "{\"status\":\"a\xff\"}")
+	try("null status", `{"status":null}`)
+	try("null root", `null`)
+	try("empty", ``)
+	try("oversize", `{"status":"`+strings.Repeat("a", (1<<20)+10)+`"}`)
+	try("big number into int", `{"nested":{"A":1e999}}`)
+	try("float into int", `{"nested":{"A":1.5}}`)
+	try("array root into struct", `[]`)
+	try("depth 10000", strings.Repeat("[", 10000)+strings.Repeat("]", 10000))
+	fmt.Println("MaxGovernedArtifactBytes", contracts.MaxGovernedArtifactBytes)
+}

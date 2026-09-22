@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-requirement-evolution-classification-and-successor","kind":"consumer","prerequisite":"unit:hi-ontology-and-surface-contract","provenance":"model_proposal","rationale":"unit:hi-requirement-evolution-classification-and-successor consumes unit:hi-ontology-and-surface-contract outputs as non-blocking context."}

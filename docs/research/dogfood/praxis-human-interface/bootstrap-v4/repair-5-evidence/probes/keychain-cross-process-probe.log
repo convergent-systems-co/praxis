@@ -1,0 +1,7 @@
+=== RUN   TestZZKeychainCrossProcessAccessProbe
+    zz_kc_probe_test.go:37: security find-generic-password -> BLOCKED (would prompt) after 8s
+    zz_kc_probe_test.go:47: security add -U -> err=<nil> output=""
+    zz_kc_probe_test.go:53: anchor after cross-process attempt: {Installation: Seq:0 Head:} err=forward authority anchor state is corrupt
+--- PASS: TestZZKeychainCrossProcessAccessProbe (95.51s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	95.824s

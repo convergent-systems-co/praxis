@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-requirement-evolution-classification-and-successor","kind":"interaction","prerequisite":"unit:hi-governed-planning-orchestration","provenance":"model_proposal","rationale":"unit:hi-requirement-evolution-classification-and-successor and unit:hi-governed-planning-orchestration require a non-blocking interaction contract."}

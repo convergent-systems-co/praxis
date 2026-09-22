@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-evolution-execution-boundary","kind":"consumer","prerequisite":"unit:hi-governed-planning-orchestration","provenance":"model_proposal","rationale":"unit:hi-evolution-execution-boundary consumes unit:hi-governed-planning-orchestration outputs as non-blocking context."}

@@ -1,0 +1,4 @@
+go: writing stat cache: open /Users/polliard/go/pkg/mod/cache/download/github.com/convergent-systems-co/praxis/@v/v0.0.0-20260920212447-ff146000aada.info864224450.tmp: operation not permitted
+pattern ./...: open /Users/polliard/Library/Caches/go-build/8d/8db866906ad2724ec58c781a1fe3fdcc1948797c3648e5307fc078d49008433b-a: operation not permitted
+unable to enumerate Go packages
+make: *** [test-current] Error 1

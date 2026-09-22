@@ -1,0 +1,14 @@
+=== RUN   TestR2RevokedGateDecisionStillCountsAsCompletedGate
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    zz_r2_probe_test.go:52: after gate-decision revocation: assessment.AllUnitsComplete=true err=<nil>
+    zz_r2_probe_test.go:54: drive after gate-decision revocation: no authoritative runnable work candidate
+    zz_r2_probe_test.go:61: REPRODUCED: revoked gate decision still counts as a completed gate; nothing re-verifies it
+--- PASS: TestR2RevokedGateDecisionStillCountsAsCompletedGate (0.08s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.515s

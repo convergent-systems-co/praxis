@@ -1,0 +1,1 @@
+{"dependent":"gate:hi-review-independence","kind":"hard_dependency","prerequisite":"unit:hi-governance-decision-dossier","provenance":"model_proposal","rationale":"Gate B requires DOS's qualified evidence-bearing dossier before owner action."}

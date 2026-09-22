@@ -1,0 +1,1 @@
+Capabilities present in canonical Praxis source are truthfully exposed and discoverable through the installed product surface.

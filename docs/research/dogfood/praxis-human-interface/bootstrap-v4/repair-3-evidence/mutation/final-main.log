@@ -1,0 +1,154 @@
+KILLED        N1.03    Proposal refuses legacy proposal for classified Goal  TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClass
+KILLED        N1.04    Review refuses legacy review for classified Goal  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+KILLED        N1.01    Save refuses safety-bearing plan (B7)  TestKernelRepair2B7BaselinePersistenceSurfacesRefuseSafetyBearingPlans
+KILLED        N1.02    Save refuses any plan for a classified Goal  TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3N1StrippingTheSafetyBindi
+KILLED        N1.05    Legacy acceptance refuses classified Goal  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+KILLED        N1.06    Authority-backed acceptance bridge refuses classified Goal  TestSafetyClassificationRefusesTheAuthorityBackedAcceptanceBridgeOnItsOwn
+KILLED        N1.07    Attach refuses legacy plan for classified Goal  TestConcurrentInstallationFanoutAcrossProcesses,TestSafetyClassificationRefusesEveryLegacy
+KILLED        N1.08    Safety proposal classifies its Goal (mark at proposal)  TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3N1AProposalClassifiesItsG
+KILLED        N1.12    Missing binding on classified Goal refused  TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClass
+KILLED        N1.09    Attach classifies its Goal (mark at attach)  TestConcurrentInstallationFanoutAcrossProcesses
+KILLED        N1.10    Classification kernel-version mismatch refused (consistency)  TestSafetyConsistencyRefusesAnotherKernelVersion
+KILLED        N1.11    Classification kernel-version mismatch refused (mark)  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+KILLED        N1.13    Attach binds accepted plan to its Goal (R1-G)  TestKernelRepair3AcceptedPlanCannotAttachToADifferentGoal
+KILLED        N1.17    Kernel-shaped: explicit kind  TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently
+KILLED        N1.18    Kernel-shaped: preserved specification bytes  TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently
+KILLED        N1.19    Kernel-shaped: gate provenance  TestRejectKernelShapedWithoutSafetyEachTellRefusesIndependently
+KILLED        N1.20    Kernel-shaped: relationship specification  TestKernelShapedContentWithoutSafetyBindingIsRefused
+KILLED        N1.14    Controller refuses classified-but-unbound generation  TestKernelRepair3ClassifiedGoalWithoutSafetyBindingIsRefusedBeforeAnyWorker,TestKernelRepa
+KILLED        N1.16    Kernel-shaped content refused (proposal Validate)  TestKernelShapedContentWithoutSafetyBindingIsRefused
+KILLED        N1.15    Kernel-shaped content refused (WorkPlan.Validate)  TestKernelShapedContentWithoutSafetyBindingIsRefused
+KILLED        N1.21    Runtime admission fence uses classification  TestKernelRepair3RuntimeRefusesADowngradedGenerationBeforeAdmission
+KILLED        N1.22    Materialization refuses safety-bearing turns via classificat  TestKernelRepair3MaterializationRefusesAClassifiedGoalWithoutTheBinding
+KILLED        N1.09j   joint: both classification writers (proposal + attach)  TestKernelRepair3N1AProposalClassifiesItsGoalBeforeAnythingIsAccepted,TestKernelRepair3N1S
+KILLED        N2.01    SealCompletion only for safety-bearing generation  TestCompletionSealsAuthenticateExactBytesOnly
+KILLED        N2.02    SealCompletion requires verified activation  TestCompletionSealsAuthenticateExactBytesOnly
+KILLED        N2.03    SealCompletion refuses a conflicting existing seal  TestCompletionSealsAuthenticateExactBytesOnly
+KILLED        N2.04    LoadSealedCompletion checks digest equality  TestSealedCompletionWhoseBytesDoNotMatchItsKeyIsRefused
+KILLED        N2.05    Gate completion cites the request its dossier implies  TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3N2GateCompletionLineageIs
+KILLED        N2.06    Gate request must be durably recorded (digest equality)  TestKernelRepair3N2GateCompletionRefusesARecordedRequestThatDiffersFromTheImpliedOne
+KILLED        N2.07    Gate decision citation equality  TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState
+KILLED        N2.08    Gate completion ceremony resolves  TestKernelRepair3N2GateCompletionLineageIsReResolvedFromAuthenticatedState
+SURVIVED      N2.10    Gate decision owner/root authority current  
+KILLED        N2.11    Gate decision outcome must be approve  TestKernelRepair3N2CompletionCitingARejectedGateDecisionIsNotEffective
+KILLED        N2.12    Revoked decision is not effective (LoadAuthorityDecision rev  TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork
+KILLED        N2.14    Consumption: sealed bytes equal ledger row  TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore
+KILLED        N2.13    Consumption: completion belongs to this Goal generation  TestKernelRepair3ConsumptionChecksGenerationAndBytesIndependentlyOfTheStore
+KILLED        N2.15    Consumption: seal must exist  TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3Consumptio
+KILLED        N2.16    Consumption: authentication skipped entirely  TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3Consumptio
+KILLED        N2.17    Consumption: gate citations required  TestKernelRepair3GateCompletionWithoutItsCitationsIsRefused
+KILLED        N2.18    Consumption: gate lineage re-verified  TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPr
+KILLED        N2.19    Consumption: not-effective gate demoted to history  TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPr
+KILLED        N2.20    Consumption: demotion propagates over hard dependencies  TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships
+KILLED        N2.21    Consumption: effective/historical split  TestKernelRepair3DemotionDoesNotFollowNonBlockingRelationships,TestKernelRepair3DemotionPr
+KILLED        N2.22    Recording seals before append  TestGoalGateCompletesThroughTheSupportedOwnerCeremony,TestGoalGateOwnerCeremonyAdversarial
+KILLED        N2.23    Controller prepare consumes authenticated completions (selec  TestKernelRepair3ForgedLedgerGateCompletionIsRefusedNotTrusted,TestKernelRepair3ForgedLedg
+KILLED        N2.24    Controller consumes authenticated completions (explicit obje  TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable
+KILLED        N2.25    Goal candidate derived from authenticated completions  TestKernelRepair3GoalCandidateIsDerivedOnlyFromEffectiveCompletions
+KILLED        N2.26    Explicit objective must be currently runnable  TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable
+KILLED        N7.01    Candidate completions: historical refuses settlement  TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions
+KILLED        N7.02    Candidate completions: count equality  TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions
+KILLED        N7.03    Candidate completions: per-unit equality  TestKernelRepair3GoalCompletionCandidateMustEqualTheAuthenticatedCompletions
+KILLED        N7.04    Settlement operation verifies candidate  TestKernelRepair3N7SettlementSurfacesRefuseAForgedCompletionCandidate
+KILLED        N7.05    Evaluation operation verifies candidate  TestKernelRepair3N7SettlementSurfacesRefuseAForgedCompletionCandidate
+KILLED        I10.02   authorizeEffect: verifier configured  TestKernelRepair3EffectBoundaryFailsClosedWithoutAnActivationVerifier
+KILLED        N7.07    Inspect: authentication error makes generation not drivable  TestKernelRepair3InspectDoesNotDisplayAForgedCompletionAndIsNotDrivable
+KILLED        N7.06    Inspect consumes authenticated completions  TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3InspectDoesNotDisplayAFor
+KILLED        I10.01   authorizeEffect: activation predicate  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens
+KILLED        I10.03   authorizeEffect: governing authority  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3GateComple
+KILLED        I10.04   authorizeEffect: lease held  TestKernelRepair3LostLeaseRefusesTheEffect
+KILLED        I10.05   authorizeEffect: content binding  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens
+KILLED        I10.06   call site: before checkpoint publication  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3LostLeaseR
+KILLED        I10.07   call site: before completion record (M2b/M2d/M6b)  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3LostLeaseR
+KILLED        I10.08   call site: before gate completion (M2c)  TestKernelRepair3GateCompletionIsAuthorizedAtTheMomentItIsRecorded
+KILLED        I10.09   post-publication settlement failure recorded (published-but-  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens
+KILLED        I10.10   lost lease records nothing after publication  TestKernelRepair3LostLeaseRefusesTheEffect
+SURVIVED      M12.01   claim == selected unit before publication  
+KILLED        M12.02   claim == selected unit at settlement  TestKernelRepair3SettlementRefusesANonSelectedClaimByItself
+KILLED        M12.03   claim == selected unit at checkpoint inspection  TestKernelRepair3ClaimOfANonSelectedUnitPublishesNothing
+KILLED        M12.04   joint: all three claim==selected layers  TestKernelRepair3ClaimOfANonSelectedUnitPublishesNothing,TestKernelRepair3SettlementRefuse
+KILLED        B5.01    accepted plan refuses supplied Completed flag (M1a)  TestKernelRepair2B5AcceptanceCannotInjectCompletedGate,TestSafetyPlanRejectsSuppliedComple
+KILLED        B5.02    ApplyCompletions clears supplied flag (M1b)  TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence,TestGitBoundValidationCleansUpAfter
+KILLED        B5.03    VerifyPlanCompletions structural check (M1c)  TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence
+KILLED        B9.01    controller verifies governing authority (M2a)  TestKernelRepair3EveryOutwardEffectIsAuthorizedBeforeItHappens,TestKernelRepair3GateComple
+KILLED        B9.02    prepare verifies governing authority  TestKernelRepair3RevokedAuthorityIsRefusedBeforeTheWorkerRuns
+KILLED        B9.03    gate reconcile: governing authority (M3)  TestKernelRepair2B9RevokedGoverningAuthorityStopsFutureExecution
+KILLED        B9.04    gate reconcile: activation (B15)  TestKernelRepair2B15GateReplayRequiresActivationAtTheSharedBoundary
+KILLED        B9.05    plan authority lineage present  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+KILLED        B9.06    plan authority request is the acceptance request  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+KILLED        B9.08    plan authority decision matches plan lineage  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+KILLED        B9.07    plan authority request carries ceremony+activation binding  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+KILLED        B9.09    baseline is the persisted generation  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+KILLED        B9.10    decision owner scope  TestConcurrentInstallationFanoutAcrossProcesses,TestKernelRepair3PlanAuthorityLineageIsRef
+KILLED        B9.12    decision authority generation valid (root revocation)  TestKernelRepair3PlanAuthorityLineageIsRefusedFieldByField
+SURVIVED      B9.11    decision by installation owner  
+SURVIVED      B9.13    gate decision issued by current root  
+KILLED        B8.01    protected decision requires resolvable ceremony record  TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance
+KILLED        B8.02    ceremony record must match decision  TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState,TestKernelRepair3
+KILLED        B8.03    ceremony record: owner/root lineage  TestKernelRepair3CeremonyMismatchMatrixIsRefusedForAWorkPlanAcceptance
+KILLED        B8.04    ceremony record: enrolled OS user  TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState,TestKernelRepair3
+KILLED        B8.05    legacy acceptance refuses safety-bearing proposal  TestKernelRepair2B8PublicPersistenceCannotManufactureCeremonyBackedState
+KILLED        B14.01   worker fence refuses gate objective (M4a)  TestWorkerResolutionRefusesAuthorityGateObjective
+KILLED        B14.05   selected gate goes to coordination  TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider,TestGoalGateCompletesT
+KILLED        B14.02   explicit gate objective routed to coordination (M4b)  TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider,TestGitBoundValidation
+KILLED        B14.03   safety plan refuses objective outside plan (M4c)  TestKernelRepair3ExplicitObjectiveMustBeAnOpenCandidateOfTheAcceptedPlan
+KILLED        B14.04   completed objective refused  TestKernelRepair3ExplicitObjectiveMustBeAnOpenCandidateOfTheAcceptedPlan
+SURVIVED      B10.01   post-worker validator missing blocks (M5)  
+KILLED        B10.03   no-declared-validation never counts for safety (M9)  TestGitBoundValidationCleansUpAfterTimeout,TestNoDeclaredValidationCannotSettleASafetyComp
+SURVIVED      B10.02   bound validator required for safety checkpoint  
+KILLED        B10.04   preflight profile-digest mismatch (M11)  TestKernelRepair3ProfileMismatchIsRefusedBeforeTheWorkerRuns,TestValidationCancellationTer
+KILLED        B10.08   settlement re-qualifies when not qualified before  TestSafetyCompletionRejectsMalformedConformanceEvidence
+KILLED        B10.05   candidate conformance decided before publication (M7b)  TestFailedCandidateConformanceIsDecidedBeforePublication
+KILLED        N4.01    input empty/oversize refused  TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesMalforme
+KILLED        N4.02    invalid UTF-8 refused  TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput
+KILLED        N4.03    unpaired surrogate escape refused  TestUnmarshalExactJSONRefusesMalformedAndUnboundedInput
+SURVIVED      N4.04    trailing content refused (walk)  
+SURVIVED      N4.05    trailing content refused (decode)  
+KILLED        N4.06    trailing content refused (both layers)  TestDossierResolutionRefusesMalformedOrAmbiguousBytes,TestUnmarshalExactJSONRefusesAmbiguo
+KILLED        N4.07    nesting depth bound  TestUnmarshalExactJSONNestingBoundRefusesOtherwiseValidDocuments
+KILLED        N4.08    textual duplicate key refused  TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesSemantic
+KILLED        N4.10    case-folded key refused (N4)  TestUnmarshalExactJSONDifferentialAgainstEncodingJSON,TestUnmarshalExactJSONRefusesSemanti
+KILLED        N4.11    unknown fields refused when requested  TestUnmarshalExactJSONRefusesAmbiguousSafetyEvidence,TestUnmarshalExactJSONRefusesMalforme
+KILLED        N4.12    external import decoder is exact  TestKernelRepair3N4ExternalImportRefusesSemanticDuplicateKeys
+KILLED        B10.06   conformance acknowledgement required (M7a)  TestSafetyCompletionRejectsMalformedConformanceEvidence
+KILLED        B10.07   integrated-pass evidence required to qualify  TestKernelRepair3QualificationRequiresIntegratedPassEvidence
+KILLED        B10.09   governed output size bound  TestKernelRepair3GovernedOutputMustBePresentAndBounded
+KILLED        N5.01    validator runs in the private export, not the worker checkou  TestGitBoundValidationBindsToCommitContentNotWorkingTreeState,TestGitBoundValidationConten
+KILLED        N5.02    export re-verified after the run  TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidation
+SURVIVED      N5.02b   export verified right after checkout (creation time)  
+KILLED        N5.03    checkpoint re-bound after the run  TestGitBoundValidationRefusesAValidatorThatMovesTheWorkerCheckoutDuringTheRun
+KILLED        N5.04    export HEAD equals checkpoint  TestGitBoundValidationRefusesAnExportWhoseHeadMoved,TestValidationCancellationTerminatesDe
+KILLED        N5.05    export tree equals qualified tree  TestGitBoundValidationCleansUpAfterTimeout
+KILLED        N5.06    export index hint flags refused  TestGitBoundValidationRefusesAnIndexHintEvenWithoutAContentChange
+SURVIVED      N5.07    export status clean  
+KILLED        N5.08    export gained no untracked/excluded files  TestValidationCancellationTerminatesDescendants
+KILLED        N5.09    export content re-hashed into a fresh index (stat/index-blin  TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationContentRehashCatchesAStat
+KILLED        N5.10    joint: every export post-run layer (status+hint+untracked+co  TestGitBoundValidationContentRehashCatchesAStatBlindSameSizeRewrite,TestGitBoundValidation
+SURVIVED      N5.11    committed validator digest at checkpoint (bind)  
+SURVIVED      N5.12    exported validator digest  
+SURVIVED      N5.14    validator executable mode at checkpoint  
+KILLED        N5.13    joint: committed and exported validator digest  TestGitBoundValidationRefusesValidatorThatDiffersFromTheProfile,TestValidationDriftAfterAd
+SURVIVED      N5.15    bind: HEAD is the checkpoint  
+SURVIVED      N5.16    bind: local branch points at checkpoint  
+KILLED        N5.17    publish: HEAD is the checkpoint  TestGitBoundValidationCleansUpAfterTimeout,TestGitBoundValidationRefusesCheckpointAndTreeS
+KILLED        N5.18    joint: every HEAD-equality layer  TestGitBoundValidationRefusesCheckpointAndTreeSubstitution,TestGitBoundValidationRefusesSu
+KILLED        N5.19    qualified tree recorded at run time is re-compared  TestGitBoundValidationRefusesCheckpointAndTreeSubstitution
+KILLED        N5.20    checkpoint must be a full object id  TestGitBoundValidationRequiresAFullObjectId
+KILLED        N5.21    publication pushes the exact qualified object id  TestGitBoundValidationCleansUpAfterTimeout
+KILLED        N5.22    publication verifies the remote ref is the checkpoint  TestGitBoundValidationPublicationVerifiesTheRemoteRef
+KILLED        N5.23    controller git runs without worker fsmonitor/hooks  TestGitBoundValidationNeverExecutesWorkerCheckoutHooksOrFsmonitor
+SURVIVED      N5.24    controller git ignores replace objects  
+KILLED        N6.03    overflow cancels (kills) the process group  TestValidationOutputBoundFailsClosedThroughTheRealCollector
+KILLED        N6.02    overflow fails closed even with exit 0  TestBoundValidationOutputOverflowFailsClosed,TestValidationOutputBoundFailsClosedThroughTh
+SURVIVED      N6.05    collector keeps draining after overflow (no deadlock)  
+KILLED        N6.01    output bound enforced in the production collector  TestBoundValidationOutputOverflowFailsClosed,TestValidationOutputBoundFailsClosedThroughTh
+KILLED        N6.04    process tree terminated after validator returns  TestValidationTerminatesTheWholeProcessTree
+KILLED        N3.01    image digest equals manifest digest  TestRunningImageManifestDigestMustBeTheImageDigest
+KILLED        N3.02    loaded-code binding (kernel cdhash vs file)  TestRunningImageExecToInitWindow,TestRunningImageInPlaceOverwriteIsRefused
+KILLED        N3.03    manifest path still names the executing file  TestRunningImagePathnameMutationMatrix,TestRunningImageVerificationSurvivesPathnameReplace
+KILLED        N3.04    kernel cdhash must match a CodeDirectory of the file  TestDarwinKernelIdentityMatchesTheRunningFile,TestRunningImageExecToInitWindow,TestRunning
+KILLED        N3.05    page hashes recomputed from file bytes  TestVerifyExecutedImageFailsClosedOnUnsupportedOrMalformedImages,TestVerifyExecutedImageRe
+KILLED        N3.06    code limit ends at the embedded signature  TestVerifyExecutedImageRefusesUnhashedBytesBeforeTheSignature
+SURVIVED      N3.07    kernel reports the signature valid  
+KILLED        N3.08    image size change refused  TestRunningImageLengthChangeIsRefused
+RESTORE-CHECK OK

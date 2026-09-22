@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-provider-advisory-transport","kind":"consumer","prerequisite":"unit:hi-advisory-evidence-staging","provenance":"model_proposal","rationale":"unit:hi-provider-advisory-transport consumes unit:hi-advisory-evidence-staging outputs as non-blocking context."}

@@ -1,0 +1,11 @@
+import subprocess,sys
+def run(args,t=8):
+    try:
+        r=subprocess.run(args,capture_output=True,text=True,timeout=t)
+        return "rc=%d out=%r err=%r"%(r.returncode,r.stdout[:100],r.stderr[:160])
+    except subprocess.TimeoutExpired:
+        return "BLOCKED (would prompt) after %ds"%t
+S=["-s","aclprobe.svc","-a","acct"]
+print("security update (add -U):", run(["/usr/bin/security","add-generic-password","-U"]+S+["-w","attacker"]))
+print("security delete        :", run(["/usr/bin/security","delete-generic-password"]+S))
+print("security read          :", run(["/usr/bin/security","find-generic-password"]+S+["-w"]))

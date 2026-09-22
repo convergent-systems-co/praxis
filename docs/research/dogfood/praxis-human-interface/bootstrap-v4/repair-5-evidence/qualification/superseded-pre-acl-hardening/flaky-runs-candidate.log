@@ -1,0 +1,51 @@
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.96s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=56ms
+    concurrency_fanout_test.go:452: lease contention: 26 exclusive holds across 4 processes, 74 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.96s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=37ms
+    concurrency_fanout_test.go:452: lease contention: 35 exclusive holds across 4 processes, 65 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.25s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=24ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.96s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=23ms
+    concurrency_fanout_test.go:452: lease contention: 18 exclusive holds across 4 processes, 82 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.64s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=38ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.97s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=73ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.40s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=116ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.54s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=38ms
+    concurrency_fanout_test.go:452: lease contention: 27 exclusive holds across 4 processes, 73 deterministic denials, no overlap
+    concurrency_fanout_test.go:496: succession contender failed: [root-authority succession predecessor is stale]
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.92s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=47ms
+    concurrency_fanout_test.go:452: lease contention: 21 exclusive holds across 4 processes, 79 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.12s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=63ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.30s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=88ms
+    concurrency_fanout_test.go:452: lease contention: 23 exclusive holds across 4 processes, 77 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.15s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=23ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	89.996s
+FAIL

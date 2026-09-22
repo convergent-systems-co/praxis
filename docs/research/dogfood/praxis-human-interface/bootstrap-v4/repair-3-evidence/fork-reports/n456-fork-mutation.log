@@ -1,0 +1,14 @@
+KILLED         N6 embedded-buffer collector (ReadFrom bypass)  TestBoundValidationOutputOverflowFailsClosed,TestValidationOutputBoundFailsClosedThroughTheRealCollector
+KILLED         N6 overflow ignored (no fail-closed)  TestBoundValidationOutputOverflowFailsClosed,TestValidationOutputBoundFailsClosedThroughTheRealCollector
+KILLED         N6 no cancel on overflow  
+KILLED         N6 no tree kill after return  TestValidationTerminatesTheWholeProcessTree
+KILLED         N5 validator runs in worker checkout  TestGitBoundValidationBindsToCommitContentNotWorkingTreeState,TestGitBoundValidationDetectsExportTamperingAndAlwaysCleansUp,TestGitBoundValidationRefusesValidatorThatDiffersFromTheProfile,TestGitBoundValidationRunsAnExactExportNotTheWorkerCheckout
+KILLED         N5 post-run export verify removed  TestGitBoundValidationDetectsExportTamperingAndAlwaysCleansUp
+SURVIVED       N5 fresh-index content rehash removed  
+SURVIVED       N5 hint-flag scan + status removed (content rehash kept)  
+BUILD-FAILED   N5 committed-validator digest check removed  
+KILLED         N5 publish guard neutralised  TestGitBoundValidationRefusesCheckpointAndTreeSubstitution
+SURVIVED       N5 HEAD-equality removed from binding  
+KILLED         N5 push HEAD instead of exact object id  TestGitBoundValidationRefusesCheckpointAndTreeSubstitution
+KILLED         N5 controller git hardening removed (fsmonitor/hooks)  TestGitBoundValidationNeverExecutesWorkerCheckoutHooksOrFsmonitor
+KILLED         N5 recorded-tree comparison removed  TestGitBoundValidationRefusesCheckpointAndTreeSubstitution

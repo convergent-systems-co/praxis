@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"consumer","prerequisite":"unit:hi-requirement-evolution-classification-and-successor","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow consumes unit:hi-requirement-evolution-classification-and-successor outputs as non-blocking context."}

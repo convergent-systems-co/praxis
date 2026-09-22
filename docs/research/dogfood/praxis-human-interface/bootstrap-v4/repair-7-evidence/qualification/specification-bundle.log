@@ -1,0 +1,16 @@
+{
+  "candidates": 22,
+  "canonical_contract_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
+  "coverage": "31/31",
+  "deterministic_permutation": true,
+  "manifest_file_sha256": "sha256:5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215",
+  "relationship_kinds": {
+    "advisory": 3,
+    "consumer": 24,
+    "hard_dependency": 28,
+    "interaction": 13
+  },
+  "relationships": 68,
+  "requirements": 31,
+  "status": "PASS"
+}

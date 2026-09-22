@@ -1,0 +1,128 @@
+package main
+
+import (
+	"errors"
+	"io"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
+	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+// Repair 5 BOUNDARY probes (not regressions). "PASS" means the boundary
+// reproduces, i.e. that no database-local predicate can distinguish the state
+// from an honest earlier state. They exist so the AUTHORITY_CONFLICT report
+// rests on executed evidence, not only on an argument.
+
+// P1: restoring an earlier byte-consistent copy of the database. The resulting
+// row set is EXACTLY the honest pre-revocation state, so every predicate that
+// reads only that database (liveness, revocation, classification, chains,
+// commitments over the rows) evaluates as it did before the revocation.
+func TestBoundaryP1FullSnapshotRestoreIsIndistinguishableFromAnEarlierHonestState(t *testing.T) {
+	h := newGateHarness(t)
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2")
+	if err != nil || len(raw) != 1 {
+		t.Fatalf("fixture producer: %v", err)
+	}
+	ledger := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	if err := ledger.RecordCompletion(h.ctx, raw[0]); err != nil {
+		t.Fatal(err)
+	}
+	request := h.pendingGate(ledger, "boundary-pending")
+	digest, _ := request.Digest()
+	if _, err := h.decide(digest, "approve", "finish and reconcile", "DECIDE-APPROVE "+digest+" ALTERNATIVE finish and reconcile"); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := h.dir + "/attacker-copy.db"
+	if _, err := db.ExecContext(h.ctx, `VACUUM INTO '`+snapshot+`'`); err != nil {
+		t.Fatal(err)
+	}
+	decision, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dd, _ := decision.Digest()
+	now := time.Now().UTC()
+	rev := contracts.AuthorityRevocation{RequestID: request.ID, RequestVersion: request.Version, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: dd, RevocationRef: "boundary-revoke", RevocationVersion: "1", RevokedBy: h.root.Principal, AuthorityDigest: h.root.AuthorityModelDigest, EffectiveAt: now, Reason: "owner withdrew gate authority"}
+	if err := repo.SaveAuthorityRevocation(h.ctx, request.ID, request.Version, rev, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC()); !errors.Is(err, goalstore.ErrAuthorityDecisionRevoked) {
+		t.Fatalf("control: revocation must refuse: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// The attacker replaces the database file with the earlier copy. No key.
+	dbPath := h.env("PRAXIS_DB")
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		_ = os.Remove(dbPath + suffix)
+	}
+	src, err := os.Open(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst, err := os.Create(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		t.Fatal(err)
+	}
+	src.Close()
+	dst.Close()
+	repo, db, err = openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC()); err != nil {
+		t.Fatalf("boundary did not reproduce: %v", err)
+	}
+	var revocations int
+	if err := db.QueryRowContext(h.ctx, `SELECT count(*) FROM secure_blobs WHERE namespace='authority_revocation'`).Scan(&revocations); err != nil || revocations != 0 {
+		t.Fatalf("restored state still records the revocation: %d %v", revocations, err)
+	}
+	t.Log("BOUNDARY REPRODUCES: a byte-consistent earlier copy of the database restored over the current one leaves no trace of the revocation anywhere in the database; every database-local predicate reads the honest pre-revocation state. Detecting it requires state that is not in the rollback domain.")
+}
+
+// P2: prefix truncation. Deleting the whole closure of Goal-attributable
+// governance evidence (a strict suffix of the Goal's history) leaves an honest
+// pre-governance state: an imported, plan-less, never-classified Goal. Even a
+// classifier that consumes EVERY surviving authenticated lineage record reads
+// it as legacy, because nothing survives to consume.
+func TestBoundaryP2FullEvidenceClosureDeletionIsAnHonestPreGovernanceState(t *testing.T) {
+	h := newGateHarness(t)
+	_, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, where := range []string{
+		`namespace='goal_safety_classification'`, `namespace='work_plan_proposal'`, `namespace='work_plan_review'`,
+		`namespace='work_plan_acceptance'`, `namespace='authority_request'`, `namespace='authority_decision'`,
+		`namespace='authority_decision_live'`, `namespace='goal_baseline' AND object_version='2'`, `namespace='goal_completion_seal'`,
+	} {
+		if _, err := db.ExecContext(h.ctx, `DELETE FROM secure_blobs WHERE `+where); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	classified, err := repo.GoalSafetyClassified(h.ctx, repairGoalID)
+	if err != nil || classified {
+		t.Fatalf("boundary did not reproduce: classified=%v err=%v", classified, err)
+	}
+	t.Log("BOUNDARY REPRODUCES: with the whole Goal-attributable evidence closure deleted the Goal is indistinguishable from one that was never governed; the remaining state is an honest earlier state (plan-less imported baseline).")
+}

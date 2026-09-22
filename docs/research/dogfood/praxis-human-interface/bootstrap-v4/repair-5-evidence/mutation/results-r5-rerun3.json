@@ -1,0 +1,26 @@
+[
+ {
+  "id": "R4.25",
+  "guard": "derivation reads surviving generations of the Goal",
+  "invariants": "I9,I12",
+  "group": "R4.derive-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if baseline.WorkPlan == nil {\n\t\t\t\treturn nil, nil\n\t\t\t}\n\t\t\treturn baseline.WorkPlan.Safety, nil",
+    "_ = baseline; return nil, nil",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 8.9
+ }
+]

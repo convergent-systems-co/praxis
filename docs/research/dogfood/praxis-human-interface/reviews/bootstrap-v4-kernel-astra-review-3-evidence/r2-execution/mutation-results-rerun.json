@@ -1,0 +1,12 @@
+[
+ [
+  "M6b B10 settleCompletion VerifyValidationBinding removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M7a B10 conformance acknowledgement check removed",
+  "KILLED",
+  "TestSafetyCompletionRejectsMalformedConformanceEvidence"
+ ]
+]

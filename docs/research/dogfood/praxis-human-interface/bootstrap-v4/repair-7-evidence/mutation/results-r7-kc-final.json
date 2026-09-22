@@ -1,0 +1,983 @@
+[
+ {
+  "id": "R5.70",
+  "guard": "keychain: not strictly forward",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect != nil && (err != nil || cur != *expect || next.Seq <= cur.Seq):",
+    "case expect != nil && (err != nil || cur != *expect):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 17.3
+ },
+ {
+  "id": "R5.71",
+  "guard": "keychain: expectation compared",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect != nil && (err != nil || cur != *expect || next.Seq <= cur.Seq):",
+    "case expect != nil && (err != nil || next.Seq <= cur.Seq):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.5
+ },
+ {
+  "id": "R5.72",
+  "guard": "keychain: create refuses an existing item",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect == nil && err == nil:\n\t\t\treturn faa.ErrConflict",
+    "case false && expect == nil && err == nil:\n\t\t\treturn faa.ErrConflict",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 20.1
+ },
+ {
+  "id": "R5.73",
+  "guard": "keychain: read-back verified",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil || got != next {\n\t\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t\t}\n\t\tif expect == nil {",
+    "if err != nil || false && got != next {\n\t\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t\t}\n\t\tif expect == nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.4
+ },
+ {
+  "id": "R5.74",
+  "guard": "keychain: another installation's state never returned",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "s.Installation != installation {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    "false {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorNeverReturnsAnotherInstallationsState",
+  "skipped": [],
+  "tail": "",
+  "secs": 18.9
+ },
+ {
+  "id": "R5.77",
+  "guard": "keychain: the dedicated file is locked again after every session",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if (kc == NULL) return;\n\tSecKeychainLock(kc);\n\tCFRelease(kc);",
+    "if (kc == NULL) return;\n\tCFRelease(kc);",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorRefusesOverwriteAddAndReadWithoutThePassword",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.8
+ },
+ {
+  "id": "R5.78",
+  "guard": "keychain: a missing password item reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if status == statusNotFound {\n\t\treturn \"\", errPasswordMissing",
+    "if false && status == statusNotFound {\n\t\treturn \"\", errPasswordMissing",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorEveryEarlierSnapshotIsRefusedAcrossAChain,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor",
+  "skipped": [],
+  "tail": "",
+  "secs": 0.7
+ },
+ {
+  "id": "R5.79",
+  "guard": "keychain: a malformed password item reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if len(raw) != 64 {",
+    "if false && len(raw) != 64 {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination",
+  "skipped": [],
+  "tail": "",
+  "secs": 21.4
+ },
+ {
+  "id": "R5.80",
+  "guard": "keychain: a wrong password reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain",
+    "return false && (status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.4
+ },
+ {
+  "id": "R5.81",
+  "guard": "keychain: a reset tears down the damaged pair first",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if mode == sessionRecreate {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorOnlyTheGovernedResetRecoversAReplayedFileAndItManufacturesNothing,TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers",
+  "skipped": [],
+  "tail": "",
+  "secs": 22.6
+ },
+ {
+  "id": "R5.82",
+  "guard": "keychain: a read never creates the keychain",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    "if false && !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 39.3
+ },
+ {
+  "id": "R5.83",
+  "guard": "keychain: an unpopulated new keychain is removed",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil && created {",
+    "if err != nil && created && false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved",
+  "skipped": [],
+  "tail": "",
+  "secs": 16.3
+ },
+ {
+  "id": "R5.84",
+  "guard": "keychain: a missing keychain file is a missing anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {",
+    "if false && statErr != nil && !errors.Is(statErr, os.ErrNotExist) {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 40.8
+ },
+ {
+  "id": "R5.79j",
+  "guard": "joint: malformed password item (length check + unlock failure classification)",
+  "invariants": "I13",
+  "group": "R5.keychain-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if len(raw) != 64 {",
+    "if false && len(raw) != 64 {",
+    1
+   ],
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain",
+    "return false && (status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 19.0
+ },
+ {
+  "id": "R5.82j",
+  "guard": "joint: a read never creates the keychain (early return + cleanup of an unpopulated keychain)",
+  "invariants": "I13",
+  "group": "R5.keychain-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    "if false && !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    1
+   ],
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil && created {",
+    "if err != nil && created && false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorRemovedFileReadsAsMissing",
+  "skipped": [],
+  "tail": "",
+  "secs": 28.0
+ },
+ {
+  "id": "R6.01",
+  "guard": "Set re-keys the file after every successful advance (N16 replay is refused)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := rotate(); err != nil {\n\t\t\tif uerr :=",
+    "if err := error(nil); err != nil {\n\t\t\tif uerr :=",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorEveryEarlierSnapshotIsRefusedAcrossAChain,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads",
+  "skipped": [],
+  "tail": "",
+  "secs": 19.2
+ },
+ {
+  "id": "R6.29",
+  "guard": "N16 end to end: Review 6's replay of an opaque earlier keychain file plus its database is refused (no re-key after Set)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := rotate(); err != nil {\n\t\t\tif uerr :=",
+    "if err := error(nil); err != nil {\n\t\t\tif uerr :=",
+    1
+   ]
+  ],
+  "run": "TestRepair6OpaqueKeychainFileReplayIsRefused",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair6OpaqueKeychainFileReplayIsRefused",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.0
+ },
+ {
+  "id": "R6.02",
+  "guard": "a freshly created file is not re-keyed (it has a fresh password and no earlier copy)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if expect == nil {\n\t\t\treturn nil // a freshly",
+    "if false && expect == nil {\n\t\t\treturn nil // a freshly",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 20.1
+ },
+ {
+  "id": "R6.03",
+  "guard": "a failed re-key takes the advance back (the refused Set leaves the anchor where it was)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "|| k.writeIn(kc, installation, *expect, false) != nil {",
+    "|| false {",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAnchorRefusedRekeyLeavesTheAnchorUnchanged,TestKeychainAnchorRekeyDependsOnAnUndocumentedEntryPointAndFailsClosedWithoutIt",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.8
+ },
+ {
+  "id": "R6.04",
+  "guard": "a failed re-key is unavailable, never success or corruption (Set)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return fmt.Errorf(\"%w: the anchor was not advanced because its re-key failed: %v\", faa.ErrUnavailable, err)",
+    "return fmt.Errorf(\"%w: the anchor was not advanced because its re-key failed: %v\", faa.ErrCorrupt, err)",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAnchorRekeyDependsOnAnUndocumentedEntryPointAndFailsClosedWithoutIt",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.0
+ },
+ {
+  "id": "R6.05",
+  "guard": "an advance that could not be taken back after a failed re-key is reported, not hidden",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return fmt.Errorf(\"%w: the anchor advanced to sequence %d but its re-key failed and the step could not be undone: %v\", faa.ErrUnavailable, next.Seq, err)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.2
+ },
+ {
+  "id": "R6.06",
+  "guard": "Revert (undo) re-keys the file too",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := rotate(); err != nil {\n\t\t\treturn fmt.Errorf(\"%w: the anchor was restored but",
+    "if err := error(nil); err != nil {\n\t\t\treturn fmt.Errorf(\"%w: the anchor was restored but",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAnchorRevertRekeysAndKeepsTheRestoredState",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.5
+ },
+ {
+  "id": "R6.07",
+  "guard": "a failed re-key during an undo is reported",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return fmt.Errorf(\"%w: the anchor was restored but its re-key failed: %v\", faa.ErrUnavailable, err)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorInterruptedUndoRecoversAtEveryStep,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.0
+ },
+ {
+  "id": "R6.08",
+  "guard": "the new password is fresh, never the old one (no reuse)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "next := hex.EncodeToString(raw)",
+    "next := old",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorEveryEarlierSnapshotIsRefusedAcrossAChain,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.6
+ },
+ {
+  "id": "R6.09",
+  "guard": "the new password is recorded as pending BEFORE the file changes",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := storePassword(pwService, pendingAccount(pwAccount), next); err != nil {\n\t\treturn err\n\t}",
+    "if err := error(nil); err != nil {\n\t\treturn err\n\t}",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep,TestKeychainAnchorRefusedRekeyLeavesTheAnchorUnchanged",
+  "skipped": [],
+  "tail": "",
+  "secs": 13.6
+ },
+ {
+  "id": "R6.10",
+  "guard": "a refused re-key discards its pending password",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if status != 0 {\n\t\tremovePendingPassword(pwService, pwAccount)",
+    "if status != 0 {\n\t\t_ = 0",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAnchorRekeyDependsOnAnUndocumentedEntryPointAndFailsClosedWithoutIt",
+  "skipped": [],
+  "tail": "",
+  "secs": 13.9
+ },
+ {
+  "id": "R6.11",
+  "guard": "the current password item is updated after the file is re-keyed",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := setCurrentPassword(pwService, pwAccount, next); err != nil {\n\t\treturn err // the pending",
+    "if err := error(nil); err != nil {\n\t\treturn err // the pending",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorEveryEarlierSnapshotIsRefusedAcrossAChain,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 13.1
+ },
+ {
+  "id": "R6.12",
+  "guard": "the pending password is removed once the re-key is complete",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "removePendingPassword(pwService, pwAccount)\n\treturn nil\n}\n\n// changePassword re-keys",
+    "return nil\n}\n\n// changePassword re-keys",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.5
+ },
+ {
+  "id": "R6.13",
+  "guard": "an interrupted re-key is finished from the pending password",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case !unlockFailed(status) || !havePending:",
+    "case true:",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.6
+ },
+ {
+  "id": "R6.14",
+  "guard": "a stale or junk pending password is discarded once the current one opens the file",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if havePending || junkPending {",
+    "if false && (havePending || junkPending) {",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 13.9
+ },
+ {
+  "id": "R6.15",
+  "guard": "a malformed pending item is junk, discarded and never a password",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "junkPending = true //",
+    "junkPending = false //",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.2
+ },
+ {
+  "id": "R6.16",
+  "guard": "neither password item present is a missing-password (corrupt) anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !haveCurrent && !havePending {",
+    "if false && !haveCurrent && !havePending {",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.0
+ },
+ {
+  "id": "R6.17",
+  "guard": "a wrong current password with no usable pending one is a corrupt anchor, not unavailable",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if unlockFailed(status) {\n\t\t\t\treturn noKeychain, \"\", corruptErr(",
+    "if false && unlockFailed(status) {\n\t\t\t\treturn noKeychain, \"\", corruptErr(",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorOnlyTheGovernedResetRecoversAReplayedFileAndItManufacturesNothing,TestKeychainAnchorOpaqueFileReplayIsRefusedOnceTheAnchorHasAdvanced,TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.3
+ },
+ {
+  "id": "R6.18",
+  "guard": "a promoted pending password is the password the next re-key starts from",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return kc, pending, nil",
+    "return kc, current, nil",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.7
+ },
+ {
+  "id": "R6.19",
+  "guard": "the pending password is checked against the file before it is promoted",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "\tcase status == C.errSecSuccess:\n\t\tif err := setCurrentPassword(pwService, pwAccount, pending); err != nil {",
+    "\tcase true:\n\t\tif err := setCurrentPassword(pwService, pwAccount, pending); err != nil {",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.0
+ },
+ {
+  "id": "R6.20",
+  "guard": "a missing re-key entry point refuses the re-key (no success without freshness)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if (fn == NULL) return errSecUnimplemented;",
+    "if (fn == NULL) return errSecSuccess;",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads",
+  "skipped": [],
+  "tail": "",
+  "secs": 15.0
+ },
+ {
+  "id": "R6.21",
+  "guard": "a governed reset discards a pending password with the pair it belongs to",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "\tpending := C.CString(pendingAccount(pwAccount))\n\tdefer C.free(unsafe.Pointer(pending))\n\t_ = C.faa_keychain_delete(0, service, pending)\n",
+    "",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorOnlyTheGovernedResetRecoversAReplayedFileAndItManufacturesNothing",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.6
+ },
+ {
+  "id": "R6.22",
+  "guard": "the re-key compares the earlier password it was given (a wrong old password is refused)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "status := changePassword(kc, old, next)",
+    "status := changePassword(kc, old+\"x\", next)",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorEveryEarlierSnapshotIsRefusedAcrossAChain,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 10.9
+ },
+ {
+  "id": "R6.23",
+  "guard": "an undo's re-key failure does not report success (Revert returns the state write result only)",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err := k.writeIn(kc, installation, to, false); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := rotate();",
+    "if err := k.writeIn(kc, installation, to, false); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := error(nil);",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep,TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAnchorRevertRekeysAndKeepsTheRestoredState",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.7
+ },
+ {
+  "id": "R6.16j",
+  "guard": "joint: neither password item present is a corrupt anchor (missing-password check + unlock-failure classification)",
+  "invariants": "I13",
+  "group": "R6.keychain-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !haveCurrent && !havePending {",
+    "if false && !haveCurrent && !havePending {",
+    1
+   ],
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "return status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain",
+    "return false && (status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain)",
+    1
+   ]
+  ],
+  "run": "TestKeychainAnchor",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassword,TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState,TestKeychainAnchorInterruptedRekeyRecoversAtEveryStep,TestKeychainAnchorInterruptedUndoRecoversAtEveryStep",
+  "skipped": [],
+  "tail": "",
+  "secs": 14.4
+ }
+]

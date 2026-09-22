@@ -1,0 +1,68 @@
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"testing"
+)
+
+// Repair 5 semantic-coverage probe (NOT a regression). It enumerates the FULL
+// powerset of the eight authenticated rows of the gate fixture that evidence the
+// Goal's safety governance, deletes each subset with keyless SQL, restarts the
+// repository, and records whether the Goal still reads as safety-bearing.
+// "PASS" only means the enumeration ran; the result is the printed table.
+//
+// The equivalence-class boundary it establishes: the classification-source set
+// is finite and enumerable, so the powerset over it is exhaustive for the
+// question "which combinations of deletions of Goal-attributable governance rows
+// convert a governed Goal into a legacy one". It is NOT a powerset over the
+// whole database (2^n for n ~ 30 sealed rows is infeasible); rows that are not
+// Goal-attributable evidence cannot change this Goal's classification and are
+// not enumerated.
+var evidenceRows = []struct{ name, where string }{
+	{"class", `namespace='goal_safety_classification'`},
+	{"proposal", `namespace='work_plan_proposal'`},
+	{"review", `namespace='work_plan_review'`},
+	{"acceptance", `namespace='work_plan_acceptance'`},
+	{"request", `namespace='authority_request'`},
+	{"decision", `namespace='authority_decision'`},
+	{"baseline2", `namespace='goal_baseline' AND object_version='2'`},
+	{"seal", `namespace='goal_completion_seal'`},
+}
+
+func TestRepair5EvidencePowersetClassification(t *testing.T) {
+	n := len(evidenceRows)
+	var unclassified []string
+	for mask := 0; mask < 1<<n; mask++ {
+		h := newGateHarness(t)
+		_, db, err := openGovernedRepository(h.ctx, h.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		for i := 0; i < n; i++ {
+			if mask&(1<<i) != 0 {
+				names = append(names, evidenceRows[i].name)
+				if _, err := db.ExecContext(h.ctx, `DELETE FROM secure_blobs WHERE `+evidenceRows[i].where); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		db.Close()
+		repo, db, err := openGovernedRepository(h.ctx, h.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		classified, cerr := repo.GoalSafetyClassified(h.ctx, repairGoalID)
+		db.Close()
+		if cerr == nil && !classified {
+			unclassified = append(unclassified, strings.Join(names, "+"))
+		}
+	}
+	sort.Strings(unclassified)
+	t.Logf("SUBSETS-THAT-MAKE-A-GOVERNED-GOAL-READ-AS-LEGACY: %d of %d", len(unclassified), 1<<n)
+	for _, u := range unclassified {
+		t.Log("  " + fmt.Sprintf("delete{%s}", u))
+	}
+}

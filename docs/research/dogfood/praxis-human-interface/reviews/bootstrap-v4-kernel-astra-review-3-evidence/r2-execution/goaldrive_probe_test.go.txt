@@ -1,0 +1,113 @@
+package goaldrive
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
+	"github.com/convergent-systems-co/praxis/packages/goals"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+// r2 probes: PASS means the named counterexample/observation was reproduced.
+
+type failingGateCoordinator struct{ calls int }
+
+func (g *failingGateCoordinator) ReconcileAuthorityGate(context.Context, goals.GoalBaseline, contracts.WorkCandidate, []contracts.GovernedArtifactEvidence, time.Time) (contracts.AuthorityGateResult, error) {
+	g.calls++
+	return contracts.AuthorityGateResult{}, errors.New("gate decision revoked")
+}
+
+func r2Plan(safety bool) (*goals.GoalBaseline, contracts.WorkCandidate, contracts.WorkCandidate) {
+	gate := contracts.WorkCandidate{ID: "g", Kind: contracts.WorkCandidateAuthorityGate, Priority: 1, Sequence: 1, SourceRef: "g.json", SourceDigest: "sha256:" + strings.Repeat("4", 64), Provenance: contracts.ProvenanceAuthorityGate}
+	unit := contracts.WorkCandidate{ID: "u", Kind: contracts.WorkCandidateOrdinary, Priority: 1, Sequence: 2, SourceRef: "u.json", SourceDigest: "sha256:" + strings.Repeat("5", 64), Provenance: contracts.ProvenancePLAN, QualificationPredicates: []string{"candidate/u/conformance"}}
+	rel := contracts.WorkRelationship{Dependent: "u", Prerequisite: "g", Kind: contracts.RelationshipHardDependency, SourceRef: "r.json", SourceDigest: "sha256:" + strings.Repeat("6", 64), Provenance: contracts.ProvenancePLAN}
+	plan := &contracts.WorkPlan{Candidates: []contracts.WorkCandidate{gate, unit}, Relationships: []contracts.WorkRelationship{rel}}
+	if safety {
+		plan.Safety = protectedBinding()
+	}
+	return &goals.GoalBaseline{ID: "goal", Version: "1", Digest: "sha256:" + strings.Repeat("9", 64), WorkPlan: plan}, gate, unit
+}
+
+func r2Controller(worker Worker, gates AuthorityGateCoordinator) Controller {
+	reg := NewRegistry()
+	_ = reg.Register("p", worker)
+	return Controller{Ledger: Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}, Providers: reg, SafetyActivation: passingSafetyActivation{}, GoverningAuthority: passingPlanAuthority{}, AuthorityGates: gates}
+}
+
+// R2-1: a completed gate's decision is never re-verified when dependents are selected.
+func TestR2CompletedGateDecisionIsNotRevalidated(t *testing.T) {
+	baseline, gate, _ := r2Plan(true)
+	worker := &countingWorker{}
+	gates := &failingGateCoordinator{}
+	c := r2Controller(worker, gates)
+	// fabricated gate completion with no dossier/request/decision evidence beyond strings
+	if err := c.Ledger.RecordCompletion(context.Background(), UnitCompletion{GoalID: "goal", GoalVersion: "1", UnitID: "g", InvocationID: "i", TurnID: "t", EndHead: "authority:fabricated", CompletedAt: time.Now(), AuthorityGate: true, SpecificationDigest: gate.SourceDigest, Evidence: []string{"x"}}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := c.ExecuteTurn(context.Background(), TurnRequest{GoalID: "goal", GoalVersion: "1", InvocationID: "inv", TurnID: "turn", Mode: ModeSupervised, GraphID: "g", GraphVersion: "1", ProviderID: "p", GoalBaseline: baseline, Repository: contracts.RepositorySynced, StartHead: "h"})
+	t.Logf("err=%v worker.calls=%d gate-coordinator.calls=%d", err, worker.calls, gates.calls)
+	if worker.calls != 1 || gates.calls != 0 {
+		t.Fatalf("NOT REPRODUCED: dependent did not run or decision was re-verified (calls=%d gates=%d err=%v)", worker.calls, gates.calls, err)
+	}
+}
+
+// R2-2: pending gate blocks an independent ready sibling (frozen §3: siblings may run).
+func TestR2PendingGateBlocksReadySibling(t *testing.T) {
+	baseline, _, _ := r2Plan(true)
+	baseline.WorkPlan.Relationships = nil // u independent of g
+	worker := &countingWorker{}
+	c := r2Controller(worker, &pendingGateCoordinator{})
+	_, err := c.ExecuteTurn(context.Background(), TurnRequest{GoalID: "goal", GoalVersion: "1", InvocationID: "inv", TurnID: "turn", Mode: ModeSupervised, GraphID: "g", GraphVersion: "1", ProviderID: "p", GoalBaseline: baseline, Repository: contracts.RepositorySynced, StartHead: "h"})
+	var required *AuthorityRequiredError
+	t.Logf("err=%v worker.calls=%d", err, worker.calls)
+	if !errors.As(err, &required) || worker.calls != 0 {
+		t.Fatalf("NOT REPRODUCED: err=%v worker.calls=%d", err, worker.calls)
+	}
+}
+
+// R2-3: explicit objective bypasses hard-dependency readiness.
+func TestR2ExplicitObjectiveSkipsHardDependencyReadiness(t *testing.T) {
+	baseline, _, _ := r2Plan(true)
+	worker := &countingWorker{}
+	c := r2Controller(worker, &pendingGateCoordinator{})
+	_, err := c.ExecuteTurn(context.Background(), TurnRequest{GoalID: "goal", GoalVersion: "1", InvocationID: "inv", TurnID: "turn", Mode: ModeSupervised, GraphID: "g", GraphVersion: "1", ProviderID: "p", GoalBaseline: baseline, ChildObjective: "u", Repository: contracts.RepositorySynced, StartHead: "h"})
+	t.Logf("err=%v worker.calls=%d", err, worker.calls)
+	if worker.calls != 1 {
+		t.Fatalf("NOT REPRODUCED: worker.calls=%d err=%v", worker.calls, err)
+	}
+}
+
+// R2-4: normalization / kind-alteration / non-safety plan routes never reach a worker for a gate.
+func TestR2GateObjectiveVariantsNeverReachWorker(t *testing.T) {
+	for _, safety := range []bool{true, false} {
+		for _, objective := range []string{"g", " g", "g ", "G", "g\n", "\tg", "g\x00", "goal/1/g"} {
+			baseline, gate, unit := r2Plan(safety)
+			worker := &countingWorker{}
+			c := r2Controller(worker, &pendingGateCoordinator{})
+			// caller-supplied candidates disguise the gate as ordinary work
+			disguised := gate
+			disguised.Kind = contracts.WorkCandidateOrdinary
+			_, err := c.ExecuteTurn(context.Background(), TurnRequest{GoalID: "goal", GoalVersion: "1", InvocationID: "inv", TurnID: "turn", Mode: ModeSupervised, GraphID: "g", GraphVersion: "1", ProviderID: "p", GoalBaseline: baseline, ChildObjective: objective, WorkCandidates: []contracts.WorkCandidate{disguised, unit}, Repository: contracts.RepositorySynced, StartHead: "h"})
+			t.Logf("safety=%v objective=%q worker.calls=%d err=%v", safety, objective, worker.calls, err)
+			if worker.calls != 0 {
+				t.Errorf("REPRODUCED: gate-ish objective %q reached provider (safety=%v)", objective, safety)
+			}
+		}
+	}
+}
+
+// R2-5: a plan that has Safety==nil but authority_gate kind candidates (predecessor-classified) selects the gate and never a provider.
+func TestR2NonSafetyPlanGateNeverReachesProvider(t *testing.T) {
+	baseline, _, _ := r2Plan(false)
+	worker := &countingWorker{}
+	c := r2Controller(worker, nil)
+	_, err := c.ExecuteTurn(context.Background(), TurnRequest{GoalID: "goal", GoalVersion: "1", InvocationID: "inv", TurnID: "turn", Mode: ModeSupervised, GraphID: "g", GraphVersion: "1", ProviderID: "p", GoalBaseline: baseline, Repository: contracts.RepositorySynced, StartHead: "h"})
+	t.Logf("err=%v worker.calls=%d", err, worker.calls)
+	if worker.calls != 0 {
+		t.Fatalf("REPRODUCED: worker called %d", worker.calls)
+	}
+}

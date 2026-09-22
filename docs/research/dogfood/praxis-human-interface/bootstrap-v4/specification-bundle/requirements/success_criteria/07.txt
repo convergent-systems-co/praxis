@@ -1,0 +1,1 @@
+Requirement evolution performs deterministic impact analysis and preserves still-valid qualified consequences and immutable historical authority.

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-dogfood-acceptance","kind":"consumer","prerequisite":"unit:hi-requirement-evolution-classification-and-successor","provenance":"model_proposal","rationale":"unit:hi-dogfood-acceptance consumes unit:hi-requirement-evolution-classification-and-successor outputs as non-blocking context."}

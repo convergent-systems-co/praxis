@@ -1,0 +1,13 @@
+=== RUN   TestResidualRollbackReplayOfACopiedLivenessRow
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    repair4_residual_rollback_test.go:71: CONTROL: revocation-row deletion alone leaves the decision refused
+    repair4_residual_rollback_test.go:79: RESIDUAL REPRODUCES: delete (revocation row) + replay (copied sealed liveness row) restores the revoked decision without any storage key; requires an out-of-database monotonic anchor to close
+--- PASS: TestResidualRollbackReplayOfACopiedLivenessRow (0.14s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.752s

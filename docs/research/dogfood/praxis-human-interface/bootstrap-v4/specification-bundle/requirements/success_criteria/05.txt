@@ -1,0 +1,1 @@
+Praxis can establish governed execution from the human-facing interaction without requiring the ordinary user to manually provide Goal generations, invocation IDs, WorkPlans, proposal digests, review digests, request digests, or acceptance references.

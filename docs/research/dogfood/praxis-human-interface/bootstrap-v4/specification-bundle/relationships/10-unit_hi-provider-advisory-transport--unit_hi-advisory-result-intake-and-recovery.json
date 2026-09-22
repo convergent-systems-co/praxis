@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-provider-advisory-transport","kind":"hard_dependency","prerequisite":"unit:hi-advisory-result-intake-and-recovery","provenance":"model_proposal","rationale":"unit:hi-provider-advisory-transport cannot be truthfully implemented or qualified until unit:hi-advisory-result-intake-and-recovery is complete."}

@@ -1,0 +1,1 @@
+Installed package manifests, help, dynamic entry points, implementation, and documented user ceremony must remain coherent.

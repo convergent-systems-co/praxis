@@ -1,0 +1,22 @@
+=== RUN   TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:107: COUNTEREXAMPLE: copied sealed liveness replay restored revoked authority after restart; controller minted a NEW sealed completion, completions 1 -> 2, AllUnitsComplete=true
+--- PASS: TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion (0.09s)
+=== RUN   TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:178: COUNTEREXAMPLE: delete-only erasure of the classification sources made surviving authenticated acceptance state irrelevant; stripped import succeeded and worker ran with activation absent, calls=1 final error=unsupported Goal turn outcome ""
+--- PASS: TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution (0.07s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.572s

@@ -1,0 +1,8 @@
+$ go test -overlay=/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/tmpkp6e_8sn/overlay.json ./internal/goalstore -run TestReview6OpaqueKeychainReplay -count=1 -v
+=== RUN   TestReview6OpaqueKeychainReplay
+    review6_n16_test.go:99: opaque file restore: old seq=0 advanced seq=1 restored seq=0 equal-old=false error=forward authority anchor state is corrupt: the dedicated keychain cannot be unlocked with its password (status -25293)
+    review6_n16_test.go:101: opaque replay not reproduced: {Installation: Seq:0 Head:} forward authority anchor state is corrupt: the dedicated keychain cannot be unlocked with its password (status -25293)
+--- FAIL: TestReview6OpaqueKeychainReplay (0.23s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goalstore	0.623s
+FAIL

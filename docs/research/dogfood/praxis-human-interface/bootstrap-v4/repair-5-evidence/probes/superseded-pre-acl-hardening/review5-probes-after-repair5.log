@@ -1,0 +1,23 @@
+=== RUN   TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:90: rollback did not restore the decision: authority decision has no live authorization record (revoked, or governing state was lost): authority decision is revoked: authority is retired by an anchored governance fact: authority decision is revoked: decision goal-gate:e4d16222d9923374bcede86df55f1d7bf7b88400db828703291a0c3586db5773/1
+--- FAIL: TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion (0.10s)
+=== RUN   TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:156: stripped import after safety-history erasure: import Goal Baseline: Goal is classified safety-bearing; a plan without the safety binding is a downgrade: Goal goal:pending-surface (kernel praxis-human-interface-bootstrap-v4/1); a plan enters only through the authenticated accepted-plan attachment transaction
+--- FAIL: TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution (0.07s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	0.798s
+FAIL

@@ -1,0 +1,86 @@
+[
+ {
+  "id": "R5.18",
+  "guard": "lag is re-observed behind the writer lock only for a plain lag",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "if err == nil || !(errors.Is(err, ErrGovernanceRolledBack) || errors.Is(err, ErrGovernanceAhead)) {\n\t\treturn snap, err\n\t}\n\tvar barrierSnap",
+    "if err == nil {\n\t\treturn snap, err\n\t}\n\tvar barrierSnap",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReaderBarrierWaitsOutAnInFlightWriteAndRefusesRealDisagreement,TestFAARepositoryRefusesAnAnchorThatNamesAnotherInstallation",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 8.2
+ },
+ {
+  "id": "R5.75",
+  "guard": "a real disagreement behind the lock is refused at once",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "if errors.Is(barrierErr, ErrGovernanceNotFresh) {\n\t\treturn governanceSnapshot{}, barrierErr\n\t}",
+    "if false && errors.Is(barrierErr, ErrGovernanceNotFresh) {\n\t\treturn governanceSnapshot{}, barrierErr\n\t}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReaderBarrierWaitsOutAnInFlightWriteAndRefusesRealDisagreement",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 17.4
+ },
+ {
+  "id": "R5.76",
+  "guard": "a lag that resolves behind the writer lock is accepted",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/governance.go",
+    "if barrierErr == nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReaderWaitsForAWriterBetweenAnchorAdvanceAndCommit",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 17.6
+ }
+]

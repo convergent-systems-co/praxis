@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-dogfood-acceptance","kind":"hard_dependency","prerequisite":"unit:hi-installed-human-surface-packaging","provenance":"model_proposal","rationale":"unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-installed-human-surface-packaging is complete."}

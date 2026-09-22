@@ -1,0 +1,47 @@
+KILLED        N1.03    Proposal refuses legacy proposal for classified Goal  TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClass
+KILLED        N1.02    Save refuses any plan for a classified Goal  TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClass
+KILLED        N1.01    Save refuses safety-bearing plan (B7)  TestKernelRepair2B7BaselinePersistenceSurfacesRefuseSafetyBearingPlans
+KILLED        N1.04    Review refuses legacy review for classified Goal  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+KILLED        N1.05    Legacy acceptance refuses classified Goal  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+SURVIVED      N1.06    Authority-backed acceptance bridge refuses classified Goal  
+KILLED        N1.07    Attach refuses legacy plan for classified Goal  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+SURVIVED      N1.08    Safety proposal classifies its Goal (mark at proposal)  
+SURVIVED      N1.09    Attach classifies its Goal (mark at attach)  
+KILLED        N1.12    Missing binding on classified Goal refused  TestKernelRepair3N1StrippingTheSafetyBindingCannotDowngradeAClassifiedGoal,TestSafetyClass
+SURVIVED      N1.10    Classification kernel-version mismatch refused (consistency)  
+KILLED        N1.11    Classification kernel-version mismatch refused (mark)  TestSafetyClassificationRefusesEveryLegacyAdmissionLayerOnItsOwn
+KILLED        N1.13    Attach binds accepted plan to its Goal (R1-G)  TestKernelRepair3AcceptedPlanCannotAttachToADifferentGoal
+KILLED        N1.15    Kernel-shaped content refused (WorkPlan.Validate)  TestKernelShapedContentWithoutSafetyBindingIsRefused
+SURVIVED      N1.17    Kernel-shaped: explicit kind  
+KILLED        N1.16    Kernel-shaped content refused (proposal Validate)  TestKernelShapedContentWithoutSafetyBindingIsRefused
+SURVIVED      N1.18    Kernel-shaped: preserved specification bytes  
+SURVIVED      N1.19    Kernel-shaped: gate provenance  
+KILLED        N1.20    Kernel-shaped: relationship specification  TestKernelShapedContentWithoutSafetyBindingIsRefused
+KILLED        N1.14    Controller refuses classified-but-unbound generation  TestKernelRepair3ClassifiedGoalWithoutSafetyBindingIsRefusedBeforeAnyWorker,TestKernelRepa
+KILLED        N2.01    SealCompletion only for safety-bearing generation  TestCompletionSealsAuthenticateExactBytesOnly
+SURVIVED      N1.21    Runtime admission fence uses classification  
+KILLED        N2.02    SealCompletion requires verified activation  TestCompletionSealsAuthenticateExactBytesOnly
+KILLED        N2.03    SealCompletion refuses a conflicting existing seal  TestCompletionSealsAuthenticateExactBytesOnly
+SURVIVED      N2.04    LoadSealedCompletion checks digest equality  
+SURVIVED      N2.05    Gate completion cites the request its dossier implies  
+SURVIVED      N2.06    Gate request must be durably recorded (digest equality)  
+KILLED        N2.07    Gate decision citation equality  TestConcurrentInstallationFanoutAcrossProcesses
+SURVIVED      N1.22    Materialization refuses safety-bearing turns via classificat  
+SURVIVED      N2.08    Gate completion ceremony resolves  
+SURVIVED      N2.09    Gate decision current (Validate)  
+SURVIVED      N2.10    Gate decision owner/root authority current  
+SURVIVED      N2.11    Gate decision outcome must be approve  
+KILLED        N2.12    Revoked decision is not effective (LoadAuthorityDecision rev  TestKernelRepair3N2RevokedGateDecisionKeepsHistoryButStopsAuthorizingWork
+SURVIVED      N2.13    Consumption: completion belongs to this Goal generation  
+SURVIVED      N2.14    Consumption: sealed bytes equal ledger row  
+KILLED        N2.15    Consumption: seal must exist  TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3ForgedLedg
+BUILD-FAILED  N2.18    Consumption: gate lineage re-verified  
+KILLED        N2.16    Consumption: authentication skipped entirely  TestKernelRepair3CompletionSealedForAnotherGenerationIsRefused,TestKernelRepair3DemotionPr
+SURVIVED      N2.17    Consumption: gate citations required  
+KILLED        N2.19    Consumption: not-effective gate demoted to history  TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3Expli
+BUILD-FAILED  N2.22    Recording seals before append  
+SURVIVED      N2.20    Consumption: demotion propagates over hard dependencies  
+KILLED        N2.21    Consumption: effective/historical split  TestKernelRepair3DemotionPropagatesToUnitsThatCompletedUnderTheGate,TestKernelRepair3Expli
+KILLED        N2.23    Controller prepare consumes authenticated completions (selec  TestKernelRepair3ForgedLedgerGateCompletionIsRefusedNotTrusted,TestKernelRepair3ForgedLedg
+KILLED        N2.24    Controller consumes authenticated completions (explicit obje  TestKernelRepair3ExplicitObjectiveMustBeCurrentlyRunnable
+SURVIVED      N2.25    Goal candidate derived from authenticated completions  

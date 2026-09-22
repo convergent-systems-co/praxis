@@ -1,0 +1,2 @@
+KILLED        R5.37    root resolution: pre-recovery root excluded  TestFAARootAdmittedBeforeTheReanchorIsNotCurrent
+RESTORE-CHECK OK

@@ -1,0 +1,21 @@
+package goaldrive
+import("context";"testing";"strings";"github.com/convergent-systems-co/praxis/internal/eventstore";"github.com/convergent-systems-co/praxis/packages/goals";"github.com/convergent-systems-co/praxis/pkg/contracts")
+func TestReview2CompletionWithoutMechanismPass(t *testing.T){
+ c:=Controller{Ledger:Ledger{Store:eventstore.NewMemoryStore(),Actor:contracts.PrincipalRef{ID:"controller",Kind:"controller"}}}
+ unit:=contracts.WorkCandidate{ID:"unit",SourceDigest:"sha256:"+strings.Repeat("4",64),QualificationPredicates:[]string{"candidate/unit/conformance"}}
+ b:=&goals.GoalBaseline{ID:"goal",Version:"1",WorkPlan:&contracts.WorkPlan{Safety:protectedBinding(),Candidates:[]contracts.WorkCandidate{unit,{ID:"other"}}}}
+ rec:=TurnRecord{GoalID:"goal",GoalVersion:"1",InvocationID:"inv",TurnID:"turn",ChildObjective:"unit",EndHead:"head",Progress:true,CheckpointPublished:true,CompletionClaim:"unit",CheckpointEvidence:[]string{"repository:no-declared-validation"}}
+ repo:=&conformanceRepository{supervisionRepository:supervisionRepository{head:"head"},output:"PRAXIS-VALIDATION candidate/unit/conformance\n"}
+ _,err:=c.settleCompletion(context.Background(),TurnRequest{GoalID:"goal",GoalVersion:"1",InvocationID:"inv",TurnID:"turn",GoalBaseline:b,WorkCandidates:[]contracts.WorkCandidate{unit}},repo,rec,nil);if err!=nil{t.Fatal(err)}
+ completions,err:=c.Ledger.LoadCompletions(context.Background(),"goal","1");if err!=nil||len(completions)!=1||!completions[0].MechanismTestsPassed{t.Fatalf("%+v %v",completions,err)}
+ t.Log("no-declared-validation promoted to MechanismTestsPassed and ConformanceQualified")
+}
+
+func TestReview2MissingValidatorStillQualifiesCheckpoint(t *testing.T){
+ c:=Controller{Ledger:Ledger{Store:eventstore.NewMemoryStore(),Actor:contracts.PrincipalRef{ID:"controller",Kind:"controller"}}}
+ b:=&goals.GoalBaseline{ID:"goal",Version:"1",WorkPlan:&contracts.WorkPlan{Safety:protectedBinding()}}
+ repo:=&supervisionRepository{head:"after"}
+ rec,err:=c.deriveRepositoryOutcome(context.Background(),TurnRequest{GoalBaseline:b,StartHead:"before"},repo,TurnRecord{})
+ if err!=nil||!rec.Progress||!containsEvidence(rec.CheckpointEvidence,"repository:no-declared-validation"){t.Fatalf("%+v %v",rec,err)}
+ t.Log("post-worker safety checkpoint qualifies for publication with no declared validator")
+}

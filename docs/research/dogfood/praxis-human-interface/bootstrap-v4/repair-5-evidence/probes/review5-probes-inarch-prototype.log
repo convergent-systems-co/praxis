@@ -1,0 +1,23 @@
+=== RUN   TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:107: COUNTEREXAMPLE: copied sealed liveness replay restored revoked authority after restart; controller minted a NEW sealed completion, completions 1 -> 2, AllUnitsComplete=true
+--- PASS: TestReview5N14ReplayedLivenessCreatesNewGovernedCompletion (0.11s)
+=== RUN   TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review5_n14_test.go:156: stripped import after safety-history erasure: import Goal Baseline: Goal is classified safety-bearing; a plan without the safety binding is a downgrade: Goal goal:pending-surface (kernel praxis-human-interface-bootstrap-v4/1); a plan enters only through the authenticated accepted-plan attachment transaction
+--- FAIL: TestReview5N15ErasingClassificationSourcesPermitsDowngradedExecution (0.09s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	0.621s
+FAIL

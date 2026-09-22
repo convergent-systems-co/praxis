@@ -1,0 +1,43 @@
+//go:build darwin
+
+package crypto
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/faa"
+)
+
+// PROBE (not a regression): the hardened anchor, attacked by ANOTHER process
+// (a differently signed binary) that does not hold the keychain password and
+// has user interaction disabled. The driver script runs the attacker while this
+// test waits, then this test reads the anchor back.
+func TestZZFAACrossProcessProbe(t *testing.T) {
+	dir := os.Getenv("PROBE_DIR")
+	if dir == "" {
+		t.Skip("probe only")
+	}
+	ctx := context.Background()
+	k := &KeychainAnchor{Service: "com.convergent-systems-co.praxis.faa.crossprocess-probe2", Dir: dir}
+	inst := "sha256:00000000000000000000000000000000000000000000000000000000000000c2"
+	t.Cleanup(func() { _ = k.deleteForTest(inst) })
+	_ = k.deleteForTest(inst)
+	_, g, _ := faa.NewGenesis(inst, "probe-nonce", time.Now())
+	if err := k.Set(ctx, inst, nil, g); err != nil {
+		t.Fatal(err)
+	}
+	file, _, _, _, _ := k.layout(inst)
+	_ = os.WriteFile(filepath.Join(dir, "ready"), []byte(file+"\n"+k.Service+"\n"+k.account(inst)), 0o600)
+	for i := 0; i < 120; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "go")); err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	got, err := k.Load(ctx, inst)
+	t.Logf("anchor after the foreign process's attempts: equal-to-original=%v err=%v", got == g, err)
+}

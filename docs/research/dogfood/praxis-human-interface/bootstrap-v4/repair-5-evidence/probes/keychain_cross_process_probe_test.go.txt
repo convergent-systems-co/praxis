@@ -1,0 +1,59 @@
+package crypto
+
+import (
+	"context"
+	"os/exec"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/faa"
+)
+
+// PROBE (not a regression): can ANOTHER process of the same OS user, using the
+// Apple-signed /usr/bin/security tool, read or modify the FAA Keychain item
+// without a prompt? The result bounds what the Keychain backend protects.
+func TestZZKeychainCrossProcessAccessProbe(t *testing.T) {
+	ctx := context.Background()
+	k := &KeychainAnchor{Service: "com.convergent-systems-co.praxis.faa.crossprocess-probe"}
+	inst := "sha256:00000000000000000000000000000000000000000000000000000000000000c1"
+	_ = k.deleteForTest(inst)
+	t.Cleanup(func() { _ = k.deleteForTest(inst) })
+	if err := k.Set(ctx, inst, nil, genesisState(inst)); err != nil {
+		t.Skip(err)
+	}
+	for _, args := range [][]string{
+		{"find-generic-password", "-s", k.Service, "-a", "faa:" + inst, "-w"},
+	} {
+		c := exec.Command("/usr/bin/security", args...)
+		done := make(chan struct{})
+		var out []byte
+		var err error
+		go func() { out, err = c.CombinedOutput(); close(done) }()
+		select {
+		case <-done:
+			t.Logf("security %v -> err=%v output=%q", args[0], err, string(out))
+		case <-time.After(8 * time.Second):
+			_ = c.Process.Kill()
+			t.Logf("security %v -> BLOCKED (would prompt) after 8s", args[0])
+		}
+	}
+	upd := exec.Command("/usr/bin/security", "add-generic-password", "-U", "-s", k.Service, "-a", "faa:"+inst, "-w", "attacker-value")
+	done := make(chan struct{})
+	var uout []byte
+	var uerr error
+	go func() { uout, uerr = upd.CombinedOutput(); close(done) }()
+	select {
+	case <-done:
+		t.Logf("security add -U -> err=%v output=%q", uerr, string(uout))
+	case <-time.After(8 * time.Second):
+		_ = upd.Process.Kill()
+		t.Logf("security add -U -> BLOCKED (would prompt) after 8s")
+	}
+	got, err := k.Load(ctx, inst)
+	t.Logf("anchor after cross-process attempt: %+v err=%v", got, err)
+}
+
+func genesisState(inst string) faa.State {
+	_, st, _ := faa.NewGenesis(inst, "probe-nonce", time.Now())
+	return st
+}

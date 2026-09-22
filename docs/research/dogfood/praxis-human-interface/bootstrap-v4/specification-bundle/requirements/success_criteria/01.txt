@@ -1,0 +1,1 @@
+An ordinary user can provide a human-readable description of a desired outcome without manually constructing canonical GoalBaseline JSON.

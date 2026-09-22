@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-dogfood-acceptance","kind":"consumer","prerequisite":"unit:hi-governed-planning-orchestration","provenance":"model_proposal","rationale":"unit:hi-dogfood-acceptance consumes unit:hi-governed-planning-orchestration outputs as non-blocking context."}

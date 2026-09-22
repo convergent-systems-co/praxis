@@ -1,0 +1,132 @@
+$ go test -overlay=/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/tmp50cmg8cj/overlay.json ./cmd/praxis ./pkg/contracts ./internal/goaldrive -run TestReview2 -count=1 -v
+=== RUN   TestReview2ProductionGateStoreConfiguration
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:18: unexpected result: safety-bearing WorkPlan mutation requires current verified kernel activation: no activation verifier is configured
+--- FAIL: TestReview2ProductionGateStoreConfiguration (0.08s)
+=== RUN   TestReview2LegacyAcceptanceWithoutCeremony
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:31: legacy acceptance cannot admit a safety-bearing WorkPlan; use the authority-backed acceptance bridge
+--- FAIL: TestReview2LegacyAcceptanceWithoutCeremony (0.04s)
+=== RUN   TestReview2SaveBaselineWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:40: a safety-bearing WorkPlan can enter a Goal generation only through the authenticated accepted-plan attachment transaction
+--- FAIL: TestReview2SaveBaselineWithoutActivation (0.07s)
+=== RUN   TestReview2GateReplayWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:48: safety-bearing WorkPlan mutation requires current verified kernel activation: no activation verifier is configured
+--- FAIL: TestReview2GateReplayWithoutActivation (0.06s)
+=== RUN   TestReview2CompletedFlagSubstitution
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:58: work plan is not an accepted authoritative decomposition: candidate "gate" supplies execution-derived completed state; completion derives only from qualified ledger evidence
+--- FAIL: TestReview2CompletedFlagSubstitution (0.05s)
+=== RUN   TestReview2CLIImportWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:67: import Goal Baseline: a safety-bearing WorkPlan can enter a Goal generation only through the authenticated accepted-plan attachment transaction
+--- FAIL: TestReview2CLIImportWithoutActivation (0.06s)
+=== RUN   TestReview2RevokedWorkPlanStillGovernsGate
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:81: the controller must stop at exactly one pending gate request: WorkPlan governing authority is absent, revoked, or inconsistent: governing WorkPlan acceptance is not currently effective: authority decision is revoked
+--- FAIL: TestReview2RevokedWorkPlanStillGovernsGate (0.06s)
+=== RUN   TestReview2CachedPackageIdentity
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:91: goals package is disabled, not active
+--- FAIL: TestReview2CachedPackageIdentity (0.03s)
+=== RUN   TestReview2ArbitraryCeremonyDigest
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:99: protected decision ceremony evidence does not resolve to a durable ceremony record: secure blob not found
+--- FAIL: TestReview2ArbitraryCeremonyDigest (0.06s)
+=== RUN   TestReview2GateRequestConflictPreservesOriginal
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:110: same deterministic identity with changed checkpoint rejected and original preserved
+--- PASS: TestReview2GateRequestConflictPreservesOriginal (0.07s)
+=== RUN   TestReview2ExplicitGateObjectiveReachesWorker
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:119: worker calls=0 err=WorkPlan governing authority is absent, revoked, or inconsistent: verifier is not configured
+--- FAIL: TestReview2ExplicitGateObjectiveReachesWorker (0.05s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	1.758s
+=== RUN   TestReview2MalformedDossierAccepted
+=== RUN   TestReview2MalformedDossierAccepted/_trailing-not-json
+    review2_independent_test.go:6: decode gate dossier: safety-bearing JSON must be exactly one complete unambiguous value: trailing content after the first value
+=== RUN   TestReview2MalformedDossierAccepted/_{"status":"approved"}
+    review2_independent_test.go:6: decode gate dossier: safety-bearing JSON must be exactly one complete unambiguous value: trailing content after the first value
+--- FAIL: TestReview2MalformedDossierAccepted (0.00s)
+    --- FAIL: TestReview2MalformedDossierAccepted/_trailing-not-json (0.00s)
+    --- FAIL: TestReview2MalformedDossierAccepted/_{"status":"approved"} (0.00s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/pkg/contracts	0.336s
+=== RUN   TestReview2CompletionWithoutMechanismPass
+    review2_independent_test.go:9: completion claim "unit" is not the selected unit ""
+--- FAIL: TestReview2CompletionWithoutMechanismPass (0.00s)
+=== RUN   TestReview2MissingValidatorStillQualifiesCheckpoint
+    review2_independent_test.go:19: {GoalID: GoalVersion: InvocationID: Mode: TurnID: ChildObjective: GraphID: GraphVersion: AgentID: ExecutorID: StartHead: EndHead:after Outcome:BLOCKED Progress:false CheckpointPublished:false CheckpointEvidence:[] RetryOf: Blocker:safety-bearing checkpoint lost its checkpoint-bound validator ConsequenceFingerprint: ConsequenceFiles:[] ConsequenceCommits:[] ConsequenceBaseHead: ConsequenceRemoteHead: RecoveryBaseHead: RecoveryRemoteHead: RecoveryRetainedHead: RecoveryDisposition: CompletionClaim: UnitCompleted:false GoalCandidate:false GoalEvaluation: CreatedAt:0001-01-01 00:00:00 +0000 UTC} safety-bearing checkpoint lost its checkpoint-bound validator
+--- FAIL: TestReview2MissingValidatorStillQualifiesCheckpoint (0.00s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goaldrive	0.756s
+FAIL

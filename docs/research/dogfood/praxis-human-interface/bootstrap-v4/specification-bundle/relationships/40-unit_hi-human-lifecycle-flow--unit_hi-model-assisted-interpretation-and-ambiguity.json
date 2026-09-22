@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"consumer","prerequisite":"unit:hi-model-assisted-interpretation-and-ambiguity","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow consumes unit:hi-model-assisted-interpretation-and-ambiguity outputs as non-blocking context."}

@@ -1,0 +1,1315 @@
+[
+ {
+  "id": "R4.25",
+  "guard": "derivation reads surviving generations of the Goal",
+  "invariants": "I9,I12",
+  "group": "R4.derive-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if baseline.WorkPlan == nil {\n\t\t\t\treturn nil, nil\n\t\t\t}\n\t\t\treturn baseline.WorkPlan.Safety, nil",
+    "return nil, nil",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "FAIL\tgithub.com/convergent-systems-co/praxis/cmd/praxis [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/goalstore\ninternal/goalstore/safety_classification.go:170:4: declared and not used: baseline\n",
+  "secs": 0.8
+ },
+ {
+  "id": "R4.11",
+  "guard": "LoadAuthorityDecision requires decision liveness",
+  "invariants": "I3,I12",
+  "group": "R4.decision-live",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "digest, now); err != nil {\n\t\treturn contracts.AuthorityDecision{}, fmt.Errorf(\"%w: %w\", ErrAuthorityDecisionNotLive, err)",
+    "digest, now); false && err != nil {\n\t\treturn contracts.AuthorityDecision{}, fmt.Errorf(\"%w: %w\", ErrAuthorityDecisionNotLive, err)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestDecisionLivenessRowDeletionFailsClosed,TestFAACrashBetweenFactAndEffectsLeavesTheDecisionRetired,TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority,TestFAAReplayOfACopiedLivenessRowDoesNotRestoreARevokedDecision,TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 108.3
+ },
+ {
+  "id": "R4.12",
+  "guard": "identical decision replay cannot resurrect a retired decision",
+  "invariants": "I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "time.Now().UTC()); err != nil {\n\t\t\t\treturn fmt.Errorf(\"%w: %w\", ErrAuthorityDecisionNotLive, err)",
+    "time.Now().UTC()); false && err != nil {\n\t\t\t\treturn fmt.Errorf(\"%w: %w\", ErrAuthorityDecisionNotLive, err)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 115.9
+ },
+ {
+  "id": "R4.17",
+  "guard": "current installation root must be positively live (same snapshot as the generations)",
+  "invariants": "I3,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/root_authority_succession.go",
+    "if stored.Digest != generation.Digest ||",
+    "if false ||",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRootLivenessRowDeletionLeavesNoCurrentRoot,TestRootSuccessionRollbackByRowDeletionDoesNotReviveThePredecessor",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 120.4
+ },
+ {
+  "id": "R4.23j",
+  "guard": "joint: owner-decision generation liveness (plan authority + ValidateAuthorityGeneration)",
+  "invariants": "I3,I8,I12",
+  "group": "R4.owner-gen-live-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/plan_authority.go",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); err != nil {",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); false && err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "return r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority,TestFAAWholeDatabaseRollbackFailsClosed,TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRowDeletionFailsClosed",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 123.9
+ },
+ {
+  "id": "R4.23",
+  "guard": "owner-decision authority requires issuing generation liveness",
+  "invariants": "I3,I8,I12",
+  "group": "R4.owner-gen-live",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/plan_authority.go",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); err != nil {",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); false && err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 125.7
+ },
+ {
+  "id": "R4.26",
+  "guard": "derivation reads the safety binding of proposals",
+  "invariants": "I9,I12",
+  "group": "R4.derive-layers",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if err := take(e.Safety); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestRepair5EvidencePowersetClassificationQualification",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 126.3
+ },
+ {
+  "id": "R5.01",
+  "guard": "chain: fact belongs to this installation",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/faa/faa.go",
+    "if f.Installation != installation {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/faa"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyChainEachRuleRefusesOnItsOwn",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.2
+ },
+ {
+  "id": "R5.02",
+  "guard": "chain: fact chains to its predecessor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/faa/faa.go",
+    "if f.Prev != view.Head {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/faa"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyChainEachRuleRefusesOnItsOwn",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.2
+ },
+ {
+  "id": "R5.04",
+  "guard": "chain: gap refused outside a re-anchor",
+  "invariants": "I13,I14",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/faa/faa.go",
+    "if f.Seq != view.Seq+1 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/faa"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyChainEachRuleRefusesOnItsOwn",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.7
+ },
+ {
+  "id": "R5.05",
+  "guard": "chain: must begin with a genesis or a re-anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/faa/faa.go",
+    "if first && f.Kind != KindGenesis && f.Kind != KindReanchor {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/faa"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestVerifyChainEachRuleRefusesOnItsOwn",
+  "skipped": [],
+  "tail": "",
+  "secs": 1.1
+ },
+ {
+  "id": "R4.29",
+  "guard": "derivation fails closed on an unreadable generation",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "baseline, err := r.Load(context.Background(), record.ObjectID, record.ObjectVersion, time.Unix(0, 0).UTC())\n\t\t\tif err != nil {",
+    "baseline, err := r.Load(context.Background(), record.ObjectID, record.ObjectVersion, time.Unix(0, 0).UTC())\n\t\t\tif false && err != nil {",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 24.6
+ },
+ {
+  "id": "R5.15",
+  "guard": "snapshot: anchor names this installation",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/governance.go",
+    "if anchor.Installation != r.InstallationDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAARepositoryRefusesAnAnchorThatNamesAnotherInstallation",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 17.4
+ },
+ {
+  "id": "R4.31",
+  "guard": "derivation attributes generations by Goal identity",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "Filter: func(record state.SecureBlobRecord, goalID string) bool { return record.ObjectID == goalID },",
+    "Filter: func(record state.SecureBlobRecord, goalID string) bool { return true },",
+    1
+   ]
+  ],
+  "run": "TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 26.3
+ },
+ {
+  "id": "R5.18",
+  "guard": "reader retries only a plain lag",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "if err == nil || !(errors.Is(err, ErrGovernanceRolledBack) || errors.Is(err, ErrGovernanceAhead)) {",
+    "if err == nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReaderDoesNotRetryAnInvalidChain",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 20.9
+ },
+ {
+  "id": "R5.23",
+  "guard": "an anchor is not created next to existing state",
+  "invariants": "I13,I14",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/governance.go",
+    "if len(facts) != 0 || len(generations) != 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 16.2
+ },
+ {
+  "id": "R5.24",
+  "guard": "a crashed initialisation is replaced only at sequence 0",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/governance.go",
+    "if current.Seq != 0 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 11.4
+ },
+ {
+  "id": "R5.19",
+  "guard": "admission is stamped with the anchor sequence",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "return snap.Anchor.Seq, nil",
+    "return snap.Anchor.Seq * 0, nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAAuthorityAdmittedAfterAReanchorIsCurrent",
+  "skipped": [
+   "TestConcurrentInstallationFanoutAcrossProcesses",
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority",
+   "TestFanoutHelperProcess",
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 60.7
+ },
+ {
+  "id": "R5.32",
+  "guard": "revocation is anchored before its effects",
+  "invariants": "I3,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.anchorDecisionRetired(ctx, requestID, requestVersion, decisionDigest, \"revoked\", createdAt); err != nil {",
+    "if err := error(nil); err != nil || decisionDigest == \"\" {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAAnchorStatesFailClosed,TestFAAFactChainTruncationErasureAndDamageFailClosed,TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAKeychainBackendDetectsWholeDatabaseRollbackEndToEnd,TestFAAReaderDoesNotRetryAnInvalidChain,TestFAAReplayOfACopiedLivenessRowDoesNotRestoreARevokedDecision",
+  "skipped": [
+   "TestConcurrentInstallationFanoutAcrossProcesses",
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority",
+   "TestFanoutHelperProcess",
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 56.0
+ },
+ {
+  "id": "R5.36",
+  "guard": "root resolution: retired root excluded",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/root_authority_succession.go",
+    "snap.retired(state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest) ||",
+    "false ||",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAARootRetiredByFactAloneIsNotCurrent,TestFAARootSuccessionIsAnchoredAndItsRollbackByReplayIsRefused",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 14.0
+ },
+ {
+  "id": "R4.28",
+  "guard": "derivation fails closed on an unreadable candidate",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "payload, _, err := r.loadWorkPlanBlob(ctx, namespace, record.ObjectID, record.ObjectVersion, epoch)\n\t\t\tif err != nil {",
+    "payload, _, err := r.loadWorkPlanBlob(ctx, namespace, record.ObjectID, record.ObjectVersion, epoch)\n\t\t\tif false && err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 127.9
+ },
+ {
+  "id": "R5.34",
+  "guard": "succession anchors the supersession",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/root_authority_succession.go",
+    "if err := r.anchorGenerationRetired(ctx, predecessor.Ref, predecessor.Version, predecessor.Digest, \"superseded\", now); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAARootSuccessionIsAnchoredAndItsRollbackByReplayIsRefused",
+  "skipped": [
+   "TestConcurrentInstallationFanoutAcrossProcesses",
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority",
+   "TestFanoutHelperProcess",
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 67.7
+ },
+ {
+  "id": "R5.41",
+  "guard": "classification is anchored when derived-classified",
+  "invariants": "I14",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "return r.anchorGoalClassified(ctx, goalID, binding.KernelVersion, now)\n\t}",
+    "return nil\n\t}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 21.0
+ },
+ {
+  "id": "R5.51",
+  "guard": "in-tx guard checks the decision",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "if err := r.requireLiveInTx(ctx, tx, snap, state.AuthorityDecisionLiveNamespace, requestID, requestVersion); err != nil {\n\t\treturn err\n\t}",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 23.2
+ },
+ {
+  "id": "R4.28j",
+  "guard": "joint: candidate decrypt failure + extraction failure both swallowed",
+  "invariants": "I9,I12",
+  "group": "R4.derive-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "payload, _, err := r.loadWorkPlanBlob(ctx, namespace, record.ObjectID, record.ObjectVersion, epoch)\n\t\t\tif err != nil {",
+    "payload, _, err := r.loadWorkPlanBlob(ctx, namespace, record.ObjectID, record.ObjectVersion, epoch)\n\t\t\tif false && err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "binding, err := evidence.Extract(r, record, payload, goalID)\n\t\t\tif err != nil {",
+    "binding, err := evidence.Extract(r, record, payload, goalID)\n\t\t\tif false && err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 145.0
+ },
+ {
+  "id": "R5.52",
+  "guard": "in-tx guard checks the generation",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/governance.go",
+    "return r.requireLiveInTx(ctx, tx, snap, state.AuthorityGenerationLiveNamespace, generationRef, generationVersion)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 18.3
+ },
+ {
+  "id": "R4.30",
+  "guard": "derivation attributes records by Goal identity",
+  "invariants": "I9,I12",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if e.GoalID == goalID {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestClassificationIsDerivedFromSurvivingSafetyBearingProposals",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 140.9
+ },
+ {
+  "id": "R5.53",
+  "guard": "repair guard consults the anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/lifecycle/authority.go",
+    "if g.Governance != nil {",
+    "if false && g.Governance != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRuntimeStateTransactionalGuardConsultsTheForwardAuthorityAnchor",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 18.8
+ },
+ {
+  "id": "R5.56",
+  "guard": "re-anchor re-admits the attested root",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/reanchor.go",
+    "return r.Store.ReplaceLivenessRecord(ctx, record)",
+    "_ = record; return nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAReanchorCoversMissingUnreadableAndAheadAnchors,TestFAAReanchorInterruptedBeforeRootReadmissionIsCompletedByTheSameCeremony",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 18.3
+ },
+ {
+  "id": "R5.57",
+  "guard": "re-anchor completes an interrupted re-admission",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/reanchor.go",
+    "if stored, err := r.loadLiveness(ctx, state.AuthorityGenerationLiveNamespace, root.Ref, root.Version, now); err == nil && stored.Digest == root.Digest && stored.AdmittedAtSeq >= last.Seq {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReanchorRootSelectionAndIdempotence",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 17.7
+ },
+ {
+  "id": "R5.58",
+  "guard": "re-anchor preserves orphaned facts",
+  "invariants": "I14",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/reanchor.go",
+    "if err := state.InsertSecureBlobInTx(ctx, tx, preserved); err != nil {",
+    "if err := error(nil); err != nil || preserved.Namespace == \"\" {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReanchorPreservesOrphanedFactsAndBridgesFromTheLastValidLink",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 21.1
+ },
+ {
+  "id": "R5.59",
+  "guard": "re-anchor needs exactly one un-retired root",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/reanchor.go",
+    "if len(candidates) != 1 {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAConcurrentAppendersAndReadersKeepAValidChain,TestFAAReanchorRootSelectionAndIdempotence",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 20.4
+ },
+ {
+  "id": "R5.60",
+  "guard": "re-anchor excludes a root retired by fact",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/reanchor.go",
+    "if _, retired := view.RetiredGenerations[faa.GenerationKey(g.Ref, g.Version, g.Digest)]; retired {",
+    "if _, retired := view.RetiredGenerations[faa.GenerationKey(g.Ref, g.Version, g.Digest)]; false && retired {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAReanchorRootSelectionAndIdempotence",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 22.8
+ },
+ {
+  "id": "R5.40",
+  "guard": "classification is anchored when first marked",
+  "invariants": "I14",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/safety_classification.go",
+    "if err := r.anchorGoalClassified(ctx, goalID, binding.KernelVersion, now); err != nil {\n\t\treturn err\n\t}\n\tpayload, err :=",
+    "if err := error(nil); err != nil {\n\t\treturn err\n\t}\n\tpayload, err :=",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived",
+  "skipped": [
+   "TestConcurrentInstallationFanoutAcrossProcesses",
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority",
+   "TestFanoutHelperProcess",
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 75.8
+ },
+ {
+  "id": "R5.62",
+  "guard": "fact append reverts the anchor on commit failure",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "if err := tx.Commit(); err != nil {\n\t\tif undo != nil {\n\t\t\tundo(ctx)\n\t\t}\n\t\treturn fmt.Errorf(\"commit governance fact: %w\", err)",
+    "if err := tx.Commit(); err != nil {\n\t\treturn fmt.Errorf(\"commit governance fact: %w\", err)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts,TestFAAConcurrentAppendersAndReadersKeepAValidChain",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 25.3
+ },
+ {
+  "id": "R5.73",
+  "guard": "keychain: read-back verified",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil || got != next {\n\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t}\n\treturn nil\n}\n\nfunc (k *KeychainAnchor) Revert",
+    "if err != nil || false && got != next {\n\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t}\n\treturn nil\n}\n\nfunc (k *KeychainAnchor) Revert",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 4.5
+ },
+ {
+  "id": "R5.63",
+  "guard": "only facts may be appended through the chain",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/state/secure_blob.go",
+    "if record.Namespace != GovernanceFactNamespace {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts",
+  "skipped": [
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority"
+  ],
+  "tail": "",
+  "secs": 25.9
+ },
+ {
+  "id": "R5.74",
+  "guard": "keychain: another installation's state never returned",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "s.Installation != installation {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    "false {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorNeverReturnsAnotherInstallationsState",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.9
+ },
+ {
+  "id": "R5.66",
+  "guard": "re-anchor requires an interactive terminal",
+  "invariants": "I8,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "cmd/praxis/governance_reanchor.go",
+    "if !interactive {",
+    1,
+    0
+   ]
+  ],
+  "run": "TestRepair5|TestFAA|TestKernelRepair3PlanAuthority|TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony",
+  "skipped": [
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 35.6
+ },
+ {
+  "id": "R5.67",
+  "guard": "re-anchor requires the enrolling OS user",
+  "invariants": "I8,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/governance_reanchor.go",
+    "|| current.Username != plan.RootUser {",
+    "|| false {",
+    1
+   ]
+  ],
+  "run": "TestRepair5|TestFAA|TestKernelRepair3PlanAuthority|TestRepair4",
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestRepair5MissingAnchorFailsClosedAndTheCeremonyRecoversIt,TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony",
+  "skipped": [
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 33.9
+ },
+ {
+  "id": "R5.64",
+  "guard": "the fact append takes the writer lock",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/state/secure_blob.go",
+    "if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=''`, GovernanceFactNamespace); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 114.7
+ }
+]

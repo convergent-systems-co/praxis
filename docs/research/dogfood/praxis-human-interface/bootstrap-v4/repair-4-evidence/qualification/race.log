@@ -1,0 +1,8 @@
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	1.560s
+ok  	github.com/convergent-systems-co/praxis/internal/bootstrapv4	24.476s
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	210.147s
+ok  	github.com/convergent-systems-co/praxis/internal/goalstore	78.924s
+ok  	github.com/convergent-systems-co/praxis/internal/state	76.259s
+ok  	github.com/convergent-systems-co/praxis/internal/goalspublication	98.013s
+ok  	github.com/convergent-systems-co/praxis/packages/goals	3.256s
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	322.620s

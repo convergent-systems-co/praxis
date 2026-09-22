@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-installed-human-surface-packaging","kind":"consumer","prerequisite":"unit:hi-source-bound-goal-establishment","provenance":"model_proposal","rationale":"unit:hi-installed-human-surface-packaging consumes unit:hi-source-bound-goal-establishment outputs as non-blocking context."}

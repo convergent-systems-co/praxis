@@ -1,0 +1,21 @@
+{
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/source-manifest.json": "fe8708766da7a35933ba3368ff0f68e730681b7db953204a600f50490495dbe1",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/qualification-results.json": "8f0b46e497ab8e923350263ef149f78e03ba9358ea6b3e477b0502aaf3e6a0c2",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/candidate-activation-requirements.json": "ee4f982b626dd82d624309dbd9d37b48532a53eba6c094abe81d04098a437913",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/preactivation-verification.json": "3fdbd498ab3434a0f9166a62c222eb2440ace1c767c9fddfa98df0967dba6eb9",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/implementation-and-qualification-report.md": "b44eb80ac7c20e44961ab917b6bdb5a931a86747132b3d86ab8266c7ff02463c",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/validation-profile.json": "12d3f0a1e97a33591d1a320213ba55e9db008bc9d234297c3057b45bc2d1a55a",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/specification-bundle/manifest.json": "5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215",
+  "docs/research/dogfood/praxis-human-interface/plans/workplan-v4-codex.md": "2fd97a1001182d30e592d6650c52aae2704fa2f871bed532aca73bdc9a10ee9a",
+  "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-3.md": "0ce799f512a1fac53499aa1c1f36bc4bd7349ab20ec3a1ba40fcc6114915fd92",
+  "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2.md": "c2704e9d12ac6fd1efd515755a9afde2716fa3c19e1823e73b2095c171d2eb30",
+  ".praxis/validate": "5c7f1924c19784d966f94d386ddcbd67ace8adcdf5f4f94f9b0020a33bea8f0c",
+  "/Users/polliard/bin/praxis": "807359e48b2626abb1bcfca3ec302da743f1a0238644d6b0c64a0f888ec48fe7",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-candidate": "663cf610f647aa2f00d071a75c2d8e53c9db9895f9563e5dda418e7ecd08aec1",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.tar.gz": "cc6d98db19f62687c4105984e1227093100c4f4f6eedf883ef2679035b72922d",
+  "docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.json": "e4bc2024e9817d11318d76d8d839fe25a2e1a4d2e77edbc73dca0e92bfb9c8b6",
+  "source_entries_verified": 72,
+  "invocation_contract_digest": "sha256:5acebd861e0d87f9ea230201a3136bbe2798424a4fc30ffff7c49a1fd4e2f043",
+  "archive_executables": {},
+  "spec_records_verified": 121
+}

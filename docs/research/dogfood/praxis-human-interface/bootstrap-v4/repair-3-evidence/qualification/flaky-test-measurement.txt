@@ -1,0 +1,8 @@
+TestConcurrentInstallationFanoutAcrossProcesses (cmd/praxis) - load/timing sensitivity, measured 2026-09-21
+  command: go test -count=60 -run TestConcurrentInstallationFanoutAcrossProcesses ./cmd/praxis
+  untouched extract of base commit ff14600: 1 failure in 60 runs
+  this candidate:                            1 failure in 60 runs
+  observed failure text (candidate focused run #1 of the final chain, also seen at base):
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+  conclusion: a pre-existing intermittent failure of an unrelated migration-lease test, not introduced by this repair.
+  the focused suite was re-run (focused-rerun.log) and passed; the first run is preserved as focused-first-run-with-flake.log.

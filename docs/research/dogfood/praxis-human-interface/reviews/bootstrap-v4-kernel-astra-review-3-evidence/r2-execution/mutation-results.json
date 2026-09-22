@@ -1,0 +1,107 @@
+[
+ [
+  "M1a B5 validateSafetyGraph Completed refusal",
+  "KILLED",
+  "TestSafetyPlanRejectsSuppliedCompletion"
+ ],
+ [
+  "M1b B5 ApplyCompletions clears supplied flag",
+  "KILLED",
+  "TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence"
+ ],
+ [
+  "M1c B5 VerifyPlanCompletions neutralised",
+  "KILLED",
+  "TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence"
+ ],
+ [
+  "M2a B9 controller verifyGoverningAuthority neutralised",
+  "KILLED",
+  "TestRevokedGoverningAuthorityRefusesTheNextTurn,TestSafetyPlanWithoutGoverningAuthorityVerifierFailsClosed"
+ ],
+ [
+  "M2b B9 settleCompletion re-verify removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M2c B9 coordinateGate pre-completion re-verify removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M2d settleCompletion SafetyActivation re-verify removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M3 B9 ReconcileAuthorityGate governing-authority check removed",
+  "KILLED",
+  "TestKernelRepair2B9RevokedGoverningAuthorityStopsFutureExecution"
+ ],
+ [
+  "M4a B14 refuseGateDispatch neutralised (worker fence)",
+  "KILLED",
+  "TestWorkerResolutionRefusesAuthorityGateObjective"
+ ],
+ [
+  "M4b B14 prepare explicit-objective gate routing removed",
+  "KILLED",
+  "TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider"
+ ],
+ [
+  "M4c B14 safety plan accepts objective outside plan",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M5 B10 post-worker validator-missing block removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M6a B10 after-run binding removed",
+  "KILLED",
+  "TestValidationThatMutatesTheCheckoutDuringExecutionDoesNotQualify"
+ ],
+ [
+  "M6b B10 settleCompletion VerifyValidationBinding removed",
+  "BUILD-FAILED",
+  ""
+ ],
+ [
+  "M6c B10 pre-exec binding removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M7a B10 conformance acknowledgement check removed",
+  "BUILD-FAILED",
+  ""
+ ],
+ [
+  "M7b B10 pre-publication conformance removed",
+  "KILLED",
+  "TestFailedCandidateConformanceIsDecidedBeforePublication"
+ ],
+ [
+  "M9 B10 no-declared-validation counts for safety plan",
+  "KILLED",
+  "TestNoDeclaredValidationCannotSettleASafetyCompletion"
+ ],
+ [
+  "M11 B10 preflight profile-digest mismatch removed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M12 completion claim for non-selected unit allowed",
+  "SURVIVED",
+  ""
+ ],
+ [
+  "M13 output bound (limitedValidationOutput.Write) removed",
+  "KILLED",
+  "TestValidationOutputIsBounded"
+ ]
+]

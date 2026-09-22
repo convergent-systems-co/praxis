@@ -1,0 +1,16 @@
+$ go test -overlay=/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/tmphzpprx55/overlay.json ./cmd/praxis -run TestR2EndToEnd -count=1 -v
+=== RUN   TestR2EndToEndPathAThenGate
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    zz_r2_e2e_test.go:100: turn 1: outcome=CONTINUE progress=true published=true unitCompleted=true err=<nil> blocker=""
+    zz_r2_e2e_test.go:116: turn 3: HUMAN_AUTHORITY_REQUIRED: authority gate cannot be executed by a worker: gate resolved and recorded; start a fresh turn
+    zz_r2_e2e_test.go:121: turn 4: no authoritative runnable work candidate
+    zz_r2_e2e_test.go:135: END-TO-END OK; plan units=2
+--- PASS: TestR2EndToEndPathAThenGate (1.80s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	2.207s

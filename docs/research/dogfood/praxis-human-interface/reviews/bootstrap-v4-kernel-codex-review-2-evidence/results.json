@@ -1,0 +1,28 @@
+{
+  "review_date": "2026-09-20",
+  "head": "ff146000aadae0ef60981d445056089f52815869",
+  "disposition": "REVISION_REQUIRED",
+  "source_manifest_sha256": "401a60e40169470050e590f2089652f571c7f6583b343669bcdd71a0bf8eba89",
+  "source_entries_verified": 39,
+  "specification_records_verified": 121,
+  "independent_python_bundle_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
+  "independent_requirement_counts": {
+    "success_criteria": 12,
+    "constraints": 10,
+    "non_goals": 5,
+    "assumptions": 4
+  },
+  "dog_hard_closure": 21,
+  "core_rebuild_sha256": "45b9a89c1a318c7db4dc899ddf944f657b392dd03e74e9abbdef74d763a96a57",
+  "core_rebuild_matches_candidate": true,
+  "focused_go_tests": "PASS (some cached)",
+  "current_go_tests": "PASS with writable GOCACHE after initial sandbox permission failure",
+  "affected_race_tests": "PASS",
+  "affected_vet": "PASS",
+  "python": "1683 passed, 1 skipped",
+  "historical_conformance": "FAIL: stale internal/state attestation",
+  "review_probes": "PASS means the asserted counterexample or control was reproduced, not kernel qualification",
+  "process_image_probe": "RUNNING A; VERIFY running=A result=<nil> after path replaced with B",
+  "production_mutations": false,
+  "source_repairs": false
+}

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-advisory-evidence-staging","kind":"interaction","prerequisite":"unit:hi-operational-identity-allocation","provenance":"model_proposal","rationale":"unit:hi-advisory-evidence-staging and unit:hi-operational-identity-allocation require a non-blocking interaction contract."}

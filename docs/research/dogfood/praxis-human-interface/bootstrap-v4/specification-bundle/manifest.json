@@ -1,0 +1,1206 @@
+{
+  "candidates": [
+    {
+      "id": "unit:hi-governance-decision-dossier",
+      "kind": "work",
+      "path": "candidates/01-unit_hi-governance-decision-dossier.json",
+      "priority": 1,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+        "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+        "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+        "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3"
+      ],
+      "sequence": 1,
+      "sha256": "sha256:7476db69ee0a3212bdf6b1b06ab048ca5af973e6590569d18304e8f01138786f"
+    },
+    {
+      "id": "gate:hi-authority-ceremony",
+      "kind": "authority_gate",
+      "path": "candidates/02-gate_hi-authority-ceremony.json",
+      "priority": 1,
+      "provenance": "model_gate_proposal",
+      "requirements": [
+        "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d"
+      ],
+      "sequence": 2,
+      "sha256": "sha256:0074679888926056deab9d26d864c64170b7699aa13a6e2722ebe382f5b3943e"
+    },
+    {
+      "id": "gate:hi-review-independence",
+      "kind": "authority_gate",
+      "path": "candidates/03-gate_hi-review-independence.json",
+      "priority": 1,
+      "provenance": "model_gate_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+      ],
+      "sequence": 3,
+      "sha256": "sha256:cd8034cde0ada06a59a910081abbb74111639ec4f154fcfbcaa16f13af41a821"
+    },
+    {
+      "id": "gate:hi-supersession-and-active-turn",
+      "kind": "authority_gate",
+      "path": "candidates/04-gate_hi-supersession-and-active-turn.json",
+      "priority": 1,
+      "provenance": "model_gate_proposal",
+      "requirements": [
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+        "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+      ],
+      "sequence": 4,
+      "sha256": "sha256:359353d61f6e1469aaad1d6bbc35d69f0ead64d2641d330b8d19fdd8a19d94c0"
+    },
+    {
+      "id": "unit:hi-requirement-identity-and-binding",
+      "kind": "work",
+      "path": "candidates/05-unit_hi-requirement-identity-and-binding.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+        "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+      ],
+      "sequence": 5,
+      "sha256": "sha256:9463a9bb3ad3f34d664df792640a54ae62250d7cb178cc34d7acad7f510e1ad6"
+    },
+    {
+      "id": "unit:hi-operational-identity-allocation",
+      "kind": "work",
+      "path": "candidates/06-unit_hi-operational-identity-allocation.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+      ],
+      "sequence": 6,
+      "sha256": "sha256:293c9da4651cf22e606df16e889b5c70ed1ad13729741f413a801557b4e4a73a"
+    },
+    {
+      "id": "unit:hi-advisory-evidence-staging",
+      "kind": "work",
+      "path": "candidates/07-unit_hi-advisory-evidence-staging.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+      ],
+      "sequence": 7,
+      "sha256": "sha256:9b250fbe2c50bd101fffa02e02ccbb4bcafe0ffe0442d819bbf8afc12a66551f"
+    },
+    {
+      "id": "unit:hi-advisory-result-intake-and-recovery",
+      "kind": "work",
+      "path": "candidates/08-unit_hi-advisory-result-intake-and-recovery.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+      ],
+      "sequence": 8,
+      "sha256": "sha256:333f2be403a8e479f4d94272881ca38b461a66f6806ecd86a0307537c1a5f4c4"
+    },
+    {
+      "id": "unit:hi-surface-skew-conformance",
+      "kind": "work",
+      "path": "candidates/09-unit_hi-surface-skew-conformance.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+        "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+        "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+      ],
+      "sequence": 9,
+      "sha256": "sha256:b5dc1146be470f515d33eec1e2efd94d5304f085a9f629a5c18b88c681ad6b5f"
+    },
+    {
+      "id": "unit:hi-provider-advisory-transport",
+      "kind": "work",
+      "path": "candidates/10-unit_hi-provider-advisory-transport.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+      ],
+      "sequence": 10,
+      "sha256": "sha256:3cecf9365519e6c26e9a063df39e626ca4adc8db8b74e5ccd79cdc6e413840bf"
+    },
+    {
+      "id": "unit:hi-provider-routing-policy",
+      "kind": "work",
+      "path": "candidates/11-unit_hi-provider-routing-policy.json",
+      "priority": 2,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "assumptions:sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6"
+      ],
+      "sequence": 11,
+      "sha256": "sha256:e076b9b3e56d30d9bcf3e3066636bcc5b59af22405d98451c2b9f1c46279c79e"
+    },
+    {
+      "id": "unit:hi-review-principal-provenance",
+      "kind": "work",
+      "path": "candidates/12-unit_hi-review-principal-provenance.json",
+      "priority": 3,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3"
+      ],
+      "sequence": 12,
+      "sha256": "sha256:de4de1f49182839be58fd1b7cfac9416a3efb4019ba101974070874aaba9bd3e"
+    },
+    {
+      "id": "unit:hi-ontology-and-surface-contract",
+      "kind": "work",
+      "path": "candidates/13-unit_hi-ontology-and-surface-contract.json",
+      "priority": 3,
+      "provenance": "model_proposal",
+      "requirements": [
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+        "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+        "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+        "assumptions:sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421",
+        "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+        "assumptions:sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158"
+      ],
+      "sequence": 13,
+      "sha256": "sha256:6ac091e94f6e607d47966b85717ca3a8b8ed2f9655b90b121c6522c70cb6540f"
+    },
+    {
+      "id": "unit:hi-source-bound-goal-establishment",
+      "kind": "work",
+      "path": "candidates/14-unit_hi-source-bound-goal-establishment.json",
+      "priority": 3,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+        "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+        "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b"
+      ],
+      "sequence": 14,
+      "sha256": "sha256:ec449357c49a33ef0e883a7f93cb959563c30552cb9125182fe8a188d8255d13"
+    },
+    {
+      "id": "unit:hi-governed-planning-orchestration",
+      "kind": "work",
+      "path": "candidates/15-unit_hi-governed-planning-orchestration.json",
+      "priority": 4,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+        "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+        "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+      ],
+      "sequence": 15,
+      "sha256": "sha256:05eb11c6d0675245d6ca0b684070eb1fd5c330e946e3db107e0e9ea639393805"
+    },
+    {
+      "id": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "work",
+      "path": "candidates/16-unit_hi-model-assisted-interpretation-and-ambiguity.json",
+      "priority": 4,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+        "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+        "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276"
+      ],
+      "sequence": 16,
+      "sha256": "sha256:a0e588baac1d420f0f0467be714aadeeae498bf2665cf5249bda0d2feb20afbb"
+    },
+    {
+      "id": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "work",
+      "path": "candidates/17-unit_hi-requirement-evolution-classification-and-successor.json",
+      "priority": 5,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76"
+      ],
+      "sequence": 17,
+      "sha256": "sha256:bb7ce67cce7431cc8aec486e74896a68fe780a312fbb63605cd5b5641e9dbcf8"
+    },
+    {
+      "id": "unit:hi-evolution-execution-boundary",
+      "kind": "work",
+      "path": "candidates/18-unit_hi-evolution-execution-boundary.json",
+      "priority": 5,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+        "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13"
+      ],
+      "sequence": 18,
+      "sha256": "sha256:1752c931e740b112eddcfaa7ea90439f4b302b47ab46827d382e8a332376c044"
+    },
+    {
+      "id": "unit:hi-human-lifecycle-flow",
+      "kind": "work",
+      "path": "candidates/19-unit_hi-human-lifecycle-flow.json",
+      "priority": 5,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+        "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+        "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c"
+      ],
+      "sequence": 19,
+      "sha256": "sha256:4e22e65154c0a3d138581f7f7d424dcf1f982fefa41775eb7929930e3f13cfb7"
+    },
+    {
+      "id": "unit:hi-status-and-control-projection",
+      "kind": "work",
+      "path": "candidates/20-unit_hi-status-and-control-projection.json",
+      "priority": 5,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+        "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599"
+      ],
+      "sequence": 20,
+      "sha256": "sha256:5e98c99802a0a1d70cd234868fce088332c38891110ebd89210ee7b23ebcb4ee"
+    },
+    {
+      "id": "unit:hi-installed-human-surface-packaging",
+      "kind": "work",
+      "path": "candidates/21-unit_hi-installed-human-surface-packaging.json",
+      "priority": 6,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+        "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+        "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba"
+      ],
+      "sequence": 21,
+      "sha256": "sha256:cf141563b702c10af934a3f382c34eacc4e70389991fb3e9a3b958c5fcd1139b"
+    },
+    {
+      "id": "unit:hi-dogfood-acceptance",
+      "kind": "work",
+      "path": "candidates/22-unit_hi-dogfood-acceptance.json",
+      "priority": 7,
+      "provenance": "model_proposal",
+      "requirements": [
+        "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+        "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+        "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+        "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+        "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+        "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+        "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+        "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+        "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+        "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+        "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+        "success_criteria:sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9",
+        "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+        "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+        "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+        "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+        "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+        "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+        "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+        "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+        "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+        "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025"
+      ],
+      "sequence": 22,
+      "sha256": "sha256:6f1ed3e6a99ea1839ab08131852dbe105b05bde7852660ae4ae7d12aa9c034bd"
+    }
+  ],
+  "canonical_contract_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
+  "counts": {
+    "candidates": 22,
+    "relationships": 68,
+    "requirements": 31
+  },
+  "frozen_plan": "docs/research/dogfood/praxis-human-interface/plans/workplan-v4-codex.md",
+  "frozen_plan_sha256": "sha256:2fd97a1001182d30e592d6650c52aae2704fa2f871bed532aca73bdc9a10ee9a",
+  "goal_digest": "sha256:afda0866398d14a223f3a090d554c820e9e945922a936e6f1edb9c06d9177530",
+  "goal_id": "praxis-human-interface",
+  "goal_version": "1",
+  "relationships": [
+    {
+      "dependent": "gate:hi-authority-ceremony",
+      "kind": "hard_dependency",
+      "path": "relationships/01-gate_hi-authority-ceremony--unit_hi-governance-decision-dossier.json",
+      "prerequisite": "unit:hi-governance-decision-dossier",
+      "provenance": "model_proposal",
+      "rationale": "Gate A requires DOS's qualified evidence-bearing dossier before owner action.",
+      "sha256": "sha256:79e54acf689b8ff6bbf20eef5cb0025cc1fe87524b69d697104c4493142f8bbe"
+    },
+    {
+      "dependent": "gate:hi-review-independence",
+      "kind": "hard_dependency",
+      "path": "relationships/02-gate_hi-review-independence--unit_hi-governance-decision-dossier.json",
+      "prerequisite": "unit:hi-governance-decision-dossier",
+      "provenance": "model_proposal",
+      "rationale": "Gate B requires DOS's qualified evidence-bearing dossier before owner action.",
+      "sha256": "sha256:efcee478d4d79abbb15ecabb352d867f5f98f5e028ee2f0a6cb60e91a7178199"
+    },
+    {
+      "dependent": "gate:hi-supersession-and-active-turn",
+      "kind": "hard_dependency",
+      "path": "relationships/03-gate_hi-supersession-and-active-turn--unit_hi-governance-decision-dossier.json",
+      "prerequisite": "unit:hi-governance-decision-dossier",
+      "provenance": "model_proposal",
+      "rationale": "Gate C requires DOS's qualified evidence-bearing dossier before owner action.",
+      "sha256": "sha256:3579ce0d65604090d813f7976e65c2ef478ade0cb3d297f462d181975c37271c"
+    },
+    {
+      "dependent": "unit:hi-review-principal-provenance",
+      "kind": "hard_dependency",
+      "path": "relationships/04-unit_hi-review-principal-provenance--gate_hi-review-independence.json",
+      "prerequisite": "gate:hi-review-independence",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-review-principal-provenance cannot be truthfully implemented or qualified until gate:hi-review-independence is complete.",
+      "sha256": "sha256:e3921c2a672ab006a6979b80161aef761736ec255095a354e12e12c778cab12d"
+    },
+    {
+      "dependent": "unit:hi-review-principal-provenance",
+      "kind": "hard_dependency",
+      "path": "relationships/05-unit_hi-review-principal-provenance--unit_hi-requirement-identity-and-binding.json",
+      "prerequisite": "unit:hi-requirement-identity-and-binding",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-review-principal-provenance cannot be truthfully implemented or qualified until unit:hi-requirement-identity-and-binding is complete.",
+      "sha256": "sha256:a470127198fa9cc540c17fdac3794588c6a2e87139bddd7c89028a3a96f9b098"
+    },
+    {
+      "dependent": "unit:hi-ontology-and-surface-contract",
+      "kind": "hard_dependency",
+      "path": "relationships/06-unit_hi-ontology-and-surface-contract--gate_hi-authority-ceremony.json",
+      "prerequisite": "gate:hi-authority-ceremony",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-ontology-and-surface-contract cannot be truthfully implemented or qualified until gate:hi-authority-ceremony is complete.",
+      "sha256": "sha256:715c381d0b8ec3887748453b28c1135c713f80b4d02dcce24f9d1aba7fbab0a2"
+    },
+    {
+      "dependent": "unit:hi-source-bound-goal-establishment",
+      "kind": "hard_dependency",
+      "path": "relationships/07-unit_hi-source-bound-goal-establishment--gate_hi-authority-ceremony.json",
+      "prerequisite": "gate:hi-authority-ceremony",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-source-bound-goal-establishment cannot be truthfully implemented or qualified until gate:hi-authority-ceremony is complete.",
+      "sha256": "sha256:2879b7e9edb3aa4c4d11280bc2020fc7d1b4f20c4297dc5d40f4d7d5a6aeb969"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "hard_dependency",
+      "path": "relationships/08-unit_hi-model-assisted-interpretation-and-ambiguity--gate_hi-authority-ceremony.json",
+      "prerequisite": "gate:hi-authority-ceremony",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity cannot be truthfully implemented or qualified until gate:hi-authority-ceremony is complete.",
+      "sha256": "sha256:1ee8a8682b7fa6603d454f821438b573fd8e6599990b9b071477756190891ce4"
+    },
+    {
+      "dependent": "unit:hi-evolution-execution-boundary",
+      "kind": "hard_dependency",
+      "path": "relationships/09-unit_hi-evolution-execution-boundary--gate_hi-supersession-and-active-turn.json",
+      "prerequisite": "gate:hi-supersession-and-active-turn",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-evolution-execution-boundary cannot be truthfully implemented or qualified until gate:hi-supersession-and-active-turn is complete.",
+      "sha256": "sha256:41329f5c47c82b40a6adfd3368d94d588fd32483f11191121c6b08652abd94f1"
+    },
+    {
+      "dependent": "unit:hi-provider-advisory-transport",
+      "kind": "hard_dependency",
+      "path": "relationships/10-unit_hi-provider-advisory-transport--unit_hi-advisory-result-intake-and-recovery.json",
+      "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-provider-advisory-transport cannot be truthfully implemented or qualified until unit:hi-advisory-result-intake-and-recovery is complete.",
+      "sha256": "sha256:d197e632e638238c5c3b386183f8188dd961942608b459271ac3460f7de52e05"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "hard_dependency",
+      "path": "relationships/11-unit_hi-governed-planning-orchestration--unit_hi-review-principal-provenance.json",
+      "prerequisite": "unit:hi-review-principal-provenance",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration cannot be truthfully implemented or qualified until unit:hi-review-principal-provenance is complete.",
+      "sha256": "sha256:62ec2be63368e75f9357eae6ade9f6fe192a5a71567184188f77e4350eb05893"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "hard_dependency",
+      "path": "relationships/12-unit_hi-governed-planning-orchestration--unit_hi-advisory-result-intake-and-recovery.json",
+      "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration cannot be truthfully implemented or qualified until unit:hi-advisory-result-intake-and-recovery is complete.",
+      "sha256": "sha256:6559f5ac3ad74eccaa116fc1ce2c2b0b7dd3809e391384e7c1023b0d0823e778"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "hard_dependency",
+      "path": "relationships/13-unit_hi-governed-planning-orchestration--unit_hi-advisory-evidence-staging.json",
+      "prerequisite": "unit:hi-advisory-evidence-staging",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration cannot be truthfully implemented or qualified until unit:hi-advisory-evidence-staging is complete.",
+      "sha256": "sha256:eb4ef48e50a1842768fa8d0fa0684b0a84e7ba838531cac62a99cf8e412b58d4"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "hard_dependency",
+      "path": "relationships/14-unit_hi-requirement-evolution-classification-and-successor--unit_hi-requirement-identity-and-binding.json",
+      "prerequisite": "unit:hi-requirement-identity-and-binding",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor cannot be truthfully implemented or qualified until unit:hi-requirement-identity-and-binding is complete.",
+      "sha256": "sha256:e88180d7acaccd35e9aeb48a06b7ec9b0daa7667231e2437058418b1a3858f4e"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "hard_dependency",
+      "path": "relationships/15-unit_hi-requirement-evolution-classification-and-successor--unit_hi-source-bound-goal-establishment.json",
+      "prerequisite": "unit:hi-source-bound-goal-establishment",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor cannot be truthfully implemented or qualified until unit:hi-source-bound-goal-establishment is complete.",
+      "sha256": "sha256:4da069b09a1dcdf9e29a22b8c4cd0fae193eff92f71b8cf1fb06a2b5d5cf0570"
+    },
+    {
+      "dependent": "unit:hi-evolution-execution-boundary",
+      "kind": "hard_dependency",
+      "path": "relationships/16-unit_hi-evolution-execution-boundary--unit_hi-requirement-evolution-classification-and-successor.json",
+      "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-evolution-execution-boundary cannot be truthfully implemented or qualified until unit:hi-requirement-evolution-classification-and-successor is complete.",
+      "sha256": "sha256:30acfdf5fce1034ef10d1c55a88adab791b6036a8891844089b9a2d1a0656a3e"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "hard_dependency",
+      "path": "relationships/17-unit_hi-human-lifecycle-flow--unit_hi-governed-planning-orchestration.json",
+      "prerequisite": "unit:hi-governed-planning-orchestration",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-governed-planning-orchestration is complete.",
+      "sha256": "sha256:57f1a17bebdc190df31e2f133d4249a84b0243b4cfe9deba069827d637a07423"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "hard_dependency",
+      "path": "relationships/18-unit_hi-human-lifecycle-flow--unit_hi-source-bound-goal-establishment.json",
+      "prerequisite": "unit:hi-source-bound-goal-establishment",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-source-bound-goal-establishment is complete.",
+      "sha256": "sha256:9dca1508234a0283603aa26f0dd58ef864ae927cdd136a68610d2d06d50c51bc"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "hard_dependency",
+      "path": "relationships/19-unit_hi-human-lifecycle-flow--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-operational-identity-allocation is complete.",
+      "sha256": "sha256:eba6750686fd710c5cdeda249f3405c186101ef2f28e87464b05807d656b1f1a"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "hard_dependency",
+      "path": "relationships/20-unit_hi-human-lifecycle-flow--unit_hi-ontology-and-surface-contract.json",
+      "prerequisite": "unit:hi-ontology-and-surface-contract",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-ontology-and-surface-contract is complete.",
+      "sha256": "sha256:f518d241fa44303b14e871d9f866fff0d7fcd4d8ef6fcf07a75d02a812555a79"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "hard_dependency",
+      "path": "relationships/21-unit_hi-installed-human-surface-packaging--unit_hi-human-lifecycle-flow.json",
+      "prerequisite": "unit:hi-human-lifecycle-flow",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-installed-human-surface-packaging cannot be truthfully implemented or qualified until unit:hi-human-lifecycle-flow is complete.",
+      "sha256": "sha256:fb681a7878103f28f02b49263cc26765114993bec10ac76a089bb0bb3d2b7912"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "hard_dependency",
+      "path": "relationships/22-unit_hi-installed-human-surface-packaging--unit_hi-status-and-control-projection.json",
+      "prerequisite": "unit:hi-status-and-control-projection",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-installed-human-surface-packaging cannot be truthfully implemented or qualified until unit:hi-status-and-control-projection is complete.",
+      "sha256": "sha256:c05d38f2fc6867d41d0ce77aeb10514f80e1fcd53b178fa8ea66c6094bcad36f"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "hard_dependency",
+      "path": "relationships/23-unit_hi-installed-human-surface-packaging--unit_hi-surface-skew-conformance.json",
+      "prerequisite": "unit:hi-surface-skew-conformance",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-installed-human-surface-packaging cannot be truthfully implemented or qualified until unit:hi-surface-skew-conformance is complete.",
+      "sha256": "sha256:d2d658b99e7840dfc3f18933c1b3cb1baa5a755c37d179e778ff19b63de9f7d8"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "hard_dependency",
+      "path": "relationships/24-unit_hi-dogfood-acceptance--unit_hi-installed-human-surface-packaging.json",
+      "prerequisite": "unit:hi-installed-human-surface-packaging",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-installed-human-surface-packaging is complete.",
+      "sha256": "sha256:bfab9d745fd4625252369bb952d2fbd30feb098f1a4f568274493d91ebc4791f"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "hard_dependency",
+      "path": "relationships/25-unit_hi-dogfood-acceptance--unit_hi-evolution-execution-boundary.json",
+      "prerequisite": "unit:hi-evolution-execution-boundary",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-evolution-execution-boundary is complete.",
+      "sha256": "sha256:a20a6feed5c28aa45f32c12efc5b8af2a01caede1bce72a849857545f57a5523"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "hard_dependency",
+      "path": "relationships/26-unit_hi-dogfood-acceptance--unit_hi-model-assisted-interpretation-and-ambiguity.json",
+      "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-model-assisted-interpretation-and-ambiguity is complete.",
+      "sha256": "sha256:1ec04ceadca5ea06409cd2d50b7ffda91eb35237000e17bfbd2e4927b6791f04"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "hard_dependency",
+      "path": "relationships/27-unit_hi-dogfood-acceptance--unit_hi-provider-advisory-transport.json",
+      "prerequisite": "unit:hi-provider-advisory-transport",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-provider-advisory-transport is complete.",
+      "sha256": "sha256:1d3d3e8c5aef34b5912f3e335d4ae828c7fef657a2d46fa09ddf203cd3c4b176"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "hard_dependency",
+      "path": "relationships/28-unit_hi-dogfood-acceptance--unit_hi-provider-routing-policy.json",
+      "prerequisite": "unit:hi-provider-routing-policy",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-provider-routing-policy is complete.",
+      "sha256": "sha256:7e101d997498abdf41c838b967ffe138d95290da8060e1f106e9750f1bbc794b"
+    },
+    {
+      "dependent": "unit:hi-source-bound-goal-establishment",
+      "kind": "consumer",
+      "path": "relationships/29-unit_hi-source-bound-goal-establishment--unit_hi-requirement-identity-and-binding.json",
+      "prerequisite": "unit:hi-requirement-identity-and-binding",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-source-bound-goal-establishment consumes unit:hi-requirement-identity-and-binding outputs as non-blocking context.",
+      "sha256": "sha256:ddc430dab9e0b5c3c7d454908beb35bf5f678025307a7e6eb2176a5d8237f055"
+    },
+    {
+      "dependent": "unit:hi-provider-advisory-transport",
+      "kind": "consumer",
+      "path": "relationships/30-unit_hi-provider-advisory-transport--unit_hi-advisory-evidence-staging.json",
+      "prerequisite": "unit:hi-advisory-evidence-staging",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-provider-advisory-transport consumes unit:hi-advisory-evidence-staging outputs as non-blocking context.",
+      "sha256": "sha256:1201cb8df3d4b5a0bfda0f0361b83b46100ad751de5f27b4c7c255f3a57230d7"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "consumer",
+      "path": "relationships/31-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-advisory-evidence-staging.json",
+      "prerequisite": "unit:hi-advisory-evidence-staging",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity consumes unit:hi-advisory-evidence-staging outputs as non-blocking context.",
+      "sha256": "sha256:c91514d941dcc6ccc744ee2ec85bd84fd1c976904832c3e5850522d05b1fdade"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "consumer",
+      "path": "relationships/32-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-advisory-result-intake-and-recovery.json",
+      "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity consumes unit:hi-advisory-result-intake-and-recovery outputs as non-blocking context.",
+      "sha256": "sha256:6788c2c5aaef0d2623b406d033b210f74b90170adfdf736975ce4810cc7515a5"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "consumer",
+      "path": "relationships/33-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-source-bound-goal-establishment.json",
+      "prerequisite": "unit:hi-source-bound-goal-establishment",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity consumes unit:hi-source-bound-goal-establishment outputs as non-blocking context.",
+      "sha256": "sha256:9466c1acad9e33dd97b6c3f8b11c6bed2d662055b27748c5d954d035709bd8bf"
+    },
+    {
+      "dependent": "unit:hi-review-principal-provenance",
+      "kind": "consumer",
+      "path": "relationships/34-unit_hi-review-principal-provenance--unit_hi-advisory-result-intake-and-recovery.json",
+      "prerequisite": "unit:hi-advisory-result-intake-and-recovery",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-review-principal-provenance consumes unit:hi-advisory-result-intake-and-recovery outputs as non-blocking context.",
+      "sha256": "sha256:410070166c5ce1328e0c0ae78e67308dca24b26d3748c09d399547e8f0749dfd"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "consumer",
+      "path": "relationships/35-unit_hi-governed-planning-orchestration--unit_hi-provider-advisory-transport.json",
+      "prerequisite": "unit:hi-provider-advisory-transport",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration consumes unit:hi-provider-advisory-transport outputs as non-blocking context.",
+      "sha256": "sha256:11596fac00870dcaad254c30399bc55ded1953e3c745ea715d7c06958a15bb14"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "consumer",
+      "path": "relationships/36-unit_hi-requirement-evolution-classification-and-successor--unit_hi-model-assisted-interpretation-and-ambiguity.json",
+      "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor consumes unit:hi-model-assisted-interpretation-and-ambiguity outputs as non-blocking context.",
+      "sha256": "sha256:729609fd35067901a35d1565de74e9bb429f5bd04090945a178a78353f5690dc"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "consumer",
+      "path": "relationships/37-unit_hi-requirement-evolution-classification-and-successor--unit_hi-ontology-and-surface-contract.json",
+      "prerequisite": "unit:hi-ontology-and-surface-contract",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor consumes unit:hi-ontology-and-surface-contract outputs as non-blocking context.",
+      "sha256": "sha256:0fb8fdff7839f2c7a04f46b52e8bff32313b8cbaba4689d5253958f08d672789"
+    },
+    {
+      "dependent": "unit:hi-evolution-execution-boundary",
+      "kind": "consumer",
+      "path": "relationships/38-unit_hi-evolution-execution-boundary--unit_hi-governed-planning-orchestration.json",
+      "prerequisite": "unit:hi-governed-planning-orchestration",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-evolution-execution-boundary consumes unit:hi-governed-planning-orchestration outputs as non-blocking context.",
+      "sha256": "sha256:56cee9dba42e30c93d97eb8dc597fe52a71b66d82a498e11a0e81bcde1815445"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "consumer",
+      "path": "relationships/39-unit_hi-human-lifecycle-flow--unit_hi-provider-advisory-transport.json",
+      "prerequisite": "unit:hi-provider-advisory-transport",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow consumes unit:hi-provider-advisory-transport outputs as non-blocking context.",
+      "sha256": "sha256:f9ffc56f4a4129b0ee85285f0ac4dbf1cfe980abe25c67f4a8360f2426aa2bf9"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "consumer",
+      "path": "relationships/40-unit_hi-human-lifecycle-flow--unit_hi-model-assisted-interpretation-and-ambiguity.json",
+      "prerequisite": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow consumes unit:hi-model-assisted-interpretation-and-ambiguity outputs as non-blocking context.",
+      "sha256": "sha256:a7fbeb6d2c7cfafba452be49ed0b3b6c3211b2bbf1fc59a94a9a86ce2b417d62"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "consumer",
+      "path": "relationships/41-unit_hi-human-lifecycle-flow--unit_hi-requirement-evolution-classification-and-successor.json",
+      "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow consumes unit:hi-requirement-evolution-classification-and-successor outputs as non-blocking context.",
+      "sha256": "sha256:663cad4ad715ea40aab1ddfdca801552c5356fa33170a86b1fdde728ae504c3e"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "consumer",
+      "path": "relationships/42-unit_hi-human-lifecycle-flow--unit_hi-evolution-execution-boundary.json",
+      "prerequisite": "unit:hi-evolution-execution-boundary",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow consumes unit:hi-evolution-execution-boundary outputs as non-blocking context.",
+      "sha256": "sha256:b43501662e71ea62c369174e9245c8990bd0173623538b723ea334736b2f5637"
+    },
+    {
+      "dependent": "unit:hi-status-and-control-projection",
+      "kind": "consumer",
+      "path": "relationships/43-unit_hi-status-and-control-projection--unit_hi-governed-planning-orchestration.json",
+      "prerequisite": "unit:hi-governed-planning-orchestration",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-status-and-control-projection consumes unit:hi-governed-planning-orchestration outputs as non-blocking context.",
+      "sha256": "sha256:d5107dc3e0486fca3a7b5dc86f463a23bebbdbb7bb013a9641b25c8e5b3bd37a"
+    },
+    {
+      "dependent": "unit:hi-status-and-control-projection",
+      "kind": "consumer",
+      "path": "relationships/44-unit_hi-status-and-control-projection--unit_hi-evolution-execution-boundary.json",
+      "prerequisite": "unit:hi-evolution-execution-boundary",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-status-and-control-projection consumes unit:hi-evolution-execution-boundary outputs as non-blocking context.",
+      "sha256": "sha256:8c22d2d28b51fec0f00dc2f76dce3f79c747e96ba9d0b53c070b71864c88f189"
+    },
+    {
+      "dependent": "unit:hi-status-and-control-projection",
+      "kind": "consumer",
+      "path": "relationships/45-unit_hi-status-and-control-projection--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-status-and-control-projection consumes unit:hi-operational-identity-allocation outputs as non-blocking context.",
+      "sha256": "sha256:908606ab0914cc355fcc8eca8c1889d9fb36faec1ef7e23b4ea04740c3c50bf6"
+    },
+    {
+      "dependent": "unit:hi-status-and-control-projection",
+      "kind": "consumer",
+      "path": "relationships/46-unit_hi-status-and-control-projection--unit_hi-human-lifecycle-flow.json",
+      "prerequisite": "unit:hi-human-lifecycle-flow",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-status-and-control-projection consumes unit:hi-human-lifecycle-flow outputs as non-blocking context.",
+      "sha256": "sha256:3b5ae8b7e85e9d7be2bf8238babbd21f49f9a03476ad151968803002dd3e80cf"
+    },
+    {
+      "dependent": "unit:hi-status-and-control-projection",
+      "kind": "consumer",
+      "path": "relationships/47-unit_hi-status-and-control-projection--unit_hi-ontology-and-surface-contract.json",
+      "prerequisite": "unit:hi-ontology-and-surface-contract",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-status-and-control-projection consumes unit:hi-ontology-and-surface-contract outputs as non-blocking context.",
+      "sha256": "sha256:f971a2a629acf2fffcbefd5c0c2929905fff84778793bd029ea72b8dcd52f1dd"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "consumer",
+      "path": "relationships/48-unit_hi-installed-human-surface-packaging--unit_hi-source-bound-goal-establishment.json",
+      "prerequisite": "unit:hi-source-bound-goal-establishment",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-installed-human-surface-packaging consumes unit:hi-source-bound-goal-establishment outputs as non-blocking context.",
+      "sha256": "sha256:5de879398d8ac397c3c497346fcbfbdf8aed23b80aeee35942d85ea5830a87a7"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "consumer",
+      "path": "relationships/49-unit_hi-dogfood-acceptance--unit_hi-governed-planning-orchestration.json",
+      "prerequisite": "unit:hi-governed-planning-orchestration",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance consumes unit:hi-governed-planning-orchestration outputs as non-blocking context.",
+      "sha256": "sha256:529f96da729d7b3db31b143581f45d05655403a8563a05fcc117815f39761b34"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "consumer",
+      "path": "relationships/50-unit_hi-dogfood-acceptance--unit_hi-requirement-evolution-classification-and-successor.json",
+      "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance consumes unit:hi-requirement-evolution-classification-and-successor outputs as non-blocking context.",
+      "sha256": "sha256:57bb1fbe1c6fc5117b8e20fa39394500d51b7642c54182f5da61106606a0ed69"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "consumer",
+      "path": "relationships/51-unit_hi-dogfood-acceptance--unit_hi-human-lifecycle-flow.json",
+      "prerequisite": "unit:hi-human-lifecycle-flow",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance consumes unit:hi-human-lifecycle-flow outputs as non-blocking context.",
+      "sha256": "sha256:66683a3e14abfdd1115988efc75c36a0211c764c5735a9eb055f526c92714871"
+    },
+    {
+      "dependent": "unit:hi-dogfood-acceptance",
+      "kind": "consumer",
+      "path": "relationships/52-unit_hi-dogfood-acceptance--unit_hi-status-and-control-projection.json",
+      "prerequisite": "unit:hi-status-and-control-projection",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-dogfood-acceptance consumes unit:hi-status-and-control-projection outputs as non-blocking context.",
+      "sha256": "sha256:1d1c64203d6fa16386d9cd6b4f3e32cb26f204cda9def772f2334b8fcdf9d235"
+    },
+    {
+      "dependent": "unit:hi-source-bound-goal-establishment",
+      "kind": "interaction",
+      "path": "relationships/53-unit_hi-source-bound-goal-establishment--unit_hi-ontology-and-surface-contract.json",
+      "prerequisite": "unit:hi-ontology-and-surface-contract",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-source-bound-goal-establishment and unit:hi-ontology-and-surface-contract require a non-blocking interaction contract.",
+      "sha256": "sha256:b3728ac091de6732bb7d6bacc2a8f5adcec50d39bfd58f28ced70036234aa0c5"
+    },
+    {
+      "dependent": "unit:hi-advisory-evidence-staging",
+      "kind": "interaction",
+      "path": "relationships/54-unit_hi-advisory-evidence-staging--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-advisory-evidence-staging and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:73592f3124ce2767fcf51bbf9e0a97739165e77ad58a97eb2941814e113bea34"
+    },
+    {
+      "dependent": "unit:hi-advisory-result-intake-and-recovery",
+      "kind": "interaction",
+      "path": "relationships/55-unit_hi-advisory-result-intake-and-recovery--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-advisory-result-intake-and-recovery and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:2b8749d5572f21c1a0f025274d3acd7c66470ecc14ec6e70a9df3b8789de6598"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "interaction",
+      "path": "relationships/56-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-provider-advisory-transport.json",
+      "prerequisite": "unit:hi-provider-advisory-transport",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity and unit:hi-provider-advisory-transport require a non-blocking interaction contract.",
+      "sha256": "sha256:a79089226ee97086ddd9e882d9baaae27486f1e497cb079ab37b35ab11717a1c"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "interaction",
+      "path": "relationships/57-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-provider-routing-policy.json",
+      "prerequisite": "unit:hi-provider-routing-policy",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity and unit:hi-provider-routing-policy require a non-blocking interaction contract.",
+      "sha256": "sha256:a0d7581f2345d355ab773ded47b53ca6cd3538033901266eaa3f97fa60c0d9dd"
+    },
+    {
+      "dependent": "unit:hi-model-assisted-interpretation-and-ambiguity",
+      "kind": "interaction",
+      "path": "relationships/58-unit_hi-model-assisted-interpretation-and-ambiguity--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-model-assisted-interpretation-and-ambiguity and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:50e6da4779b73fb610a3a36e79de86b62b6b9301711b3c12a0302fdd76322514"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "interaction",
+      "path": "relationships/59-unit_hi-governed-planning-orchestration--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:c03885efdeff6f2d9c6776a7b8dd921f0b4d165f814a87e88bebdd93a492dae7"
+    },
+    {
+      "dependent": "unit:hi-governed-planning-orchestration",
+      "kind": "interaction",
+      "path": "relationships/60-unit_hi-governed-planning-orchestration--unit_hi-provider-routing-policy.json",
+      "prerequisite": "unit:hi-provider-routing-policy",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-governed-planning-orchestration and unit:hi-provider-routing-policy require a non-blocking interaction contract.",
+      "sha256": "sha256:6166af1c6df5f558a836e68730aed506e2b0149ba897d01e94181dbdb1f752b1"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "interaction",
+      "path": "relationships/61-unit_hi-requirement-evolution-classification-and-successor--unit_hi-governed-planning-orchestration.json",
+      "prerequisite": "unit:hi-governed-planning-orchestration",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor and unit:hi-governed-planning-orchestration require a non-blocking interaction contract.",
+      "sha256": "sha256:76ef378483a426848c9099f703a6980eea2de97b4c49d96d9720c94fa9b9fa99"
+    },
+    {
+      "dependent": "unit:hi-requirement-evolution-classification-and-successor",
+      "kind": "interaction",
+      "path": "relationships/62-unit_hi-requirement-evolution-classification-and-successor--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:528d19060f98da5c23741e19b8efafca560dd36350fc4e9ea6f4d302787a3f08"
+    },
+    {
+      "dependent": "unit:hi-evolution-execution-boundary",
+      "kind": "interaction",
+      "path": "relationships/63-unit_hi-evolution-execution-boundary--unit_hi-operational-identity-allocation.json",
+      "prerequisite": "unit:hi-operational-identity-allocation",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-evolution-execution-boundary and unit:hi-operational-identity-allocation require a non-blocking interaction contract.",
+      "sha256": "sha256:c1e2b8519aea7fa07fcc1b9bfd9c2bedbc1fd75062d7843ae034f5d620e342ef"
+    },
+    {
+      "dependent": "unit:hi-human-lifecycle-flow",
+      "kind": "interaction",
+      "path": "relationships/64-unit_hi-human-lifecycle-flow--unit_hi-provider-routing-policy.json",
+      "prerequisite": "unit:hi-provider-routing-policy",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-human-lifecycle-flow and unit:hi-provider-routing-policy require a non-blocking interaction contract.",
+      "sha256": "sha256:e9fd848a20598704340eebc4e8a55081c129f57c31137657a0cbc51d6fd673e4"
+    },
+    {
+      "dependent": "unit:hi-provider-routing-policy",
+      "kind": "interaction",
+      "path": "relationships/65-unit_hi-provider-routing-policy--unit_hi-provider-advisory-transport.json",
+      "prerequisite": "unit:hi-provider-advisory-transport",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-provider-routing-policy and unit:hi-provider-advisory-transport require a non-blocking interaction contract.",
+      "sha256": "sha256:dc26c47ec88b3b6ed0eb24d3b4d51f38bc3571beb4f09cd192ecf4372b83e08f"
+    },
+    {
+      "dependent": "unit:hi-ontology-and-surface-contract",
+      "kind": "advisory",
+      "path": "relationships/66-unit_hi-ontology-and-surface-contract--unit_hi-surface-skew-conformance.json",
+      "prerequisite": "unit:hi-surface-skew-conformance",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-surface-skew-conformance provides non-blocking advisory context to unit:hi-ontology-and-surface-contract.",
+      "sha256": "sha256:fc5ec308d52bf87e3a5f7111ed8560c8812026f608b7065fe1bf1609ec6f147c"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "advisory",
+      "path": "relationships/67-unit_hi-installed-human-surface-packaging--unit_hi-provider-routing-policy.json",
+      "prerequisite": "unit:hi-provider-routing-policy",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-provider-routing-policy provides non-blocking advisory context to unit:hi-installed-human-surface-packaging.",
+      "sha256": "sha256:da26b9d6508a706a4656c0602c2d6797186cf2539455b1f7df0b2d64fe25b692"
+    },
+    {
+      "dependent": "unit:hi-installed-human-surface-packaging",
+      "kind": "advisory",
+      "path": "relationships/68-unit_hi-installed-human-surface-packaging--unit_hi-requirement-evolution-classification-and-successor.json",
+      "prerequisite": "unit:hi-requirement-evolution-classification-and-successor",
+      "provenance": "model_proposal",
+      "rationale": "unit:hi-requirement-evolution-classification-and-successor provides non-blocking advisory context to unit:hi-installed-human-surface-packaging.",
+      "sha256": "sha256:3b48d70bd055013f9174227a3af30e5130684b66517e1e0971ce7182cd415400"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "success_criteria:sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+      "path": "requirements/success_criteria/01.txt",
+      "sha256": "sha256:871db6ddfeb32befa16a7a627c956772dae7e760ad0e8bc10a7d5d31dcc7931c",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/1"
+    },
+    {
+      "id": "success_criteria:sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+      "path": "requirements/success_criteria/02.txt",
+      "sha256": "sha256:575aa0617d91a02db00d76874a5e7d7e6229b6ab7cbdc8ef0d6b7cab407615b6",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/2"
+    },
+    {
+      "id": "success_criteria:sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+      "path": "requirements/success_criteria/03.txt",
+      "sha256": "sha256:6c9c0e4e70a6f981c9f826ba26113f5f26d63aa00ff67428b7b314c77760acb8",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/3"
+    },
+    {
+      "id": "success_criteria:sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+      "path": "requirements/success_criteria/04.txt",
+      "sha256": "sha256:134f9b4a3d05862ef5a7fdbc370921caeb450bcff2b0176be2fd7b921f5607e8",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/4"
+    },
+    {
+      "id": "success_criteria:sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+      "path": "requirements/success_criteria/05.txt",
+      "sha256": "sha256:01af2520261be7c02233883e2396458367c43aa6f6ae088c36ca16ef6344e30b",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/5"
+    },
+    {
+      "id": "success_criteria:sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+      "path": "requirements/success_criteria/06.txt",
+      "sha256": "sha256:37c099abb67bb49b2bb97457632a0c17370813fc6d8f6ea80368e39d273bb34f",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/6"
+    },
+    {
+      "id": "success_criteria:sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+      "path": "requirements/success_criteria/07.txt",
+      "sha256": "sha256:fda39ebd8cb1b90c91250c330afa343cb41d41750be7fecd3bd8a7d277f71a42",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/7"
+    },
+    {
+      "id": "success_criteria:sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+      "path": "requirements/success_criteria/08.txt",
+      "sha256": "sha256:917090a0601b8a5637978ceeee0439debac3b9687f6a934fccabe82cf274d52d",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/8"
+    },
+    {
+      "id": "success_criteria:sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+      "path": "requirements/success_criteria/09.txt",
+      "sha256": "sha256:52e160cb9d9a017df9b8279165b590ca43ac91f3fe2c0b0c2e3c19a83245cece",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/9"
+    },
+    {
+      "id": "success_criteria:sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+      "path": "requirements/success_criteria/10.txt",
+      "sha256": "sha256:5a76cfb5525bed884b9124d5697c9b331d0fb7d0f714cac12562c10c3d13825b",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/10"
+    },
+    {
+      "id": "success_criteria:sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+      "path": "requirements/success_criteria/11.txt",
+      "sha256": "sha256:c06d727f9262fbf148c2c5a8e6d3343b6c4199c50156c5c4197f9b9659f9d3d1",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/11"
+    },
+    {
+      "id": "success_criteria:sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9",
+      "path": "requirements/success_criteria/12.txt",
+      "sha256": "sha256:19655326d87dde34bb01a25f5e2a7e13b533940231408e78060b8df038293ce9",
+      "source_ref": "goal:praxis-human-interface/1#success_criteria/12"
+    },
+    {
+      "id": "constraints:sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+      "path": "requirements/constraints/01.txt",
+      "sha256": "sha256:d285832cbf58c2f22e0b53fb2f8e151bdaf8bbcbe9fe293593298c7f75ccffa5",
+      "source_ref": "goal:praxis-human-interface/1#constraints/1"
+    },
+    {
+      "id": "constraints:sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+      "path": "requirements/constraints/02.txt",
+      "sha256": "sha256:a58bb350f837d13dfbce30602d5bb39785f4f90a8b946928f89df0acf1857ef4",
+      "source_ref": "goal:praxis-human-interface/1#constraints/2"
+    },
+    {
+      "id": "constraints:sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+      "path": "requirements/constraints/03.txt",
+      "sha256": "sha256:71fd5d58200329b676dee4222e073dd6ef06817bfe0742a746805a1007d8765d",
+      "source_ref": "goal:praxis-human-interface/1#constraints/3"
+    },
+    {
+      "id": "constraints:sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+      "path": "requirements/constraints/04.txt",
+      "sha256": "sha256:f6e4a731a1c0598a876057bfa18f03195c28c9adf17fe6790d45126bdc882276",
+      "source_ref": "goal:praxis-human-interface/1#constraints/4"
+    },
+    {
+      "id": "constraints:sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+      "path": "requirements/constraints/05.txt",
+      "sha256": "sha256:de0abab884b3bd63bb9ba6ec0eb6c296b48c567c68049980cd45df6b5d56cadb",
+      "source_ref": "goal:praxis-human-interface/1#constraints/5"
+    },
+    {
+      "id": "constraints:sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+      "path": "requirements/constraints/06.txt",
+      "sha256": "sha256:b541c61566e5f20c049070f2f21bc3b3db197304599d26f59af5900aa08def13",
+      "source_ref": "goal:praxis-human-interface/1#constraints/6"
+    },
+    {
+      "id": "constraints:sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+      "path": "requirements/constraints/07.txt",
+      "sha256": "sha256:66ddabc3dfce49262ce791189283d25d4c95fa8e76d6652f38a522dd0e24af76",
+      "source_ref": "goal:praxis-human-interface/1#constraints/7"
+    },
+    {
+      "id": "constraints:sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+      "path": "requirements/constraints/08.txt",
+      "sha256": "sha256:8d9ab62714dadafc78e7f4705f2830b13b845e14606cb6c54e088c8929613571",
+      "source_ref": "goal:praxis-human-interface/1#constraints/8"
+    },
+    {
+      "id": "constraints:sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+      "path": "requirements/constraints/09.txt",
+      "sha256": "sha256:4fbd589979cecb33ee1680bc8f98c43480601bd82e77aab239a06ce5367c6cb5",
+      "source_ref": "goal:praxis-human-interface/1#constraints/9"
+    },
+    {
+      "id": "constraints:sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+      "path": "requirements/constraints/10.txt",
+      "sha256": "sha256:37d37301b658dabca37108285c09224add51124db310822071703465c569d025",
+      "source_ref": "goal:praxis-human-interface/1#constraints/10"
+    },
+    {
+      "id": "non_goals:sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+      "path": "requirements/non_goals/01.txt",
+      "sha256": "sha256:5e7e3cd6a9d694d23a821517d2188c405fcded6ef99d4921bd468b1b1d908eb3",
+      "source_ref": "goal:praxis-human-interface/1#non_goals/1"
+    },
+    {
+      "id": "non_goals:sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+      "path": "requirements/non_goals/02.txt",
+      "sha256": "sha256:01eab588ea27b86c6249f815563773e0150af82125ba7caf27eaa4541e218599",
+      "source_ref": "goal:praxis-human-interface/1#non_goals/2"
+    },
+    {
+      "id": "non_goals:sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+      "path": "requirements/non_goals/03.txt",
+      "sha256": "sha256:9f2ae1d208e3fb2d50bcc96720e06fd92288b5741fb6fee408f1486bd5941aa3",
+      "source_ref": "goal:praxis-human-interface/1#non_goals/3"
+    },
+    {
+      "id": "non_goals:sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+      "path": "requirements/non_goals/04.txt",
+      "sha256": "sha256:02aba9007f124bd307e5c35b4ce844a8c1ee730a30d4f115f0afcd0ff5fffc6c",
+      "source_ref": "goal:praxis-human-interface/1#non_goals/4"
+    },
+    {
+      "id": "non_goals:sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+      "path": "requirements/non_goals/05.txt",
+      "sha256": "sha256:eb3b51a880e2ee07978b11a48ec110f8286ac60085eefe91a57e8394255b71ba",
+      "source_ref": "goal:praxis-human-interface/1#non_goals/5"
+    },
+    {
+      "id": "assumptions:sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421",
+      "path": "requirements/assumptions/01.txt",
+      "sha256": "sha256:edde7ee1ae6a2d34474341f1e9cfc6288d21431b9ba77e146e8c37a448a11421",
+      "source_ref": "goal:praxis-human-interface/1#assumptions/1"
+    },
+    {
+      "id": "assumptions:sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+      "path": "requirements/assumptions/02.txt",
+      "sha256": "sha256:c57ca96b9d55cf0b5c861ebed988b5a9e01cfc20452a60366c68612ebad71e6b",
+      "source_ref": "goal:praxis-human-interface/1#assumptions/2"
+    },
+    {
+      "id": "assumptions:sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158",
+      "path": "requirements/assumptions/03.txt",
+      "sha256": "sha256:3a5a75b05551868a2b0c65b43f810a99717599da34ded9baa10e2cb8ce285158",
+      "source_ref": "goal:praxis-human-interface/1#assumptions/3"
+    },
+    {
+      "id": "assumptions:sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6",
+      "path": "requirements/assumptions/04.txt",
+      "sha256": "sha256:d5fc1b867511b588758f76b4b6a4f738db462077046a873a9718f44c78ad7eb6",
+      "source_ref": "goal:praxis-human-interface/1#assumptions/4"
+    }
+  ],
+  "schema": "praxis-human-interface/v4-specification-bundle/1"
+}

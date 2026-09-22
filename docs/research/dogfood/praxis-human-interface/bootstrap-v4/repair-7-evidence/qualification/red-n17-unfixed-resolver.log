@@ -1,0 +1,33 @@
+=== RUN   TestPackagePublishAuthorityResolvesForACurrentDelegatedGeneration
+--- PASS: TestPackagePublishAuthorityResolvesForACurrentDelegatedGeneration (0.02s)
+=== RUN   TestRetiredDelegatedPublisherGenerationDoesNotResolvePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:83: N17: a retired delegated package.publish generation still resolves and would authorize signing
+--- FAIL: TestRetiredDelegatedPublisherGenerationDoesNotResolvePackagePublishAuthority (0.02s)
+=== RUN   TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:97: deleting the invalidation row restored package.publish authority
+--- FAIL: TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority (0.02s)
+=== RUN   TestReplayingTheLivenessRowDoesNotRestorePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:110: replaying the earlier liveness row restored package.publish authority
+--- FAIL: TestReplayingTheLivenessRowDoesNotRestorePackagePublishAuthority (0.02s)
+=== RUN   TestMissingLivenessRowYieldsNoPackagePublishAuthority
+    n17_publish_authority_currentness_test.go:119: a delegated generation without its authenticated liveness record must not authorize signing
+--- FAIL: TestMissingLivenessRowYieldsNoPackagePublishAuthority (0.02s)
+=== RUN   TestParentCurrentChildRetiredIsRefused
+    n17_publish_authority_currentness_test.go:133: parent-current / child-retired must be refused
+--- FAIL: TestParentCurrentChildRetiredIsRefused (0.02s)
+=== RUN   TestRolledBackStoreYieldsNoPackagePublishAuthority
+--- PASS: TestRolledBackStoreYieldsNoPackagePublishAuthority (0.02s)
+=== RUN   TestSigningPathControlSignsUnderCurrentDelegatedAuthority
+--- PASS: TestSigningPathControlSignsUnderCurrentDelegatedAuthority (0.02s)
+=== RUN   TestInvalidatedDelegatedPublisherGenerationPreventsBuildSigningPreview
+    n17_signing_path_test.go:97: N17: BuildSigningPreview accepted a retired delegated package.publish generation
+--- FAIL: TestInvalidatedDelegatedPublisherGenerationPreventsBuildSigningPreview (0.02s)
+=== RUN   TestInvalidatingTheGenerationAfterPreviewPreventsSignWithPreview
+    n17_signing_path_test.go:110: N17: SignWithPreview signed under a delegated generation retired after the preview
+--- FAIL: TestInvalidatingTheGenerationAfterPreviewPreventsSignWithPreview (0.02s)
+=== RUN   TestDeletingTheInvalidationRowDoesNotReauthorizeSignWithPreview
+    n17_signing_path_test.go:127: deleting the invalidation row re-authorized signing: calls=1 err=<nil>
+--- FAIL: TestDeletingTheInvalidationRowDoesNotReauthorizeSignWithPreview (0.02s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goalstore	0.578s
+FAIL

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-source-bound-goal-establishment","kind":"hard_dependency","prerequisite":"gate:hi-authority-ceremony","provenance":"model_proposal","rationale":"unit:hi-source-bound-goal-establishment cannot be truthfully implemented or qualified until gate:hi-authority-ceremony is complete."}

@@ -1,0 +1,1 @@
+{"dependent":"gate:hi-authority-ceremony","kind":"hard_dependency","prerequisite":"unit:hi-governance-decision-dossier","provenance":"model_proposal","rationale":"Gate A requires DOS's qualified evidence-bearing dossier before owner action."}

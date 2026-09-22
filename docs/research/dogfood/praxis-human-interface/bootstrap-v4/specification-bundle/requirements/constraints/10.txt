@@ -1,0 +1,1 @@
+Operational identifiers that do not represent meaningful human choices should normally be generated and managed by Praxis while preserving deterministic identity and replay properties.

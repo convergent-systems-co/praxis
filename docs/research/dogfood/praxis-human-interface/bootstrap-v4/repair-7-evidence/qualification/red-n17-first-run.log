@@ -1,0 +1,22 @@
+=== RUN   TestPackagePublishAuthorityResolvesForACurrentDelegatedGeneration
+--- PASS: TestPackagePublishAuthorityResolvesForACurrentDelegatedGeneration (0.07s)
+=== RUN   TestRetiredDelegatedPublisherGenerationDoesNotResolvePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:75: N17: a retired delegated package.publish generation still resolves and would authorize signing
+--- FAIL: TestRetiredDelegatedPublisherGenerationDoesNotResolvePackagePublishAuthority (0.09s)
+=== RUN   TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:89: deleting the invalidation row restored package.publish authority
+--- FAIL: TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority (0.16s)
+=== RUN   TestReplayingTheLivenessRowDoesNotRestorePackagePublishAuthority
+    n17_publish_authority_currentness_test.go:102: replaying the earlier liveness row restored package.publish authority
+--- FAIL: TestReplayingTheLivenessRowDoesNotRestorePackagePublishAuthority (0.12s)
+=== RUN   TestMissingLivenessRowYieldsNoPackagePublishAuthority
+    n17_publish_authority_currentness_test.go:111: a delegated generation without its authenticated liveness record must not authorize signing
+--- FAIL: TestMissingLivenessRowYieldsNoPackagePublishAuthority (0.14s)
+=== RUN   TestParentCurrentChildRetiredIsRefused
+    n17_publish_authority_currentness_test.go:125: parent-current / child-retired must be refused
+--- FAIL: TestParentCurrentChildRetiredIsRefused (0.07s)
+=== RUN   TestRolledBackStoreYieldsNoPackagePublishAuthority
+--- PASS: TestRolledBackStoreYieldsNoPackagePublishAuthority (0.05s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goalstore	1.433s
+FAIL

@@ -1,0 +1,33 @@
+### 1. item created with its Encrypt/Integrity access entries restricted to the creating binary (legacy SecAccess), then attacked by /usr/bin/security (no dialog appeared)
+del -25300
+add 0
+narrow ACL[0] copy=0 set=0
+ACL[0] auths=(
+    ACLAuthorizationEncrypt
+   contents status 0 apps=1 desc=<CFString 0xb0701c040 [0x1f5b71308]>{contents = "praxis FAA"} selector=0
+ACL[1] auths=(
+    ACLAuthorizationDecrypt,
+    ACLAuthorizationDerive,
+    ACLAuthorizationExportClear,
+    ACLAuthorizationExportWrapped,
+    ACLAuthorizationMAC,
+    ACLAuthorizationSign
+   contents status 0 apps=1 desc=<CFString 0xb0701c1e0 [0x1f5b71308]>{contents = "praxis FAA"} selector=0
+ACL[2] auths=(
+    ACLAuthorizationIntegrity
+   contents status 0 apps=-1 desc=<CFString 0x103644960 [0x1f5b71308]>{contents = "88e6a19cc840da360cb064f8c510e1d1bc2c6c61a02572ddba00ee4a92964366"} selector=0
+ACL[3] auths=(
+    ACLAuthorizationPartitionID
+   contents status 0 apps=-1 desc= selector=0
+ACL[4] auths=(
+    ACLAuthorizationChangeACL
+   contents status 0 apps=0 desc=<CFString 0xb0701c220 [0x1f5b71308]>{contents = "praxis FAA"} selector=0
+read 0 v1
+security update (add -U): rc=0 out='' err=''
+security delete        : rc=0 out='keychain: "/Users/polliard/Library/Keychains/login.keychain-db"\nversion: 512\nclass: "genp"\nattribute' err='password has been deleted.\n'
+security read          : rc=44 out='' err='security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.\n'
+after attack, creator reads:
+read -25300 
+
+### 2. data-protection keychain / SecAccessControl for an ad-hoc signed CLI
+adddp -34018

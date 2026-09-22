@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-review-principal-provenance","kind":"consumer","prerequisite":"unit:hi-advisory-result-intake-and-recovery","provenance":"model_proposal","rationale":"unit:hi-review-principal-provenance consumes unit:hi-advisory-result-intake-and-recovery outputs as non-blocking context."}

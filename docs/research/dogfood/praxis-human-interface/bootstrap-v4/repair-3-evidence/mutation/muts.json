@@ -1,0 +1,3100 @@
+[
+ {
+  "id": "N1.01",
+  "guard": "Save refuses safety-bearing plan (B7)",
+  "inv": "I2,I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if baseline.WorkPlan.Safety != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.02",
+  "guard": "Save refuses any plan for a classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "} else if classified {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.03",
+  "guard": "Proposal refuses legacy proposal for classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.proposal-layer"
+ },
+ {
+  "id": "N1.04",
+  "guard": "Review refuses legacy review for classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.proposal-layer"
+ },
+ {
+  "id": "N1.05",
+  "guard": "Legacy acceptance refuses classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    3,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.proposal-layer"
+ },
+ {
+  "id": "N1.06",
+  "guard": "Authority-backed acceptance bridge refuses classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety)",
+    4,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.proposal-layer"
+ },
+ {
+  "id": "N1.07",
+  "guard": "Attach refuses legacy plan for classified Goal",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "r.requireSafetyConsistent(ctx, source.ID, plan.Safety)",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.proposal-layer"
+ },
+ {
+  "id": "N1.08",
+  "guard": "Safety proposal classifies its Goal (mark at proposal)",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, proposal.GoalID, proposal.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.mark"
+ },
+ {
+  "id": "N1.09",
+  "guard": "Attach classifies its Goal (mark at attach)",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, source.ID, plan.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.mark"
+ },
+ {
+  "id": "N1.10",
+  "guard": "Classification kernel-version mismatch refused (consistency)",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if binding.KernelVersion != kernel {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.11",
+  "guard": "Classification kernel-version mismatch refused (mark)",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if kernel != binding.KernelVersion {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.12",
+  "guard": "Missing binding on classified Goal refused",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/safety_classification.go",
+    "if binding == nil {",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.13",
+  "guard": "Attach binds accepted plan to its Goal (R1-G)",
+  "inv": "I9,I2",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if acceptedProposal.GoalID != source.ID || acceptedProposal.GoalVersion != source.Version {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.14",
+  "guard": "Controller refuses classified-but-unbound generation",
+  "inv": "I9,I7",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if classified && !claimed {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N1.15",
+  "guard": "Kernel-shaped content refused (WorkPlan.Validate)",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan.go",
+    "} else if err := RejectKernelShapedWithoutSafety(",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.16",
+  "guard": "Kernel-shaped content refused (proposal Validate)",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan.go",
+    "} else if err := RejectKernelShapedWithoutSafety(",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.17",
+  "guard": "Kernel-shaped: explicit kind",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "candidate.Kind != \"\" ||",
+    "false ||",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.18",
+  "guard": "Kernel-shaped: preserved specification bytes",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "len(candidate.Specification) > 0 ||",
+    "false ||",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.19",
+  "guard": "Kernel-shaped: gate provenance",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "pkg/contracts/work_plan_safety.go",
+    "candidate.Provenance == ProvenanceAuthorityGate || candidate.Provenance == ProvenanceModelGateProposal",
+    "false",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.20",
+  "guard": "Kernel-shaped: relationship specification",
+  "inv": "I9",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan_safety.go",
+    "if len(relationship.Specification) > 0 {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N1.21",
+  "guard": "Runtime admission fence uses classification",
+  "inv": "I9,I2",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/runtime.go",
+    "safety, err := r.Controller.safetyBearing(ctx, &baseline)",
+    "safety, err := isSafetyBearing(&baseline), error(nil)",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N1.22",
+  "guard": "Materialization refuses safety-bearing turns via classification",
+  "inv": "I9,I1",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/materialization.go",
+    "if safety, safetyErr := c.safetyBearing(ctx, &baseline); safetyErr != nil {",
+    "if safety, safetyErr := isSafetyBearing(&baseline), error(nil); safetyErr != nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N1.09j",
+  "guard": "joint: both classification writers (proposal + attach)",
+  "inv": "I9",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, proposal.GoalID, proposal.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.markGoalSafetyBearing(ctx, source.ID, plan.Safety, createdAt); err != nil {",
+    "if err := error(nil); err != nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N1.mark-joint"
+ },
+ {
+  "id": "N2.01",
+  "guard": "SealCompletion only for safety-bearing generation",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if baseline.WorkPlan == nil || baseline.WorkPlan.Safety == nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.02",
+  "guard": "SealCompletion requires verified activation",
+  "inv": "I11,I6",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.requireSafetyActivation(ctx, baseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.03",
+  "guard": "SealCompletion refuses a conflicting existing seal",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if payloadDigest(existing) == digest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.04",
+  "guard": "LoadSealedCompletion checks digest equality",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if payloadDigest(payload) != digest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.05",
+  "guard": "Gate completion cites the request its dossier implies",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err != nil || derived != requestDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.06",
+  "guard": "Gate request must be durably recorded (digest equality)",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if storedDigest, digestErr := stored.Digest(); digestErr != nil || storedDigest != requestDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.07",
+  "guard": "Gate decision citation equality",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if got, digestErr := evidence.Digest(); digestErr != nil || got != decisionDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.08",
+  "guard": "Gate completion ceremony resolves",
+  "inv": "I8,I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.verifyDecisionCeremony(ctx, stored, evidence, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.10",
+  "guard": "Gate decision owner/root authority current",
+  "inv": "I3,I8,I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if err := r.validateGateDecisionAuthority(ctx, stored, decision, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": "N2.currency"
+ },
+ {
+  "id": "N2.11",
+  "guard": "Gate decision outcome must be approve",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/completion_authentication.go",
+    "if decision.Outcome != contracts.AuthorityApprove {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.12",
+  "guard": "Revoked decision is not effective (LoadAuthorityDecision revocation)",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/completion_authentication.go",
+    "decision, err := r.LoadAuthorityDecision(ctx, request.ID, request.Version, now)",
+    "decision, err := r.LoadAuthorityDecisionEvidence(ctx, request.ID, request.Version, now)",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N2.13",
+  "guard": "Consumption: completion belongs to this Goal generation",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if completion.GoalID != baseline.ID || completion.GoalVersion != baseline.Version {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.14",
+  "guard": "Consumption: sealed bytes equal ledger row",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if !bytes.Equal(sealed, payload) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.15",
+  "guard": "Consumption: seal must exist",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "sealed, err := governance.LoadSealedCompletion(ctx, *baseline, digest, now)\n\t\tif err != nil {",
+    "sealed, err := governance.LoadSealedCompletion(ctx, *baseline, digest, now)\n\t\tif false && err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if !bytes.Equal(sealed, payload) {",
+    "if false && !bytes.Equal(sealed, payload) {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": "N2.seal-lookup-joint"
+ },
+ {
+  "id": "N2.16",
+  "guard": "Consumption: authentication skipped entirely",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if !isSafetyBearing(baseline) {\n\t\treturn EffectiveCompletions{Effective: completions}, nil\n\t}\n\tif governance == nil {",
+    "if true {\n\t\treturn EffectiveCompletions{Effective: completions}, nil\n\t}\n\tif governance == nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.17",
+  "guard": "Consumption: gate citations required",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if request == \"\" || decision == \"\" || completion.EndHead != \"authority:\"+decision {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.18",
+  "guard": "Consumption: gate lineage re-verified",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "err = governance.VerifyGateCompletion(ctx, *baseline, units[completion.UnitID], artifacts, requestDigest, decisionDigest, now)",
+    "_, _ = requestDigest, decisionDigest\n\t\terr = nil",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.19",
+  "guard": "Consumption: not-effective gate demoted to history",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "stale[completion.UnitID] = struct{}{}\n\t\tdefault:",
+    "_ = stale\n\t\tdefault:",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.20",
+  "guard": "Consumption: demotion propagates over hard dependencies",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if relationship.Kind != contracts.RelationshipHardDependency {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.21",
+  "guard": "Consumption: effective/historical split",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if _, isStale := stale[completion.UnitID]; isStale {",
+    "if _, isStale := stale[completion.UnitID]; false && isStale {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.22",
+  "guard": "Recording seals before append",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion_authentication.go",
+    "if _, err := governance.SealCompletion(ctx, *baseline, payload, time.Now().UTC()); err != nil {",
+    "if _, err := governance.SealCompletion(ctx, *baseline, append([]byte(nil), payload[:0]...), time.Now().UTC()); err != nil {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA|GoalGate)",
+  "group": ""
+ },
+ {
+  "id": "N2.23",
+  "guard": "Controller prepare consumes authenticated completions (select)",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\t\tif err != nil {\n\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t}\n\t\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\t\tif err != nil {\n\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t}\n\t\tcompletions := raw",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.24",
+  "guard": "Controller consumes authenticated completions (explicit objective)",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\t\t\tif err != nil {\n\t\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t\t}\n\t\t\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\t\t\tif err != nil {\n\t\t\t\treturn nil, TurnRequest{}, fmt.Errorf(\"load unit completions: %w\", err)\n\t\t\t}\n\t\t\tcompletions := raw",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.25",
+  "guard": "Goal candidate derived from authenticated completions",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)\n\tif err != nil {\n\t\treturn record, err\n\t}\n\tcompletions := effective.Effective",
+    "raw, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)\n\tif err != nil {\n\t\treturn record, err\n\t}\n\tcompletions := raw",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA)",
+  "group": ""
+ },
+ {
+  "id": "N2.26",
+  "guard": "Explicit objective must be currently runnable",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if item.Candidate.ID == candidate.ID && item.Readiness != contracts.WorkReady {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N7.01",
+  "guard": "Candidate completions: historical refuses settlement",
+  "inv": "I3,I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if len(effective.Historical) != 0 {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N7.02",
+  "guard": "Candidate completions: count equality",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if len(candidate.Units) != len(authenticated) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N7.03",
+  "guard": "Candidate completions: per-unit equality",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/completion_authentication.go",
+    "if authenticated[completion.UnitID] != payloadDigest(payload) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "N7.04",
+  "guard": "Settlement operation verifies candidate",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goal_complete.go",
+    "if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {\n\t\treturn fmt.Errorf(\"Goal %s/%s cannot be settled: %w\", goalID, version, err)\n\t}",
+    "",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N7.05",
+  "guard": "Evaluation operation verifies candidate",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goal_complete.go",
+    "if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {\n\t\treturn fmt.Errorf(\"Goal %s/%s evaluation refused: %w\", goalID, version, err)\n\t}",
+    "",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N7.06",
+  "guard": "Inspect consumes authenticated completions",
+  "inv": "I11",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goals_lifecycle.go",
+    "effective, authErr := goaldrive.LoadEffectiveCompletions(ctx, ledger, repo, &baseline, goalID, version)\n\t\tcompletions := effective.Effective",
+    "raw, authErr := ledger.LoadCompletions(ctx, goalID, version)\n\t\teffective := goaldrive.EffectiveCompletions{Effective: raw}\n\t\tcompletions := effective.Effective",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N7.07",
+  "guard": "Inspect: authentication error makes generation not drivable",
+  "inv": "I11",
+  "edits": [
+   [
+    "neg",
+    "cmd/praxis/goals_lifecycle.go",
+    "if authErr != nil {",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "I10.01",
+  "guard": "authorizeEffect: activation predicate",
+  "inv": "I6,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.SafetyActivation.Verify(ctx, *req.GoalBaseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.02",
+  "guard": "authorizeEffect: verifier configured",
+  "inv": "I6,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if c.SafetyActivation == nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.03",
+  "guard": "authorizeEffect: governing authority",
+  "inv": "I3,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.04",
+  "guard": "authorizeEffect: lease held",
+  "inv": "I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "ErrLeaseLost, req.TurnID, effect)",
+    1,
+    -1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.05",
+  "guard": "authorizeEffect: content binding",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := validator.VerifyValidationBinding(ctx, record.EndHead, req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.06",
+  "guard": "call site: before checkpoint publication",
+  "inv": "I10",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "err = c.authorizeEffect(ctx, req, \"checkpoint-publication\", repo, record)",
+    "err = nil",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.07",
+  "guard": "call site: before completion record (M2b/M2d/M6b)",
+  "inv": "I3,I6,I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if err := c.authorizeEffect(ctx, req, \"completion-record\", repo, record); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.08",
+  "guard": "call site: before gate completion (M2c)",
+  "inv": "I3,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if err := c.authorizeEffect(ctx, req, \"gate-completion\", nil, TurnRecord{}); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|PathA|GoalGate|Approved)",
+  "group": ""
+ },
+ {
+  "id": "I10.09",
+  "guard": "post-publication settlement failure recorded (published-but-ungoverned)",
+  "inv": "I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CheckpointPublished && !errors.Is(err, ErrLeaseLost) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "I10.10",
+  "guard": "lost lease records nothing after publication",
+  "inv": "I10",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "if record.CheckpointPublished && !errors.Is(err, ErrLeaseLost) {",
+    "if record.CheckpointPublished {",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": ""
+ },
+ {
+  "id": "M12.01",
+  "guard": "claim == selected unit before publication",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": "M12.layers"
+ },
+ {
+  "id": "M12.02",
+  "guard": "claim == selected unit at settlement",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": "M12.layers"
+ },
+ {
+  "id": "M12.03",
+  "guard": "claim == selected unit at checkpoint inspection",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if unit != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": "M12.layers"
+ },
+ {
+  "id": "M12.04",
+  "guard": "joint: all three claim==selected layers",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.CompletionClaim != req.ChildObjective {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if unit != req.ChildObjective {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3)",
+  "group": "M12.layers-joint"
+ },
+ {
+  "id": "B5.01",
+  "guard": "accepted plan refuses supplied Completed flag (M1a)",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/work_plan_safety.go",
+    "if candidate.Completed {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B5.02",
+  "guard": "ApplyCompletions clears supplied flag (M1b)",
+  "inv": "I1",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion.go",
+    "} else if candidate.Kind != \"\" {\n\t\t\tout[i].Completed = false\n\t\t}",
+    "}",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B5.03",
+  "guard": "VerifyPlanCompletions structural check (M1c)",
+  "inv": "I1,I4",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/completion.go",
+    "if plan == nil || plan.Safety == nil {\n\t\treturn nil\n\t}\n\tunits :=",
+    "if true {\n\t\treturn nil\n\t}\n\tunits :=",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B9.01",
+  "guard": "controller verifies governing authority (M2a)",
+  "inv": "I3",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "func (c Controller) verifyGoverningAuthority(ctx context.Context, baseline *goals.GoalBaseline) error {\n",
+    "func (c Controller) verifyGoverningAuthority(ctx context.Context, baseline *goals.GoalBaseline) error {\n\treturn nil\n",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B9.02",
+  "guard": "prepare verifies governing authority",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B9.03",
+  "guard": "gate reconcile: governing authority (M3)",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/authority_gate.go",
+    "if err := r.VerifyGoverningAuthority(ctx, baseline, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.04",
+  "guard": "gate reconcile: activation (B15)",
+  "inv": "I2,I6",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/authority_gate.go",
+    "if err := r.requireSafetyActivation(ctx, baseline.WorkPlan.Safety); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.05",
+  "guard": "plan authority lineage present",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if plan.AuthorityRequestID == \"\" || plan.AuthorityRequestVersion == \"\"",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.06",
+  "guard": "plan authority request is the acceptance request",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.RequestedAuthority != contracts.GovernedWorkPlanAccept ||",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.07",
+  "guard": "plan authority request carries ceremony+activation binding",
+  "inv": "I3,I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.CeremonyProfile != contracts.OwnerCeremonyProfile || request.ActivationManifestDigest",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.08",
+  "guard": "plan authority decision matches plan lineage",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if decision.Outcome != contracts.AuthorityApprove || decision.DecisionRef != plan.AuthorityDecisionRef",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.09",
+  "guard": "baseline is the persisted generation",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if stored.Digest != baseline.Digest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.10",
+  "guard": "decision owner scope",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if request.RequestedScope != scope || decision.GrantedScope != scope {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.11",
+  "guard": "decision by installation owner",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if decision.DecidedBy != owner {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.12",
+  "guard": "decision authority generation valid (root revocation)",
+  "inv": "I3",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if err := validator.ValidateAuthorityGeneration(ctx, decision, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B9.13",
+  "guard": "gate decision issued by current root",
+  "inv": "I3,I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/plan_authority.go",
+    "if requireCurrentRoot {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B8.01",
+  "guard": "protected decision requires resolvable ceremony record",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "} else if err := r.verifyDecisionCeremony(",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B8.02",
+  "guard": "ceremony record must match decision",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if evidence.Profile != request.CeremonyProfile || !evidence.BindsDecision(decision) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B8.03",
+  "guard": "ceremony record: owner/root lineage",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if evidence.Owner != owner || evidence.RootRef != root.Ref",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B8.04",
+  "guard": "ceremony record: enrolled OS user",
+  "inv": "I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/ceremony.go",
+    "if !strings.HasSuffix(root.ProvenanceRef",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B8.05",
+  "guard": "legacy acceptance refuses safety-bearing proposal",
+  "inv": "I2,I8",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/repository.go",
+    "if proposal.Safety != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "B14.01",
+  "guard": "worker fence refuses gate objective (M4a)",
+  "inv": "I7",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "func refuseGateDispatch(req TurnRequest) error {\n",
+    "func refuseGateDispatch(req TurnRequest) error {\n\treturn nil\n",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|GateObjective|WorkerResolution|AuthorityGate)",
+  "group": ""
+ },
+ {
+  "id": "B14.02",
+  "guard": "explicit gate objective routed to coordination (M4b)",
+  "inv": "I7",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/controller.go",
+    "if candidate.Kind == contracts.WorkCandidateAuthorityGate {\n\t\t\t\treturn nil, TurnRequest{}, c.coordinateGate(ctx, req, candidate, completions)\n\t\t\t}\n\t\t\t// I3/I11",
+    "// I3/I11",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B14.03",
+  "guard": "safety plan refuses objective outside plan (M4c)",
+  "inv": "I7,I2",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if safety && !found {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B14.04",
+  "guard": "completed objective refused",
+  "inv": "I1",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if completion.UnitID == candidate.ID {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B14.05",
+  "guard": "selected gate goes to coordination",
+  "inv": "I7",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/controller.go",
+    "if candidate.Kind == contracts.WorkCandidateAuthorityGate {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive",
+   "./cmd/praxis"
+  ],
+  "run": "Test(KernelRepair3|KernelRepair|GateObjective|AuthorityGate|GoalGate)",
+  "group": ""
+ },
+ {
+  "id": "B10.01",
+  "guard": "post-worker validator missing blocks (M5)",
+  "inv": "I4",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !declared {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.02",
+  "guard": "bound validator required for safety checkpoint",
+  "inv": "I4",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "bound, ok := repo.(CheckpointValidator)",
+    1,
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.03",
+  "guard": "no-declared-validation never counts for safety (M9)",
+  "inv": "I4",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/repository.go",
+    "if !passed && !safetyBearing && containsEvidence",
+    "if !passed && containsEvidence",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.04",
+  "guard": "preflight profile-digest mismatch (M11)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if digest != req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.05",
+  "guard": "candidate conformance decided before publication (M7b)",
+  "inv": "I4,I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if isSafetyBearing(req.GoalBaseline) && record.Progress && record.CompletionClaim != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.06",
+  "guard": "conformance acknowledgement required (M7a)",
+  "inv": "I4,I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !acknowledged {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.07",
+  "guard": "integrated-pass evidence required to qualify",
+  "inv": "I4",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if !containsEvidence(record.CheckpointEvidence, \"repository:declared-validation-passed\") {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.08",
+  "guard": "settlement re-qualifies when not qualified before",
+  "inv": "I4",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if qualification == nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "B10.09",
+  "guard": "governed output size bound",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/repository.go",
+    "if len(body) == 0 || len(body) > contracts.MaxGovernedArtifactBytes {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(KernelRepair3|BoundValidation|Validation|MissingValidator|NoDeclared|CompletionIsDerived|GateObjective|WorkerResolution|AuthorityGate|ApprovedAuthorityGate|Safety|Qualified|Revoked|FailedCandidate|GitBound|Predecessor|WorkerContext|Approved)",
+  "group": ""
+ },
+ {
+  "id": "N4.01",
+  "guard": "input empty/oversize refused",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if len(data) == 0 || len(data) > MaxGovernedArtifactBytes {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.02",
+  "guard": "invalid UTF-8 refused",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if !utf8.Valid(data) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.03",
+  "guard": "unpaired surrogate escape refused",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if err := rejectUnpairedSurrogateEscapes(data); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.04",
+  "guard": "trailing content refused (walk)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := walker.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": "N4.trailing"
+ },
+ {
+  "id": "N4.05",
+  "guard": "trailing content refused (decode)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := decoder.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": "N4.trailing"
+ },
+ {
+  "id": "N4.06",
+  "guard": "trailing content refused (both layers)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := walker.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, err := decoder.Token(); !errors.Is(err, io.EOF) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": "N4.trailing-joint"
+ },
+ {
+  "id": "N4.07",
+  "guard": "nesting depth bound",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if depth > MaxExactJSONDepth {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.08",
+  "guard": "textual duplicate key refused",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if _, duplicate := seen[key]; duplicate {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.10",
+  "guard": "case-folded key refused (N4)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "} else if canonical, folded := fields.folded(key); folded {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.11",
+  "guard": "unknown fields refused when requested",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "pkg/contracts/exact_json.go",
+    "if disallowUnknown {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./pkg/contracts"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N4.12",
+  "guard": "external import decoder is exact",
+  "inv": "I5",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/goalimport.go",
+    "import (\n",
+    "import (\n\t\"encoding/json\"\n",
+    1
+   ],
+   [
+    "sub",
+    "cmd/praxis/goalimport.go",
+    "contracts.UnmarshalExactJSON(body, &doc, false)",
+    "func() error { _ = contracts.MaxGovernedArtifactBytes; return json.Unmarshal(body, &doc) }()",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./cmd/praxis"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N5.01",
+  "guard": "validator runs in the private export, not the worker checkout",
+  "inv": "I5",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "runValidationProcess(ctx, export.dir, filepath.Join(export.dir, declaredValidationPath), args)",
+    "runValidationProcess(ctx, r.Dir, filepath.Join(r.Dir, declaredValidationPath), args)",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.02",
+  "guard": "export re-verified after the run",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := export.verify(ctx, checkpoint); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.02b",
+  "guard": "export verified right after checkout (creation time)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := export.verify(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.03",
+  "guard": "checkpoint re-bound after the run",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if _, err := r.bindCheckpoint(ctx, checkpoint, profileDigest); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.04",
+  "guard": "export HEAD equals checkpoint",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(head) != checkpoint {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.05",
+  "guard": "export tree equals qualified tree",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(tree) != e.tree {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.06",
+  "guard": "export index hint flags refused",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if entry != \"\" && !strings.HasPrefix(entry, \"H \") {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.07",
+  "guard": "export status clean",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if strings.TrimSpace(status) != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.08",
+  "guard": "export gained no untracked/excluded files",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if untracked != \"\" {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.09",
+  "guard": "export content re-hashed into a fresh index (stat/index-blind layer)",
+  "inv": "I5",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return e.verifyContent(ctx)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers"
+ },
+ {
+  "id": "N5.10",
+  "guard": "joint: every export post-run layer (status+hint+untracked+content)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if entry != \"\" && !strings.HasPrefix(entry, \"H \") {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if strings.TrimSpace(status) != \"\" {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if untracked != \"\" {",
+    1,
+    0
+   ],
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return e.verifyContent(ctx)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.export-layers-joint"
+ },
+ {
+  "id": "N5.11",
+  "guard": "committed validator digest at checkpoint (bind)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if digestBytes(committed) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.validator-layers"
+ },
+ {
+  "id": "N5.12",
+  "guard": "exported validator digest",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || digestBytes(body) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.validator-layers"
+ },
+ {
+  "id": "N5.13",
+  "guard": "joint: committed and exported validator digest",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if digestBytes(committed) != profileDigest {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || digestBytes(body) != profileDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.validator-layers-joint"
+ },
+ {
+  "id": "N5.14",
+  "guard": "validator executable mode at checkpoint",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !strings.HasPrefix(entry, \"100755 blob \") {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.14x",
+  "guard": "exported validator executable mode",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.mode-layers"
+ },
+ {
+  "id": "N5.14j",
+  "guard": "joint: validator executable mode (bind + export)",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !strings.HasPrefix(entry, \"100755 blob \") {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.mode-layers-joint"
+ },
+ {
+  "id": "N5.15",
+  "guard": "bind: HEAD is the checkpoint",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.head-layers"
+ },
+ {
+  "id": "N5.16",
+  "guard": "bind: local branch points at checkpoint",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(local) != checkpoint {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.head-layers"
+ },
+ {
+  "id": "N5.17",
+  "guard": "publish: HEAD is the checkpoint",
+  "inv": "I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, head); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.head-layers"
+ },
+ {
+  "id": "N5.18",
+  "guard": "joint: every HEAD-equality layer",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, checkpoint); err != nil {",
+    2,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err != nil || strings.TrimSpace(local) != checkpoint {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if err := r.HeadIs(ctx, head); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": "N5.head-layers-joint"
+ },
+ {
+  "id": "N5.19",
+  "guard": "qualified tree recorded at run time is re-compared",
+  "inv": "I5,I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "ok && recorded.(string) != tree {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.20",
+  "guard": "checkpoint must be a full object id",
+  "inv": "I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if !objectIDPattern.MatchString(checkpoint) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.21",
+  "guard": "publication pushes the exact qualified object id",
+  "inv": "I10",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "head+\":refs/heads/\"+r.Branch",
+    "\"HEAD:refs/heads/\"+r.Branch",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.22",
+  "guard": "publication verifies the remote ref is the checkpoint",
+  "inv": "I10",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if len(fields) < 1 || fields[0] != head {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.23",
+  "guard": "controller git runs without worker fsmonitor/hooks",
+  "inv": "I5",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return []string{\"-C\", dir, \"-c\", \"core.fsmonitor=false\", \"-c\", \"core.hooksPath=\" + os.DevNull}",
+    "return []string{\"-C\", dir}",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N5.24",
+  "guard": "controller git ignores replace objects",
+  "inv": "I5",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "return append(os.Environ(), \"GIT_NO_REPLACE_OBJECTS=1\")",
+    "return os.Environ()",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N6.01",
+  "guard": "output bound enforced in the production collector",
+  "inv": "I4,I5",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if len(o.buffer)+len(p) > o.limit {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N6.02",
+  "guard": "overflow fails closed even with exit 0",
+  "inv": "I4,I5",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "case exceeded:\n",
+    "case false && exceeded:\n",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(GitBound|BoundValidation|Validation|KernelRepair3|MissingValidator)",
+  "group": ""
+ },
+ {
+  "id": "N6.03",
+  "guard": "overflow cancels (kills) the process group",
+  "inv": "I4",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "o.cancel() // kills the process group; the run then fails closed",
+    "_ = o.cancel",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(ValidationOutput|BoundValidationOutput|ValidationTerminates)",
+  "group": ""
+ },
+ {
+  "id": "N6.04",
+  "guard": "process tree terminated after validator returns",
+  "inv": "I4",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "terminateValidationProcessTree(cmd)\n\toutput, exceeded",
+    "output, exceeded",
+    1
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(ValidationTerminates|ValidationCancellation|ValidationOutput)",
+  "group": ""
+ },
+ {
+  "id": "N6.05",
+  "guard": "collector keeps draining after overflow (no deadlock)",
+  "inv": "I4",
+  "edits": [
+   [
+    "neg",
+    "internal/goaldrive/git_repository.go",
+    "if o.exceeded {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "run": "Test(ValidationOutput|BoundValidationOutput)",
+  "group": ""
+ },
+ {
+  "id": "N3.01",
+  "guard": "image digest equals manifest digest",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if got := sha256Digest(data); got != manifest.ActiveBinaryDigest {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.02",
+  "guard": "loaded-code binding (kernel cdhash vs file)",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if err := bindExecutingCode(data); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.03",
+  "guard": "manifest path still names the executing file",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/activation.go",
+    "if !os.SameFile(image.info, pathInfo) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.04",
+  "guard": "kernel cdhash must match a CodeDirectory of the file",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if bytes.Equal(signature.directories[i].cdhash[:], kernelCDHash[:]) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.05",
+  "guard": "page hashes recomputed from file bytes",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if !bytes.Equal(h.Sum(nil)[:hashSize], slot) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.06",
+  "guard": "code limit ends at the embedded signature",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/codesign_macho.go",
+    "if codeLimit != signature.codeSignatureOffset || codeLimit > uint64(len(data)) {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.07",
+  "guard": "kernel reports the signature valid",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/process_image_darwin.go",
+    "if flags&csFlagValid == 0 {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ },
+ {
+  "id": "N3.08",
+  "guard": "image size change refused",
+  "inv": "I6",
+  "edits": [
+   [
+    "neg",
+    "internal/bootstrapv4/process_image.go",
+    "if err != nil || current.Size() != i.info.Size() {",
+    1,
+    0
+   ]
+  ],
+  "pkgs": [
+   "./internal/bootstrapv4"
+  ],
+  "run": ".",
+  "group": ""
+ }
+]

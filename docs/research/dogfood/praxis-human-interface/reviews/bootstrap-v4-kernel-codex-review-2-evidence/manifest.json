@@ -1,0 +1,68 @@
+{
+  "files": [
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2.md",
+      "sha256": "c2704e9d12ac6fd1efd515755a9afde2716fa3c19e1823e73b2095c171d2eb30"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/README.md",
+      "sha256": "4058f1e54dd531bf4ece2ff53314d70bf3099e02f155b24e27f09c7cbaff658f"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/cmd_praxis_review_test.go.txt",
+      "sha256": "185e8f11d61f4d001deb8ce449a4e0bda75b0fd815d8cb6a9dd607538e2f86b2"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/current-retry.log",
+      "sha256": "8e7bc79052ca5bff55cab85b8c8225ea498415c65f00bb8b57dc28e8f52db8a3"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/current.log",
+      "sha256": "9bd4869670eb41992b85a41db924973df1623c53f4eb1a5075fd316527ed89d4"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/historical.log",
+      "sha256": "b77e1dd381a24f9bedbeaeae3aac469ecdaf40bc56e6a3b6eedd56b9cf4f607e"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/image-probe.log",
+      "sha256": "38312641987d89382fbec4146ba073cf3119ccef90ad714756496532410e6faa"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/image_probe.go.txt",
+      "sha256": "0f33e5a2c415feb22e57ed729dfd913e99504155a80067db14931a2e935ebae2"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/internal_goaldrive_review_test.go.txt",
+      "sha256": "d46a196caa813312a58097565d075a636219cf111283d9369ebce8645647de7e"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/pkg_contracts_review_test.go.txt",
+      "sha256": "0e644a1ad98dd93125939d837b4d12238a4a2d7905dbb56dbfd614e69e4deff3"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/probes-final.log",
+      "sha256": "f430d47d49799a2e3e5b9be2dc9be80eb8d4ccc144ec41bc06f927db9d625702"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/python.log",
+      "sha256": "4c30e343e92a73b5353c079268604765c7a02e0d97fc034558d34e9d24001747"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/race.log",
+      "sha256": "9bd3078d4c2fce2c7259e24eb460c2dc64582e7c809dff8c8c342113c631b5ed"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/results.json",
+      "sha256": "3bf3e99577463c7f72898af437a75fa1747f3e5cf5b0417416695680cd9bd31d"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/run_probes.py",
+      "sha256": "8351a34cb858950a9b05cdddfa0edcad6cc7b70af05567fda3b84200bcb3582b"
+    },
+    {
+      "path": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2-evidence/vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

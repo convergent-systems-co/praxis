@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-ontology-and-surface-contract","kind":"hard_dependency","prerequisite":"gate:hi-authority-ceremony","provenance":"model_proposal","rationale":"unit:hi-ontology-and-surface-contract cannot be truthfully implemented or qualified until gate:hi-authority-ceremony is complete."}

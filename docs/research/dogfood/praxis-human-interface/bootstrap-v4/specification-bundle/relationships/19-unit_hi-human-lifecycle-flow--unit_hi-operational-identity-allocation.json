@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"hard_dependency","prerequisite":"unit:hi-operational-identity-allocation","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-operational-identity-allocation is complete."}

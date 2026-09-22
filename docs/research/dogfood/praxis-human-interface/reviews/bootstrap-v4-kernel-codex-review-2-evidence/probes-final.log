@@ -1,0 +1,131 @@
+=== RUN   TestReview2ProductionGateStoreConfiguration
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:18: production-configured gate fails: authority gate requires the protected installation identity: bootstrap digest must be a canonical sha256 digest
+    review2_independent_test.go:22: fixing only identity still fails: persist authority gate request: safety-bearing WorkPlan mutation requires current verified kernel activation: no activation verifier is configured
+--- PASS: TestReview2ProductionGateStoreConfiguration (0.06s)
+=== RUN   TestReview2LegacyAcceptanceWithoutCeremony
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:33: fabricated legacy authority persisted and attached safety plan without any AuthorityDecision or ceremony
+--- PASS: TestReview2LegacyAcceptanceWithoutCeremony (0.04s)
+=== RUN   TestReview2SaveBaselineWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:40: Save persisted safety-bearing baseline with no activation verifier
+--- PASS: TestReview2SaveBaselineWithoutActivation (0.06s)
+=== RUN   TestReview2GateReplayWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:48: read-only request replay succeeds without activation; outer controller remains responsible
+--- PASS: TestReview2GateReplayWithoutActivation (0.07s)
+=== RUN   TestReview2CompletedFlagSubstitution
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:60: changed gate Completed=false to true AFTER owner approval; accepted and selector preserves it with no completion evidence
+--- PASS: TestReview2CompletedFlagSubstitution (0.05s)
+=== RUN   TestReview2CLIImportWithoutActivation
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:69: supported CLI import persisted a safety-bearing WorkPlan while activation manifest was missing
+--- PASS: TestReview2CLIImportWithoutActivation (0.06s)
+=== RUN   TestReview2RevokedWorkPlanStillGovernsGate
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:81: freshly reloaded plan creates gate request after its acceptance authority was revoked
+--- PASS: TestReview2RevokedWorkPlanStillGovernsGate (0.06s)
+=== RUN   TestReview2CachedPackageIdentity
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:91: drive verifier succeeds using cached identity after package is disabled; lifecycle verifier sees the change
+--- PASS: TestReview2CachedPackageIdentity (0.03s)
+=== RUN   TestReview2ArbitraryCeremonyDigest
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:100: arbitrary digest plus copied public owner/root fields persists and consumes gate approval without owner ceremony
+--- PASS: TestReview2ArbitraryCeremonyDigest (0.05s)
+=== RUN   TestReview2GateRequestConflictPreservesOriginal
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:109: same deterministic identity with changed checkpoint rejected and original preserved
+--- PASS: TestReview2GateRequestConflictPreservesOriginal (0.06s)
+=== RUN   TestReview2ExplicitGateObjectiveReachesWorker
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review2_independent_test.go:119: explicit gate objective with candidates loaded later reaches worker: calls=1 err=<nil>
+--- PASS: TestReview2ExplicitGateObjectiveReachesWorker (0.05s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	1.453s
+=== RUN   TestReview2MalformedDossierAccepted
+=== RUN   TestReview2MalformedDossierAccepted/_trailing-not-json
+    review2_independent_test.go:6: accepted malformed complete dossier bytes
+=== RUN   TestReview2MalformedDossierAccepted/_{"status":"approved"}
+    review2_independent_test.go:6: accepted malformed complete dossier bytes
+--- PASS: TestReview2MalformedDossierAccepted (0.00s)
+    --- PASS: TestReview2MalformedDossierAccepted/_trailing-not-json (0.00s)
+    --- PASS: TestReview2MalformedDossierAccepted/_{"status":"approved"} (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	1.069s
+=== RUN   TestReview2CompletionWithoutMechanismPass
+    review2_independent_test.go:11: no-declared-validation promoted to MechanismTestsPassed and ConformanceQualified
+--- PASS: TestReview2CompletionWithoutMechanismPass (0.00s)
+=== RUN   TestReview2MissingValidatorStillQualifiesCheckpoint
+    review2_independent_test.go:20: post-worker safety checkpoint qualifies for publication with no declared validator
+--- PASS: TestReview2MissingValidatorStillQualifiesCheckpoint (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	0.449s

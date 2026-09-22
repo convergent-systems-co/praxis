@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-requirement-evolution-classification-and-successor","kind":"interaction","prerequisite":"unit:hi-operational-identity-allocation","provenance":"model_proposal","rationale":"unit:hi-requirement-evolution-classification-and-successor and unit:hi-operational-identity-allocation require a non-blocking interaction contract."}

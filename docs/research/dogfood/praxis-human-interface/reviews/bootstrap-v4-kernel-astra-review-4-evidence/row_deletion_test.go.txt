@@ -1,0 +1,83 @@
+package main
+
+import (
+ "errors"
+ "testing"
+ "time"
+
+ "github.com/convergent-systems-co/praxis/internal/goaldrive"
+ "github.com/convergent-systems-co/praxis/internal/goalstore"
+ "github.com/convergent-systems-co/praxis/internal/state"
+ "github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+// PASS means the counterexample reproduced, NOT that the candidate is safe.
+// Setup uses the existing owner/activation fixture. The adversary performs
+// exactly one SQL DELETE, without Crypto, KeyRef, or any encryption operation.
+func TestReview4N8RevocationDeletionCreatesNewGovernedGateCompletion(t *testing.T) {
+ h := newGateHarness(t)
+ repo, db, err := openGovernedRepository(h.ctx, h.env)
+ if err != nil { t.Fatal(err) }
+ // Move the prequalified producer completion into a real SQLite event ledger.
+ raw, err := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2")
+ if err != nil || len(raw)!=1 { t.Fatalf("fixture producer: %v %+v",err,raw) }
+ ledger := goaldrive.Ledger{Store:state.NewSQLiteEventStore(db), Actor:contracts.PrincipalRef{ID:"controller",Kind:"controller"}}
+ if err:=ledger.RecordCompletion(h.ctx,raw[0]);err!=nil {t.Fatal(err)}
+ request := h.pendingGate(ledger,"review4-pending")
+ digest,_ := request.Digest()
+ if _,err:=h.decide(digest,"approve","finish and reconcile","DECIDE-APPROVE "+digest+" ALTERNATIVE finish and reconcile");err!=nil {t.Fatal(err)}
+ decision,err:=repo.LoadAuthorityDecision(h.ctx,request.ID,request.Version,time.Now().UTC())
+ if err!=nil {t.Fatal(err)}
+ decisionDigest,_:=decision.Digest()
+ now:=time.Now().UTC()
+ rev:=contracts.AuthorityRevocation{RequestID:request.ID,RequestVersion:request.Version,DecisionRef:decision.DecisionRef,DecisionVersion:decision.DecisionVersion,DecisionDigest:decisionDigest,RevocationRef:"review4-revoke",RevocationVersion:"1",RevokedBy:h.root.Principal,AuthorityDigest:h.root.AuthorityModelDigest,EffectiveAt:now,Reason:"owner withdrew gate authority"}
+ if err:=repo.SaveAuthorityRevocation(h.ctx,request.ID,request.Version,rev,now,nil);err!=nil {t.Fatal(err)}
+ if _,err:=repo.LoadAuthorityDecision(h.ctx,request.ID,request.Version,time.Now().UTC());!errors.Is(err,goalstore.ErrAuthorityDecisionRevoked){t.Fatalf("negative control: %v",err)}
+ if _,err:=h.drive(ledger,"review4-revoked");!errors.Is(err,goalstore.ErrAuthorityDecisionRevoked){t.Fatalf("revoked drive must refuse: %v",err)}
+ before,err:=ledger.LoadCompletions(h.ctx,repairGoalID,"2")
+ if err!=nil||len(before)!=1 {t.Fatalf("revoked drive consequence: %v %+v",err,before)}
+ t.Log("CONTROL: durable revocation refuses fresh-controller drive; only producer completion exists")
+ result,err:=db.ExecContext(h.ctx,`DELETE FROM secure_blobs WHERE namespace='authority_revocation' AND object_id=? AND object_version=?`,request.ID,request.Version)
+ if err!=nil {t.Fatal(err)}
+ n,err:=result.RowsAffected();if err!=nil||n!=1{t.Fatalf("delete: rows=%d err=%v",n,err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ // Reopen the database and repository; no cached decision or event store.
+ repo,db,err=openGovernedRepository(h.ctx,h.env)
+ if err!=nil {t.Fatal(err)}
+ defer db.Close()
+ ledger=goaldrive.Ledger{Store:state.NewSQLiteEventStore(db),Actor:contracts.PrincipalRef{ID:"controller",Kind:"controller"}}
+ baseline,err:=repo.Load(h.ctx,repairGoalID,"2",time.Now().UTC());if err!=nil {t.Fatal(err)}
+ h.successor=baseline
+ if _,err:=repo.LoadAuthorityDecision(h.ctx,request.ID,request.Version,time.Now().UTC());err!=nil {t.Fatalf("resurrected decision: %v",err)}
+ if _,err:=h.drive(ledger,"review4-after-delete");!errors.Is(err,goaldrive.ErrHumanAuthorityGate){t.Fatalf("expected NEW gate completion turn: %v",err)}
+ after,err:=ledger.LoadCompletions(h.ctx,repairGoalID,"2")
+ if err!=nil||len(after)!=2 {t.Fatalf("NEW durable completion missing: %v %+v",err,after)}
+ effective,err:=goaldrive.LoadEffectiveCompletions(h.ctx,ledger,repo,&baseline,repairGoalID,"2")
+ if err!=nil||len(effective.Effective)!=2||len(effective.Historical)!=0 {t.Fatalf("resurrected completion not authenticated/effective: %v %+v",err,effective)}
+ assessment,err:=goaldrive.AssessGoalCompletion(baseline,effective.Effective)
+ if err!=nil||!assessment.AllUnitsComplete {t.Fatalf("not eligible: %v %+v",err,assessment)}
+ t.Logf("COUNTEREXAMPLE: one keyless SQL DELETE + close/reopen restored revoked authority; controller minted NEW sealed gate completion, durable completions %d -> %d, effective=%d, AllUnitsComplete=%v",len(before),len(after),len(effective.Effective),assessment.AllUnitsComplete)
+}
+
+func TestReview4N9ClassificationDeletionAllowsCLIImportAndWorker(t *testing.T) {
+ h:=newGateHarness(t)
+ repo,db,err:=openGovernedRepository(h.ctx,h.env);if err!=nil {t.Fatal(err)}
+ path:=writeBaselineImportDocument(t,h.dir,"review4-stripped.json",strippedGeneration(h,"3"),"")
+ h.removeActivation()
+ if _,err:=h.run("goals-lifecycle","--operation=import","--input="+path);err==nil {t.Fatal("negative control: import allowed before delete")}
+ t.Log("CONTROL: classified Goal refuses stripped CLI import with activation absent")
+ result,err:=db.ExecContext(h.ctx,`DELETE FROM secure_blobs WHERE namespace='goal_safety_classification' AND object_id=?`,repairGoalID)
+ if err!=nil {t.Fatal(err)}
+ n,err:=result.RowsAffected();if err!=nil||n!=1{t.Fatalf("delete rows=%d err=%v",n,err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ if _,err:=h.run("goals-lifecycle","--operation=import","--input="+path);err!=nil {t.Fatalf("stripped import after delete: %v",err)}
+ repo,db,err=openGovernedRepository(h.ctx,h.env);if err!=nil {t.Fatal(err)}
+ defer db.Close()
+ baseline,err:=repo.Load(h.ctx,repairGoalID,"3",time.Now().UTC());if err!=nil {t.Fatal(err)}
+ classified,err:=repo.GoalSafetyClassified(h.ctx,repairGoalID);if err!=nil||classified {t.Fatalf("classification after delete: %v %v",classified,err)}
+ ctrl:=newGoalDriveController(h.ledger,nil,nil,repo,0,h.env)
+ worker:=&recordingWorker{};ctrl.Worker=worker
+ _,driveErr:=ctrl.ExecuteTurn(h.ctx,goaldrive.TurnRequest{GoalID:repairGoalID,GoalVersion:"3",InvocationID:"review4-downgrade",TurnID:"review4-downgrade",GraphID:"g",GraphVersion:"1",StartHead:"head",ChildObjective:"one",Mode:goaldrive.ModeSupervised,GoalBaseline:&baseline,Repository:contracts.RepositorySynced})
+ if worker.calls!=1 {t.Fatalf("worker not reached: calls=%d err=%v",worker.calls,driveErr)}
+ t.Logf("COUNTEREXAMPLE: one keyless SQL DELETE allowed identical stripped CLI import and reloaded controller worker dispatch with activation absent; calls=%d final error=%v",worker.calls,driveErr)
+}

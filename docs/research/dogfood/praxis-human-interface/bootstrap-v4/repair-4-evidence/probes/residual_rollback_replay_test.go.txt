@@ -1,0 +1,80 @@
+package main
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
+	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+// DOCUMENTED RESIDUAL (not a regression). "PASS" means the residual reproduces.
+//
+// Repair 4 makes every consequence-permitting predicate monotone DECREASING in
+// the row set: a writer of the SQLite file who can only DELETE rows can never
+// widen authority. This probe shows the boundary of that claim: a raw writer who
+// ALSO holds a byte-for-byte copy of an earlier sealed row of the same
+// installation can re-insert it (a rollback / replay). No storage key is needed,
+// because the copied row is already sealed. Closing this needs an anchor OUTSIDE
+// the database file (a monotonic counter in the OS keychain or another
+// attested channel), which is an architecture expansion beyond frozen PRE-V4 and
+// is deliberately not built. See the report, "Residual limits".
+func TestResidualRollbackReplayOfACopiedLivenessRow(t *testing.T) {
+	h := newGateHarness(t)
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2")
+	if err != nil || len(raw) != 1 {
+		t.Fatalf("fixture producer: %v %+v", err, raw)
+	}
+	ledger := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+	if err := ledger.RecordCompletion(h.ctx, raw[0]); err != nil {
+		t.Fatal(err)
+	}
+	request := h.pendingGate(ledger, "residual-pending")
+	digest, _ := request.Digest()
+	if _, err := h.decide(digest, "approve", "finish and reconcile", "DECIDE-APPROVE "+digest+" ALTERNATIVE finish and reconcile"); err != nil {
+		t.Fatal(err)
+	}
+	// The adversary copies the sealed liveness row while the decision is in force.
+	var ns, id, ver, dig, sens, prof, created string
+	var envelope []byte
+	var expires *string
+	if err := db.QueryRowContext(h.ctx, `SELECT namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace='authority_decision_live' AND object_id=? AND object_version=?`, request.ID, request.Version).Scan(&ns, &id, &ver, &dig, &sens, &prof, &envelope, &created, &expires); err != nil {
+		t.Fatal(err)
+	}
+	decision, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionDigest, _ := decision.Digest()
+	now := time.Now().UTC()
+	rev := contracts.AuthorityRevocation{RequestID: request.ID, RequestVersion: request.Version, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, RevocationRef: "residual-revoke", RevocationVersion: "1", RevokedBy: h.root.Principal, AuthorityDigest: h.root.AuthorityModelDigest, EffectiveAt: now, Reason: "owner withdrew gate authority"}
+	if err := repo.SaveAuthorityRevocation(h.ctx, request.ID, request.Version, rev, now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC()); !errors.Is(err, goalstore.ErrAuthorityDecisionRevoked) {
+		t.Fatalf("control: revocation must refuse: %v", err)
+	}
+	// CONTROL 1: deletion alone (the Review #4 attack) does NOT restore authority.
+	if _, err := db.ExecContext(h.ctx, `DELETE FROM secure_blobs WHERE namespace='authority_revocation' AND object_id=? AND object_version=?`, request.ID, request.Version); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC()); err == nil {
+		t.Fatal("control failed: deletion alone restored authority")
+	}
+	t.Log("CONTROL: revocation-row deletion alone leaves the decision refused")
+	// RESIDUAL: replaying the previously copied sealed liveness row restores it.
+	if _, err := db.ExecContext(h.ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, ns, id, ver, dig, sens, prof, envelope, created, expires); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC()); err != nil {
+		t.Fatalf("the residual did not reproduce: %v", err)
+	}
+	t.Log("RESIDUAL REPRODUCES: delete (revocation row) + replay (copied sealed liveness row) restores the revoked decision without any storage key; requires an out-of-database monotonic anchor to close")
+}

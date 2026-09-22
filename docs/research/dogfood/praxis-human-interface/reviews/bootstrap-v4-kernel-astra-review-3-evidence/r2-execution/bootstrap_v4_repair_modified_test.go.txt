@@ -1,0 +1,1069 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/bootstrapv4"
+	"github.com/convergent-systems-co/praxis/internal/eventstore"
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
+	"github.com/convergent-systems-co/praxis/internal/state"
+	"github.com/convergent-systems-co/praxis/packages/goals"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+const (
+	repairGoalID  = "goal:pending-surface"
+	activationEnv = "PRAXIS_BOOTSTRAP_ACTIVATION_MANIFEST"
+)
+
+func repairDigest(body []byte) string {
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// safetyLifecycle is a complete governed installation carrying one
+// safety-bearing WorkPlan proposal whose activation manifest is real bytes on
+// disk. Only the executable/VCS-identity half of the activation predicate is
+// substituted (a `go test` binary has no VCS identity); the manifest digest,
+// plan bindings, and active-package identity checks run for real through
+// bootstrapv4.VerifyManifestFile.
+type safetyLifecycle struct {
+	t              *testing.T
+	ctx            context.Context
+	governed       func(string) string
+	root           contracts.AuthorityGeneration
+	dir            string
+	manifestPath   string
+	manifestBytes  []byte
+	baseline       goals.GoalBaseline
+	proposal       contracts.WorkPlanProposal
+	proposalDigest string
+	imageErr       error
+}
+
+func (s *safetyLifecycle) env(key string) string {
+	if key == activationEnv {
+		return s.manifestPath
+	}
+	return s.governed(key)
+}
+
+func repairSafetyProposal(baseline goals.GoalBaseline) contracts.WorkPlanProposal {
+	reqText := []byte("requirement text")
+	reqDigest := repairDigest(reqText)
+	req := contracts.RequirementRef{ID: "success_criteria:" + reqDigest, SourceRef: "goal:" + baseline.ID + "/" + baseline.Version + "#success_criteria/1", SourceDigest: reqDigest, Specification: reqText}
+	reqJSON := fmt.Sprintf(`{"id":%q,"source_ref":%q,"source_digest":%q}`, req.ID, req.SourceRef, req.SourceDigest)
+	one := []byte(fmt.Sprintf(`{"id":"one","kind":"work","provenance":"model_proposal","priority":1,"sequence":1,"responsibility":"produce the decision dossier","exclusions":["no authority decisions"],"requirements":[%s],"qualification_predicates":["candidate/one/conformance"],"governed_outputs":[{"role":"gate","evidence_class":"decision_dossier","source_ref":"docs/dossier.json","schema_id":"gate-dossier/1"}]}`, reqJSON))
+	gate := []byte(fmt.Sprintf(`{"id":"gate","kind":"authority_gate","provenance":"model_gate_proposal","priority":2,"sequence":2,"responsibility":"present one authority question","exclusions":["no provider execution"],"requirements":[%s],"question_schema_id":"gate-question/1","question":"choose","required_dossier":{"producer_candidate_id":"one","role":"gate","evidence_class":"decision_dossier","schema_id":"gate-dossier/1"},"alternatives_rule":"dossier.offered_alternatives","authority_principal_kind":"human","downstream_consequence_semantics":"only the selected alternative is authoritative","content_addressing":"sha256-exact-bytes"}`, reqJSON))
+	edge := []byte(`{"dependent":"gate","prerequisite":"one","kind":"hard_dependency","provenance":"model_proposal","rationale":"gate consumes the completed unit"}`)
+	return contracts.WorkPlanProposal{
+		ID: "proposal-v4-repair", Version: "4", GoalID: baseline.ID, GoalVersion: baseline.Version, BaselineDigest: baseline.Digest,
+		ProposedBy: contracts.PrincipalRef{ID: "planner", Kind: "model"}, ProposerGeneration: "planner-generation",
+		Candidates: []contracts.WorkCandidate{
+			{ID: "one", Kind: contracts.WorkCandidateOrdinary, Priority: 1, Sequence: 1, SourceRef: "specs/one.json", SourceDigest: repairDigest(one), Provenance: contracts.ProvenanceModelProposal, Requirements: []contracts.RequirementRef{req}, QualificationPredicates: []string{"candidate/one/conformance"}, Responsibility: "produce the decision dossier", Exclusions: []string{"no authority decisions"}, Specification: one},
+			{ID: "gate", Kind: contracts.WorkCandidateAuthorityGate, Priority: 2, Sequence: 2, SourceRef: "specs/gate.json", SourceDigest: repairDigest(gate), Provenance: contracts.ProvenanceModelGateProposal, Requirements: []contracts.RequirementRef{req}, Responsibility: "present one authority question", Exclusions: []string{"no provider execution"}, Specification: gate},
+		},
+		Relationships: []contracts.WorkRelationship{{Dependent: "gate", Prerequisite: "one", Kind: contracts.RelationshipHardDependency, SourceRef: "specs/edge.json", SourceDigest: repairDigest(edge), Provenance: contracts.ProvenanceModelProposal, Specification: edge, Rationale: "gate consumes the completed unit"}},
+	}
+}
+
+// newSafetyLifecycle builds the installation, an active goals package, an
+// imported Goal generation, and a persisted safety-bearing proposal bound to
+// a valid on-disk activation manifest. Persisting the proposal itself goes
+// through the production repository, so it is already a protected mutation.
+func newSafetyLifecycle(t *testing.T) *safetyLifecycle {
+	t.Helper()
+	ctx := context.Background()
+	governed, root, _, dir := lifecycleFixture(t, ctx)
+	s := &safetyLifecycle{t: t, ctx: ctx, governed: governed, root: root, dir: dir}
+
+	original := verifyActivationManifest
+	verifyActivationManifest = func(path string, binding contracts.WorkPlanSafetyBinding, pkg bootstrapv4.ActivePackageIdentity) error {
+		if _, err := bootstrapv4.VerifyManifestFile(path, binding, pkg); err != nil {
+			return err
+		}
+		return s.imageErr
+	}
+	t.Cleanup(func() { verifyActivationManifest = original })
+
+	repo, db, err := openGovernedRepository(ctx, governed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := repo.Load(ctx, repairGoalID, "1", time.Now().UTC())
+	if err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	s.baseline = baseline
+	roDB, err := state.OpenSQLiteReadOnly(ctx, governed("PRAXIS_DB"))
+	if err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	identity, err := activeGoalsPackageIdentity(ctx, state.New(roDB))
+	roDB.Close()
+	if err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+
+	proposal := repairSafetyProposal(baseline)
+	bundle, err := contracts.ComputeSpecificationBundleDigest(proposal.Candidates, proposal.Relationships)
+	if err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	profile := repairDigest([]byte(e2eValidatorScript))
+	manifest := bootstrapv4.Manifest{Version: "1", KernelVersion: contracts.WorkPlanSafetyKernelVersion, SourceCommit: "0123456789abcdef", SourceTreeDigest: "sha256:" + strings.Repeat("3", 64), BuildModified: false, ActiveBinaryPath: "/nonexistent/praxis", ActiveBinaryDigest: "sha256:" + strings.Repeat("4", 64), GoalsPackageID: identity.ID, GoalsPackageVersion: identity.Version, GoalsPackageContentDigest: identity.ContentDigest, GoalsPackageExecutableDigest: identity.ExecutableDigest, GoalsPackageContractDigest: identity.ContractDigest, ValidationProfileDigest: profile, SpecificationBundleDigest: bundle, QualificationEvidenceDigest: "sha256:" + strings.Repeat("5", 64)}
+	s.manifestBytes, err = json.Marshal(manifest)
+	if err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	s.manifestPath = filepath.Join(dir, "activation.json")
+	if err := os.WriteFile(s.manifestPath, s.manifestBytes, 0o600); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	proposal.Safety = &contracts.WorkPlanSafetyBinding{KernelVersion: contracts.WorkPlanSafetyKernelVersion, ActivationManifestDigest: repairDigest(s.manifestBytes), ValidationProfileDigest: profile, SpecificationBundleDigest: bundle}
+	if err := proposal.Validate(); err != nil {
+		db.Close()
+		t.Fatalf("safety proposal fixture invalid: %v", err)
+	}
+	s.proposal = proposal
+	db.Close()
+	// Persist through a repository whose activation environment names the
+	// manifest, so this itself is a verified protected mutation.
+	repo, db, err = openGovernedRepository(ctx, s.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.proposalDigest, err = repo.SaveWorkPlanProposal(ctx, proposal, "4", time.Now().UTC(), nil)
+	db.Close()
+	if err != nil {
+		t.Fatalf("persist safety proposal under valid activation: %v", err)
+	}
+	return s
+}
+
+func (s *safetyLifecycle) run(args ...string) ([]byte, error) {
+	s.t.Helper()
+	var runErr error
+	out := captureStdout(s.t, func() { runErr = runDynamicInvocation(s.ctx, args, s.env) })
+	return out, runErr
+}
+
+// review and request go through the public selector operations; the request
+// is the protected request the production `request` operation constructs.
+func (s *safetyLifecycle) reviewAndRequest() string {
+	s.t.Helper()
+	reviewDigest := reviewBySelector(s.t, s.ctx, s.env, s.dir, s.proposalDigest, string(contracts.ReviewAcceptableForAuthority))
+	requestDigest, err := requestBySelector(s.t, s.ctx, s.env, s.dir, s.proposalDigest, reviewDigest)
+	if err != nil {
+		s.t.Fatalf("request: %v", err)
+	}
+	return requestDigest
+}
+
+func (s *safetyLifecycle) approveWorkPlan(requestDigest string) {
+	s.t.Helper()
+	if out, err := decideInteractive(s.t, s.env, requestDigest, "approve", "DECIDE-APPROVE "+requestDigest); err != nil {
+		s.t.Fatalf("owner approval of the WorkPlan request: %v %s", err, out)
+	}
+}
+
+func (s *safetyLifecycle) acceptDirect(requestDigest string) ([]byte, error) {
+	return s.run("goals-lifecycle", "--operation=accept", "--input="+writeLifecycleInput(s.t, s.dir, "accept-"+requestDigest[7:15]+".json", map[string]any{"request_digest": requestDigest}))
+}
+
+func (s *safetyLifecycle) acceptDirectJSON(requestDigest string) ([]byte, error) {
+	repo, db, err := openGovernedRepository(s.ctx, s.env)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	defer db.Close()
+	request, err := repo.LoadAuthorityRequestByDigest(s.ctx, requestDigest, time.Now().UTC())
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	plan, err := contracts.MaterializeAcceptedPlanCandidate(s.proposal, "acceptance:"+request.ID, requestDigest)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return s.run("goals-lifecycle", "--operation=accept", "--input="+writeLifecycleInput(s.t, s.dir, "accept-json.json", map[string]any{"RequestID": request.ID, "RequestVersion": request.Version, "AcceptanceRef": "acceptance:" + request.ID, "AcceptanceVersion": "1", "plan": plan}))
+}
+
+func (s *safetyLifecycle) attachDirect(acceptanceRef string) ([]byte, error) {
+	return s.run("goals-lifecycle", "--operation=attach", "--goal-id="+repairGoalID, "--goal-version=1", "--input="+writeLifecycleInput(s.t, s.dir, "attach.json", map[string]any{"acceptance_ref": acceptanceRef}))
+}
+
+func (s *safetyLifecycle) attachDirectJSON(acceptanceRef string) ([]byte, error) {
+	return s.run("goals-lifecycle", "--operation=attach", "--input="+writeLifecycleInput(s.t, s.dir, "attach-json.json", map[string]any{"GoalID": repairGoalID, "GoalVersion": "1", "BaselineDigest": s.baseline.Digest, "AcceptanceRef": acceptanceRef, "AcceptanceVersion": "1", "SuccessorVersion": "2"}))
+}
+
+func (s *safetyLifecycle) continueGoal(version string) ([]byte, error) {
+	return s.run("goals-lifecycle", "--operation=continue", "--goal-id="+repairGoalID, "--goal-version="+version)
+}
+
+// durable reports the durable lineage that exists right now, read through a
+// fresh repository (a restart) rather than any in-memory handle.
+type durableState struct{ acceptances, successors int }
+
+func (s *safetyLifecycle) durable() durableState {
+	s.t.Helper()
+	repo, db, err := openGovernedRepository(s.ctx, s.governed)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	defer db.Close()
+	accepted, err := repo.ListAcceptedWorkPlans(s.ctx, s.baseline.Digest, time.Now().UTC())
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	out := durableState{acceptances: len(accepted)}
+	if _, err := repo.Load(s.ctx, repairGoalID, "2", time.Now().UTC()); err == nil {
+		out.successors = 1
+	} else if !errors.Is(err, state.ErrSecureBlobNotFound) {
+		s.t.Fatalf("unexpected successor load failure: %v", err)
+	}
+	return out
+}
+
+func (s *safetyLifecycle) removeActivation() { s.t.Helper(); mustRemove(s.t, s.manifestPath) }
+
+func mustRemove(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (s *safetyLifecycle) restoreActivation() {
+	s.t.Helper()
+	if err := os.WriteFile(s.manifestPath, s.manifestBytes, 0o600); err != nil {
+		s.t.Fatal(err)
+	}
+	s.imageErr = nil
+}
+
+type activationFault struct {
+	name   string
+	inject func(*safetyLifecycle)
+}
+
+func activationFaults() []activationFault {
+	return []activationFault{
+		{"manifest removed", func(s *safetyLifecycle) { s.removeActivation() }},
+		{"manifest bytes skewed", func(s *safetyLifecycle) {
+			if err := os.WriteFile(s.manifestPath, append(append([]byte{}, s.manifestBytes...), ' '), 0o600); err != nil {
+				s.t.Fatal(err)
+			}
+		}},
+		{"manifest path unset", func(s *safetyLifecycle) { s.manifestPath = "" }},
+		{"process image skewed", func(s *safetyLifecycle) { s.imageErr = errors.New("active binary digest mismatch") }},
+	}
+}
+
+// B2 ---------------------------------------------------------------------
+
+func TestContinuationAcceptsAndAttachesUnderValidActivation(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	requestDigest := s.reviewAndRequest()
+	s.approveWorkPlan(requestDigest)
+	out, err := s.continueGoal("1")
+	if err != nil {
+		t.Fatalf("continuation under valid activation: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(out, &result); err != nil || result["status"] != "drivable" || result["goal_version"] != "2" {
+		t.Fatalf("continuation did not accept and attach: %v %s", err, out)
+	}
+	if got := s.durable(); got != (durableState{acceptances: 1, successors: 1}) {
+		t.Fatalf("valid activation must persist acceptance and successor: %+v", got)
+	}
+	repo, db, err := openGovernedRepository(s.ctx, s.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	successor, err := repo.Load(s.ctx, repairGoalID, "2", time.Now().UTC())
+	if err != nil || successor.WorkPlan == nil || successor.WorkPlan.Safety == nil || successor.WorkPlan.Safety.ActivationManifestDigest != repairDigest(s.manifestBytes) {
+		t.Fatalf("accepted plan lost its exact activation binding: %+v %v", successor.WorkPlan, err)
+	}
+}
+
+func TestContinuationCreatesProtectedRequestOnlyUnderValidActivation(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	reviewBySelector(t, s.ctx, s.env, s.dir, s.proposalDigest, string(contracts.ReviewAcceptableForAuthority))
+	s.removeActivation()
+	if _, err := s.continueGoal("1"); err == nil {
+		t.Fatal("continuation created an authority request for a safety-bearing proposal without activation")
+	}
+	repo, db, err := openGovernedRepository(s.ctx, s.governed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := repo.PendingAuthorityRequests(s.ctx, repairGoalID, "1", time.Now().UTC())
+	db.Close()
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("refused continuation left an authority request behind: %+v %v", pending, err)
+	}
+	s.restoreActivation()
+	out, err := s.continueGoal("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Requests []struct {
+			RequestDigest string `json:"request_digest"`
+		} `json:"authority_requests"`
+	}
+	if err := json.Unmarshal(out, &result); err != nil || len(result.Requests) != 1 {
+		t.Fatalf("continuation must expose one owner boundary: %v %s", err, out)
+	}
+	repo, db, err = openGovernedRepository(s.ctx, s.governed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	request, err := repo.LoadAuthorityRequestByDigest(s.ctx, result.Requests[0].RequestDigest, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.CeremonyProfile != "interactive-os-owner-v1" || request.ActivationManifestDigest != s.proposal.Safety.ActivationManifestDigest {
+		t.Fatalf("continuation built a request without the protected ceremony/activation binding: %+v", request)
+	}
+	// The owner can actually decide it, so continuation no longer manufactures
+	// requests that acceptance can only reject.
+	if out, err := decideInteractive(t, s.env, result.Requests[0].RequestDigest, "approve", "DECIDE-APPROVE "+result.Requests[0].RequestDigest); err != nil {
+		t.Fatalf("continuation-created protected request is undecidable: %v %s", err, out)
+	}
+}
+
+func TestContinuationRefusesAcceptanceWithoutActivationAndPersistsNothing(t *testing.T) {
+	for _, fault := range activationFaults() {
+		t.Run(fault.name, func(t *testing.T) {
+			s := newSafetyLifecycle(t)
+			requestDigest := s.reviewAndRequest()
+			s.approveWorkPlan(requestDigest)
+			fault.inject(s)
+			if out, err := s.continueGoal("1"); err == nil {
+				t.Fatalf("continuation accepted under %s: %s", fault.name, out)
+			}
+			if got := s.durable(); got != (durableState{}) {
+				t.Fatalf("refused continuation left partial durable state: %+v", got)
+			}
+		})
+	}
+}
+
+func TestContinuationRefusesAttachmentWithoutActivationAndPersistsNoSuccessor(t *testing.T) {
+	for _, fault := range activationFaults() {
+		t.Run(fault.name, func(t *testing.T) {
+			s := newSafetyLifecycle(t)
+			requestDigest := s.reviewAndRequest()
+			s.approveWorkPlan(requestDigest)
+			// Acceptance happens while activation is valid; only attachment
+			// remains. This is the exact state the independent review found
+			// bypassable.
+			if _, err := s.acceptDirect(requestDigest); err != nil {
+				t.Fatalf("accept under valid activation: %v", err)
+			}
+			if got := s.durable(); got != (durableState{acceptances: 1}) {
+				t.Fatalf("expected an accepted, unattached plan: %+v", got)
+			}
+			fault.inject(s)
+			if out, err := s.continueGoal("1"); err == nil {
+				t.Fatalf("continuation attached under %s: %s", fault.name, out)
+			}
+			if got := s.durable(); got != (durableState{acceptances: 1}) {
+				t.Fatalf("refused attachment persisted a successor: %+v", got)
+			}
+		})
+	}
+}
+
+// Direct and continuation routes must apply the same predicate: the same
+// fault is refused with the identical error at each stage.
+func TestDirectAndContinuationEnforceEquivalentActivationPredicate(t *testing.T) {
+	for _, fault := range activationFaults() {
+		t.Run("accept/"+fault.name, func(t *testing.T) {
+			s := newSafetyLifecycle(t)
+			requestDigest := s.reviewAndRequest()
+			s.approveWorkPlan(requestDigest)
+			fault.inject(s)
+			_, selectorErr := s.acceptDirect(requestDigest)
+			_, jsonErr := s.acceptDirectJSON(requestDigest)
+			_, continueErr := s.continueGoal("1")
+			if selectorErr == nil || jsonErr == nil || continueErr == nil {
+				t.Fatalf("an acceptance route accepted under %s: selector=%v json=%v continue=%v", fault.name, selectorErr, jsonErr, continueErr)
+			}
+			if selectorErr.Error() != continueErr.Error() || jsonErr.Error() != continueErr.Error() {
+				t.Fatalf("acceptance routes enforce different predicates:\nselector: %v\njson:     %v\ncontinue: %v", selectorErr, jsonErr, continueErr)
+			}
+			if got := s.durable(); got != (durableState{}) {
+				t.Fatalf("partial mutation after refusal: %+v", got)
+			}
+		})
+		t.Run("attach/"+fault.name, func(t *testing.T) {
+			s := newSafetyLifecycle(t)
+			requestDigest := s.reviewAndRequest()
+			s.approveWorkPlan(requestDigest)
+			if _, err := s.acceptDirect(requestDigest); err != nil {
+				t.Fatal(err)
+			}
+			ref := "acceptance:" + s.requestID(requestDigest)
+			fault.inject(s)
+			_, selectorErr := s.attachDirect(ref)
+			_, jsonErr := s.attachDirectJSON(ref)
+			_, continueErr := s.continueGoal("1")
+			if selectorErr == nil || jsonErr == nil || continueErr == nil {
+				t.Fatalf("an attachment route attached under %s: selector=%v json=%v continue=%v", fault.name, selectorErr, jsonErr, continueErr)
+			}
+			if selectorErr.Error() != continueErr.Error() || jsonErr.Error() != continueErr.Error() {
+				t.Fatalf("attachment routes enforce different predicates:\nselector: %v\njson:     %v\ncontinue: %v", selectorErr, jsonErr, continueErr)
+			}
+			if got := s.durable(); got != (durableState{acceptances: 1}) {
+				t.Fatalf("partial mutation after refusal: %+v", got)
+			}
+		})
+	}
+}
+
+func (s *safetyLifecycle) requestID(requestDigest string) string {
+	s.t.Helper()
+	repo, db, err := openGovernedRepository(s.ctx, s.governed)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	defer db.Close()
+	request, err := repo.LoadAuthorityRequestByDigest(s.ctx, requestDigest, time.Now().UTC())
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return request.ID
+}
+
+// Restart never lifts the refusal: each CLI invocation reopens durable state,
+// a refused mutation stays refused until activation is truly restored, and a
+// restored activation completes exactly the deterministic remainder.
+func TestActivationRefusalSurvivesRestartAndRecoversOnlyWithRestoredActivation(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	requestDigest := s.reviewAndRequest()
+	s.approveWorkPlan(requestDigest)
+	if _, err := s.acceptDirect(requestDigest); err != nil {
+		t.Fatal(err)
+	}
+	s.removeActivation()
+	for i := 0; i < 3; i++ {
+		if _, err := s.continueGoal("1"); err == nil {
+			t.Fatalf("restart %d bypassed the missing activation", i)
+		}
+	}
+	if got := s.durable(); got != (durableState{acceptances: 1}) {
+		t.Fatalf("restarts changed durable state: %+v", got)
+	}
+	s.restoreActivation()
+	out, err := s.continueGoal("1")
+	if err != nil || !strings.Contains(string(out), `"goal_version": "2"`) {
+		t.Fatalf("restored activation must complete the remaining transition: %v %s", err, out)
+	}
+	// Even the replay of an existing successor is not observable without the
+	// activation, exactly as the direct attach operation behaves.
+	s.removeActivation()
+	if _, err := s.continueGoal("1"); err == nil {
+		t.Fatal("replay of an attached safety-bearing plan bypassed activation")
+	}
+	if _, err := s.attachDirect("acceptance:" + s.requestID(requestDigest)); err == nil {
+		t.Fatal("direct attach replay bypassed activation")
+	}
+}
+
+// Repository-level backstop: the predicate is enforced where state is
+// written, so a caller that never invokes the CLI predicate still cannot
+// persist. Every safety-dependent write is refused with no verifier and with a
+// refusing verifier, and each refusal leaves nothing behind.
+func TestSafetyBearingRepositoryMutationsRefuseWithoutCurrentActivation(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	requestDigest := s.reviewAndRequest()
+	s.approveWorkPlan(requestDigest)
+	if _, err := s.acceptDirect(requestDigest); err != nil {
+		t.Fatal(err)
+	}
+	acceptanceRef := "acceptance:" + s.requestID(requestDigest)
+	now := time.Now().UTC()
+
+	openWith := func(verifier goalstore.SafetyActivationVerifier) goalstore.Repository {
+		repo, db, err := openGovernedRepository(s.ctx, s.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		repo.SafetyActivation = verifier
+		return repo
+	}
+	// A second, still-pending protected request to attempt a decision on.
+	pendingRequest := func() contracts.AuthorityRequest {
+		repo := openWith(lifecycleSafetyActivation{getenv: s.env})
+		original, err := repo.LoadAuthorityRequest(s.ctx, s.requestID(requestDigest), "1", now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next := original
+		next.ID = "workplan-accept:second-" + strings.ReplaceAll(t.Name(), "/", "-")
+		if _, err := repo.SaveAuthorityRequest(s.ctx, next, now, nil); err != nil {
+			t.Fatalf("protected request under valid activation: %v", err)
+		}
+		return next
+	}
+	second := pendingRequest()
+
+	refusing := refusingActivation{errors.New("kernel skewed")}
+	for name, verifier := range map[string]goalstore.SafetyActivationVerifier{"no verifier": nil, "refusing verifier": refusing} {
+		repo := openWith(verifier)
+		other := s.proposal
+		other.ID = "proposal-v4-unverified"
+		if _, err := repo.SaveWorkPlanProposal(s.ctx, other, "4", now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: proposal persisted: %v", name, err)
+		}
+		if _, err := repo.LoadWorkPlanProposal(s.ctx, other.ID, "4", now); err == nil {
+			t.Fatalf("%s: refused proposal is durable", name)
+		}
+		if err := repo.SaveWorkPlanReview(s.ctx, s.proposal.ID, "4", contracts.WorkPlanProposalReview{}, "9", now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: review persisted: %v", name, err)
+		}
+		fresh := second
+		fresh.ID = "workplan-accept:third-" + strings.ReplaceAll(name, " ", "-")
+		if _, err := repo.SaveAuthorityRequest(s.ctx, fresh, now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: protected request persisted: %v", name, err)
+		}
+		if _, err := repo.LoadAuthorityRequest(s.ctx, fresh.ID, "1", now); err == nil {
+			t.Fatalf("%s: refused request is durable", name)
+		}
+		decision := contracts.AuthorityDecision{RequestID: second.ID, RequestVersion: second.Version, DecisionRef: "d", DecisionVersion: "1", DecidedBy: s.root.Principal, AuthorityRef: s.root.Ref, AuthorityVersion: s.root.Version, AuthorityGenerationDigest: s.root.Digest, GrantedScope: s.root.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: s.root.AuthorityModelDigest, IssuedAt: now, CeremonyEvidenceDigest: "sha256:" + strings.Repeat("9", 64)}
+		decision.RequestDigest, _ = second.Digest()
+		if err := repo.SaveAuthorityDecision(s.ctx, second.ID, second.Version, decision, now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: protected decision persisted: %v", name, err)
+		}
+		if _, err := repo.LoadAuthorityDecision(s.ctx, second.ID, second.Version, now); err == nil {
+			t.Fatalf("%s: refused decision is durable", name)
+		}
+		if _, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(s.ctx, s.requestID(requestDigest), "1", contracts.WorkPlan{}, "acceptance:again-"+strings.ReplaceAll(name, " ", "-"), "1", now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: acceptance persisted: %v", name, err)
+		}
+		if _, err := repo.AttachAcceptedWorkPlan(s.ctx, repairGoalID, "1", s.baseline.Digest, acceptanceRef, "1", "2", now, nil); !errors.Is(err, goalstore.ErrSafetyActivationRequired) {
+			t.Fatalf("%s: successor persisted: %v", name, err)
+		}
+	}
+	if got := s.durable(); got != (durableState{acceptances: 1}) {
+		t.Fatalf("refused repository mutations changed durable state: %+v", got)
+	}
+	// With a current verifier the same attachment succeeds, proving the
+	// refusals above were about activation and nothing else.
+	if _, err := openWith(lifecycleSafetyActivation{getenv: s.env}).AttachAcceptedWorkPlan(s.ctx, repairGoalID, "1", s.baseline.Digest, acceptanceRef, "1", "2", now, nil); err != nil {
+		t.Fatalf("attachment under current activation: %v", err)
+	}
+}
+
+type refusingActivation struct{ err error }
+
+func (r refusingActivation) Verify(context.Context, contracts.WorkPlanSafetyBinding) error {
+	return r.err
+}
+
+// B1 ---------------------------------------------------------------------
+
+type gateHarness struct {
+	*safetyLifecycle
+	successor goals.GoalBaseline
+	ledger    goaldrive.Ledger
+	dossier   contracts.GovernedArtifactEvidence
+}
+
+func gateDossierEvidence(s *safetyLifecycle, dossier contracts.GateDossier, checkpoint string) contracts.GovernedArtifactEvidence {
+	body, err := json.Marshal(dossier)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return contracts.GovernedArtifactEvidence{ProducerCandidateID: "one", ProducerSpecificationHash: s.proposal.Candidates[0].SourceDigest, ValidationProfileDigest: s.proposal.Safety.ValidationProfileDigest, ConformanceQualified: true, Checkpoint: checkpoint, Role: "gate", EvidenceClass: "decision_dossier", SourceRef: "docs/dossier.json", SchemaID: "gate-dossier/1", Digest: repairDigest(body), Bytes: body}
+}
+
+func repairDossier(alternatives ...string) contracts.GateDossier {
+	consequences := map[string]string{}
+	for _, alternative := range alternatives {
+		consequences[alternative] = "consequence of " + alternative
+	}
+	return contracts.GateDossier{SchemaID: "gate-dossier/1", GateID: "gate", ProducerCandidateID: "one", Role: "gate", EvidenceClass: "decision_dossier", Status: contracts.GateDossierStatusUndecided, Question: "choose", OfferedAlternatives: alternatives, Consequences: consequences, Evidence: []contracts.GateDossierEvidenceRef{{SourceRef: "docs/evidence.md", SourceDigest: "sha256:" + strings.Repeat("a", 64)}}}
+}
+
+func (s *safetyLifecycle) completeProducer(ledger goaldrive.Ledger, goalVersion string, artifact contracts.GovernedArtifactEvidence) {
+	s.t.Helper()
+	completion := goaldrive.UnitCompletion{GoalID: repairGoalID, GoalVersion: goalVersion, UnitID: "one", InvocationID: "inv-producer", TurnID: "turn-producer", EndHead: artifact.Checkpoint, Evidence: []string{"repository:declared-validation-passed"}, CompletedAt: time.Now().UTC(), MechanismTestsPassed: true, ConformanceQualified: true, SpecificationDigest: s.proposal.Candidates[0].SourceDigest, ValidationProfileDigest: s.proposal.Safety.ValidationProfileDigest, GovernedArtifacts: []contracts.GovernedArtifactEvidence{artifact}}
+	if err := ledger.RecordCompletion(s.ctx, completion); err != nil {
+		s.t.Fatalf("record qualified DOS completion: %v", err)
+	}
+}
+
+// newGateHarness drives the full chain up to a pending gate request:
+// enrollment-shaped root, safety-bearing WorkPlan through review, owner
+// request/decision, continuation to an attached generation, qualified DOS
+// evidence in the ledger, and the controller selecting the gate.
+func newGateHarness(t *testing.T) *gateHarness {
+	t.Helper()
+	s := newSafetyLifecycle(t)
+	requestDigest := s.reviewAndRequest()
+	s.approveWorkPlan(requestDigest)
+	if _, err := s.continueGoal("1"); err != nil {
+		t.Fatalf("continue to attached generation: %v", err)
+	}
+	repo, db, err := openGovernedRepository(s.ctx, s.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	successor, err := repo.Load(s.ctx, repairGoalID, "2", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &gateHarness{safetyLifecycle: s, successor: successor, ledger: goaldrive.Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}}
+	h.dossier = gateDossierEvidence(s, repairDossier("finish and reconcile", "authenticated interrupt"), "head-1")
+	s.completeProducer(h.ledger, "2", h.dossier)
+	return h
+}
+
+// drive runs one controller turn against the production GoalStore as the
+// authority-gate coordinator, through newGoalDriveController, the constructor buildGoalDriveRuntime itself uses.
+func (h *gateHarness) drive(ledger goaldrive.Ledger, turn string) (*goaldrive.AuthorityRequiredError, error) {
+	h.t.Helper()
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer db.Close()
+	controller := newGoalDriveController(ledger, nil, nil, repo, 0, h.env)
+	baseline := h.successor
+	_, err = controller.ExecuteTurn(h.ctx, goaldrive.TurnRequest{GoalID: repairGoalID, GoalVersion: "2", InvocationID: "inv-" + turn, TurnID: turn, Mode: goaldrive.ModeSupervised, GoalBaseline: &baseline})
+	var required *goaldrive.AuthorityRequiredError
+	if errors.As(err, &required) {
+		return required, err
+	}
+	return nil, err
+}
+
+func (h *gateHarness) pendingGate(ledger goaldrive.Ledger, turn string) contracts.AuthorityRequest {
+	h.t.Helper()
+	required, err := h.drive(ledger, turn)
+	if required == nil || len(required.Requests) != 1 {
+		h.t.Fatalf("the controller must stop at exactly one pending gate request: %v", err)
+	}
+	return required.Requests[0]
+}
+
+// ceremony records the durable owner-ceremony evidence a legitimate decision
+// resolves, exactly as the interactive ceremony does after its confirmation.
+func (h *gateHarness) ceremony(repo goalstore.Repository, requestDigest, outcome, alternative string) string {
+	h.t.Helper()
+	current, err := authenticatedOSUser()
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	confirmation := sha256.Sum256([]byte("DECIDE-" + strings.ToUpper(outcome) + " " + requestDigest))
+	digest, err := repo.SaveOwnerCeremony(h.ctx, contracts.OwnerCeremonyEvidence{Profile: contracts.OwnerCeremonyProfile, RequestDigest: requestDigest, Outcome: outcome, SelectedAlternative: alternative, Owner: h.root.Principal, RootRef: h.root.Ref, RootVersion: h.root.Version, RootDigest: h.root.Digest, AuthenticatedOSUser: current.Username, ConfirmationDigest: "sha256:" + hex.EncodeToString(confirmation[:]), ConfirmedAt: time.Now().UTC()}, time.Now().UTC())
+	if err != nil {
+		h.t.Fatalf("record ceremony evidence: %v", err)
+	}
+	return digest
+}
+
+func (h *gateHarness) decide(requestDigest, outcome, alternative, typed string) (string, error) {
+	h.t.Helper()
+	args := []string{"--request", requestDigest, "--outcome", outcome}
+	if alternative != "" {
+		args = append(args, "--alternative", alternative)
+	}
+	var out bytes.Buffer
+	err := runAuthorityDecideWithTerminal(args, h.env, strings.NewReader(typed+"\n"), &out, true)
+	return out.String(), err
+}
+
+func (h *gateHarness) decisionFor(request contracts.AuthorityRequest) (contracts.AuthorityDecision, error) {
+	h.t.Helper()
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer db.Close()
+	return repo.LoadAuthorityDecision(h.ctx, request.ID, request.Version, time.Now().UTC())
+}
+
+func TestGoalGateCompletesThroughTheSupportedOwnerCeremony(t *testing.T) {
+	h := newGateHarness(t)
+
+	// The canonical root is exactly what `authority bootstrap` derives.
+	bootstrapDigest := strings.TrimPrefix(h.root.Ref, contracts.InstallationGovernanceScopePrefix)
+	wantScope, _ := contracts.InstallationGovernanceScope(bootstrapDigest)
+	wantOwner, _ := contracts.InstallationOwnerPrincipal(bootstrapDigest)
+	if h.root.Scope != wantScope || h.root.Principal != wantOwner || h.root.ParentRef != "" {
+		t.Fatalf("fixture root is not the canonical enrolled installation root: %+v", h.root)
+	}
+
+	request := h.pendingGate(h.ledger, "turn-gate-1")
+	requestDigest, err := request.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// B1: authority and subject are distinct and both exact.
+	if request.RequestedScope != h.root.Scope {
+		t.Fatalf("gate authority scope %q is not the installation governance scope %q", request.RequestedScope, h.root.Scope)
+	}
+	if request.SubjectScope != "goal:"+repairGoalID+"/2" || request.BaselineDigest != h.successor.Digest || request.GateCandidateID != "gate" || request.DossierDigest != h.dossier.Digest || request.DossierProducerCandidate != "one" {
+		t.Fatalf("gate request lost its exact subject/dossier binding: %+v", request)
+	}
+	if len(request.Alternatives) != 2 || request.CeremonyProfile != "interactive-os-owner-v1" {
+		t.Fatalf("gate request alternatives/ceremony: %+v", request)
+	}
+
+	// Without a decision the gate stays pending and never completes.
+	if again := h.pendingGate(h.ledger, "turn-gate-2"); again.ID != request.ID {
+		t.Fatalf("re-entry changed the pending gate identity: %s != %s", again.ID, request.ID)
+	}
+	if completions, _ := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2"); len(completions) != 1 {
+		t.Fatalf("a pending gate produced a completion: %+v", completions)
+	}
+
+	// The prompt shows the owner the actual subject, not just a digest.
+	prompt, err := h.decide(requestDigest, "approve", "authenticated interrupt", "wrong confirmation")
+	if err == nil {
+		t.Fatal("wrong confirmation phrase was accepted")
+	}
+	for _, want := range []string{request.SubjectScope, "gate gate", request.DossierDigest, "finish and reconcile", "authenticated interrupt", h.root.Ref} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("owner prompt omits %q: %s", want, prompt)
+		}
+	}
+	if _, err := h.decisionFor(request); err == nil {
+		t.Fatal("a refused ceremony persisted a decision")
+	}
+
+	// The exact ceremony now succeeds and binds the exact alternative.
+	out, err := h.decide(requestDigest, "approve", "authenticated interrupt", "DECIDE-APPROVE "+requestDigest+" ALTERNATIVE authenticated interrupt")
+	if err != nil {
+		t.Fatalf("supported owner ceremony rejected the generated gate request: %v\n%s", err, out)
+	}
+	decision, err := h.decisionFor(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.SelectedAlternative != "authenticated interrupt" || decision.RequestDigest != requestDigest || decision.GrantedScope != h.root.Scope || decision.DecidedBy != wantOwner || decision.AuthorityGenerationDigest != h.root.Digest || decision.CeremonyEvidenceDigest == "" {
+		t.Fatalf("durable decision is not the owner's exact bound decision: %+v", decision)
+	}
+
+	// The gate completes from the durable decision and still stops the turn.
+	_, driveErr := h.drive(h.ledger, "turn-gate-3")
+	if !errors.Is(driveErr, goaldrive.ErrHumanAuthorityGate) {
+		t.Fatalf("approved gate must record completion and stop the turn: %v", driveErr)
+	}
+	completions, err := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gateCompletion *goaldrive.UnitCompletion
+	for i := range completions {
+		if completions[i].UnitID == "gate" {
+			gateCompletion = &completions[i]
+		}
+	}
+	if gateCompletion == nil || !gateCompletion.AuthorityGate {
+		t.Fatalf("gate completion is not durable: %+v", completions)
+	}
+	decisionDigest, _ := decision.Digest()
+	joined := strings.Join(gateCompletion.Evidence, "\n")
+	for _, want := range []string{"dossier:" + h.dossier.Digest, "authority-request:" + requestDigest, "authority-decision:" + decisionDigest} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("gate completion does not bind %q: %s", want, joined)
+		}
+	}
+
+	// Replay: the ceremony returns the recorded decision, never a second one.
+	replay, err := h.decide(requestDigest, "reject", "", "DECIDE-REJECT "+requestDigest)
+	if err != nil || !strings.Contains(replay, `"replay": true`) || !strings.Contains(replay, `"selected_alternative": "authenticated interrupt"`) {
+		t.Fatalf("replay must report the recorded decision: %v %s", err, replay)
+	}
+}
+
+func TestGoalGateRejectionThroughTheOwnerCeremonyNeverCompletesTheGate(t *testing.T) {
+	h := newGateHarness(t)
+	request := h.pendingGate(h.ledger, "turn-gate-1")
+	requestDigest, _ := request.Digest()
+	if out, err := h.decide(requestDigest, "reject", "", "DECIDE-REJECT "+requestDigest); err != nil {
+		t.Fatalf("owner rejection must be decidable: %v %s", err, out)
+	}
+	_, err := h.drive(h.ledger, "turn-gate-2")
+	if err == nil || !strings.Contains(err.Error(), "rejected") {
+		t.Fatalf("a rejected gate must fail closed: %v", err)
+	}
+	if completions, _ := h.ledger.LoadCompletions(h.ctx, repairGoalID, "2"); len(completions) != 1 {
+		t.Fatalf("a rejected gate completed: %+v", completions)
+	}
+}
+
+func TestGoalGateOwnerCeremonyAdversarialRejections(t *testing.T) {
+	t.Run("wrong owner: a different authenticated OS user", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		requestDigest, _ := request.Digest()
+		original := authenticatedOSUser
+		authenticatedOSUser = func() (*user.User, error) { return &user.User{Username: "not-the-enrolled-owner"}, nil }
+		defer func() { authenticatedOSUser = original }()
+		out, err := h.decide(requestDigest, "approve", "finish and reconcile", "DECIDE-APPROVE "+requestDigest+" ALTERNATIVE finish and reconcile")
+		if err == nil || !strings.Contains(err.Error(), "OS user") || strings.Contains(out, "Type ") {
+			t.Fatalf("a non-owner reached the ceremony: %v %s", err, out)
+		}
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("a non-owner decision was persisted")
+		}
+	})
+
+	t.Run("wrong owner: persistence refuses a decision by any other principal", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		requestDigest, _ := request.Digest()
+		repo, db, err := openGovernedRepository(h.ctx, h.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		valid := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: h.root.Principal, AuthorityRef: h.root.Ref, AuthorityVersion: h.root.Version, AuthorityGenerationDigest: h.root.Digest, GrantedScope: h.root.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: h.root.AuthorityModelDigest, IssuedAt: time.Now().UTC(), SelectedAlternative: "finish and reconcile"}
+		valid.CeremonyEvidenceDigest = h.ceremony(repo, requestDigest, "approve", "finish and reconcile")
+		mutations := map[string]func(*contracts.AuthorityDecision){
+			"another installation's owner": func(d *contracts.AuthorityDecision) {
+				d.DecidedBy = contracts.PrincipalRef{ID: "installation-owner:sha256:" + strings.Repeat("1", 64), Kind: "human"}
+			},
+			"a model principal": func(d *contracts.AuthorityDecision) {
+				d.DecidedBy = contracts.PrincipalRef{ID: "planner", Kind: "model"}
+			},
+			"a worker agent": func(d *contracts.AuthorityDecision) {
+				d.DecidedBy = contracts.PrincipalRef{ID: "worker", Kind: "agent"}
+			},
+			"wrong authority scope": func(d *contracts.AuthorityDecision) { d.GrantedScope = "goal:" + repairGoalID + "/2" },
+			"foreign governance scope": func(d *contracts.AuthorityDecision) {
+				d.GrantedScope = contracts.InstallationGovernanceScopePrefix + "sha256:" + strings.Repeat("1", 64)
+			},
+			"forged root generation": func(d *contracts.AuthorityDecision) {
+				d.AuthorityGenerationDigest = "sha256:" + strings.Repeat("6", 64)
+			},
+			"unknown authority generation": func(d *contracts.AuthorityDecision) {
+				d.AuthorityRef, d.AuthorityVersion = "authority-delegation:forged", "1"
+			},
+			"wrong request digest":            func(d *contracts.AuthorityDecision) { d.RequestDigest = "sha256:" + strings.Repeat("0", 64) },
+			"alternative not offered":         func(d *contracts.AuthorityDecision) { d.SelectedAlternative = "silently invented" },
+			"approval without an alternative": func(d *contracts.AuthorityDecision) { d.SelectedAlternative = "" },
+			"missing ceremony evidence":       func(d *contracts.AuthorityDecision) { d.CeremonyEvidenceDigest = "" },
+		}
+		for name, mutate := range mutations {
+			forged := valid
+			mutate(&forged)
+			err := repo.SaveAuthorityDecision(h.ctx, request.ID, request.Version, forged, time.Now().UTC(), nil)
+			if err == nil {
+				t.Fatalf("%s: forged gate decision was persisted", name)
+			}
+			t.Logf("%s: rejected: %v", name, err)
+		}
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("a rejected forgery left a durable decision")
+		}
+		// The exact owner decision is still the only one that persists.
+		if err := repo.SaveAuthorityDecision(h.ctx, request.ID, request.Version, valid, time.Now().UTC(), nil); err != nil {
+			t.Fatalf("the exact owner decision must persist: %v", err)
+		}
+	})
+
+	t.Run("wrong authority scope: a goal-scoped or foreign request cannot exist", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		repo, db, err := openGovernedRepository(h.ctx, h.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		for name, scope := range map[string]string{
+			"goal scope as authority":  "goal:" + repairGoalID + "/2",
+			"foreign governance scope": contracts.InstallationGovernanceScopePrefix + "sha256:" + strings.Repeat("1", 64),
+		} {
+			forged := request
+			forged.ID, forged.RequestedScope = "goal-gate:forged-"+strings.ReplaceAll(name, " ", "-"), scope
+			if _, err := repo.SaveAuthorityRequest(h.ctx, forged, time.Now().UTC(), nil); err == nil {
+				t.Fatalf("%s: gate request with a non-installation authority scope was persisted", name)
+			}
+		}
+		wrongSubject := request
+		wrongSubject.ID, wrongSubject.SubjectScope = "goal-gate:forged-subject", "goal:"+repairGoalID+"/9"
+		if _, err := repo.SaveAuthorityRequest(h.ctx, wrongSubject, time.Now().UTC(), nil); err == nil {
+			t.Fatal("gate request naming another Goal generation as its subject was persisted")
+		}
+	})
+
+	t.Run("wrong request: confirmation or digest for a different request", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		requestDigest, _ := request.Digest()
+		other := "sha256:" + strings.Repeat("0", 64)
+		if _, err := h.decide(other, "approve", "finish and reconcile", "DECIDE-APPROVE "+other+" ALTERNATIVE finish and reconcile"); err == nil {
+			t.Fatal("a digest that names no request was decided")
+		}
+		if _, err := h.decide(requestDigest, "approve", "finish and reconcile", "DECIDE-APPROVE "+other+" ALTERNATIVE finish and reconcile"); err == nil {
+			t.Fatal("a confirmation naming another request was accepted")
+		}
+		// The already-decided WorkPlan request is a different request: its
+		// recorded disposition is replayed, and it cannot decide the gate.
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("wrong-request attempts left a gate decision")
+		}
+		// Non-interactive, and the read-only lifecycle decide, cannot decide it.
+		if err := runAuthorityDecideWithTerminal([]string{"--request", requestDigest, "--outcome", "approve", "--alternative", "finish and reconcile"}, h.env, strings.NewReader("x\n"), &bytes.Buffer{}, false); err == nil {
+			t.Fatal("a non-interactive caller decided the gate")
+		}
+		forgery := map[string]any{"RequestID": request.ID, "RequestVersion": request.Version, "decision": contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: "d", DecisionVersion: "1", DecidedBy: h.root.Principal, Outcome: contracts.AuthorityApprove}}
+		if _, err := h.run("goals-lifecycle", "--operation=decide", "--input="+writeLifecycleInput(t, h.dir, "forged-gate-decision.json", forgery)); err == nil {
+			t.Fatal("goals-lifecycle decide recorded a gate decision")
+		}
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("a model/worker route persisted a gate decision")
+		}
+	})
+
+	t.Run("wrong alternative", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		requestDigest, _ := request.Digest()
+		cases := []struct{ name, outcome, alternative, typed string }{
+			{"none offered-matching", "approve", "silently invented", "DECIDE-APPROVE " + requestDigest + " ALTERNATIVE silently invented"},
+			{"approval without alternative", "approve", "", "DECIDE-APPROVE " + requestDigest},
+			{"alternative on rejection", "reject", "finish and reconcile", "DECIDE-REJECT " + requestDigest + " ALTERNATIVE finish and reconcile"},
+			{"confirmation omits the chosen alternative", "approve", "finish and reconcile", "DECIDE-APPROVE " + requestDigest},
+			{"confirmation names a different alternative", "approve", "finish and reconcile", "DECIDE-APPROVE " + requestDigest + " ALTERNATIVE authenticated interrupt"},
+		}
+		for _, tc := range cases {
+			if _, err := h.decide(requestDigest, tc.outcome, tc.alternative, tc.typed); err == nil {
+				t.Fatalf("%s: accepted", tc.name)
+			}
+		}
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("a wrong-alternative attempt persisted a decision")
+		}
+	})
+
+	t.Run("wrong dossier: a decision on one dossier never completes another", func(t *testing.T) {
+		h := newGateHarness(t)
+		first := h.pendingGate(h.ledger, "turn-gate-1")
+		firstDigest, _ := first.Digest()
+		if _, err := h.decide(firstDigest, "approve", "finish and reconcile", "DECIDE-APPROVE "+firstDigest+" ALTERNATIVE finish and reconcile"); err != nil {
+			t.Fatal(err)
+		}
+		// The producer re-runs and yields different qualified dossier bytes.
+		reproduced := goaldrive.Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+		swapped := gateDossierEvidence(h.safetyLifecycle, repairDossier("finish and reconcile", "authenticated interrupt", "a third option"), "head-2")
+		h.completeProducer(reproduced, "2", swapped)
+		second := h.pendingGate(reproduced, "turn-gate-2")
+		secondDigest, _ := second.Digest()
+		if second.ID == first.ID || secondDigest == firstDigest || second.DossierDigest != swapped.Digest {
+			t.Fatalf("a different dossier reused the earlier request identity: %+v", second)
+		}
+		if completions, _ := reproduced.LoadCompletions(h.ctx, repairGoalID, "2"); len(completions) != 1 {
+			t.Fatalf("the earlier decision completed a different dossier's gate: %+v", completions)
+		}
+		if _, err := h.decisionFor(second); err == nil {
+			t.Fatal("the earlier dossier's decision is visible on the new request")
+		}
+	})
+
+	t.Run("replay and substitution", func(t *testing.T) {
+		h := newGateHarness(t)
+		first := h.pendingGate(h.ledger, "turn-gate-1")
+		firstDigest, _ := first.Digest()
+		if _, err := h.decide(firstDigest, "approve", "finish and reconcile", "DECIDE-APPROVE "+firstDigest+" ALTERNATIVE finish and reconcile"); err != nil {
+			t.Fatal(err)
+		}
+		decided, err := h.decisionFor(first)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A recorded decision cannot be substituted onto a request for a
+		// different dossier, alternative set, or Goal generation.
+		reproduced := goaldrive.Ledger{Store: eventstore.NewMemoryStore(), Actor: contracts.PrincipalRef{ID: "controller", Kind: "controller"}}
+		h.completeProducer(reproduced, "2", gateDossierEvidence(h.safetyLifecycle, repairDossier("finish and reconcile", "authenticated interrupt", "a third option"), "head-2"))
+		second := h.pendingGate(reproduced, "turn-gate-2")
+		repo, db, err := openGovernedRepository(h.ctx, h.env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		substituted := decided
+		substituted.RequestID, substituted.RequestVersion = second.ID, second.Version
+		if err := repo.SaveAuthorityDecision(h.ctx, second.ID, second.Version, substituted, time.Now().UTC(), nil); err == nil {
+			t.Fatal("a decision recorded for one gate request was substituted onto another")
+		}
+		// The same decision cannot be re-recorded differently.
+		conflicting := decided
+		conflicting.Outcome, conflicting.SelectedAlternative = contracts.AuthorityReject, ""
+		if err := repo.SaveAuthorityDecision(h.ctx, first.ID, first.Version, conflicting, time.Now().UTC(), nil); err == nil {
+			t.Fatal("a conflicting second decision replaced the recorded one")
+		}
+		if again, err := h.decisionFor(first); err != nil || again.Outcome != contracts.AuthorityApprove || again.SelectedAlternative != "finish and reconcile" {
+			t.Fatalf("the recorded decision changed: %+v %v", again, err)
+		}
+	})
+
+	t.Run("no decision without current activation", func(t *testing.T) {
+		h := newGateHarness(t)
+		request := h.pendingGate(h.ledger, "turn-gate-1")
+		requestDigest, _ := request.Digest()
+		h.removeActivation()
+		if _, err := h.decide(requestDigest, "approve", "finish and reconcile", "DECIDE-APPROVE "+requestDigest+" ALTERNATIVE finish and reconcile"); err == nil {
+			t.Fatal("a gate decision was persisted without current kernel activation")
+		}
+		if _, err := h.decisionFor(request); err == nil {
+			t.Fatal("refused ceremony left a decision")
+		}
+	})
+}
+
+// Ensures the shared fixture's manifest really is what VerifyFile would read.
+func TestRepairFixtureManifestBindsThePlanThroughTheRealVerifier(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	roDB, err := state.OpenSQLiteReadOnly(s.ctx, s.governed("PRAXIS_DB"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := activeGoalsPackageIdentity(s.ctx, state.New(roDB))
+	roDB.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bootstrapv4.VerifyManifestFile(s.manifestPath, *s.proposal.Safety, identity); err != nil {
+		t.Fatalf("fixture activation does not bind the plan: %v", err)
+	}
+	skewed := *s.proposal.Safety
+	skewed.SpecificationBundleDigest = "sha256:" + strings.Repeat("7", 64)
+	if _, err := bootstrapv4.VerifyManifestFile(s.manifestPath, skewed, identity); err == nil {
+		t.Fatal("a plan with another specification bundle verified against this activation")
+	}
+	identity.ContentDigest = "sha256:" + strings.Repeat("8", 64)
+	if _, err := bootstrapv4.VerifyManifestFile(s.manifestPath, *s.proposal.Safety, identity); err == nil {
+		t.Fatal("a skewed active package verified against this activation")
+	}
+}

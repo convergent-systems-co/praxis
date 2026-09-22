@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-evolution-execution-boundary","kind":"hard_dependency","prerequisite":"unit:hi-requirement-evolution-classification-and-successor","provenance":"model_proposal","rationale":"unit:hi-evolution-execution-boundary cannot be truthfully implemented or qualified until unit:hi-requirement-evolution-classification-and-successor is complete."}

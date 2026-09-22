@@ -1,0 +1,15 @@
+=== RUN   TestR2RevokedGateDecisionStillCountsAsCompletedGate
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    zz_r2_probe_test.go:52: after gate-decision revocation: assessment.AllUnitsComplete=true err=<nil>
+    zz_r2_probe_test.go:54: drive after gate-decision revocation: authority decision is revoked
+    zz_r2_probe_test.go:59: NOT REPRODUCED: drive re-verified the gate decision: authority decision is revoked
+--- FAIL: TestR2RevokedGateDecisionStillCountsAsCompletedGate (0.09s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	0.507s
+FAIL

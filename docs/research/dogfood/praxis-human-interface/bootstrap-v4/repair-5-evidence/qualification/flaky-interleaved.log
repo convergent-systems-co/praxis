@@ -1,0 +1,41 @@
+### batch 1 candidate load=14.15 19.20 20.88
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	13.088s
+### batch 1 base load=14.52 19.02 20.78
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	12.649s
+### batch 2 candidate load=17.12 19.38 20.88
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	11.049s
+### batch 2 base load=15.83 19.02 20.74
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	15.851s
+### batch 3 candidate load=14.73 18.58 20.54
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.91s)
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.59s)
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.46s)
+    concurrency_fanout_test.go:452: lease contention: 20 exclusive holds across 4 processes, 80 deterministic denials, no overlap
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	16.174s
+### batch 3 base load=17.68 19.02 20.66
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.38s)
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	14.930s
+### batch 4 candidate load=16.39 18.64 20.49
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.68s)
+    concurrency_fanout_test.go:452: lease contention: 24 exclusive holds across 4 processes, 76 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	16.329s
+### batch 4 base load=20.74 19.38 20.71
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.05s)
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	14.241s
+### batch 5 candidate load=25.64 20.60 21.12
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	11.373s
+### batch 5 base load=22.67 20.13 20.95
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	18.712s
+### batch 6 candidate load=29.59 21.86 21.55
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	11.139s
+### batch 6 base load=25.55 21.35 21.37
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.52s)
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	18.203s

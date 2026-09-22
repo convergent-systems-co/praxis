@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-human-lifecycle-flow","kind":"hard_dependency","prerequisite":"unit:hi-ontology-and-surface-contract","provenance":"model_proposal","rationale":"unit:hi-human-lifecycle-flow cannot be truthfully implemented or qualified until unit:hi-ontology-and-surface-contract is complete."}

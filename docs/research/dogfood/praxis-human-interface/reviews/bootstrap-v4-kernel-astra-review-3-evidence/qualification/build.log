@@ -1,0 +1,17 @@
+5e617aab7343e015f4f0ea43cf6ed107e46187cf0ea94e3c8e550886d3525129  /private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/5476c7d3-fd7d-4228-a3ea-05b5d8278684/scratchpad/q/praxis-rebuild
+/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/5476c7d3-fd7d-4228-a3ea-05b5d8278684/scratchpad/q/praxis-rebuild: go1.27.1
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	DefaultGODEBUG=cryptocustomrand=1,tlssecpmlkem=0,tracebacklabels=0,urlstrictcolons=0,x509sslcertoverrideplatform=0
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	GOARM64=v8.0
+	build	vcs=git
+	build	vcs.revision=ff146000aadae0ef60981d445056089f52815869
+	build	vcs.time=2026-09-20T21:24:47Z
+	build	vcs.modified=true

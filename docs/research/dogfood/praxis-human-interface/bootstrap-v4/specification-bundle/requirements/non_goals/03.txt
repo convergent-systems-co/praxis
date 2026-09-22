@@ -1,0 +1,1 @@
+Predetermine whether Story, Intent, Requirement, Goal, Feature, or Task is the correct final human-facing ontology.

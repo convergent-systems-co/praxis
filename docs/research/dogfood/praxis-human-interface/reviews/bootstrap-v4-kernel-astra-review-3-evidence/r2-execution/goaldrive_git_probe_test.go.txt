@@ -1,0 +1,115 @@
+package goaldrive
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+const flagValidator = `#!/bin/sh
+set -eu
+if [ "${1:-integrated}" = integrated ]; then
+  [ "$(cat flag)" = ok ] || { echo "flag is not ok" >&2; exit 1; }
+  exit 0
+fi
+printf 'PRAXIS-VALIDATION %s\n' "$1"
+`
+
+func r2FlagFixture(t *testing.T) *boundGitFixture {
+	f := newBoundGitFixture(t)
+	writeFile(t, filepath.Join(f.work, "flag"), "ok\n")
+	runGitTest(t, f.work, "add", "flag")
+	runGitTest(t, f.work, "commit", "-q", "-m", "flag ok")
+	sum := sha256.Sum256([]byte(flagValidator))
+	f.baseline.WorkPlan.Safety.ValidationProfileDigest = "sha256:" + hex.EncodeToString(sum[:])
+	if err := os.WriteFile(filepath.Join(f.work, ".praxis", "validate"), []byte(flagValidator), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGitTest(t, f.work, "commit", "-q", "-am", "flag validator")
+	runGitTest(t, f.work, "push", "-q", "origin", "main")
+	return f
+}
+
+// R2-6: a worker hides a working-tree divergence from `git status`
+// (assume-unchanged / skip-worktree), so validation runs against content that
+// is NOT the committed checkpoint, yet the turn qualifies and publishes.
+func TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint(t *testing.T) {
+	cases := map[string]string{
+		"assume-unchanged": `printf 'bad\n' > flag && git commit -q -am 'flag bad' -m 'Praxis-Unit-Complete: unit' && printf 'ok\n' > flag && git update-index --assume-unchanged flag`,
+		"skip-worktree":    `printf 'bad\n' > flag && git commit -q -am 'flag bad' -m 'Praxis-Unit-Complete: unit' && printf 'ok\n' > flag && git update-index --skip-worktree flag`,
+	}
+	for name, command := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := r2FlagFixture(t)
+			before := f.remoteHead()
+			record, err := f.turn("inv-h-"+name, command, passingPlanAuthority{})
+			committed := strings.TrimSpace(runGitOutput(t, f.work, "show", "HEAD:flag"))
+			t.Logf("record.Progress=%v published=%v unitCompleted=%v err=%v committed flag=%q remote moved=%v", record.Progress, record.CheckpointPublished, record.UnitCompleted, err, committed, f.remoteHead() != before)
+			if err == nil && record.UnitCompleted && committed == "bad" {
+				t.Logf("REPRODUCED: unit qualified+published although the committed checkpoint fails the validator")
+				return
+			}
+			t.Fatalf("NOT REPRODUCED")
+		})
+	}
+}
+
+// R2-6b: the direct binding predicate.
+func TestR2BindingPredicateBlindToAssumeUnchanged(t *testing.T) {
+	f := r2FlagFixture(t)
+	head := strings.TrimSpace(runGitOutput(t, f.work, "rev-parse", "HEAD"))
+	digest := f.baseline.WorkPlan.Safety.ValidationProfileDigest
+	if err := f.repository.VerifyValidationBinding(context.Background(), head, digest); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(f.work, "flag"), "tampered\n")
+	if err := f.repository.VerifyValidationBinding(context.Background(), head, digest); err == nil {
+		t.Fatal("control failed: plain tamper is not detected")
+	}
+	runGitTest(t, f.work, "update-index", "--assume-unchanged", "flag")
+	err := f.repository.VerifyValidationBinding(context.Background(), head, digest)
+	t.Logf("after assume-unchanged tamper, VerifyValidationBinding err=%v", err)
+	if err != nil {
+		t.Fatalf("NOT REPRODUCED: %v", err)
+	}
+	writeFile(t, filepath.Join(f.work, "extra.go"), "package x\n")
+	writeFile(t, filepath.Join(f.work, ".git", "info", "exclude"), "extra.go\n")
+	if err := f.repository.VerifyValidationBinding(context.Background(), head, digest); err != nil {
+		t.Fatalf("ignored file detected: %v", err)
+	}
+	t.Log("REPRODUCED: assume-unchanged tracked tamper and excluded untracked file are invisible to the binding predicate")
+}
+
+// R2-7: timeout / surviving child / output bound behavior of the bounded validator.
+func TestR2ValidatorTimeoutSurvivingChildAndOutputBound(t *testing.T) {
+	dir := t.TempDir()
+	run := func(name, script string, ctxTimeout time.Duration) {
+		if err := os.MkdirAll(filepath.Join(dir, ".praxis"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ".praxis", "validate"), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		repo := GitRepository{Dir: dir, Remote: "origin", Branch: "main"}
+		ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+		defer cancel()
+		start := time.Now()
+		out, err := repo.RunDeclaredValidationWith(ctx, "integrated")
+		t.Logf("%s: elapsed=%s err=%v outlen=%d", name, time.Since(start).Round(time.Millisecond), err, len(out))
+		if err == nil {
+			t.Errorf("%s: treated as PASS", name)
+		}
+	}
+	run("timeout", "#!/bin/sh\nsleep 30\n", 1*time.Second)
+	run("surviving-child-after-exit0", "#!/bin/sh\nsleep 40 &\nexit 0\n", 30*time.Second)
+	run("output>1MiB-then-exit0", "#!/bin/sh\nhead -c 2000000 /dev/zero | tr '\\0' 'a'\nexit 0\n", 30*time.Second)
+	out, _ := exec.Command("sh", "-c", "pgrep -f 'sleep 40' | head -3").Output()
+	t.Logf("surviving 'sleep 40' pids after validator returned: %q", strings.TrimSpace(string(out)))
+	_ = exec.Command("sh", "-c", "pkill -f 'sleep 40'").Run()
+}

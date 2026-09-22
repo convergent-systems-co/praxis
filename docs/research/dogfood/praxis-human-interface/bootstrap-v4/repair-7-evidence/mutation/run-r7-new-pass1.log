@@ -1,0 +1,52 @@
+KILLED        R7.02    package.publish resolver requires a current lineage (root su  TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority
+KILLED        R7.01    package.publish resolver selects only CURRENT generations (N  TestEveryImmutableGenerationConsumerIsClassified
+SURVIVED      R7.03    resolver: generation State is active  
+SURVIVED      R7.05    resolver: authority model digest is the successor  
+SURVIVED      R7.04    resolver: authority model version is the successor  
+SURVIVED      R7.06    resolver: delegation profile is package.publish  
+SURVIVED      R7.07    resolver: subject digest is the exact publisher generation  
+BUILD-FAILED  R7.10    resolver: the namespace scope is canonical  
+BUILD-FAILED  R7.11    resolver: scope equals the canonical namespace scope  
+SURVIVED      R7.08    resolver: generation carries governed package.publish  
+SURVIVED      R7.09    resolver: scope is a package-namespace scope  
+SURVIVED      R7.13    resolver: delegation reference is well formed  
+SURVIVED      R7.14    resolver: the delegation request loads  
+SURVIVED      R7.12    resolver: package identity is inside the namespace  
+BUILD-FAILED  R7.16    resolver: the request digest matches the decision  
+SURVIVED      R7.15    resolver: the parent decision loads and is current  
+SURVIVED      R7.17    resolver: the generation names its delegation digest  
+SURVIVED      R7.18    resolver: publisher and package identities are required  
+KILLED        R7.19    requireCurrentGeneration refuses an invalidated generation  TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestFAAMixedSnapshotAdvers
+KILLED        R7.20    requireCurrentGeneration requires the authenticated liveness  TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotRes
+SURVIVED      R7.21    requireCurrentLineage refuses a cycle  
+SURVIVED      R7.22    requireCurrentLineage applies currentness to every generatio  
+SURVIVED      R7.23    requireCurrentLineage binds the parent digest  
+BUILD-FAILED  R7.26    current listing requires the liveness record naming the dige  
+KILLED        R7.24    LoadCurrentAuthorityGeneration applies currentness  TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestRetiredPackageManagerG
+SURVIVED      R7.25    current listing drops invalidated generations  
+SURVIVED      R7.27    current listing applies anchored retirement and re-anchor vo  
+KILLED        R7.29    ValidateAuthorityGeneration applies the shared currentness p  TestEveryImmutableGenerationConsumerIsClassified,TestFAAEveryConsumerHonoursFactsAndFreshn
+SURVIVED      R7.28    current listing refuses a store not current against the anch  
+KILLED        R7.30    package-manager resolver selects only CURRENT generations  TestEveryImmutableGenerationConsumerIsClassified
+SURVIVED      R7.31    package-manager resolver requires a current lineage  
+KILLED        R7.32    delegation from a parent (decision+generation entry point) r  TestEveryImmutableGenerationConsumerIsClassified,TestRetiredRootCannotMintADelegatedPublis
+KILLED        R7.33    delegation from a parent (generation entry point) requires a  TestEveryImmutableGenerationConsumerIsClassified
+KILLED        R7.34    package-deploy decision binds a CURRENT operational generati  TestEveryImmutableGenerationConsumerIsClassified
+SURVIVED      R7.35    package-deploy approval derivation requires a CURRENT operat  
+SURVIVED      R7.36    publisher enrollment requires the CURRENT installation root  
+SURVIVED      R7.37    publisher enrollment authenticates the enrolled OS user  
+KILLED        R7.39    abandonment owner authentication uses only CURRENT generatio  TestRetiredRootShapedGenerationCannotAuthenticateTheAbandoningOwner
+KILLED        R7.38    publisher enrollment approval requires the CURRENT installat  TestRetiredInstallationRootCannotApproveAPublisherEnrollment
+SURVIVED      R7.40    recovery-abandonment owner authentication uses only CURRENT   
+SURVIVED      R7.41    re-anchor readmission refuses a root carrying an invalidatio  
+SURVIVED      R7.50    BuildSigningPreview requires an active publisher generation   
+SURVIVED      R7.51    BuildSigningPreview binds the authority key to the publisher  
+SURVIVED      R7.42    the CLI delegation trusts only a CURRENT parent  
+SURVIVED      R7.52    SignWithPreview verifies the preview digest  
+SURVIVED      R7.53    SignWithPreview refuses a preview stale for the package byte  
+SURVIVED      R7.54    SignWithPreview refuses a stale publisher generation  
+SURVIVED      R7.55    SignWithPreview refuses a stale package.publish authority  
+SURVIVED      R7.56    SignWithPreview refuses stale request/decision provenance  
+SURVIVED      R7.57    SignWithPreview requires the protected signer to match the p  
+SURVIVED      R7.58    SignWithPreview refuses expired authority before signing  
+RESTORE-CHECK [('internal/goalstore/publisher_governance.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy0'), ('internal/goalstore/publisher_governance.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy1'), ('internal/goalstore/publisher_governance.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy2'), ('internal/goalspublication/abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy0'), ('internal/goalspublication/abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy1'), ('internal/goalspublication/abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy2'), ('internal/goalspublication/recovery_abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy0'), ('internal/goalspublication/recovery_abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy1'), ('internal/goalspublication/recovery_abandon.go', '/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/copy2')]

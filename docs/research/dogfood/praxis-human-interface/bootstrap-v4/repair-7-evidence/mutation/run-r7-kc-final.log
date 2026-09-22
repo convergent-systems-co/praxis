@@ -1,0 +1,41 @@
+KILLED        R5.70    keychain: not strictly forward  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.71    keychain: expectation compared  TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword,TestKeychainAnchorIsForwardOnlyCom
+KILLED        R5.72    keychain: create refuses an existing item  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+SURVIVED      R5.73    keychain: read-back verified  
+KILLED        R5.74    keychain: another installation's state never returned  TestKeychainAnchorNeverReturnsAnotherInstallationsState
+KILLED        R5.77    keychain: the dedicated file is locked again after every ses  TestKeychainAnchorRefusesOverwriteAddAndReadWithoutThePassword
+KILLED        R5.78    keychain: a missing password item reads as a corrupt anchor  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R5.79    keychain: a malformed password item reads as a corrupt ancho  TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination
+KILLED        R5.80    keychain: a wrong password reads as a corrupt anchor  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R5.81    keychain: a reset tears down the damaged pair first  TestKeychainAnchorOnlyTheGovernedResetRecoversAReplayedFileAndItManufacturesNothing,TestKe
+SURVIVED      R5.82    keychain: a read never creates the keychain  
+KILLED        R5.83    keychain: an unpopulated new keychain is removed  TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved
+SURVIVED      R5.84    keychain: a missing keychain file is a missing anchor  
+KILLED        R5.79j   joint: malformed password item (length check + unlock failur  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R5.82j   joint: a read never creates the keychain (early return + cle  TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorRemovedFileRead
+KILLED        R6.01    Set re-keys the file after every successful advance (N16 rep  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.29    N16 end to end: Review 6's replay of an opaque earlier keych  TestRepair6OpaqueKeychainFileReplayIsRefused
+SURVIVED      R6.02    a freshly created file is not re-keyed (it has a fresh passw  
+KILLED        R6.03    a failed re-key takes the advance back (the refused Set leav  TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorMissingReke
+KILLED        R6.04    a failed re-key is unavailable, never success or corruption   TestKeychainAnchorFailedRekeyNeverAdvancesOrStrandsTheAnchor,TestKeychainAnchorMissingReke
+KILLED        R6.05    an advance that could not be taken back after a failed re-ke  TestKeychainAnchorFailedRekeyThatCannotBeUndoneIsTheStrandedAheadState
+KILLED        R6.06    Revert (undo) re-keys the file too  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.07    a failed re-key during an undo is reported  TestKeychainAnchorInterruptedUndoRecoversAtEveryStep,TestKeychainAnchorMissingRekeyEntryPo
+KILLED        R6.08    the new password is fresh, never the old one (no reuse)  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.09    the new password is recorded as pending BEFORE the file chan  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.10    a refused re-key discards its pending password  TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads,TestKeychainAncho
+KILLED        R6.11    the current password item is updated after the file is re-ke  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.12    the pending password is removed once the re-key is complete  TestKeychainAnchorEveryAdvanceAndUndoRotatesThePassword
+KILLED        R6.13    an interrupted re-key is finished from the pending password  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.14    a stale or junk pending password is discarded once the curre  TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeycha
+KILLED        R6.15    a malformed pending item is junk, discarded and never a pass  TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination
+SURVIVED      R6.16    neither password item present is a missing-password (corrupt  
+KILLED        R6.17    a wrong current password with no usable pending one is a cor  TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination,TestKeycha
+KILLED        R6.18    a promoted pending password is the password the next re-key   TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.19    the pending password is checked against the file before it i  TestKeychainAnchorCurrentAndPendingPasswordStateIsFailClosedForEveryCombination
+KILLED        R6.20    a missing re-key entry point refuses the re-key (no success   TestKeychainAnchorMissingRekeyEntryPointRefusesEveryAdvanceAndStillReads
+KILLED        R6.21    a governed reset discards a pending password with the pair i  TestKeychainAnchorOnlyTheGovernedResetRecoversAReplayedFileAndItManufacturesNothing
+KILLED        R6.22    the re-key compares the earlier password it was given (a wro  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.23    an undo's re-key failure does not report success (Revert ret  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+KILLED        R6.16j   joint: neither password item present is a corrupt anchor (mi  TestKeychainAnchorAWriteRightAfterAnInterruptedRekeyPromotesThenRekeysFromThePromotedPassw
+RESTORE-CHECK OK

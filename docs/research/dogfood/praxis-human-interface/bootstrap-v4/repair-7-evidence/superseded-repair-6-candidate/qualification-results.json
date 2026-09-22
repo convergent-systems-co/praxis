@@ -1,0 +1,335 @@
+{
+  "version": "1",
+  "goal": "praxis-human-interface/1",
+  "classification": "pre-v4-bootstrap-kernel-qualification",
+  "base_commit": "ff146000aadae0ef60981d445056089f52815869",
+  "source_manifest": "source-manifest.json",
+  "source_manifest_digest": "sha256:ffc63fbb33f96896f864def29686b7face5835c268bba6f52e23cfc822589e20",
+  "results": [
+    {
+      "command": "go test -count=1 ./pkg/contracts ./internal/bootstrapv4 ./internal/goaldrive ./internal/goalstore ./internal/state ./internal/goalspublication ./internal/lifecycle ./internal/faa/... ./internal/crypto ./packages/goals ./cmd/praxis (PRAXIS_REQUIRE_KEYCHAIN=1: no real-Keychain test may skip)",
+      "result": "PASS",
+      "evidence": [
+        "repair-6-evidence/qualification/focused.log"
+      ],
+      "summary": "every affected package ok on the frozen source, including the re-key lifecycle tests (rotation on every advance and undo, opaque-file replay refusal, crash recovery at every step, failed and refused re-key, current/pending password-state matrix, missing re-key entry point) against the REAL Keychain backend, with user interaction disabled and a unique service identity per run"
+    },
+    {
+      "command": ".praxis/validate integrated",
+      "effective_command": "make test-current",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/test-current.log",
+      "summary": "all packages ok, exit 0"
+    },
+    {
+      "command": "go test -race -count=1 (the affected packages)",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/race.log",
+      "summary": "11 affected packages ok under the race detector, no failure and no data race reported"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/vet-all.log"
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/python.log",
+      "summary": "1683 passed, 1 skipped in 34.09s"
+    },
+    {
+      "command": "go run bootstrap-v4/verify/specification_bundle.go and an independent Python recomputation",
+      "result": "PASS",
+      "evidence": [
+        "repair-6-evidence/qualification/specification-bundle.log",
+        "repair-6-evidence/qualification/bundle-independent-python.log"
+      ],
+      "summary": "the governed specification contract is unchanged by Repair 6 (canonical digest sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a)"
+    },
+    {
+      "command": "python3 bootstrap-v4/verify/preactivation_evidence.py",
+      "result": "PASS",
+      "summary": "run after this file was written; see preactivation-verification.json"
+    },
+    {
+      "command": "replay of every preserved independent-review probe, unchanged, through go test -overlay (Reviews 2, 3, 4, 5 and 6/N16), each outcome set compared with the recorded one",
+      "result": "COUNTEREXAMPLES_NO_LONGER_REPRODUCE",
+      "evidence": [
+        "repair-6-evidence/qualification/probe-replay-summary.log",
+        "repair-6-evidence/qualification/image-probe-replay-summary.log",
+        "repair-6-evidence/qualification/probe-replays/",
+        "repair-6-evidence/probes/replay_review_probes.py",
+        "repair-6-evidence/probes/image_probe_replay.py"
+      ],
+      "summary": "scripts probes/replay_review_probes.py (Reviews 2-6, eight outcome sets identical to the recorded ones) and probes/image_probe_replay.py (Review 3 process-image A/B drive, 14 scenarios, transcript identical to Repair 5 after normalising digests, temporary paths and the probe binary's code-directory hash); Review 6/N16 is expected to FAIL at its attack step (the probe asserts the replay succeeded), which it now does: the earlier dedicated-Keychain file cannot be unlocked with the current password item"
+    },
+    {
+      "command": "boundary and semantic-coverage artifacts: 256-subset evidence powerset (anchor detached and anchored), 4096-store mixed-snapshot enumeration (full, not -short)",
+      "result": "PASS",
+      "evidence": [
+        "repair-6-evidence/qualification/powerset-and-mixed-snapshot.log"
+      ],
+      "summary": "TestRepair5EvidencePowersetClassificationQualification (256 subsets, anchor detached and anchored) and TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority (4096 stores) pass in full (not -short) against the Repair 6 source"
+    },
+    {
+      "command": "consolidated guard/mutation inventory (harness in repair-6-evidence/mutation)",
+      "result": "SEE_SUMMARY",
+      "evidence": "repair-6-evidence/mutation-inventory.md",
+      "summary": {
+        "result_sources": [
+          "results-r6-rest.json",
+          "results-r6-kc-final.json",
+          "results-r6-n603-run1.json",
+          "results-r6-n603-run2.json",
+          "results-r6-n603-run3.json"
+        ],
+        "mutations": 304,
+        "single_guard_mutations": 290,
+        "joint_mutations": 14,
+        "killed": 274,
+        "redundant_layer": 16,
+        "redundant_by_construction": 9,
+        "equivalent": 3,
+        "unmodeled": 2,
+        "suspect_kills": 0,
+        "survived_unexplained": 0,
+        "other": {},
+        "rerun_notes": [
+          "N6.03 (overflow cancels the process group): SURVIVED once in the three-worker phase-2 run (results-r6-rest.json) and was KILLED in 3 of 3 isolated reruns (results-r6-n603-run1..3.json) by TestValidationOutputBoundFailsClosedThroughTheRealCollector, the same test that killed it in Repair 5. Load-sensitive; the internal/goaldrive validation code it mutates is not changed by Repair 6. The inventory counts it as killed and records the first-pass survival here.",
+          "R6.18, R6.19 and R6.21 SURVIVED the first Keychain-family pass and exposed three real test gaps (a write as the first operation after an interrupted re-key; a refused password state must leave both items untouched and be exactly corrupt; a governed reset must discard a pending item). The tests were strengthened and the whole Keychain family (40 mutations) was re-run fresh on the final tests (results-r6-kc-final.json): all three are killed.",
+          "Keychain-family mutations ran with one worker, PRAXIS_REQUIRE_KEYCHAIN=1, user interaction disabled and unique service identities: no test was skipped in any of them.",
+          "R5.73, R5.82, R5.84 are carried classifications from Repair 5 (their anchors were re-pointed because Repair 6 moved the code). R6.02 (EQUIVALENT) and R6.16 (REDUNDANT-LAYER, joint R6.16j killed) are new."
+        ]
+      }
+    },
+    {
+      "command": "independent rebuild of core and plugin (go build ./cmd/praxis, go build ./packages/goals/plugin)",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/rebuild.log",
+      "summary": "core, plugin, package archive and package manifest rebuilt with a fresh GOCACHE are byte-identical to the candidate artifacts"
+    },
+    {
+      "command": "go test ./internal/conformance",
+      "result": "FAIL_IMMUTABLE_ATTESTATION_STALE_PREEXISTING",
+      "evidence": "repair-6-evidence/qualification/historical.log",
+      "observations": [
+        "the suite was already red on the base commit and on the Repair 5 candidate (immutable attestations of source that later work legitimately changed); it stops at the first stale attested source, which varies between runs",
+        "no attestation, oracle, or historical evidence file was modified"
+      ],
+      "scope_note": "Whole-system historical conformance is not claimed."
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS",
+      "evidence": "repair-6-evidence/qualification/diffcheck.log"
+    }
+  ],
+  "negative_predicates": [
+    "predecessor contracts reject model_gate_proposal and authority_gate provenance",
+    "authority gates never resolve a provider worker",
+    "proposal-time authority-gate specifications reject embedded future dossier bytes",
+    "missing, unqualified, wrong-producer, wrong-role, ambiguous, missing-byte, wrong-digest, or wrong-schema DOS dossier evidence fails closed",
+    "qualified DOS outputs are captured from the exact checkpoint and survive durable completion reload",
+    "runtime dossier substitution changes both authority-request identity and digest",
+    "offered alternatives derive exactly from the qualified dossier and a gate decision must bind one exact request alternative",
+    "goal gate decisions reject non-human principals",
+    "a gate completes only from an exact ceremony-bound approved decision and selected offered alternative",
+    "non-interactive goals-lifecycle decide cannot persist a decision",
+    "missing activation verifier or mismatched process/package identity fails closed",
+    "missing, unreadable, changed, or wrong-digest candidate, relationship, or requirement source evidence fails closed",
+    "missing or drifted validation profile fails before provider admission or checkpoint acceptance",
+    "empty conformance predicates, unknown operations, malformed acknowledgements, excess output, timeout, and surviving process trees cannot qualify completion",
+    "hard cycles, self edges, duplicate endpoints, duplicate sequences, unknown kinds, and incomplete canonical specs are rejected",
+    "consumer, interaction, and advisory relationships are rendered as non-blocking context, never completed prerequisites",
+    "safety-bearing historical completion cannot be reconstructed without its original conformance run",
+    "unauthenticated cancel or suspend is refused for safety-bearing turns",
+    "unreleased predecessor-generation admissions fence successor execution",
+    "restart JSON round-trip preserves specification bytes, qualification predicates, and canonical proposal digest",
+    "a goal gate request's authority scope is the installation governance scope and its subject scope is exactly the Goal generation; neither may stand in for the other, and a goal-scoped, foreign-installation, or subject-mismatched gate request cannot be persisted",
+    "a goal gate decision is valid only from the installation owner under the current installation root generation; other installation owners, model/agent principals, foreign or subject scopes, forged or unknown root generations, unoffered alternatives, missing ceremony evidence, and wrong request digests are each rejected at persistence",
+    "the supported interactive owner ceremony decides a generated gate request end to end (canonical root, qualified DOS evidence, gate request, interactive decision with exact alternative, durable decision, gate completion) and rejects wrong OS user, wrong request, wrong alternative, wrong dossier, replay and substitution",
+    "goals-lifecycle decide and non-interactive callers cannot record a gate decision",
+    "continuation acceptance, continuation attachment, and continuation request creation enforce the same activation predicate as direct accept/attach/request, refuse identical errors under removed, skewed, unset, and process-image-skewed activation, and leave no partial durable state",
+    "safety-bearing proposal, review, request, decision, acceptance, and attachment persistence refuse with no verifier or a refusing verifier regardless of calling path",
+    "restart never lifts an activation refusal; only restored activation completes the deterministic remainder",
+    "an accepted safety-bearing plan validates only through the two sanctioned provenance rewrites; proposal-time specifications stay exact",
+    "gate request persistence is idempotent across turns and restarts and a conflicting request under the same identity is refused",
+    "a safety-bearing plan can never carry supplied completed state at proposal, acceptance, attachment or overlay; completion derives only from qualified, specification-bound, profile-bound ledger evidence",
+    "generic baseline persistence (Save, Import, Finalize, establish) refuses any safety-bearing WorkPlan; it enters only through the authenticated attachment transaction",
+    "legacy acceptance cannot admit a safety-bearing WorkPlan; protected decisions must resolve a durable owner-ceremony record that matches the decision field for field, and an arbitrary or reused ceremony digest is refused",
+    "governing WorkPlan authority is re-verified (unrevoked decision, exact lineage, owner under an unrevoked generation, resolvable ceremony, baseline equal to the persisted generation) at every turn, gate reconciliation and completion; historical evidence stays readable",
+    "a missing, non-executable, changed or dirtying validator fails closed at every stage; validation runs are bound to the exact checkpoint and profile digest before and after execution; candidate conformance is decided before publication; no-declared-validation can never qualify a safety-bearing checkpoint or completion",
+    "activation verification binds to the executable image the process actually loaded and to the manifest path's current file; replacing the pathname while a process runs makes that process refuse protected work",
+    "the native runtime is built by the same constructors as the lifecycle commands and resolves activation and the selected goals package at every protected boundary, never from a startup snapshot",
+    "safety-bearing dossiers, gate contracts, specifications and activation manifests must parse as exactly one bounded value with no trailing content or duplicate keys",
+    "an authority-gate objective reaches gate coordination and never a provider from selection, explicit, recovered or pinned routes, and the provider resolver itself refuses it",
+    "a Goal classified safety-bearing by authenticated state cannot receive any WorkPlan through a generic surface, cannot admit a legacy proposal/review/acceptance/attachment, and cannot drive a generation that lacks the safety binding",
+    "kernel-shaped plan content (kinds, preserved specification bytes, gate provenance) without the safety binding is refused at proposal and accepted-plan validation, whichever tell remains",
+    "a ledger completion counts only with an authenticated seal for its exact bytes and Goal generation; a gate completion additionally re-resolves its request, decision, dossier and ceremony; a revoked or rejected decision demotes the completion (and hard dependents) to history without erasing it",
+    "the Goal completion candidate shown for settlement must equal the authenticated effective completions",
+    "an explicit, pinned or recovered objective must be an open, currently runnable candidate of the accepted plan",
+    "every outward effect (checkpoint publication, unit completion, gate completion) re-establishes activation, governing authority, lease and content binding before it; a failure after publication is recorded as published-but-ungoverned",
+    "validation runs against an exact export of the checkpoint commit; index hints, status, excludes, fsmonitor, hooks and replace refs in the worker checkout cannot substitute bytes; publication pushes the exact object id",
+    "validator output beyond the bound fails closed even with exit 0; the process tree is terminated after the validator returns",
+    "semantic duplicate JSON keys (case variants, Kelvin sign, long s), invalid UTF-8, unpaired surrogate escapes, trailing values and depth bombs are refused for safety-bearing evidence and external inputs",
+    "on darwin the running executable's kernel code-directory hash must equal a CodeDirectory of the file whose bytes the manifest binds, with every code page re-hashed; in-place overwrite and a replacement between exec and package initialization are refused",
+    "deleting any single sealed row, or any set of rows, never restores a revoked decision, a superseded or invalidated authority generation, or a superseded installation root: a decision or generation grants nothing unless its sealed liveness record is present, revocation/invalidation/succession retire that record, and it is written in the same transaction as the fact it keeps alive",
+    "deleting the Goal classification row cannot un-classify a Goal while any safety-bearing proposal or accepted-plan generation of it survives; an unreadable candidate row is an error, never 'unclassified'",
+    "an identical resubmission of a stored decision never recreates a retired liveness record; a revoked decision whose revocation row was deleted is not eligible for an ordinary re-request; publication and recovery admission require liveness as well as absence of revocation",
+    "governance state is consumable only when its authenticated fact chain is exactly the chain the forward authority anchor pins outside the store: a store restored whole or in part, replayed row by row, truncated, erased, forked, unrelated, or compared against a missing, unreadable, corrupt, foreign, stale or unavailable anchor yields no governance, never an older governance (I13)",
+    "a retirement (decision, generation, supersession) and a Goal's entry into the governed safety domain are anchored facts written ahead of their effects; a crash leaves either a consistent state or a fail-closed stranded state, never one that broadens permission",
+    "a Goal that entered the governed safety domain cannot become indistinguishable from a legacy one by deleting, truncating or rolling back evidence: the anchored classification fact survives every deletion of every evidence row, and every evidence kind is consumed by a registry that a coverage test forces to be complete (I14)",
+    "a governed re-anchor voids every admission made before it, re-admits only the installation root the owner attested, and can add restrictions but grant nothing; a decision that was in force in a restored backup and retired in the lost interval is not current",
+    "a protected request whose referenced proposal is missing fails closed instead of passing without an activation check"
+  ],
+  "claims_not_made": [
+    "The historical whole-system conformance attestation is green",
+    "The candidate core binary is installed or active",
+    "The candidate goals package is deployed or active",
+    "Proposal v4 exists",
+    "Gate A, Gate B, or Gate C is decided",
+    "Any product outcome is proven",
+    "Ceremony records are unforgeable by a holder of the installation storage key (accepted bootstrap trust root)",
+    "Continuity of pre-existing authority: decisions and generations written before liveness records existed are NOT in force under this candidate; an installation that predates it obtains liveness through governed root succession and fresh decisions, and nothing is backfilled",
+    "The Keychain item cannot be destroyed or overwritten by another process of the same OS user: measured, another same-user process cannot READ it without a prompt but can silently OVERWRITE it, which the store detects and refuses (fail closed) and only a governed re-anchor recovers",
+    "Continuity of pre-existing authority: decisions and generations written before liveness records and the anchor existed are NOT in force under this candidate; an installation that predates it needs the governed re-anchor and fresh decisions, and nothing is backfilled",
+    "Recovery of Goal classifications made in an interval lost to a backup restore unless the owner names those Goals in the re-anchor ceremony",
+    "The Keychain anchor cannot be silently deleted or, during the unlocked window of a genuine operation, overwritten by another process of the same OS user: measured, deletion is not protected by the platform and is fail-closed (missing or corrupt) with only the governed re-anchor recovering it; overwrite, add and read without the password are refused",
+    "Portability or long-term stability of the Keychain re-key: it depends on SecKeychainChangePassword, an exported but undocumented Security.framework entry point, measured only on macOS 26.6.2 arm64; where it is missing or refused every anchor advance fails closed",
+    "Universal mutation completeness or exhaustive rollback coverage: the inventory is defined over the enumerated guard universe, and rollback is covered by explicit state-transition tests and by exhaustive enumeration over the finite classes named in the report (256 evidence subsets, 4096 mixed stores), not by syntactic mutation",
+    "Resistance to anchor destruction combined with wiping the whole installation (indistinguishable from a new installation), or to a coordinated restore of the database, the dedicated Keychain file and the corresponding earlier login-Keychain password state (R-K2, corrected by Repair 6)",
+    "Rollback resistance on platforms without a first-party anchor backend: governed operations there fail closed (no backend, no governed operation)",
+    "Authentication of the plaintext event ledger (settlement decisions, admission fence, activity); no single-row deletion there lets a fresh controller act after revocation because every consequence is re-established from sealed, anchored state at the point of effect"
+  ],
+  "review_repair": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review.md",
+    "independent_review_sha256": "sha256:4857c10783f6692e4c76959f6ca54b2abdf8a35c34c9b8074a60421c807a6a4a",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "confirmed_defects_repaired": [
+      "B1 authority-gate request scope incompatible with owner ceremony",
+      "B2 lifecycle continuation bypasses activation verification"
+    ],
+    "additional_defects_found_by_composed_path_tests_and_repaired": [
+      "B3 accepted safety-bearing WorkPlans could never validate: acceptance rewrites executable provenance but specification bytes keep proposal-time provenance, so WorkPlan.Validate and ReconcileAuthorityGate rejected every real accepted plan/gate",
+      "B4 ReconcileAuthorityGate re-inserted its deterministic request on every turn and failed on the second turn or any restart"
+    ],
+    "review_limitations_note": "The independent review stopped at confirmed defects; the areas it did not review are not cleared by this repair and require the next independent review."
+  },
+  "review_repair_2": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-2.md",
+    "independent_review_sha256": "sha256:c2704e9d12ac6fd1efd515755a9afde2716fa3c19e1823e73b2095c171d2eb30",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "findings_repaired": [
+      "B5",
+      "B6",
+      "B7",
+      "B8",
+      "B9",
+      "B10",
+      "B11",
+      "B12",
+      "B13",
+      "B14"
+    ],
+    "additional_defects_found_by_invariant_search_and_repaired": [
+      "B15 ReconcileAuthorityGate replayed an existing gate request without enforcing kernel activation at the shared boundary (the review observed it and left it to the caller)"
+    ],
+    "b3_b4_preserved": true,
+    "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review is required."
+  },
+  "review_repair_3": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-3.md",
+    "independent_review_sha256": "sha256:0ce799f512a1fac53499aa1c1f36bc4bd7349ab20ec3a1ba40fcc6114915fd92",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "findings_repaired": [
+      "N1",
+      "N2",
+      "N3",
+      "N4",
+      "N5",
+      "N6"
+    ],
+    "additional_defects_found_and_repaired": [
+      "N7 the Goal completion candidate consumed at settlement was an unauthenticated plaintext record"
+    ],
+    "surviving_mutations_addressed": [
+      "M2b",
+      "M2c",
+      "M2d",
+      "M6b",
+      "M12",
+      "pre-publication revalidation"
+    ],
+    "invariants": "I1-I11 (I9-I11 added)",
+    "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review is required."
+  },
+  "review_repair_4": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-4.md",
+    "independent_review_sha256": "sha256:71ed5bc796749fe48f71f78f4cff637cc9cdd5293bc05d974ff589d97657c8a6",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "findings_repaired": [
+      "N8",
+      "N9"
+    ],
+    "additional_defects_found_and_repaired": [
+      "N10 deleting a generation's invalidation row restored the generation (validation, lineage walk, in-transaction fences)",
+      "N11 deleting a root successor and the predecessor's supersession revived the predecessor as the sole active root",
+      "N12 deleting a revocation row made a revoked decision eligible for an ordinary re-request",
+      "N13 publication and recovery admission treated absence of a revocation/invalidation record as still current"
+    ],
+    "invariants": "I1-I12 (I12 deletion-monotonicity added)",
+    "documented_residuals": [
+      "rollback by replaying previously copied sealed rows",
+      "total erasure of a Goal's governance history",
+      "unauthenticated plaintext ledger"
+    ],
+    "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review is required."
+  },
+  "review_repair_5": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-5.md",
+    "independent_review_sha256": "sha256:a5b3443a24de86f434332b77cd263a8a872747ce98a18ebc7c47ca1b4420e9d1",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "architecture_authority": "Thomas D1: rollback and prefix-truncation of the governance store are inside the defended adversary; a minimal forward authority anchor outside the store is authorised, macOS Keychain first; no other trust infrastructure",
+    "prior_terminal": "AUTHORITY_CONFLICT (repair-5-evidence/AUTHORITY_CONFLICT.md, preserved unchanged), then resolved by D1",
+    "findings_repaired": [
+      "N14",
+      "N15"
+    ],
+    "additional_hardening": [
+      "registry-driven in-store classification over every evidence kind with a coverage test",
+      "a protected request whose proposal is missing fails closed"
+    ],
+    "invariants": "I1-I14 (I13 temporal authority and I14 subject-governance continuity added; I12 implementation completed)",
+    "documented_residuals": [
+      "anchor destruction plus whole-installation wipe",
+      "machine-level restore of Keychain and database together",
+      "holder of the storage key or an approved Keychain accessor (accepted trust root)",
+      "classifications lost in a backup interval unless owner-named",
+      "plaintext ledger",
+      "silent deletion of the anchor keychain, file or password item (fail-closed)",
+      "per-build Keychain access prompt after a core replacement"
+    ],
+    "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review (Astra Review #6) is required."
+  },
+  "review_repair_6": {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-codex-review-6.md",
+    "independent_review_sha256": "sha256:aacd65d5d688c1fa6671880ae94583806f64465899044c8dce5f49d4bf6f2d95",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "findings_repaired": [
+      "N16 opaque dedicated-Keychain-file replay restores retired authority"
+    ],
+    "repair": "the dedicated Keychain file is re-keyed to a fresh random password after every anchor advance and every undo, with a pending-password item making an interrupted re-key recoverable; the login-Keychain password item is updated to match; an earlier copy of the file no longer opens",
+    "dependency": "SecKeychainChangePassword is exported by Security.framework but is not in its public headers and is not documented as stable; it is resolved at run time (dlsym) so a macOS without it makes every re-key, and therefore every anchor advance, fail closed as unavailable; measured only on macOS 26.6.2 (25G83), arm64, Go 1.27.1",
+    "documented_residuals": [
+      "R-K2 (corrected): a coordinated restore of the database, the dedicated Keychain file, AND the corresponding earlier login-Keychain password state restores a consistent earlier state; closing it needs a monotonic trust anchor outside the rollback set, which D1 excluded",
+      "anchor destruction plus whole-installation wipe (R-K1)",
+      "holder of the storage key or an approved Keychain accessor (R-K3)",
+      "silent deletion of the anchor item, file or password item (fail closed)",
+      "the re-key is one more Keychain operation subject to the per-build access prompt",
+      "knowledge of an earlier password plus write access to the login Keychain reopens an earlier file (characterised, not protected)"
+    ],
+    "qualification_harness": "real-Keychain tests run with user interaction disabled and a unique service identity per run and may skip only when a one-time probe shows the Keychain unusable; PRAXIS_REQUIRE_KEYCHAIN=1 turns any skip into a failure and was set for qualification and mutation runs",
+    "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review (Astra Review #7) is required."
+  }
+}

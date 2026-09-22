@@ -1,0 +1,58 @@
+[
+ {
+  "id": "R4.23j",
+  "guard": "joint: owner-decision generation liveness (plan authority + ValidateAuthorityGeneration)",
+  "invariants": "I3,I8,I12",
+  "group": "R4.owner-gen-live-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/plan_authority.go",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); err != nil {",
+    "if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest, now); false && err != nil {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "return r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now)",
+    "return nil",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/state",
+   "./internal/goalstore",
+   "./internal/goalspublication",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRowDeletionFailsClosed",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestFanoutHelperProcess",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 32.1
+ }
+]

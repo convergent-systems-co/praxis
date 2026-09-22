@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-status-and-control-projection","kind":"consumer","prerequisite":"unit:hi-human-lifecycle-flow","provenance":"model_proposal","rationale":"unit:hi-status-and-control-projection consumes unit:hi-human-lifecycle-flow outputs as non-blocking context."}

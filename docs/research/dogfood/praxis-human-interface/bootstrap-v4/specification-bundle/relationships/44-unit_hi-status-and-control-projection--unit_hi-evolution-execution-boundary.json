@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-status-and-control-projection","kind":"consumer","prerequisite":"unit:hi-evolution-execution-boundary","provenance":"model_proposal","rationale":"unit:hi-status-and-control-projection consumes unit:hi-evolution-execution-boundary outputs as non-blocking context."}

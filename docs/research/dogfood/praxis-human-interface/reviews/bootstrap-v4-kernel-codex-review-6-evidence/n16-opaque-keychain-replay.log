@@ -1,0 +1,6 @@
+=== RUN   TestReview6OpaqueKeychainReplay
+    review6_n16_test.go:99: opaque file restore: old seq=0 advanced seq=1 restored seq=0 equal-old=true error=<nil>
+    review6_n16_test.go:107: REPRODUCED: revoked decision accepted after opaque database + dedicated-keychain-file restore: decision-live-1
+--- PASS: TestReview6OpaqueKeychainReplay (0.23s)
+PASS
+ok  github.com/convergent-systems-co/praxis/internal/goalstore  0.876s

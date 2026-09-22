@@ -1,0 +1,1 @@
+Provider-owned work must not be silently rewritten or destroyed when human requirements evolve.

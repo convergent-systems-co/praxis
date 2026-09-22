@@ -1,0 +1,54 @@
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/skip-worktree
+    zz_r2_git_probe_test.go:53: record.Progress=true published=true unitCompleted=true err=<nil> committed flag="bad" remote moved=true
+    zz_r2_git_probe_test.go:55: REPRODUCED: unit qualified+published although the committed checkpoint fails the validator
+=== RUN   TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/assume-unchanged
+    zz_r2_git_probe_test.go:53: record.Progress=true published=true unitCompleted=true err=<nil> committed flag="bad" remote moved=true
+    zz_r2_git_probe_test.go:55: REPRODUCED: unit qualified+published although the committed checkpoint fails the validator
+--- PASS: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint (2.02s)
+    --- PASS: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/skip-worktree (0.97s)
+    --- PASS: TestR2WorktreeDivergenceHiddenFromStatusQualifiesCheckpoint/assume-unchanged (1.06s)
+=== RUN   TestR2BindingPredicateBlindToAssumeUnchanged
+    zz_r2_git_probe_test.go:77: after assume-unchanged tamper, VerifyValidationBinding err=<nil>
+    zz_r2_git_probe_test.go:86: REPRODUCED: assume-unchanged tracked tamper and excluded untracked file are invisible to the binding predicate
+--- PASS: TestR2BindingPredicateBlindToAssumeUnchanged (0.43s)
+=== RUN   TestR2ValidatorTimeoutSurvivingChildAndOutputBound
+    zz_r2_git_probe_test.go:104: timeout: elapsed=1.002s err=./.praxis/validate integrated: signal: killed outlen=0
+    zz_r2_git_probe_test.go:104: surviving-child-after-exit0: elapsed=5.013s err=./.praxis/validate integrated: exec: WaitDelay expired before I/O complete outlen=0
+    zz_r2_git_probe_test.go:104: output>1MiB-then-exit0: elapsed=95ms err=<nil> outlen=2000000
+    zz_r2_git_probe_test.go:106: output>1MiB-then-exit0: treated as PASS
+    zz_r2_git_probe_test.go:113: surviving 'sleep 40' pids after validator returned: "87691"
+--- FAIL: TestR2ValidatorTimeoutSurvivingChildAndOutputBound (6.18s)
+=== RUN   TestR2CompletedGateDecisionIsNotRevalidated
+    zz_r2_probe_test.go:52: err=unsupported Goal turn outcome "" worker.calls=1 gate-coordinator.calls=0
+--- PASS: TestR2CompletedGateDecisionIsNotRevalidated (0.00s)
+=== RUN   TestR2PendingGateBlocksReadySibling
+    zz_r2_probe_test.go:66: err=Goal-drive authority required for 1 pending request(s) worker.calls=0
+--- PASS: TestR2PendingGateBlocksReadySibling (0.00s)
+=== RUN   TestR2ExplicitObjectiveSkipsHardDependencyReadiness
+    zz_r2_probe_test.go:78: err=unsupported Goal turn outcome "" worker.calls=1
+--- PASS: TestR2ExplicitObjectiveSkipsHardDependencyReadiness (0.00s)
+=== RUN   TestR2GateObjectiveVariantsNeverReachWorker
+    zz_r2_probe_test.go:95: safety=true objective="g" worker.calls=0 err=Goal-drive authority required for 1 pending request(s)
+    zz_r2_probe_test.go:95: safety=true objective=" g" worker.calls=0 err=objective " g" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g " worker.calls=0 err=objective "g " is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="G" worker.calls=0 err=objective "G" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g\n" worker.calls=0 err=objective "g\n" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="\tg" worker.calls=0 err=objective "\tg" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="g\x00" worker.calls=0 err=objective "g\x00" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=true objective="goal/1/g" worker.calls=0 err=objective "goal/1/g" is not a candidate of the accepted safety-bearing plan
+    zz_r2_probe_test.go:95: safety=false objective="g" worker.calls=0 err=Goal-drive authority required for 1 pending request(s)
+    zz_r2_probe_test.go:95: safety=false objective=" g" worker.calls=0 err=objective " g" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g " worker.calls=0 err=objective "g " is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="G" worker.calls=0 err=objective "G" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g\n" worker.calls=0 err=objective "g\n" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="\tg" worker.calls=0 err=objective "\tg" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="g\x00" worker.calls=0 err=objective "g\x00" is not a candidate of the accepted WorkPlan
+    zz_r2_probe_test.go:95: safety=false objective="goal/1/g" worker.calls=0 err=objective "goal/1/g" is not a candidate of the accepted WorkPlan
+--- PASS: TestR2GateObjectiveVariantsNeverReachWorker (0.00s)
+=== RUN   TestR2NonSafetyPlanGateNeverReachesProvider
+    zz_r2_probe_test.go:109: err=work plan is not an accepted authoritative decomposition: authority, acceptance, and proposal bindings are required worker.calls=0
+--- PASS: TestR2NonSafetyPlanGateNeverReachesProvider (0.00s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/goaldrive	8.979s
+FAIL

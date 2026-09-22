@@ -1,0 +1,285 @@
+package main
+
+// AREA-1 independent probes (third review). Loaded ONLY through go test -overlay;
+// nothing in the repository is created or modified. Each probe logs PROBE-RESULT
+// lines: "REPRODUCED" = the counterexample works against the current source,
+// "REFUSED" = the boundary held.
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
+	"github.com/convergent-systems-co/praxis/packages/goals"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+type r1Worker struct {
+	calls     int
+	objective []string
+}
+
+func (w *r1Worker) Execute(_ context.Context, req goaldrive.WorkerRequest) (goaldrive.WorkerResult, error) {
+	w.calls++
+	w.objective = append(w.objective, req.ChildObjective)
+	return goaldrive.WorkerResult{Outcome: goaldrive.OutcomeNoProgress, EndHead: "head"}, nil
+}
+
+// strippedPlan turns an attached safety-bearing generation into a plan that has
+// no Safety binding, no kinds, and (optionally) a "completed" prerequisite.
+func r1Stripped(h *gateHarness) goals.GoalBaseline {
+	b := h.successor
+	plan := *b.WorkPlan
+	plan.Safety = nil
+	plan.Candidates = append([]contracts.WorkCandidate(nil), plan.Candidates...)
+	for i := range plan.Candidates {
+		plan.Candidates[i].Kind = ""
+		if plan.Candidates[i].Provenance == contracts.ProvenanceAuthorityGate {
+			plan.Candidates[i].Provenance = contracts.ProvenancePLAN
+		}
+	}
+	plan.Candidates[0].Completed = true // "one" (DOS producer) claimed done
+	b.WorkPlan = &plan
+	b.Version, b.Digest, b.PredecessorDigest = "3", "", h.successor.Digest
+	return b
+}
+
+// R1-A: classifier evasion. The "safety-bearing" test is the presence of the
+// Safety pointer on the plan itself; Save refuses only Safety != nil.
+func TestR1A_StrippedSafetyPlanPersistsWithoutActivationAndGateReachesProvider(t *testing.T) {
+	h := newGateHarness(t)
+	if err := os.Remove(h.manifestPath); err != nil { // no activation at all
+		t.Fatal(err)
+	}
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	b := r1Stripped(h)
+	saved, err := repo.Save(h.ctx, b, time.Now().UTC(), nil)
+	if err != nil {
+		t.Logf("PROBE-RESULT R1-A save: REFUSED: %v", err)
+		return
+	}
+	t.Logf("PROBE-RESULT R1-A save: REPRODUCED persisted generation %s/%s digest %s with Safety=nil, kind-less gate, no activation manifest", saved.ID, saved.Version, saved.Digest)
+	loaded, err := repo.Load(h.ctx, saved.ID, saved.Version, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &r1Worker{}
+	ctrl := newGoalDriveController(h.ledger, nil, nil, repo, 0, h.env)
+	ctrl.Worker = w
+	_, err = ctrl.ExecuteTurn(h.ctx, goaldrive.TurnRequest{GoalID: repairGoalID, GoalVersion: "3", InvocationID: "r1a", TurnID: "r1a", GraphID: "g", GraphVersion: "1", StartHead: "head", Mode: goaldrive.ModeSupervised, GoalBaseline: &loaded, Repository: contracts.RepositorySynced})
+	t.Logf("PROBE-RESULT R1-A drive: workerCalls=%d objectives=%v err=%v", w.calls, w.objective, err)
+}
+
+// R1-B: the same through the supported CLI import surface, no activation.
+func TestR1B_StrippedSafetyPlanThroughCLIImport(t *testing.T) {
+	h := newGateHarness(t)
+	if err := os.Remove(h.manifestPath); err != nil {
+		t.Fatal(err)
+	}
+	b := r1Stripped(h)
+	path := writeBaselineImportDocument(t, h.dir, "import-stripped.json", b, "")
+	_, err := h.run("goals-lifecycle", "--operation=import", "--input="+path)
+	if err != nil {
+		t.Logf("PROBE-RESULT R1-B import: REFUSED: %v", err)
+		return
+	}
+	t.Log("PROBE-RESULT R1-B import: REPRODUCED supported CLI import persisted a Safety-nil v4-shaped plan with fabricated-equivalent authority and no activation manifest")
+}
+
+// R1-C: fabricated legacy plan with invented authority strings (no durable
+// acceptance exists) imported through Save. Predecessor behavior; recorded to
+// scope R1-A.
+func TestR1C_FabricatedLegacyAuthorityPlanSave(t *testing.T) {
+	h := newGateHarness(t)
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	b := r1Stripped(h)
+	plan := *b.WorkPlan
+	plan.AuthorityRef, plan.AuthorityDigest, plan.AcceptanceRef, plan.AcceptanceDigest = "fabricated", "fabricated", "fabricated", "fabricated"
+	plan.AuthorityRequestID, plan.AuthorityRequestVersion, plan.AuthorityDecisionRef, plan.AuthorityDecisionVersion = "", "", "", ""
+	b.WorkPlan = &plan
+	b.Version = "4"
+	if _, err := repo.Save(h.ctx, b, time.Now().UTC(), nil); err != nil {
+		t.Logf("PROBE-RESULT R1-C: REFUSED: %v", err)
+		return
+	}
+	t.Log("PROBE-RESULT R1-C: REPRODUCED Save persisted a WorkPlan whose authority lineage is entirely fabricated strings")
+}
+
+// R1-D: revocation of the ROOT GENERATION (not the decision) after acceptance.
+func TestR1D_RootGenerationInvalidatedAfterAcceptance(t *testing.T) {
+	h := newGateHarness(t)
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Now().UTC()
+	if err := repo.VerifyGoverningAuthority(h.ctx, h.successor, now); err != nil {
+		t.Fatalf("baseline authority should verify: %v", err)
+	}
+	inv := contracts.AuthorityGenerationInvalidation{Ref: h.root.Ref, Version: h.root.Version, GenerationDigest: h.root.Digest, InvalidationRef: "r1-inv", InvalidationVersion: "1", Kind: "revoked", InvalidatedBy: h.root.Principal, EffectiveAt: now, Reason: "r1 probe"}
+	if err := repo.SaveAuthorityGenerationInvalidation(h.ctx, inv, now, nil); err != nil {
+		t.Fatalf("invalidate: %v", err)
+	}
+	later := time.Now().UTC().Add(time.Second)
+	verr := repo.VerifyGoverningAuthority(h.ctx, h.successor, later)
+	t.Logf("PROBE-RESULT R1-D VerifyGoverningAuthority after root invalidation: err=%v", verr)
+	if verr == nil {
+		t.Fatal("REPRODUCED: invalidated root still governs")
+	}
+	if _, err := h.drive(h.ledger, "r1d"); err == nil {
+		t.Fatal("REPRODUCED: controller ran under invalidated root")
+	} else {
+		t.Logf("PROBE-RESULT R1-D drive: REFUSED: %v", err)
+	}
+}
+
+// R1-E: ceremony record mismatch matrix against a WorkPlan-acceptance request.
+func TestR1E_CeremonyMismatchMatrixForWorkPlanAcceptance(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	digest := s.reviewAndRequest()
+	repo, db, err := openGovernedRepository(s.ctx, s.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	req, err := repo.LoadAuthorityRequestByDigest(s.ctx, digest, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := authenticatedOSUser()
+	conf := sha256.Sum256([]byte("x"))
+	mk := func(mut func(*contracts.OwnerCeremonyEvidence)) string {
+		ev := contracts.OwnerCeremonyEvidence{Profile: contracts.OwnerCeremonyProfile, RequestDigest: digest, Outcome: "approve", Owner: s.root.Principal, RootRef: s.root.Ref, RootVersion: s.root.Version, RootDigest: s.root.Digest, AuthenticatedOSUser: cur.Username, ConfirmationDigest: "sha256:" + hex.EncodeToString(conf[:]), ConfirmedAt: time.Now().UTC()}
+		mut(&ev)
+		d, err := repo.SaveOwnerCeremony(s.ctx, ev, time.Now().UTC())
+		if err != nil {
+			return "REFUSED-AT-RECORD(" + err.Error() + ")"
+		}
+		return d
+	}
+	base := func(c string) contracts.AuthorityDecision {
+		return contracts.AuthorityDecision{RequestID: req.ID, RequestVersion: req.Version, RequestDigest: digest, DecisionRef: "r1e-" + c[len(c)-6:], DecisionVersion: "1", DecidedBy: s.root.Principal, AuthorityRef: s.root.Ref, AuthorityVersion: s.root.Version, AuthorityGenerationDigest: s.root.Digest, GrantedScope: s.root.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: s.root.AuthorityModelDigest, IssuedAt: time.Now().UTC(), CeremonyEvidenceDigest: c}
+	}
+	cases := map[string]string{
+		"other-request-digest": mk(func(e *contracts.OwnerCeremonyEvidence) { e.RequestDigest = "sha256:" + strings.Repeat("9", 64) }),
+		"reject-outcome":       mk(func(e *contracts.OwnerCeremonyEvidence) { e.Outcome = "reject" }),
+		"stray-alternative":    mk(func(e *contracts.OwnerCeremonyEvidence) { e.SelectedAlternative = "x" }),
+		"wrong-root-version":   mk(func(e *contracts.OwnerCeremonyEvidence) { e.RootVersion = "999" }),
+		"foreign-os-user":      mk(func(e *contracts.OwnerCeremonyEvidence) { e.AuthenticatedOSUser += "x" }),
+		"foreign-owner":        mk(func(e *contracts.OwnerCeremonyEvidence) { e.Owner.ID = "someone-else" }),
+	}
+	for name, c := range cases {
+		if strings.HasPrefix(c, "REFUSED-AT-RECORD") {
+			t.Logf("PROBE-RESULT R1-E %s: %s", name, c)
+			continue
+		}
+		err := repo.SaveAuthorityDecision(s.ctx, req.ID, req.Version, base(c), time.Now().UTC(), nil)
+		if err == nil {
+			t.Errorf("PROBE-RESULT R1-E %s: REPRODUCED decision persisted with mismatched ceremony", name)
+		} else {
+			t.Logf("PROBE-RESULT R1-E %s: REFUSED at decision: %v", name, err)
+		}
+	}
+	// Unbound decision fields: same valid ceremony, different DecisionRef/Expiry.
+	good := mk(func(e *contracts.OwnerCeremonyEvidence) {})
+	d := base(good)
+	far := time.Now().UTC().Add(100 * 365 * 24 * time.Hour)
+	d.ExpiresAt = &far
+	d.DecisionRef = "r1e-arbitrary-decision-ref"
+	if err := repo.SaveAuthorityDecision(s.ctx, req.ID, req.Version, d, time.Now().UTC(), nil); err != nil {
+		t.Logf("PROBE-RESULT R1-E unbound-fields: REFUSED: %v", err)
+	} else {
+		t.Log("PROBE-RESULT R1-E unbound-fields: ACCEPTED (ceremony does not bind DecisionRef/ExpiresAt/IssuedAt/AuthorityDigest) -- non-blocking observation")
+	}
+}
+
+// R1-F: what the storage key permits. A holder of the Repository (Store+Crypto+
+// KeyRef, all exported fields) fabricates the ceremony record with no TTY, and
+// also bypasses SaveOwnerCeremony/SaveAuthorityDecision entirely.
+func TestR1F_StorageKeyHolderForgesCeremonyAndDecision(t *testing.T) {
+	h := newGateHarness(t)
+	req := h.pendingGate(h.ledger, "r1f")
+	digest, _ := req.Digest()
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	cur, _ := authenticatedOSUser()
+	conf := sha256.Sum256([]byte("DECIDE-APPROVE " + digest + " ALTERNATIVE " + req.Alternatives[0]))
+	cd := h.ceremony(repo, digest, "approve", req.Alternatives[0]) // == what an attacker computes from PUBLIC state
+	_ = cur
+	_ = conf
+	d := contracts.AuthorityDecision{RequestID: req.ID, RequestVersion: req.Version, RequestDigest: digest, DecisionRef: "r1f", DecisionVersion: "1", DecidedBy: h.root.Principal, AuthorityRef: h.root.Ref, AuthorityVersion: h.root.Version, AuthorityGenerationDigest: h.root.Digest, GrantedScope: h.root.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: h.root.AuthorityModelDigest, IssuedAt: time.Now().UTC(), SelectedAlternative: req.Alternatives[0], CeremonyEvidenceDigest: cd}
+	if err := repo.SaveAuthorityDecision(h.ctx, req.ID, req.Version, d, time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	res, err := repo.ReconcileAuthorityGate(h.ctx, h.successor, h.successor.WorkPlan.Candidates[1], []contracts.GovernedArtifactEvidence{h.dossier}, time.Now().UTC())
+	t.Logf("PROBE-RESULT R1-F: with only public fields + Repository handle, gate approved=%v err=%v (no TTY, no typed confirmation involved)", res.Approved, err)
+}
+
+// R1-G: the owner-approved plan of Goal A attached to a different Goal B whose
+// baseline content is identical (baseline digest excludes the Goal ID).
+func TestR1G_AcceptedPlanCrossGoalAttach(t *testing.T) {
+	h := newGateHarness(t)
+	repo, db, err := openGovernedRepository(h.ctx, h.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	src, err := repo.Load(h.ctx, repairGoalID, "1", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone := src
+	clone.ID = "goal:r1-clone"
+	clone.Digest = ""
+	saved, err := repo.Save(h.ctx, clone, time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatalf("clone save: %v", err)
+	}
+	t.Logf("clone digest==source digest: %v", saved.Digest == src.Digest)
+	plan := h.successor.WorkPlan
+	out, err := repo.AttachAcceptedWorkPlan(h.ctx, saved.ID, saved.Version, saved.Digest, plan.AcceptanceRef, "1", "2", time.Now().UTC(), nil)
+	if err != nil {
+		t.Logf("PROBE-RESULT R1-G: REFUSED: %v", err)
+		return
+	}
+	t.Logf("PROBE-RESULT R1-G: REPRODUCED plan accepted for %s attached to %s (%s/%s)", repairGoalID, out.ID, out.ID, out.Version)
+}
+
+// R1-H: gate completion is a plaintext event-store record. No decision, no
+// ceremony, no storage key: only the ability to append an event (the events live
+// unencrypted in the same SQLite file).
+func TestR1H_ForgedGateCompletionInLedgerSkipsTheOwnerDecision(t *testing.T) {
+	h := newGateHarness(t)
+	gate := h.successor.WorkPlan.Candidates[1]
+	forged := goaldrive.UnitCompletion{GoalID: repairGoalID, GoalVersion: "2", UnitID: gate.ID, InvocationID: "forge", TurnID: "forge", EndHead: "authority:sha256:" + strings.Repeat("e", 64), CompletedAt: time.Now().UTC(), AuthorityGate: true, SpecificationDigest: gate.SourceDigest, Evidence: []string{"forged"}}
+	if err := h.ledger.RecordCompletion(h.ctx, forged); err != nil {
+		t.Logf("PROBE-RESULT R1-H: REFUSED at ledger: %v", err)
+		return
+	}
+	required, err := h.drive(h.ledger, "r1h")
+	t.Logf("PROBE-RESULT R1-H: forged gate completion accepted by ledger; controller then: authorityRequired=%v err=%v (no AuthorityDecision exists for this gate)", required != nil, err)
+	repo, db, e := openGovernedRepository(h.ctx, h.env)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Close()
+	pend, _ := repo.PendingAuthorityRequests(h.ctx, repairGoalID, "2", time.Now().UTC())
+	t.Logf("PROBE-RESULT R1-H: durable gate requests pending in GoalStore: %d", len(pend))
+}

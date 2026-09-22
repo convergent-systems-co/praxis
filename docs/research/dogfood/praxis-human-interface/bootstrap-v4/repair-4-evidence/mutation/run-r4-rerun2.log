@@ -1,0 +1,2 @@
+KILLED        R4.23j   joint: owner-decision generation liveness (plan authority +   TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRow
+RESTORE-CHECK OK

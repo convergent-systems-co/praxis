@@ -1,0 +1,121 @@
+package main
+import (
+ "testing"
+ "context"
+ "time"
+ "strings"
+ "os"
+ "github.com/convergent-systems-co/praxis/pkg/contracts"
+ "github.com/convergent-systems-co/praxis/internal/goaldrive"
+ "github.com/convergent-systems-co/praxis/internal/state"
+ "github.com/convergent-systems-co/praxis/internal/goalstore"
+)
+func TestReview2ProductionGateStoreConfiguration(t *testing.T) {
+ h:=newGateHarness(t); repo,db,err:=openGovernedRepository(h.ctx,h.env); if err!=nil {t.Fatal(err)}; defer db.Close()
+ // Match the actual fields absent from buildGoalDriveRuntime's repository.
+ repo.InstallationDigest=""; repo.SafetyActivation=nil
+ _,err=repo.ReconcileAuthorityGate(h.ctx,h.successor,h.successor.WorkPlan.Candidates[1],[]contracts.GovernedArtifactEvidence{h.dossier},time.Now().UTC())
+ if err==nil || !strings.Contains(err.Error(),"protected installation identity") {t.Fatalf("unexpected result: %v",err)}
+ t.Logf("production-configured gate fails: %v",err)
+ repo.InstallationDigest=strings.TrimPrefix(h.root.Scope,contracts.InstallationGovernanceScopePrefix)
+ _,err=repo.ReconcileAuthorityGate(h.ctx,h.successor,h.successor.WorkPlan.Candidates[1],[]contracts.GovernedArtifactEvidence{h.dossier},time.Now().UTC())
+ if err==nil || !strings.Contains(err.Error(),"no activation verifier") {t.Fatalf("unexpected second result: %v",err)}
+ t.Logf("fixing only identity still fails: %v",err)
+}
+func TestReview2LegacyAcceptanceWithoutCeremony(t *testing.T) {
+ s:=newSafetyLifecycle(t); requestDigest:=s.reviewAndRequest()
+ repo,db,err:=openGovernedRepository(s.ctx,s.env); if err!=nil {t.Fatal(err)}; defer db.Close()
+ req,err:=repo.LoadAuthorityRequestByDigest(s.ctx,requestDigest,time.Now().UTC()); if err!=nil {t.Fatal(err)}
+ plan,err:=contracts.MaterializeAcceptedPlanCandidate(s.proposal,"legacy-acceptance",requestDigest); if err!=nil {t.Fatal(err)}
+ decision:=contracts.WorkPlanAcceptance{ProposalDigest:s.proposalDigest,BaselineDigest:s.baseline.Digest,AuthorityRef:"fabricated",AuthorityDigest:"fabricated",AuthorityScope:"fabricated",AcceptanceRef:"legacy-acceptance",AcceptanceDigest:"fabricated",AcceptedBy:contracts.PrincipalRef{ID:"fabricated-human",Kind:"human"},Mode:"human",ReviewRef:req.ReviewRef,ReviewVersion:req.ReviewVersion,ReviewDigest:req.ReviewDigest}
+ saved,err:=repo.SaveAcceptedWorkPlan(s.ctx,s.proposal.ID,"4",plan,decision,"1",time.Now().UTC(),nil); if err!=nil {t.Fatal(err)}
+ if saved.AuthorityRequestID!="" {t.Fatal("unexpected request lineage")}
+ _,err=repo.AttachAcceptedWorkPlan(s.ctx,s.baseline.ID,"1",s.baseline.Digest,"legacy-acceptance","1","2",time.Now().UTC(),nil); if err!=nil {t.Fatal(err)}
+ t.Log("fabricated legacy authority persisted and attached safety plan without any AuthorityDecision or ceremony")
+}
+func TestReview2SaveBaselineWithoutActivation(t *testing.T) {
+ h:=newGateHarness(t); repo,db,err:=openGovernedRepository(h.ctx,h.env); if err!=nil {t.Fatal(err)}; defer db.Close()
+ repo.SafetyActivation=nil
+ b:=h.successor; b.Version="3"; b.Digest=""
+ _,err=repo.Save(h.ctx,b,time.Now().UTC(),nil); if err!=nil {t.Fatal(err)}
+ t.Log("Save persisted safety-bearing baseline with no activation verifier")
+}
+func TestReview2GateReplayWithoutActivation(t *testing.T) {
+ h:=newGateHarness(t); h.pendingGate(h.ledger,"pending")
+ repo,db,err:=openGovernedRepository(h.ctx,h.env); if err!=nil {t.Fatal(err)}; defer db.Close()
+ repo.SafetyActivation=nil; if err:=os.Remove(h.manifestPath); err!=nil {t.Fatal(err)}
+ _,err=repo.ReconcileAuthorityGate(h.ctx,h.successor,h.successor.WorkPlan.Candidates[1],[]contracts.GovernedArtifactEvidence{h.dossier},time.Now().UTC())
+ if err!=nil {t.Fatal(err)}
+ t.Log("read-only request replay succeeds without activation; outer controller remains responsible")
+}
+
+func TestReview2CompletedFlagSubstitution(t *testing.T) {
+ s:=newSafetyLifecycle(t); digest:=s.reviewAndRequest();s.approveWorkPlan(digest)
+ repo,db,err:=openGovernedRepository(s.ctx,s.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ req,err:=repo.LoadAuthorityRequestByDigest(s.ctx,digest,time.Now().UTC());if err!=nil{t.Fatal(err)}
+ plan,err:=contracts.MaterializeAcceptedPlanCandidate(s.proposal,"injected-completion",digest);if err!=nil{t.Fatal(err)}
+ plan.Candidates[1].Completed=true
+ saved,err:=repo.SaveAcceptedWorkPlanFromAuthorityDecision(s.ctx,req.ID,req.Version,plan,"injected-completion","1",time.Now().UTC(),nil);if err!=nil{t.Fatal(err)}
+ units:=goaldrive.ApplyCompletions(saved.Candidates,nil)
+ if !units[1].Completed || s.proposal.Candidates[1].Completed {t.Fatal("unexpected flags")}
+ t.Log("changed gate Completed=false to true AFTER owner approval; accepted and selector preserves it with no completion evidence")
+}
+func TestReview2CLIImportWithoutActivation(t *testing.T) {
+ h:=newGateHarness(t); b:=h.successor;b.Version="3";b.Digest=""
+ path:=writeBaselineImportDocument(t,h.dir,"import-safety.json",b,"")
+ if err:=os.Remove(h.manifestPath);err!=nil{t.Fatal(err)}
+ _,err:=h.run("goals-lifecycle","--operation=import","--input="+path);if err!=nil{t.Fatal(err)}
+ repo,db,err:=openGovernedRepository(h.ctx,h.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ saved,err:=repo.Load(h.ctx,b.ID,"3",time.Now().UTC());if err!=nil||saved.WorkPlan==nil{t.Fatalf("%v",err)}
+ t.Log("supported CLI import persisted a safety-bearing WorkPlan while activation manifest was missing")
+}
+
+func TestReview2RevokedWorkPlanStillGovernsGate(t *testing.T) {
+ h:=newGateHarness(t);repo,db,err:=openGovernedRepository(h.ctx,h.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ plan:=h.successor.WorkPlan;decision,err:=repo.LoadAuthorityDecision(h.ctx,plan.AuthorityRequestID,plan.AuthorityRequestVersion,time.Now().UTC());if err!=nil{t.Fatal(err)}
+ digest,err:=decision.Digest();if err!=nil{t.Fatal(err)}
+ now:=time.Now().UTC();rev:=contracts.AuthorityRevocation{RequestID:decision.RequestID,RequestVersion:decision.RequestVersion,DecisionRef:decision.DecisionRef,DecisionVersion:decision.DecisionVersion,DecisionDigest:digest,RevocationRef:"review2-revoke",RevocationVersion:"1",RevokedBy:h.root.Principal,AuthorityDigest:h.root.AuthorityModelDigest,EffectiveAt:now,Reason:"independent review fixture"}
+ if err:=repo.SaveAuthorityRevocation(h.ctx,decision.RequestID,decision.RequestVersion,rev,now,nil);err!=nil{t.Fatal(err)}
+ if _,err:=repo.LoadAuthorityDecision(h.ctx,decision.RequestID,decision.RequestVersion,now);err==nil{t.Fatal("revocation ineffective")}
+ reloaded,err:=repo.Load(h.ctx,repairGoalID,"2",now);if err!=nil{t.Fatal(err)};h.successor=reloaded
+ h.pendingGate(h.ledger,"after-revocation")
+ t.Log("freshly reloaded plan creates gate request after its acceptance authority was revoked")
+}
+
+func TestReview2CachedPackageIdentity(t *testing.T) {
+ s:=newSafetyLifecycle(t);_,db,err:=openGovernedRepository(s.ctx,s.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ identity,err:=activeGoalsPackageIdentity(s.ctx,state.New(db));if err!=nil{t.Fatal(err)}
+ _ = identity; verifier:=newGoalDriveController(goaldrive.Ledger{},nil,nil,goalstore.Repository{},0,s.env).SafetyActivation
+ if _,err:=db.ExecContext(s.ctx,"UPDATE installed_packages SET state='disabled' WHERE state='active'");err!=nil{t.Fatal(err)}
+ if _,err:=activeGoalsPackageIdentity(s.ctx,state.New(db));err==nil{t.Fatal("package remained active")}
+ if err:=verifier.Verify(s.ctx,*s.proposal.Safety);err!=nil{t.Fatal(err)}
+ t.Log("drive verifier succeeds using cached identity after package is disabled; lifecycle verifier sees the change")
+ if err:=verifyLifecycleSafety(*s.proposal.Safety,s.env);err==nil{t.Fatal("lifecycle failed to detect change")}
+}
+func TestReview2ArbitraryCeremonyDigest(t *testing.T) {
+ h:=newGateHarness(t);req:=h.pendingGate(h.ledger,"forge-ceremony");digest,err:=req.Digest();if err!=nil{t.Fatal(err)}
+ repo,db,err:=openGovernedRepository(h.ctx,h.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ d:=contracts.AuthorityDecision{RequestID:req.ID,RequestVersion:req.Version,RequestDigest:digest,DecisionRef:"review2-invented-ceremony",DecisionVersion:"1",DecidedBy:h.root.Principal,AuthorityRef:h.root.Ref,AuthorityVersion:h.root.Version,AuthorityGenerationDigest:h.root.Digest,GrantedScope:h.root.Scope,Outcome:contracts.AuthorityApprove,AuthorityDigest:h.root.AuthorityModelDigest,IssuedAt:time.Now().UTC(),SelectedAlternative:req.Alternatives[0],CeremonyEvidenceDigest:"sha256:"+strings.Repeat("f",64)}
+ if err:=repo.SaveAuthorityDecision(h.ctx,req.ID,req.Version,d,time.Now().UTC(),nil);err!=nil{t.Fatal(err)}
+ result,err:=repo.ReconcileAuthorityGate(h.ctx,h.successor,h.successor.WorkPlan.Candidates[1],[]contracts.GovernedArtifactEvidence{h.dossier},time.Now().UTC());if err!=nil||!result.Approved{t.Fatalf("%+v %v",result,err)}
+ t.Log("arbitrary digest plus copied public owner/root fields persists and consumes gate approval without owner ceremony")
+}
+func TestReview2GateRequestConflictPreservesOriginal(t *testing.T) {
+ h:=newGateHarness(t);want:=h.pendingGate(h.ledger,"first");repo,db,err:=openGovernedRepository(h.ctx,h.env);if err!=nil{t.Fatal(err)};defer db.Close()
+ changed:=h.dossier;changed.Checkpoint="other-head"
+ _,err=repo.ReconcileAuthorityGate(h.ctx,h.successor,h.successor.WorkPlan.Candidates[1],[]contracts.GovernedArtifactEvidence{changed},time.Now().UTC())
+ if err==nil||!strings.Contains(err.Error(),"different authority gate request"){t.Fatalf("%v",err)}
+ got,err:=repo.LoadAuthorityRequest(h.ctx,want.ID,want.Version,time.Now().UTC());if err!=nil{t.Fatal(err)}
+ a,_:=want.Digest();b,_:=got.Digest();if a!=b{t.Fatal("conflict overwrote original")}
+ t.Log("same deterministic identity with changed checkpoint rejected and original preserved")
+}
+
+type review2GateWorker struct { calls int }
+func(w *review2GateWorker) Execute(context.Context,goaldrive.WorkerRequest)(goaldrive.WorkerResult,error){w.calls++;return goaldrive.WorkerResult{Outcome:goaldrive.OutcomeNoProgress,EndHead:"head"},nil}
+func TestReview2ExplicitGateObjectiveReachesWorker(t *testing.T){
+ h:=newGateHarness(t);w:=&review2GateWorker{}
+ c:=goaldrive.Controller{Ledger:h.ledger,Worker:w,SafetyActivation:lifecycleSafetyActivation{getenv:h.env}}
+ _,err:=c.ExecuteTurn(h.ctx,goaldrive.TurnRequest{GoalID:repairGoalID,GoalVersion:"2",InvocationID:"explicit-gate",TurnID:"explicit-gate",GraphID:"graph",GraphVersion:"1",StartHead:"head",Mode:goaldrive.ModeSupervised,GoalBaseline:&h.successor,ChildObjective:"gate",Repository:contracts.RepositorySynced})
+ if w.calls!=1{t.Fatalf("worker calls=%d err=%v",w.calls,err)}
+ t.Logf("explicit gate objective with candidates loaded later reaches worker: calls=%d err=%v",w.calls,err)
+}

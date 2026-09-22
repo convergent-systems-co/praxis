@@ -1,0 +1,1 @@
+Simplifying the ordinary human interface must not remove operator or governance/forensic access to exact underlying state.

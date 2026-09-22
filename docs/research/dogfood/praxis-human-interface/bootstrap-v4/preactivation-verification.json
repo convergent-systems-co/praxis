@@ -1,0 +1,17 @@
+{
+  "activation_claimed": false,
+  "candidate_core_digest": "sha256:86d79f214dac247cc0c56e99b024d23049092494c233097967ffa05600f64996",
+  "candidate_package_content_digest": "sha256:b36792eaee121f5ed906a020cf1716634244a1d2959e4a39ea8363651a1fbd84",
+  "classification": "complete-pre-activation-candidate-evidence",
+  "counts": {
+    "candidates": 22,
+    "relationships": 68,
+    "requirements": 31
+  },
+  "private_or_temporary_inputs": 0,
+  "proposal_v4_materialized": false,
+  "qualification_evidence_digest": "sha256:e5bd0da0e3a2fc892f0453467e7706a817308aee808fad72817c83d742d08d9c",
+  "source_manifest_digest": "sha256:7e02999f0ec246e44ba7d248ae539ef9f859a8d406f6508c91293b26343c3c2b",
+  "specification_bundle_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
+  "status": "PASS"
+}

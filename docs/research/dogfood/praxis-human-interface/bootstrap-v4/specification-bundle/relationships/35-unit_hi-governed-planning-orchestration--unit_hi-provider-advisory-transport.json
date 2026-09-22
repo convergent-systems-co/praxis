@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-governed-planning-orchestration","kind":"consumer","prerequisite":"unit:hi-provider-advisory-transport","provenance":"model_proposal","rationale":"unit:hi-governed-planning-orchestration consumes unit:hi-provider-advisory-transport outputs as non-blocking context."}

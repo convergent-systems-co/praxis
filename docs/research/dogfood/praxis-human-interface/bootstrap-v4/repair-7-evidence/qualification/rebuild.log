@@ -1,0 +1,17 @@
+# Repair 7 independent rebuild (fresh GOCACHE) versus the candidate artifacts
+# source manifest sha256: 7e02999f0ec246e44ba7d248ae539ef9f859a8d406f6508c91293b26343c3c2b
+86d79f214dac247cc0c56e99b024d23049092494c233097967ffa05600f64996  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-candidate
+86d79f214dac247cc0c56e99b024d23049092494c233097967ffa05600f64996  independent rebuild  BYTE-IDENTICAL
+b2f8ea655c2199573dfa244102d06ce770eb2c9c4c889974c1d2b880b722d6ff  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/praxis-goals-plugin-candidate
+b2f8ea655c2199573dfa244102d06ce770eb2c9c4c889974c1d2b880b722d6ff  independent rebuild  BYTE-IDENTICAL
+b36792eaee121f5ed906a020cf1716634244a1d2959e4a39ea8363651a1fbd84  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.tar.gz
+b36792eaee121f5ed906a020cf1716634244a1d2959e4a39ea8363651a1fbd84  independent rebuild  BYTE-IDENTICAL
+fc3e692563f552ca0ee43ea901673ebf5cab2390d3b5d516ca0f197df2bb11d4  docs/research/dogfood/praxis-human-interface/bootstrap-v4/artifacts/package/praxis-package.json
+fc3e692563f552ca0ee43ea901673ebf5cab2390d3b5d516ca0f197df2bb11d4  independent rebuild  BYTE-IDENTICAL
+	build	CGO_ENABLED=1
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	vcs=git
+	build	vcs.revision=ff146000aadae0ef60981d445056089f52815869
+	build	vcs.time=2026-09-20T21:24:47Z
+	build	vcs.modified=true

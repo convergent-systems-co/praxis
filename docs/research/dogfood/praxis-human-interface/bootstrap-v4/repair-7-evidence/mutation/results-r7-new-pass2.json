@@ -1,0 +1,1430 @@
+[
+ {
+  "id": "R7.02",
+  "guard": "package.publish resolver requires a current lineage (root superseded / ancestor retired)",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "if lineageErr := r.requireCurrentLineage(ctx, generation, now); lineageErr != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 45.5
+ },
+ {
+  "id": "R7.03",
+  "guard": "resolver: generation State is active",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "generation.State != contracts.AuthorityGenerationActive || ",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 46.3
+ },
+ {
+  "id": "R7.01",
+  "guard": "package.publish resolver selects only CURRENT generations (N17 core)",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "r.currentAuthorityGenerations(ctx, now)",
+    "r.ListAuthorityGenerations(ctx, now)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified",
+  "skipped": [],
+  "tail": "",
+  "secs": 46.5
+ },
+ {
+  "id": "R7.04",
+  "guard": "resolver: authority model version is the successor",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "generation.AuthorityModelVersion != contracts.AuthorityModelSuccessorVersion || ",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 58.4
+ },
+ {
+  "id": "R7.06",
+  "guard": "resolver: delegation profile is package.publish",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "generation.DelegationProfile != contracts.DelegationProfilePackagePublish || ",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 58.8
+ },
+ {
+  "id": "R7.05",
+  "guard": "resolver: authority model digest is the successor",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "generation.AuthorityModelDigest != contracts.AuthorityModelSuccessorDigest() || ",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 59.0
+ },
+ {
+  "id": "R7.07",
+  "guard": "resolver: subject digest is the exact publisher generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "generation.SubjectDigest != publisherGenerationDigest || ",
+    "",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverDoesNotResolveForADifferentPublisherGeneration,TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 43.5
+ },
+ {
+  "id": "R7.08",
+  "guard": "resolver: generation carries governed package.publish",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    " || !containsAuthority(generation.Authorities, contracts.GovernedPackagePublish) {",
+    " {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.1
+ },
+ {
+  "id": "R7.09",
+  "guard": "resolver: scope is a package-namespace scope",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if !strings.HasPrefix(generation.Scope, \"package-namespace:\") {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.4
+ },
+ {
+  "id": "R7.10",
+  "guard": "resolver: the namespace scope is canonical",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "scopeErr == nil && generation.Scope == want && ",
+    "(scopeErr == nil || true) && generation.Scope == want && ",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 41.5
+ },
+ {
+  "id": "R7.11",
+  "guard": "resolver: scope equals the canonical namespace scope",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "scopeErr == nil && generation.Scope == want && ",
+    "scopeErr == nil && (generation.Scope == want || true) && ",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 40.0
+ },
+ {
+  "id": "R7.12",
+  "guard": "resolver: package identity is inside the namespace",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    " && contracts.PackageIDInNamespace(packageID, namespace) {",
+    " {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverDoesNotResolveForADifferentPublisherGeneration,TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 40.2
+ },
+ {
+  "id": "R7.13",
+  "guard": "resolver: delegation reference is well formed",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if !ok {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 64.2
+ },
+ {
+  "id": "R7.14",
+  "guard": "resolver: the delegation request loads",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if requestErr != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 65.8
+ },
+ {
+  "id": "R7.15",
+  "guard": "resolver: the parent decision loads and is current",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if decisionErr != nil || decision.RequestDigest == \"\" {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 66.1
+ },
+ {
+  "id": "R7.16",
+  "guard": "resolver: the request digest matches the decision",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == \"\"",
+    "digestErr != nil || (requestDigest != decision.RequestDigest && false) || generation.DelegationDigest == \"\"",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 45.3
+ },
+ {
+  "id": "R7.17",
+  "guard": "resolver: the generation names its delegation digest",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == \"\"",
+    "digestErr != nil || requestDigest != decision.RequestDigest",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.1
+ },
+ {
+  "id": "R7.18",
+  "guard": "resolver: publisher and package identities are required",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if publisherGenerationDigest == \"\" || packageID == \"\" {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.2
+ },
+ {
+  "id": "R7.19",
+  "guard": "requireCurrentGeneration refuses an invalidated generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority,TestHistoricalRootModernizationEstablishesSingleCurrentRoot,TestLoadCurrentAuthorityGenerationRefusesARetiredGeneration,TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority,TestRepositoryAuthorityGenerationInvalidationSurvivesRestart",
+  "skipped": [],
+  "tail": "",
+  "secs": 8.1
+ },
+ {
+  "id": "R7.20",
+  "guard": "requireCurrentGeneration requires the authenticated liveness record",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/generation_currentness.go",
+    "return r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority,TestFAAWholeDatabaseRollbackFailsClosed,TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRowDeletionFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 8.1
+ },
+ {
+  "id": "R7.21",
+  "guard": "requireCurrentLineage refuses a cycle",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if seen[key] {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.0
+ },
+ {
+  "id": "R7.22",
+  "guard": "requireCurrentLineage applies currentness to every generation on the chain",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.requireCurrentGeneration(ctx, generation, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision,TestRetiredPackageManagerGenerationCannotDeriveADeploymentApproval",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.9
+ },
+ {
+  "id": "R7.23",
+  "guard": "requireCurrentLineage binds the parent digest",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if parent.Digest != generation.ParentDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.7
+ },
+ {
+  "id": "R7.24",
+  "guard": "LoadCurrentAuthorityGeneration applies currentness",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.requireCurrentGeneration(ctx, generation, now); err != nil {",
+    2,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestLoadCurrentAuthorityGenerationRefusesARetiredGeneration",
+  "skipped": [],
+  "tail": "",
+  "secs": 36.4
+ },
+ {
+  "id": "R7.25",
+  "guard": "current listing drops invalidated generations",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if invalidated[key] {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 35.5
+ },
+ {
+  "id": "R7.26",
+  "guard": "current listing requires the liveness record naming the digest",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/generation_currentness.go",
+    "if !ok || stored.Digest != generation.Digest {",
+    "if false && (!ok || stored.Digest != generation.Digest) {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 35.0
+ },
+ {
+  "id": "R7.29",
+  "guard": "ValidateAuthorityGeneration applies the shared currentness predicate",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "return r.requireCurrentGeneration(ctx, generation, now)\n}",
+    "return nil\n}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified,TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority,TestFAAWholeDatabaseRollbackFailsClosed,TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration",
+  "skipped": [],
+  "tail": "",
+  "secs": 9.6
+ },
+ {
+  "id": "R7.27",
+  "guard": "current listing applies anchored retirement and re-anchor void",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.currentAgainstFacts(snap, stored); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 39.2
+ },
+ {
+  "id": "R7.28",
+  "guard": "current listing refuses a store not current against the anchor",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/generation_currentness.go",
+    "snap, err := r.governanceSnapshot(ctx)\n\tif err != nil {\n\t\treturn nil, err\n\t}",
+    "snap, err := r.governanceSnapshot(ctx)\n\t_ = err",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCurrentGenerationListingRefusesAStoreBehindTheAnchor",
+  "skipped": [],
+  "tail": "",
+  "secs": 39.4
+ },
+ {
+  "id": "R7.30",
+  "guard": "package-manager resolver selects only CURRENT generations",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/package_manager_authority.go",
+    "r.currentAuthorityGenerations(ctx, now)",
+    "r.ListAuthorityGenerations(ctx, now)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified",
+  "skipped": [],
+  "tail": "",
+  "secs": 38.6
+ },
+ {
+  "id": "R7.31",
+  "guard": "package-manager resolver requires a current lineage",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/package_manager_authority.go",
+    "if lineageErr := r.requireCurrentLineage(ctx, generation, now); lineageErr != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority",
+  "skipped": [],
+  "tail": "",
+  "secs": 35.2
+ },
+ {
+  "id": "R7.32",
+  "guard": "delegation from a parent (decision+generation entry point) requires a current parent",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.requireCurrentGeneration(ctx, parent, createdAt); err != nil {",
+    "if false {",
+    2
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified,TestRetiredRootCannotMintADelegatedPublisherGeneration",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.9
+ },
+ {
+  "id": "R7.33",
+  "guard": "delegation from a parent (generation entry point) requires a current parent",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.requireCurrentGeneration(ctx, parent, createdAt); err != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.1
+ },
+ {
+  "id": "R7.36",
+  "guard": "installation owner check requires the CURRENT installation root",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_governance.go",
+    "if err != nil || root.ParentRef != \"\" || root.Principal != owner {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "BUILD-FAILED",
+  "killers": "",
+  "skipped": [],
+  "tail": "FAIL\tgithub.com/convergent-systems-co/praxis/internal/goalstore [build failed]\nFAIL\n# github.com/convergent-systems-co/praxis/internal/goalstore [github.com/convergent-systems-co/praxis/internal/goalstore.test]\ninternal/goalstore/publisher_governance.go:753:8: declared and not used: err\n",
+  "secs": 0.3
+ },
+ {
+  "id": "R7.35",
+  "guard": "package-deploy approval derivation requires a CURRENT operational generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/package_deployment_approval.go",
+    "if err := r.requireCurrentLineage(ctx, generation, now); err != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.9
+ },
+ {
+  "id": "R7.34",
+  "guard": "package-deploy decision binds a CURRENT operational generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.requireCurrentLineage(ctx, operational, now); err != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision",
+  "skipped": [],
+  "tail": "",
+  "secs": 43.3
+ },
+ {
+  "id": "R7.37",
+  "guard": "enrollment authenticates the enrolled OS user",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_governance.go",
+    "if osUser != \"\" && !strings.HasSuffix(root.ProvenanceRef, \":os-user:\"+osUser) {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCurrentInstallationOwnerCheckRequiresTheCurrentRootOwnerAndOSUser",
+  "skipped": [],
+  "tail": "",
+  "secs": 35.3
+ },
+ {
+  "id": "R7.39",
+  "guard": "owner OS-user authentication (both abandonment paths) uses only CURRENT generations",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalspublication/abandon.go",
+    "repository.ListCurrentAuthorityGenerations(ctx, now)",
+    "repository.ListAuthorityGenerations(ctx, now)",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalspublication"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestOwnerOSUserAuthenticationUsesOnlyTheCurrentRoot,TestRetiredRootShapedGenerationCannotAuthenticateTheAbandoningOwner",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 19.7
+ },
+ {
+  "id": "R7.40",
+  "guard": "owner OS-user authentication requires a root-shaped generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalspublication/abandon.go",
+    "if g.ParentRef == \"\" && g.Principal == owner &&",
+    "if g.Principal == owner &&",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalspublication"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [
+   "TestAcquisitionRejectsChangedRawSignatureBytes",
+   "TestAuthorizedSuccessorExecutionAndAcquisitionLineage",
+   "TestConcurrentConsumersAndAuthorityLoss",
+   "TestExactSignedPackageExecutionReplayAndAcquisition",
+   "TestGitHubReadbackActualBytesAndAssetIdentity",
+   "TestHoldsLocalLineageFollowsDurableCompletion",
+   "TestInterruptionsNeverRedispatchAmbiguousMutation",
+   "TestObservationResolutionSubprocessChallengeHelper",
+   "TestPersistenceInterruptionsAtEveryStep",
+   "TestPreparedRequestAndCredentialsDoNotAuthorizeDispatch",
+   "TestReconciliationAfterAuthorityLossIsReadOnlyAndDurable",
+   "TestRecoveryAbandonmentPreservesUnknownAndFencesExecution",
+   "TestRecoveryDispatchClassificationsPersistAndNeverBlindlyRetry",
+   "TestRecoveryManifestLookupClassifiesMissingAndStorageErrors",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityExpiresAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenAuthorityRevokedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionFailsClosedWhenGenerationInvalidatedAtOrderingBoundary",
+   "TestRecoveryStepAdmissionRejectionPreservesRetryAfterRestart",
+   "TestRecoveryStepAdmissionSucceedsExactlyOnceWithValidCurrentAuthority",
+   "TestRevocationAndSigningTamperFenceExecution"
+  ],
+  "tail": "",
+  "secs": 18.4
+ },
+ {
+  "id": "R7.38",
+  "guard": "installation owner check requires the owner principal",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_governance.go",
+    "root.ParentRef != \"\" || root.Principal != owner {",
+    "root.ParentRef != \"\" {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestCurrentInstallationOwnerCheckRequiresTheCurrentRootOwnerAndOSUser",
+  "skipped": [],
+  "tail": "",
+  "secs": 34.6
+ },
+ {
+  "id": "R7.41",
+  "guard": "re-anchor readmission refuses a root carrying an invalidation record",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/reanchor.go",
+    "loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, root.Ref, root.Version, now); invErr == nil",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 65.6
+ },
+ {
+  "id": "R7.13j",
+  "guard": "joint: resolver refuses a candidate with no resolvable delegation (reference form + request + decision + digest layers)",
+  "invariants": "I12,I13",
+  "group": "R7.delegation-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if !ok {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if requestErr != nil {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goalstore/publisher_authority.go",
+    "if decisionErr != nil || decision.RequestDigest == \"\" {",
+    1,
+    0
+   ],
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == \"\"",
+    "false && (digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == \"\")",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestResolverRejectsEveryCandidateThatViolatesOneSelectionTerm",
+  "skipped": [],
+  "tail": "",
+  "secs": 70.4
+ },
+ {
+  "id": "R7.01j",
+  "guard": "joint (N17 core): the resolver neither filters to current generations nor checks the lineage",
+  "invariants": "I12,I13",
+  "group": "R7.layer-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "r.currentAuthorityGenerations(ctx, now)",
+    "r.ListAuthorityGenerations(ctx, now)",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/publisher_authority.go",
+    "if lineageErr := r.requireCurrentLineage(ctx, generation, now); lineageErr != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestDeletingTheInvalidationRowDoesNotReauthorizeSignWithPreview,TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority,TestEveryImmutableGenerationConsumerIsClassified,TestInvalidatedDelegatedPublisherGenerationPreventsBuildSigningPreview,TestInvalidatingTheGenerationAfterPreviewPreventsSignWithPreview",
+  "skipped": [],
+  "tail": "",
+  "secs": 53.5
+ },
+ {
+  "id": "R7.25j",
+  "guard": "joint: the current listing drops invalidated generations AND the lineage applies currentness",
+  "invariants": "I12,I13",
+  "group": "R7.layer-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if invalidated[key] {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.requireCurrentGeneration(ctx, generation, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision,TestRetiredPackageManagerGenerationCannotDeriveADeploymentApproval",
+  "skipped": [],
+  "tail": "",
+  "secs": 44.7
+ },
+ {
+  "id": "R7.42",
+  "guard": "the CLI delegation trusts only a CURRENT parent",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "cmd/praxis/authoritybootstrap.go",
+    "repo.LoadCurrentAuthorityGeneration(context.Background(), request.Delegation.ParentRef",
+    "repo.LoadAuthorityGeneration(context.Background(), request.Delegation.ParentRef",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified",
+  "skipped": [
+   "TestFanoutHelperProcess"
+  ],
+  "tail": "",
+  "secs": 122.1
+ },
+ {
+  "id": "R7.26j",
+  "guard": "joint: the current listing requires the liveness record AND the lineage applies currentness",
+  "invariants": "I12,I13",
+  "group": "R7.layer-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/generation_currentness.go",
+    "if !ok || stored.Digest != generation.Digest {",
+    "if false && (!ok || stored.Digest != generation.Digest) {",
+    1
+   ],
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.requireCurrentGeneration(ctx, generation, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestDeletingTheInvalidationRowDoesNotReauthorizeSignWithPreview,TestDeletingTheInvalidationRowDoesNotRestorePackagePublishAuthority,TestMissingLivenessRowYieldsNoPackagePublishAuthority,TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision",
+  "skipped": [],
+  "tail": "",
+  "secs": 38.5
+ },
+ {
+  "id": "R7.27j",
+  "guard": "joint: the current listing applies anchored retirement AND the lineage applies currentness",
+  "invariants": "I12,I13",
+  "group": "R7.layer-joint",
+  "edits": [
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.currentAgainstFacts(snap, stored); err != nil {",
+    1,
+    0
+   ],
+   [
+    "neg",
+    "internal/goalstore/generation_currentness.go",
+    "if err := r.requireCurrentGeneration(ctx, generation, now); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestChildOfASupersededRootDoesNotResolvePackagePublishAuthority,TestPackageManagerGenerationOfARetiredRootDoesNotResolveDeploymentAuthority,TestReplayingTheLivenessRowDoesNotRestorePackagePublishAuthority,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision,TestRetiredPackageManagerGenerationCannotDeriveADeploymentApproval",
+  "skipped": [],
+  "tail": "",
+  "secs": 41.4
+ },
+ {
+  "id": "R7.34j",
+  "guard": "joint: neither the deployment decision nor the approval derivation requires a CURRENT operational generation",
+  "invariants": "I12,I13",
+  "group": "R7.layer-joint",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/repository.go",
+    "if err := r.requireCurrentLineage(ctx, operational, now); err != nil {",
+    "if false {",
+    1
+   ],
+   [
+    "sub",
+    "internal/goalstore/package_deployment_approval.go",
+    "if err := r.requireCurrentLineage(ctx, generation, now); err != nil {",
+    "if false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestEveryImmutableGenerationConsumerIsClassified,TestRetiredPackageManagerGenerationCannotBeBoundByADeploymentDecision,TestRetiredPackageManagerGenerationCannotDeriveADeploymentApproval",
+  "skipped": [],
+  "tail": "",
+  "secs": 40.6
+ },
+ {
+  "id": "R7.50",
+  "guard": "BuildSigningPreview requires an active publisher generation for the package",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if record.State != \"active\" || !record.Generation.PackageNamespaceAllowed(built.Manifest.PackageID) {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 40.4
+ },
+ {
+  "id": "R7.51",
+  "guard": "BuildSigningPreview binds the authority key to the publisher key",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if auth.Generation.SubjectKeyDigest != \"\" && auth.Generation.SubjectKeyDigest != record.Generation.PublicKeyDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestBuildSigningPreviewRefusesForeignNamespaceAndMismatchedAuthorityKey",
+  "skipped": [],
+  "tail": "",
+  "secs": 38.9
+ },
+ {
+  "id": "R7.52",
+  "guard": "SignWithPreview verifies the preview digest",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if err := preview.VerifyDigest(); err != nil {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 38.2
+ },
+ {
+  "id": "R7.53",
+  "guard": "SignWithPreview refuses a preview stale for the package bytes",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if built.ManifestDigest != preview.ManifestDigest || built.ArtifactDigest != preview.ArtifactDigest",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSignWithPreviewRefusesEachStaleBindingBeforeTheProtectedSigner",
+  "skipped": [],
+  "tail": "",
+  "secs": 41.0
+ },
+ {
+  "id": "R7.54",
+  "guard": "SignWithPreview refuses a stale publisher generation",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if record.State != \"active\" || record.Generation.PublicKeyDigest != preview.PublicKeyDigest",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSignWithPreviewRefusesEachStaleBindingBeforeTheProtectedSigner",
+  "skipped": [],
+  "tail": "",
+  "secs": 48.7
+ },
+ {
+  "id": "R7.55",
+  "guard": "SignWithPreview refuses a stale package.publish authority",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if auth.Generation.Digest != preview.AuthorityGenerationDigest || auth.Generation.Ref != preview.AuthorityGenerationRef",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSignWithPreviewRefusesEachStaleBindingBeforeTheProtectedSigner",
+  "skipped": [],
+  "tail": "",
+  "secs": 48.8
+ },
+ {
+  "id": "R7.56",
+  "guard": "SignWithPreview refuses stale request/decision provenance",
+  "invariants": "I12,I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/publisher/sign.go",
+    "if requestDigest != preview.AuthorityRequestDigest || decisionDigest != preview.AuthorityDecisionDigest {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/publisher"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestSignWithPreviewRefusesEachStaleBindingBeforeTheProtectedSigner",
+  "skipped": [],
+  "tail": "",
+  "secs": 57.4
+ }
+]

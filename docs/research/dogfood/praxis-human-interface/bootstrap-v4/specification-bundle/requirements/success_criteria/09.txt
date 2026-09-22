@@ -1,0 +1,1 @@
+A normal user can determine whether Praxis is working, what outcome is being pursued, whether human authority is required, what meaningful progress has occurred, and whether execution is complete, blocked, recovering, paused, or merely at an invocation boundary.

@@ -1,0 +1,26 @@
+[
+ {
+  "id": "N6.03",
+  "guard": "overflow cancels (kills) the process group",
+  "invariants": "I4",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goaldrive/git_repository.go",
+    "o.cancel() // kills the process group; the run then fails closed",
+    "_ = o.cancel",
+    1
+   ]
+  ],
+  "run": "Test(ValidationOutput|BoundValidationOutput|ValidationTerminates)",
+  "pkgs": [
+   "./internal/goaldrive"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestValidationOutputBoundFailsClosedThroughTheRealCollector",
+  "skipped": [],
+  "tail": "",
+  "secs": 29.5
+ }
+]

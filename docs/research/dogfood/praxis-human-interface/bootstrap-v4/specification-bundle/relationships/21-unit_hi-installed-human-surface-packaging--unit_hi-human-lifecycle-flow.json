@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-installed-human-surface-packaging","kind":"hard_dependency","prerequisite":"unit:hi-human-lifecycle-flow","provenance":"model_proposal","rationale":"unit:hi-installed-human-surface-packaging cannot be truthfully implemented or qualified until unit:hi-human-lifecycle-flow is complete."}

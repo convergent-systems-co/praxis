@@ -1,0 +1,34 @@
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
+	"runtime/debug"
+
+	"github.com/convergent-systems-co/praxis/internal/bootstrapv4"
+	_ "github.com/convergent-systems-co/praxis/internal/aaasleep"
+)
+
+var marker = "unset"
+
+func main() {
+	if os.Args[1] == "identity" {
+		for _, s := range func() []debug.BuildSetting { i, _ := debug.ReadBuildInfo(); return i.Settings }() {
+			if s.Key == "vcs.revision" || s.Key == "vcs.modified" {
+				fmt.Println(s.Key, s.Value)
+			}
+		}
+		return
+	}
+	var m bootstrapv4.Manifest
+	raw, _ := os.ReadFile(os.Args[2])
+	if err := json.Unmarshal(raw, &m); err != nil {
+		fmt.Println("SETUP", err)
+		os.Exit(2)
+	}
+	fmt.Println("RUNNING", marker)
+	_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	fmt.Printf("VERIFY running=%s result=%v\n", marker, bootstrapv4.VerifyProcessImage(m))
+}

@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-governed-planning-orchestration","kind":"hard_dependency","prerequisite":"unit:hi-advisory-evidence-staging","provenance":"model_proposal","rationale":"unit:hi-governed-planning-orchestration cannot be truthfully implemented or qualified until unit:hi-advisory-evidence-staging is complete."}

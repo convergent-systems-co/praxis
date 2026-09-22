@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-dogfood-acceptance","kind":"consumer","prerequisite":"unit:hi-human-lifecycle-flow","provenance":"model_proposal","rationale":"unit:hi-dogfood-acceptance consumes unit:hi-human-lifecycle-flow outputs as non-blocking context."}

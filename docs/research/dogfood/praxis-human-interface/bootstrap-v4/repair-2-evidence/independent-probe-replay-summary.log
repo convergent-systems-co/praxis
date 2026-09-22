@@ -1,0 +1,14 @@
+--- FAIL: TestReview2ArbitraryCeremonyDigest
+--- FAIL: TestReview2CachedPackageIdentity
+--- FAIL: TestReview2CLIImportWithoutActivation
+--- FAIL: TestReview2CompletedFlagSubstitution
+--- FAIL: TestReview2CompletionWithoutMechanismPass
+--- FAIL: TestReview2ExplicitGateObjectiveReachesWorker
+--- FAIL: TestReview2GateReplayWithoutActivation
+--- FAIL: TestReview2LegacyAcceptanceWithoutCeremony
+--- FAIL: TestReview2MalformedDossierAccepted
+--- FAIL: TestReview2MissingValidatorStillQualifiesCheckpoint
+--- FAIL: TestReview2ProductionGateStoreConfiguration
+--- FAIL: TestReview2RevokedWorkPlanStillGovernsGate
+--- FAIL: TestReview2SaveBaselineWithoutActivation
+--- PASS: TestReview2GateRequestConflictPreservesOriginal

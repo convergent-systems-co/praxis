@@ -1,0 +1,17 @@
+# Repair 6 independent rebuild (fresh GOCACHE) versus the candidate artifacts
+# source manifest sha256: ffc63fbb33f96896f864def29686b7face5835c268bba6f52e23cfc822589e20
+a57fbce914bf3cbd82f283f5aee2c4867c022f4385bda6bfcb2316a8a1c2fdd2  artifacts/praxis-candidate
+a57fbce914bf3cbd82f283f5aee2c4867c022f4385bda6bfcb2316a8a1c2fdd2  independent rebuild  BYTE-IDENTICAL
+6e10e616c53842f9e9841737fd8cf01a96b4443661eb1132fe0fda77db142fb4  artifacts/praxis-goals-plugin-candidate
+6e10e616c53842f9e9841737fd8cf01a96b4443661eb1132fe0fda77db142fb4  independent rebuild  BYTE-IDENTICAL
+ed9f6e230dfdd5d4776755c7ffb05cee3d0af384115135b2fe6c71b10dd58cab  artifacts/package/praxis-package.tar.gz
+ed9f6e230dfdd5d4776755c7ffb05cee3d0af384115135b2fe6c71b10dd58cab  independent rebuild  BYTE-IDENTICAL
+7529e58f5e13a3744594398f212df246e11e0005ee23726c26463da000c47bbf  artifacts/package/praxis-package.json
+7529e58f5e13a3744594398f212df246e11e0005ee23726c26463da000c47bbf  independent rebuild  BYTE-IDENTICAL
+	build	CGO_ENABLED=1
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	vcs=git
+	build	vcs.revision=ff146000aadae0ef60981d445056089f52815869
+	build	vcs.time=2026-09-20T21:24:47Z
+	build	vcs.modified=true

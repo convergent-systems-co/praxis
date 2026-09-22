@@ -1,0 +1,136 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/convergent-systems-co/praxis/internal/goaldrive"
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
+)
+
+const e2eValidatorScript = `#!/bin/sh
+set -eu
+if [ "${1:-integrated}" = integrated ]; then exit 0; fi
+printf 'PRAXIS-VALIDATION %s\n' "$1"
+`
+
+func e2eGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// One end-to-end run: real lifecycle -> real attach -> native runtime built by the production constructor ->
+// real SQLite ledger, real GoalStore authority verifier, real activation verifier (manifest+package), real Git remote,
+// CommandWorker (deterministic, no live provider) -> integrated+conformance validation -> publish -> qualified completion
+// -> restart (fresh runtime) -> gate request -> owner ceremony -> gate completion.
+func TestR2EndToEndPathAThenGate(t *testing.T) {
+	s := newSafetyLifecycle(t)
+	digest := s.reviewAndRequest()
+	s.approveWorkPlan(digest)
+	if _, err := s.continueGoal("1"); err != nil {
+		t.Fatalf("continue: %v", err)
+	}
+	h := &gateHarness{safetyLifecycle: s}
+
+	root := t.TempDir()
+	remote, work := filepath.Join(root, "remote.git"), filepath.Join(root, "work")
+	e2eGit(t, root, "init", "-q", "--bare", remote)
+	e2eGit(t, root, "init", "-q", "--initial-branch=main", work)
+	e2eGit(t, work, "config", "user.email", "e2e@example.invalid")
+	e2eGit(t, work, "config", "user.name", "e2e")
+	e2eGit(t, work, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(work, "README"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(work, ".praxis"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, ".praxis", "validate"), []byte(e2eValidatorScript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	e2eGit(t, work, "add", "-A")
+	e2eGit(t, work, "commit", "-q", "-m", "base")
+	e2eGit(t, work, "push", "-q", "-u", "origin", "main")
+
+	body, err := json.Marshal(repairDossier("finish and reconcile", "authenticated interrupt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dossierFile := filepath.Join(root, "dossier.json")
+	if err := os.WriteFile(dossierFile, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(root, "worker.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nset -eu\nmkdir -p docs\ncp "+dossierFile+" docs/dossier.json\ngit add docs/dossier.json\ngit commit -q -m 'unit one' -m 'Praxis-Unit-Complete: one'\nprintf '{\"outcome\":\"CONTINUE\",\"end_head\":\"%s\",\"checkpoint_valid\":true}' \"$(git rev-parse HEAD)\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	argv, _ := json.Marshal([]string{"/bin/sh", script})
+	getenv := func(key string) string {
+		if key == "PRAXIS_GOAL_WORKER_ARGV" {
+			return string(argv)
+		}
+		return s.env(key)
+	}
+	execute := func(id string) (goaldrive.TurnRecord, error) {
+		inv := goaldrive.InvocationRequest{ProviderID: "p", RepositoryPath: work, Branch: "main", GoalVersion: "2", InvocationID: id, Mode: goaldrive.ModeSupervised}
+		inv.Input = contracts.GoalInput{Kind: contracts.GoalInputID, GoalID: repairGoalID}
+		rt, db, err := buildGoalDriveRuntime(s.ctx, normalizedOutput{GraphID: "g", GraphVersion: "1"}, inv, getenv)
+		if err != nil {
+			t.Fatalf("build runtime: %v", err)
+		}
+		defer db.Close()
+		return rt.Execute(s.ctx, inv)
+	}
+
+	// A: ordinary unit, real verifiers.
+	record, err := execute("e2e-1")
+	t.Logf("turn 1: outcome=%s progress=%v published=%v unitCompleted=%v err=%v blocker=%q", record.Outcome, record.Progress, record.CheckpointPublished, record.UnitCompleted, err, record.Blocker)
+	if err != nil || !record.UnitCompleted {
+		t.Fatalf("PATH A DID NOT COMPLETE END TO END: %v %+v", err, record)
+	}
+	// restart + gate request
+	_, err = execute("e2e-2")
+	var required *goaldrive.AuthorityRequiredError
+	if !errors.As(err, &required) || len(required.Requests) != 1 {
+		t.Fatalf("expected a pending gate request after restart: %v", err)
+	}
+	req := required.Requests[0]
+	rd, _ := req.Digest()
+	if _, err := h.decide(rd, "approve", "finish and reconcile", "DECIDE-APPROVE "+rd+" ALTERNATIVE finish and reconcile"); err != nil {
+		t.Fatalf("owner ceremony: %v", err)
+	}
+	_, err = execute("e2e-3")
+	t.Logf("turn 3: %v", err)
+	if !errors.Is(err, goaldrive.ErrHumanAuthorityGate) {
+		t.Fatalf("gate completion expected: %v", err)
+	}
+	_, err = execute("e2e-4")
+	t.Logf("turn 4: %v", err)
+	if err == nil {
+		t.Fatal("a complete plan selected more work")
+	}
+	repo, db, err := openGovernedRepository(s.ctx, s.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	b, err := repo.Load(s.ctx, repairGoalID, "2", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = goalstore.Repository{}
+	t.Logf("END-TO-END OK; plan units=%d", len(b.WorkPlan.Candidates))
+}

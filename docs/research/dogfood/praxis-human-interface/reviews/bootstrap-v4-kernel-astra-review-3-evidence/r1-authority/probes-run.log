@@ -1,0 +1,92 @@
+=== RUN   TestR1A_StrippedSafetyPlanPersistsWithoutActivationAndGateReachesProvider
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:70: PROBE-RESULT R1-A save: REPRODUCED persisted generation goal:pending-surface/3 digest sha256:c5b7e7aff0fe6be041c39535ee9491069b3b814a819facc77c2c71841f2d749b with Safety=nil, kind-less gate, no activation manifest
+    r1_probe_test.go:79: PROBE-RESULT R1-A drive: workerCalls=1 objectives=[gate] err=<nil>
+--- PASS: TestR1A_StrippedSafetyPlanPersistsWithoutActivationAndGateReachesProvider (0.07s)
+=== RUN   TestR1B_StrippedSafetyPlanThroughCLIImport
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:95: PROBE-RESULT R1-B import: REPRODUCED supported CLI import persisted a Safety-nil v4-shaped plan with fabricated-equivalent authority and no activation manifest
+--- PASS: TestR1B_StrippedSafetyPlanThroughCLIImport (0.05s)
+=== RUN   TestR1C_FabricatedLegacyAuthorityPlanSave
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:118: PROBE-RESULT R1-C: REPRODUCED Save persisted a WorkPlan whose authority lineage is entirely fabricated strings
+--- PASS: TestR1C_FabricatedLegacyAuthorityPlanSave (0.05s)
+=== RUN   TestR1D_RootGenerationInvalidatedAfterAcceptance
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:139: PROBE-RESULT R1-D VerifyGoverningAuthority after root invalidation: err=validate decision authority generation: authority generation is revoked or superseded
+    r1_probe_test.go:146: PROBE-RESULT R1-D drive: REFUSED: WorkPlan governing authority is absent, revoked, or inconsistent: validate decision authority generation: authority generation is revoked or superseded
+--- PASS: TestR1D_RootGenerationInvalidatedAfterAcceptance (0.05s)
+=== RUN   TestR1E_CeremonyMismatchMatrixForWorkPlanAcceptance
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:194: PROBE-RESULT R1-E other-request-digest: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:194: PROBE-RESULT R1-E reject-outcome: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:194: PROBE-RESULT R1-E stray-alternative: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:187: PROBE-RESULT R1-E wrong-root-version: REFUSED-AT-RECORD(ceremony evidence is not for this installation's owner under the current root)
+    r1_probe_test.go:187: PROBE-RESULT R1-E foreign-os-user: REFUSED-AT-RECORD(ceremony evidence names an OS user that does not own the enrolled installation root)
+    r1_probe_test.go:187: PROBE-RESULT R1-E foreign-owner: REFUSED-AT-RECORD(ceremony evidence is not for this installation's owner under the current root)
+    r1_probe_test.go:206: PROBE-RESULT R1-E unbound-fields: ACCEPTED (ceremony does not bind DecisionRef/ExpiresAt/IssuedAt/AuthorityDigest) -- non-blocking observation
+--- PASS: TestR1E_CeremonyMismatchMatrixForWorkPlanAcceptance (0.04s)
+=== RUN   TestR1F_StorageKeyHolderForgesCeremonyAndDecision
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:232: PROBE-RESULT R1-F: with only public fields + Repository handle, gate approved=true err=<nil> (no TTY, no typed confirmation involved)
+--- PASS: TestR1F_StorageKeyHolderForgesCeremonyAndDecision (0.05s)
+=== RUN   TestR1G_AcceptedPlanCrossGoalAttach
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:255: clone digest==source digest: true
+    r1_probe_test.go:262: PROBE-RESULT R1-G: REPRODUCED plan accepted for goal:pending-surface attached to goal:r1-clone (goal:r1-clone/2)
+--- PASS: TestR1G_AcceptedPlanCrossGoalAttach (0.05s)
+=== RUN   TestR1H_ForgedGateCompletionInLedgerSkipsTheOwnerDecision
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:277: PROBE-RESULT R1-H: forged gate completion accepted by ledger; controller then: authorityRequired=false err=no authoritative runnable work candidate (no AuthorityDecision exists for this gate)
+    r1_probe_test.go:284: PROBE-RESULT R1-H: durable gate requests pending in GoalStore: 0
+--- PASS: TestR1H_ForgedGateCompletionInLedgerSkipsTheOwnerDecision (0.05s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.819s

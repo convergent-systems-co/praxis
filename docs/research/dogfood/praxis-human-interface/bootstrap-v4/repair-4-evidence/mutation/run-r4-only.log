@@ -1,0 +1,35 @@
+BUILD-FAILED  R4.02    in-tx revoked-or-not-live: absent liveness refuses  
+KILLED        R4.01    in-tx revoked-or-not-live: negative record refuses  TestIsSecureBlobRevokedInTx
+KILLED        R4.03    in-tx liveness exemption only for facts created by this tran  TestDecisionLivenessRowDeletionFailsClosed,TestDeleteLivenessRecordRefusesEveryOtherNamesp
+SURVIVED      R4.04    retire API refuses every non-liveness namespace  
+KILLED        R4.05    liveness sealing refuses every non-liveness namespace  TestDeleteLivenessRecordRefusesEveryOtherNamespace
+BUILD-FAILED  R4.08    succession makes the successor live in its own transaction  
+SURVIVED      R4.06    atomic multi-write accepts liveness records only  
+KILLED        R4.07    succession retires the predecessor liveness in its own trans  TestRootSuccessionRollbackByRowDeletionDoesNotReviveThePredecessor
+KILLED        R4.09    generation liveness commits with the generation  TestAbandonmentConfirmationAppendsExactFrozenPayload,TestAbandonmentConfirmationRejectsCha
+KILLED        R4.10    decision liveness commits with the decision  TestDecisionLivenessRowDeletionFailsClosed,TestDerivedPackageApprovalIsConsumableByDeploym
+KILLED        R4.11    LoadAuthorityDecision requires decision liveness  TestDecisionLivenessRowDeletionFailsClosed,TestRevocationRowDeletionDoesNotRestoreAUnprote
+KILLED        R4.12    identical decision replay cannot resurrect a retired decisio  TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision
+KILLED        R4.14    generation invalidation retires the generation liveness reco  TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration
+KILLED        R4.13    revocation retires the decision liveness record  TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision
+KILLED        R4.15    ValidateAuthorityGeneration requires generation liveness  TestGenerationInvalidationRowDeletionDoesNotRestoreTheGeneration,TestGenerationLivenessRow
+SURVIVED      R4.16    lineage walk requires liveness of every generation  
+KILLED        R4.17    current installation root must be positively live  TestRootLivenessRowDeletionLeavesNoCurrentRoot,TestRootSuccessionRollbackByRowDeletionDoes
+SURVIVED      R4.18    publication consumer: generation liveness  
+SURVIVED      R4.19    publication consumer: decision liveness  
+SURVIVED      R4.20    recovery admission: decision liveness  
+BUILD-FAILED  R4.23    owner-decision authority requires issuing generation livenes  
+SURVIVED      R4.21    recovery admission: generation liveness  
+KILLED        R4.22    ordinary re-request requires the predecessor decision livene  TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges
+KILLED        R4.24    classification is derived when the classification row is mis  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R4.24e   classification derivation end-to-end (N9 counterexample)  TestRepair4N9ClassificationRowDeletionStillRefusesStrippedImport,TestRepair4SweepClassific
+KILLED        R4.25    derivation reads surviving generations of the Goal  TestRepair4SweepClassificationRowPlusAnyOtherRowStillClassified
+KILLED        R4.26    derivation reads surviving proposals of the Goal  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestConcurrentInstallationF
+KILLED        R4.27    derivation refuses conflicting kernel evidence  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+SURVIVED      R4.28    derivation fails closed on an unreadable proposal  
+SURVIVED      R4.31    derivation attributes generations by Goal identity  
+BUILD-FAILED  R4.32    decision liveness written atomically for delegated decision+  
+SURVIVED      R4.29    derivation fails closed on an unreadable generation  
+KILLED        R4.30    derivation attributes proposals by Goal identity  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R4.33    protected decision written with its liveness in one transact  TestActivationRefusalSurvivesRestartAndRecoversOnlyWithRestoredActivation,TestConcurrentIn
+RESTORE-CHECK OK

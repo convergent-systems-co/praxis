@@ -1,0 +1,42 @@
+BUILD-FAILED  R4.25    derivation reads surviving generations of the Goal  
+KILLED        R4.11    LoadAuthorityDecision requires decision liveness  TestDecisionLivenessRowDeletionFailsClosed,TestFAACrashBetweenFactAndEffectsLeavesTheDecis
+KILLED        R4.12    identical decision replay cannot resurrect a retired decisio  TestRevocationRowDeletionDoesNotRestoreAUnprotectedDecision
+KILLED        R4.17    current installation root must be positively live (same snap  TestRootLivenessRowDeletionLeavesNoCurrentRoot,TestRootSuccessionRollbackByRowDeletionDoes
+KILLED        R4.23j   joint: owner-decision generation liveness (plan authority +   TestFAAEveryConsumerHonoursFactsAndFreshness,TestFAAGovernedReanchorAfterRestoreDoesNotRes
+SURVIVED      R4.23    owner-decision authority requires issuing generation livenes  
+KILLED        R4.26    derivation reads the safety binding of proposals  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals,TestRepair5EvidencePowerset
+KILLED        R5.01    chain: fact belongs to this installation  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.02    chain: fact chains to its predecessor  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.04    chain: gap refused outside a re-anchor  TestVerifyChainEachRuleRefusesOnItsOwn
+KILLED        R5.05    chain: must begin with a genesis or a re-anchor  TestVerifyChainEachRuleRefusesOnItsOwn
+SURVIVED      R4.29    derivation fails closed on an unreadable generation  
+KILLED        R5.15    snapshot: anchor names this installation  TestFAARepositoryRefusesAnAnchorThatNamesAnotherInstallation
+KILLED        R4.31    derivation attributes generations by Goal identity  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R5.18    reader retries only a plain lag  TestFAAReaderDoesNotRetryAnInvalidChain
+KILLED        R5.23    an anchor is not created next to existing state  TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors
+KILLED        R5.24    a crashed initialisation is replaced only at sequence 0  TestFAAInitialisationRefusesExistingStateAndNonZeroAnchors
+KILLED        R5.19    admission is stamped with the anchor sequence  TestFAAAuthorityAdmittedAfterAReanchorIsCurrent
+KILLED        R5.32    revocation is anchored before its effects  TestFAAAnchorStatesFailClosed,TestFAAFactChainTruncationErasureAndDamageFailClosed,TestFAA
+KILLED        R5.36    root resolution: retired root excluded  TestFAARootRetiredByFactAloneIsNotCurrent,TestFAARootSuccessionIsAnchoredAndItsRollbackByR
+SURVIVED      R4.28    derivation fails closed on an unreadable candidate  
+KILLED        R5.34    succession anchors the supersession  TestFAARootSuccessionIsAnchoredAndItsRollbackByReplayIsRefused
+KILLED        R5.41    classification is anchored when derived-classified  TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived
+KILLED        R5.51    in-tx guard checks the decision  TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn
+KILLED        R4.28j   joint: candidate decrypt failure + extraction failure both s  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R5.52    in-tx guard checks the generation  TestFAAInTransactionGuardNeedsTheDecisionAndTheGenerationEachOnItsOwn
+KILLED        R4.30    derivation attributes records by Goal identity  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+KILLED        R5.53    repair guard consults the anchor  TestRuntimeStateTransactionalGuardConsultsTheForwardAuthorityAnchor
+KILLED        R5.56    re-anchor re-admits the attested root  TestFAAGovernedReanchorAfterRestoreDoesNotResurrectRetiredAuthority,TestFAAReanchorCoversM
+KILLED        R5.57    re-anchor completes an interrupted re-admission  TestFAAReanchorRootSelectionAndIdempotence
+KILLED        R5.58    re-anchor preserves orphaned facts  TestFAAReanchorPreservesOrphanedFactsAndBridgesFromTheLastValidLink
+KILLED        R5.59    re-anchor needs exactly one un-retired root  TestFAAConcurrentAppendersAndReadersKeepAValidChain,TestFAAReanchorRootSelectionAndIdempot
+KILLED        R5.60    re-anchor excludes a root retired by fact  TestFAAReanchorRootSelectionAndIdempotence
+KILLED        R5.40    classification is anchored when first marked  TestFAAClassificationIsAnchoredWhenMarkedAndWhenOnlyDerived
+KILLED        R5.62    fact append reverts the anchor on commit failure  TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts,TestFAAConcurrentAppender
+SURVIVED      R5.73    keychain: read-back verified  
+KILLED        R5.63    only facts may be appended through the chain  TestAppendGovernanceFactUndoesOnCommitFailureAndAcceptsOnlyFacts
+KILLED        R5.74    keychain: another installation's state never returned  TestKeychainAnchorNeverReturnsAnotherInstallationsState
+KILLED        R5.66    re-anchor requires an interactive terminal  TestRepair5WholeDatabaseRollbackIsRefusedAndRecoveredOnlyByTheGovernedCeremony
+KILLED        R5.67    re-anchor requires the enrolling OS user  TestRepair5MissingAnchorFailsClosedAndTheCeremonyRecoversIt,TestRepair5WholeDatabaseRollba
+SURVIVED      R5.64    the fact append takes the writer lock  
+RESTORE-CHECK OK

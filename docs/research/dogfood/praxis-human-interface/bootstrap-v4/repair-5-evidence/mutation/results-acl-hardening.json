@@ -1,0 +1,314 @@
+[
+ {
+  "id": "R5.70",
+  "guard": "keychain: not strictly forward",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect != nil && (err != nil || cur != *expect || next.Seq <= cur.Seq):",
+    "case expect != nil && (err != nil || cur != *expect):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 30.3
+ },
+ {
+  "id": "R5.71",
+  "guard": "keychain: expectation compared",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect != nil && (err != nil || cur != *expect || next.Seq <= cur.Seq):",
+    "case expect != nil && (err != nil || next.Seq <= cur.Seq):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.9
+ },
+ {
+  "id": "R5.72",
+  "guard": "keychain: create refuses an existing item",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case expect == nil && err == nil:\n\t\t\treturn faa.ErrConflict",
+    "case false && expect == nil && err == nil:\n\t\t\treturn faa.ErrConflict",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.6
+ },
+ {
+  "id": "R5.73",
+  "guard": "keychain: read-back verified",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil || got != next {\n\t\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t\t}\n\t\treturn nil\n\t})\n}\n\nfunc (k *KeychainAnchor) Revert",
+    "if err != nil || false && got != next {\n\t\t\treturn fmt.Errorf(\"%w: keychain read-back differs from what was written\", faa.ErrUnavailable)\n\t\t}\n\t\treturn nil\n\t})\n}\n\nfunc (k *KeychainAnchor) Revert",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 12.3
+ },
+ {
+  "id": "R5.74",
+  "guard": "keychain: another installation's state never returned",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "s.Installation != installation {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    "false {\n\t\treturn faa.State{}, faa.ErrCorrupt",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorNeverReturnsAnotherInstallationsState",
+  "skipped": [],
+  "tail": "",
+  "secs": 5.8
+ },
+ {
+  "id": "R5.77",
+  "guard": "keychain: the dedicated file is locked again after every session",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if (kc == NULL) return;\n\tSecKeychainLock(kc);\n\tCFRelease(kc);",
+    "if (kc == NULL) return;\n\tCFRelease(kc);",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorRefusesOverwriteAddAndReadWithoutThePassword",
+  "skipped": [],
+  "tail": "",
+  "secs": 2.4
+ },
+ {
+  "id": "R5.78",
+  "guard": "keychain: a missing password item reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if status == statusNotFound {\n\t\treturn \"\", corruptErr(\"the dedicated keychain exists but the item holding its password is missing\")",
+    "if false && status == statusNotFound {\n\t\treturn \"\", corruptErr(\"the dedicated keychain exists but the item holding its password is missing\")",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers,TestKeychainAnchorRemovedFileReadsAsMissing",
+  "skipped": [],
+  "tail": "",
+  "secs": 5.4
+ },
+ {
+  "id": "R5.79",
+  "guard": "keychain: a malformed password item reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if len(raw) != 64 {",
+    "if false && len(raw) != 64 {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 6.5
+ },
+ {
+  "id": "R5.80",
+  "guard": "keychain: a wrong password reads as a corrupt anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "case status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain:",
+    "case false && (status == statusAuthFailed || status == statusNoSuchKeychain || status == statusInvalidKeychain):",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers",
+  "skipped": [],
+  "tail": "",
+  "secs": 8.9
+ },
+ {
+  "id": "R5.81",
+  "guard": "keychain: a reset tears down the damaged pair first",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "neg",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if mode == sessionRecreate {",
+    1,
+    0
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers",
+  "skipped": [],
+  "tail": "",
+  "secs": 6.7
+ },
+ {
+  "id": "R5.82",
+  "guard": "keychain: a read never creates the keychain",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    "if false && !exists && mode == sessionExisting {\n\t\treturn faa.ErrMissing\n\t}",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 7.1
+ },
+ {
+  "id": "R5.83",
+  "guard": "keychain: an unpopulated new keychain is removed",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if err != nil && created {",
+    "if err != nil && created && false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved",
+  "skipped": [],
+  "tail": "",
+  "secs": 3.3
+ },
+ {
+  "id": "R5.84",
+  "guard": "keychain: a missing keychain file is a missing anchor",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/crypto/faa_keychain_darwin.go",
+    "if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {",
+    "if false && statErr != nil && !errors.Is(statErr, os.ErrNotExist) {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/crypto"
+  ],
+  "verdict": "SURVIVED",
+  "killers": "",
+  "skipped": [],
+  "tail": "",
+  "secs": 5.4
+ }
+]

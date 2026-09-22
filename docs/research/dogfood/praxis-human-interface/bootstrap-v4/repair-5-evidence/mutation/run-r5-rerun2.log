@@ -1,0 +1,8 @@
+SURVIVED      R4.29    derivation fails closed on an unreadable generation  
+SURVIVED      R4.25    derivation reads surviving generations of the Goal  
+KILLED        R4.29j   joint: candidate decrypt failure + generation load failure b  TestRepair4ClassificationDerivationFromGenerationsIsAttributedAndFailsClosed
+KILLED        R4.28j   joint: candidate decrypt failure + extraction failure both s  TestClassificationIsDerivedFromSurvivingSafetyBearingProposals
+SURVIVED      R4.28    derivation fails closed on an unreadable candidate  
+KILLED        R4.23j   joint: owner-decision generation liveness (plan authority +   TestFAAConcurrentAppendersAndReadersKeepAValidChain,TestFAAEveryConsumerHonoursFactsAndFre
+SURVIVED      R5.64    the fact append takes the writer lock  
+RESTORE-CHECK OK

@@ -1,0 +1,5 @@
+--- FAIL: TestPraxisBlindGoalAuditFreezesMachineReadableFailure (0.00s)
+    praxis_blind_audit_test.go:40: inventory agent-runtime-restart attested source internal/learning is stale: got sha256:2e182c24a5f320ad51a03da794a5c5daecc2cee6744e6f826fa36db605ac6651 want sha256:2b7f6c41b5ec002b3d2a1299e867fe0a36be0c244ee381234d07418ee2a4fe3d
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/internal/conformance	0.394s
+FAIL

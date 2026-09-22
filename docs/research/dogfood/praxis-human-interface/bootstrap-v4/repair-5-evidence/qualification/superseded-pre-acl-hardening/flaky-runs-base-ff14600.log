@@ -1,0 +1,15 @@
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.05s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=62ms
+    concurrency_fanout_test.go:452: lease contention: 27 exclusive holds across 4 processes, 73 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (1.24s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=65ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+--- FAIL: TestConcurrentInstallationFanoutAcrossProcesses (0.97s)
+    concurrency_fanout_test.go:412: phase 1: 16 processes, busy errors=0, max single operation=5ms
+    concurrency_fanout_test.go:452: lease contention: 25 exclusive holds across 4 processes, 75 deterministic denials, no overlap
+    concurrency_fanout_test.go:590: losing migrator must be refused by the maintenance lease or a fail-closed plan check, got: <nil>
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	71.978s
+FAIL

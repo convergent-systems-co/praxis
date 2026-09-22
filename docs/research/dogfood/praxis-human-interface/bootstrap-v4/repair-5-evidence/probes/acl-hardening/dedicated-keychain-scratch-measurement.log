@@ -1,0 +1,4 @@
+Dedicated locked keychain, first measurement (scratch aclprobe binary as creator, differently-linked binary as attacker, UI disabled):
+attacker vs LOCKED: read -25293, update -25293, delete 0 (silent), add -25293
+attacker while creator holds it UNLOCKED: read -25293 (item ACL), update 0 (the brief window)
+after re-lock: attacker update -25293

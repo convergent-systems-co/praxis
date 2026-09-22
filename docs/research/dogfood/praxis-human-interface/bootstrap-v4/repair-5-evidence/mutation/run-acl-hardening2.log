@@ -1,0 +1,3 @@
+KILLED        R5.79j   joint: malformed password item (length check + unlock failur  TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers
+KILLED        R5.82j   joint: a read never creates the keychain (early return + cle  TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorRemovedFileRead
+RESTORE-CHECK OK

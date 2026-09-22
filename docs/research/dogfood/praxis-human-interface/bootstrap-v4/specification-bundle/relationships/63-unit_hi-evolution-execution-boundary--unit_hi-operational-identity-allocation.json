@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-evolution-execution-boundary","kind":"interaction","prerequisite":"unit:hi-operational-identity-allocation","provenance":"model_proposal","rationale":"unit:hi-evolution-execution-boundary and unit:hi-operational-identity-allocation require a non-blocking interaction contract."}

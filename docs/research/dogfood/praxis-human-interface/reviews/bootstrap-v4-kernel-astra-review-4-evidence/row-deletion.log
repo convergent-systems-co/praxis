@@ -1,0 +1,24 @@
+=== RUN   TestReview4N8RevocationDeletionCreatesNewGovernedGateCompletion
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review4_row_deletion_test.go:39: CONTROL: durable revocation refuses fresh-controller drive; only producer completion exists
+    review4_row_deletion_test.go:59: COUNTEREXAMPLE: one keyless SQL DELETE + close/reopen restored revoked authority; controller minted NEW sealed gate completion, durable completions 1 -> 2, effective=2, AllUnitsComplete=true
+--- PASS: TestReview4N8RevocationDeletionCreatesNewGovernedGateCompletion (0.12s)
+=== RUN   TestReview4N9ClassificationDeletionAllowsCLIImportAndWorker
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review4_row_deletion_test.go:68: CONTROL: classified Goal refuses stripped CLI import with activation absent
+    review4_row_deletion_test.go:82: COUNTEREXAMPLE: one keyless SQL DELETE allowed identical stripped CLI import and reloaded controller worker dispatch with activation absent; calls=1 final error=unsupported Goal turn outcome ""
+--- PASS: TestReview4N9ClassificationDeletionAllowsCLIImportAndWorker (0.09s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.656s

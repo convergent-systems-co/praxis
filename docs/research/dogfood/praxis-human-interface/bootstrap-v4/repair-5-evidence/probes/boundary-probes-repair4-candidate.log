@@ -1,0 +1,22 @@
+=== RUN   TestBoundaryP1FullSnapshotRestoreIsIndistinguishableFromAnEarlierHonestState
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    repair5_boundary_test.go:94: BOUNDARY REPRODUCES: a byte-consistent earlier copy of the database restored over the current one leaves no trace of the revocation anywhere in the database; every database-local predicate reads the honest pre-revocation state. Detecting it requires state that is not in the rollback domain.
+--- PASS: TestBoundaryP1FullSnapshotRestoreIsIndistinguishableFromAnEarlierHonestState (0.35s)
+=== RUN   TestBoundaryP2FullEvidenceClosureDeletionIsAnHonestPreGovernanceState
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    repair5_boundary_test.go:127: BOUNDARY REPRODUCES: with the whole Goal-attributable evidence closure deleted the Goal is indistinguishable from one that was never governed; the remaining state is an honest earlier state (plan-less imported baseline).
+--- PASS: TestBoundaryP2FullEvidenceClosureDeletionIsAnHonestPreGovernanceState (0.34s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	1.389s

@@ -1,0 +1,92 @@
+=== RUN   TestR1A_StrippedSafetyPlanPersistsWithoutActivationAndGateReachesProvider
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:67: PROBE-RESULT R1-A save: REFUSED: invalid accepted work plan: work plan is not an accepted authoritative decomposition: plan carries safety-kernel content but no safety binding: candidate "one"
+--- PASS: TestR1A_StrippedSafetyPlanPersistsWithoutActivationAndGateReachesProvider (0.12s)
+=== RUN   TestR1B_StrippedSafetyPlanThroughCLIImport
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:89: invalid accepted work plan: work plan is not an accepted authoritative decomposition: plan carries safety-kernel content but no safety binding: candidate "one"
+--- FAIL: TestR1B_StrippedSafetyPlanThroughCLIImport (0.10s)
+=== RUN   TestR1C_FabricatedLegacyAuthorityPlanSave
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:115: PROBE-RESULT R1-C: REFUSED: invalid accepted work plan: work plan is not an accepted authoritative decomposition: plan carries safety-kernel content but no safety binding: candidate "one"
+--- PASS: TestR1C_FabricatedLegacyAuthorityPlanSave (0.18s)
+=== RUN   TestR1D_RootGenerationInvalidatedAfterAcceptance
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:139: PROBE-RESULT R1-D VerifyGoverningAuthority after root invalidation: err=validate decision authority generation: authority generation is revoked or superseded
+    r1_probe_test.go:146: PROBE-RESULT R1-D drive: REFUSED: WorkPlan governing authority is absent, revoked, or inconsistent: validate decision authority generation: authority generation is revoked or superseded
+--- PASS: TestR1D_RootGenerationInvalidatedAfterAcceptance (0.21s)
+=== RUN   TestR1E_CeremonyMismatchMatrixForWorkPlanAcceptance
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:194: PROBE-RESULT R1-E other-request-digest: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:194: PROBE-RESULT R1-E reject-outcome: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:194: PROBE-RESULT R1-E stray-alternative: REFUSED at decision: protected decision does not match its ceremony record
+    r1_probe_test.go:187: PROBE-RESULT R1-E wrong-root-version: REFUSED-AT-RECORD(ceremony evidence is not for this installation's owner under the current root)
+    r1_probe_test.go:187: PROBE-RESULT R1-E foreign-os-user: REFUSED-AT-RECORD(ceremony evidence names an OS user that does not own the enrolled installation root)
+    r1_probe_test.go:187: PROBE-RESULT R1-E foreign-owner: REFUSED-AT-RECORD(ceremony evidence is not for this installation's owner under the current root)
+    r1_probe_test.go:206: PROBE-RESULT R1-E unbound-fields: ACCEPTED (ceremony does not bind DecisionRef/ExpiresAt/IssuedAt/AuthorityDigest) -- non-blocking observation
+--- PASS: TestR1E_CeremonyMismatchMatrixForWorkPlanAcceptance (0.08s)
+=== RUN   TestR1F_StorageKeyHolderForgesCeremonyAndDecision
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:232: PROBE-RESULT R1-F: with only public fields + Repository handle, gate approved=true err=<nil> (no TTY, no typed confirmation involved)
+--- PASS: TestR1F_StorageKeyHolderForgesCeremonyAndDecision (0.12s)
+=== RUN   TestR1G_AcceptedPlanCrossGoalAttach
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:255: clone digest==source digest: true
+    r1_probe_test.go:259: PROBE-RESULT R1-G: REFUSED: accepted WorkPlan was accepted for Goal goal:pending-surface/1, not goal:r1-clone/1
+--- PASS: TestR1G_AcceptedPlanCrossGoalAttach (0.11s)
+=== RUN   TestR1H_ForgedGateCompletionInLedgerSkipsTheOwnerDecision
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    r1_probe_test.go:277: PROBE-RESULT R1-H: forged gate completion accepted by ledger; controller then: authorityRequired=false err=load unit completions: completion of "gate": completion is not authenticated by the installation's governed store: no authenticated seal for sha256:81d38de969f3d13714b27e32048ecc90ce20c7007b853b8e3ef8a9698593ff74 (no AuthorityDecision exists for this gate)
+    r1_probe_test.go:284: PROBE-RESULT R1-H: durable gate requests pending in GoalStore: 0
+--- PASS: TestR1H_ForgedGateCompletionInLedgerSkipsTheOwnerDecision (0.07s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	1.589s
+FAIL

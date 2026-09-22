@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-requirement-evolution-classification-and-successor","kind":"hard_dependency","prerequisite":"unit:hi-source-bound-goal-establishment","provenance":"model_proposal","rationale":"unit:hi-requirement-evolution-classification-and-successor cannot be truthfully implemented or qualified until unit:hi-source-bound-goal-establishment is complete."}

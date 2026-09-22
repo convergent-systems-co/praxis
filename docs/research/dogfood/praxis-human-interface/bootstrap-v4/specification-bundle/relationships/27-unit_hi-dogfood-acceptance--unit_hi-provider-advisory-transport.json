@@ -1,0 +1,1 @@
+{"dependent":"unit:hi-dogfood-acceptance","kind":"hard_dependency","prerequisite":"unit:hi-provider-advisory-transport","provenance":"model_proposal","rationale":"unit:hi-dogfood-acceptance cannot be truthfully implemented or qualified until unit:hi-provider-advisory-transport is complete."}

@@ -1,0 +1,14 @@
+KILLED        R5.70    keychain: not strictly forward  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.71    keychain: expectation compared  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+KILLED        R5.72    keychain: create refuses an existing item  TestKeychainAnchorIsForwardOnlyCompareAndSetAndFailsClosed
+SURVIVED      R5.73    keychain: read-back verified  
+KILLED        R5.74    keychain: another installation's state never returned  TestKeychainAnchorNeverReturnsAnotherInstallationsState
+KILLED        R5.77    keychain: the dedicated file is locked again after every ses  TestKeychainAnchorRefusesOverwriteAddAndReadWithoutThePassword
+KILLED        R5.78    keychain: a missing password item reads as a corrupt anchor  TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved,TestKeychainAnchorPasswordItemDam
+SURVIVED      R5.79    keychain: a malformed password item reads as a corrupt ancho  
+KILLED        R5.80    keychain: a wrong password reads as a corrupt anchor  TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers
+KILLED        R5.81    keychain: a reset tears down the damaged pair first  TestKeychainAnchorPasswordItemDamageFailsClosedAsCorruptAndResetRecovers
+SURVIVED      R5.82    keychain: a read never creates the keychain  
+KILLED        R5.83    keychain: an unpopulated new keychain is removed  TestKeychainAnchorCreatedButUnpopulatedKeychainIsRemoved
+SURVIVED      R5.84    keychain: a missing keychain file is a missing anchor  
+RESTORE-CHECK OK

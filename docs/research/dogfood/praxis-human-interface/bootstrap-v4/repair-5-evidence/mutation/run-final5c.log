@@ -1,0 +1,4 @@
+KILLED        R5.18    lag is re-observed behind the writer lock only for a plain l  TestFAAReaderBarrierWaitsOutAnInFlightWriteAndRefusesRealDisagreement,TestFAARepositoryRef
+KILLED        R5.75    a real disagreement behind the lock is refused at once  TestFAAReaderBarrierWaitsOutAnInFlightWriteAndRefusesRealDisagreement
+KILLED        R5.76    a lag that resolves behind the writer lock is accepted  TestFAAReaderWaitsForAWriterBetweenAnchorAdvanceAndCommit
+RESTORE-CHECK OK

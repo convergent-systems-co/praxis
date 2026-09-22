@@ -1,0 +1,34 @@
+[
+ {
+  "id": "R5.37",
+  "guard": "root resolution: pre-recovery root excluded",
+  "invariants": "I13",
+  "group": "",
+  "edits": [
+   [
+    "sub",
+    "internal/goalstore/root_authority_succession.go",
+    "|| snap.admissionVoid(stored.AdmittedAtSeq) {",
+    "|| false {",
+    1
+   ]
+  ],
+  "run": ".",
+  "pkgs": [
+   "./internal/goalstore",
+   "./internal/state",
+   "./internal/lifecycle",
+   "./cmd/praxis"
+  ],
+  "verdict": "KILLED",
+  "killers": "TestFAARootAdmittedBeforeTheReanchorIsNotCurrent",
+  "skipped": [
+   "TestConcurrentInstallationFanoutAcrossProcesses",
+   "TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority",
+   "TestFanoutHelperProcess",
+   "TestRepair5EvidencePowersetClassificationQualification"
+  ],
+  "tail": "",
+  "secs": 37.8
+ }
+]

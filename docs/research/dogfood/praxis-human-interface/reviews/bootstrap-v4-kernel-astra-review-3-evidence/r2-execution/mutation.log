@@ -1,0 +1,21 @@
+KILLED           M1a B5 validateSafetyGraph Completed refusal  TestSafetyPlanRejectsSuppliedCompletion
+KILLED           M1b B5 ApplyCompletions clears supplied flag  TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence
+KILLED           M1c B5 VerifyPlanCompletions neutralised  TestCompletionIsDerivedOnlyFromQualifiedLedgerEvidence
+KILLED           M2a B9 controller verifyGoverningAuthority neutralised  TestRevokedGoverningAuthorityRefusesTheNextTurn,TestSafetyPlanWithoutGoverningAuthorityVerifierFailsClosed
+SURVIVED         M2b B9 settleCompletion re-verify removed  
+SURVIVED         M2c B9 coordinateGate pre-completion re-verify removed  
+SURVIVED         M2d settleCompletion SafetyActivation re-verify removed  
+KILLED           M3 B9 ReconcileAuthorityGate governing-authority check removed  TestKernelRepair2B9RevokedGoverningAuthorityStopsFutureExecution
+KILLED           M4a B14 refuseGateDispatch neutralised (worker fence)  TestWorkerResolutionRefusesAuthorityGateObjective
+KILLED           M4b B14 prepare explicit-objective gate routing removed  TestGateObjectiveFromEveryRouteReachesCoordinationAndNeverAProvider
+SURVIVED         M4c B14 safety plan accepts objective outside plan  
+SURVIVED         M5 B10 post-worker validator-missing block removed  
+KILLED           M6a B10 after-run binding removed  TestValidationThatMutatesTheCheckoutDuringExecutionDoesNotQualify
+BUILD-FAILED     M6b B10 settleCompletion VerifyValidationBinding removed  
+SURVIVED         M6c B10 pre-exec binding removed  
+BUILD-FAILED     M7a B10 conformance acknowledgement check removed  
+KILLED           M7b B10 pre-publication conformance removed  TestFailedCandidateConformanceIsDecidedBeforePublication
+KILLED           M9 B10 no-declared-validation counts for safety plan  TestNoDeclaredValidationCannotSettleASafetyCompletion
+SURVIVED         M11 B10 preflight profile-digest mismatch removed  
+SURVIVED         M12 completion claim for non-selected unit allowed  
+KILLED           M13 output bound (limitedValidationOutput.Write) removed  TestValidationOutputIsBounded

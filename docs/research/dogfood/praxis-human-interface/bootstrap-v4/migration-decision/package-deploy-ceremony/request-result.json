@@ -1,0 +1,57 @@
+{
+  "operation": "authority.package-deploy-request",
+  "request": {
+    "id": "package-manager-authority-request:sha256:0741a00491d9ab75e97d1a375919912828d3c29ff0738ae5785705505f2c00a9:sha256:8b453fe76a09c13883624b06e833e620150e6870aebaf74bb95015ec954f97fc",
+    "version": "1",
+    "baseline_id": "",
+    "baseline_version": "",
+    "baseline_digest": "",
+    "proposal_id": "",
+    "proposal_version": "",
+    "proposal_digest": "",
+    "review_ref": "",
+    "review_version": "",
+    "review_digest": "",
+    "requested_authority": "package.deploy",
+    "requested_scope": "package-deployment:installation:sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+    "reason": "governed installation-local package deployment",
+    "status": "pending",
+    "delegation": {
+      "profile": "PACKAGE_DEPLOY",
+      "parent_ref": "installation-governance:sha256:f8f30abcaa91e699fcd1c5f711273e9b9293a62a157ac6bd33e5fdf681a84d69",
+      "parent_version": "2",
+      "parent_digest": "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+      "delegated_principal": {
+        "id": "package-manager:praxis",
+        "kind": "package-manager"
+      },
+      "target_kind": "package-manager",
+      "target_identity": "package-manager:praxis",
+      "target_constraints": [
+        "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2"
+      ],
+      "requested_capabilities": [],
+      "requested_operations": [],
+      "requested_authority": "package.deploy",
+      "requested_operation": "deploy",
+      "requested_scope": "package-deployment:installation:sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+      "target_version": "1",
+      "target_digest": "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+      "proposal_version": "1",
+      "proposal_digest": "sha256:0741a00491d9ab75e97d1a375919912828d3c29ff0738ae5785705505f2c00a9",
+      "review_version": "1",
+      "review_digest": "sha256:8b453fe76a09c13883624b06e833e620150e6870aebaf74bb95015ec954f97fc",
+      "expires_at": "2026-09-22T17:03:51Z",
+      "reason": "governed installation-local package deployment",
+      "policy_ref": "praxis.authority-model",
+      "policy_version": "v3",
+      "policy_digest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+      "subject_kind": "package-manager",
+      "subject_id": "package-manager:praxis",
+      "subject_version": "1",
+      "subject_digest": "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2"
+    }
+  },
+  "request_digest": "sha256:f91930a0e55ccdf82e360b39b66e1df37fe45d9fa133bf14f5532d8905378330",
+  "request_digest_check": "sha256:f91930a0e55ccdf82e360b39b66e1df37fe45d9fa133bf14f5532d8905378330"
+}

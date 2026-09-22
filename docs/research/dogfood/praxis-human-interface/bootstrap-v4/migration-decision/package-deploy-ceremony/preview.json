@@ -1,0 +1,31 @@
+{
+  "operation": "authority.package-deploy-proposal",
+  "preview": true,
+  "proposal": {
+    "ID": "package-manager-authority-proposal:sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2:1790089440957636000",
+    "Version": "1",
+    "Kind": "governed-authority-proposal",
+    "BootstrapDigest": "sha256:f8f30abcaa91e699fcd1c5f711273e9b9293a62a157ac6bd33e5fdf681a84d69",
+    "OwnerID": "installation-owner:sha256:f8f30abcaa91e699fcd1c5f711273e9b9293a62a157ac6bd33e5fdf681a84d69",
+    "OwnerKind": "human",
+    "AuthorityModel": "praxis.authority-model",
+    "AuthorityModelVersion": "v3",
+    "AuthorityModelDigest": "sha256:df3c8de33b6d044da25493b51306bbb30968fa6fe844dadea0a17ae509f8e358",
+    "Profile": "PACKAGE_DEPLOY",
+    "Capability": "package.deploy",
+    "PrincipalID": "package-manager:praxis",
+    "PrincipalKind": "package-manager",
+    "TargetKind": "package-manager",
+    "TargetIdentity": "package-manager:praxis",
+    "TargetVersion": "1",
+    "TargetDigest": "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+    "Scope": "package-deployment:installation:sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+    "Reason": "governed installation-local package deployment",
+    "ParentRef": "installation-governance:sha256:f8f30abcaa91e699fcd1c5f711273e9b9293a62a157ac6bd33e5fdf681a84d69",
+    "ParentVersion": "2",
+    "ParentDigest": "sha256:7fe1ed4db9fa67cb9f39469a4a6c9429658c8bf1a4074698c7c23ebf4eb2b9c2",
+    "ExpiresAt": "2026-09-22T17:03:51Z",
+    "CreatedAt": "2026-09-22T15:04:00.957636Z"
+  },
+  "proposal_digest": "sha256:0741a00491d9ab75e97d1a375919912828d3c29ff0738ae5785705505f2c00a9"
+}

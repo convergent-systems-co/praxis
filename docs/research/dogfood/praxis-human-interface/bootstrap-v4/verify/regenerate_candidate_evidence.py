@@ -75,8 +75,10 @@ powerset = qlog("post-commit/powerset-and-mixed-snapshot.log")
 require("FAIL" not in powerset and powerset.count("\nok ") + powerset.startswith("ok ") == 2, "powerset and mixed-snapshot enumerations")
 red = qlog("red-n17-unfixed-resolver.log")
 require("N17: a retired delegated package.publish generation still resolves" in red and "re-authorized signing: calls=1" in red, "the RED baseline must show the N17 counterexample reaching the protected signer")
-rebuild = qlog("rebuild.log")
-require(rebuild.count("BYTE-IDENTICAL") == 4 and "DIFFERENT" not in rebuild, "independent rebuild must be byte-identical for all four artifacts")
+rebuild = qlog("post-review-9/rebuild-location-independent.log")
+require(rebuild.count("BYTE-IDENTICAL") == 4 and "DIFFERENT" not in rebuild, "the rebuild must be byte-identical for all four artifacts")
+require("real-checkout binary: 0 matches" in rebuild and "fresh-clone binary: 0 matches" in rebuild, "no absolute checkout path may leak into either binary")
+require("Fresh clone at a different absolute path" in rebuild, "the rebuild comparison must be against a genuine fresh clone at a DIFFERENT path (Review #9/N18: same-path-different-cache alone is not sufficient evidence of reproducibility)")
 require("vet exit 0" in qlog("post-commit/vet-all.log") and "diff-check exit 0" in qlog("post-commit/diffcheck.log"), "vet and diff-check")
 
 qualification["results"] = [
@@ -105,8 +107,8 @@ qualification["results"] = [
      "summary": "TestRepair5EvidencePowersetClassificationQualification (256 subsets, anchor detached and anchored) and TestFAAMixedSnapshotAdversaryNeverRegainsRetiredAuthority (4096 stores) pass in full (not -short) against the Repair 6 source"},
     {"command": "consolidated guard/mutation inventory (harness in repair-6-evidence/mutation)", "result": "SEE_SUMMARY",
      "evidence": f"{EVIDENCE}/mutation-inventory.md", "summary": inventory},
-    {"command": "independent rebuild of core and plugin (go build ./cmd/praxis, go build ./packages/goals/plugin)", "result": "PASS",
-     "evidence": f"{EVIDENCE}/qualification/post-commit/rebuild.log",
+    {"command": "verify/build_candidate_artifacts.sh (go build -trimpath ./cmd/praxis, go build -trimpath ./packages/goals/plugin, build_goals_package.go), rebuilt in the real checkout and independently in a fresh clone at a DIFFERENT absolute path with a different GOCACHE (Review #9/N18 fix)", "result": "PASS",
+     "evidence": f"{EVIDENCE}/qualification/post-review-9/rebuild-location-independent.log",
      "summary": "core, plugin, package archive and package manifest rebuilt with a fresh GOCACHE are byte-identical to the candidate artifacts"},
     {"command": "go test ./internal/conformance", "result": "FAIL_IMMUTABLE_ATTESTATION_STALE_PREEXISTING", "evidence": f"{EVIDENCE}/qualification/historical.log",
      "observations": ["the suite was already red on the base commit and on the Repair 5 candidate (immutable attestations of source that later work legitimately changed); it stops at the first stale attested source, which varies between runs",
@@ -204,6 +206,24 @@ qualification["review_repair_7"] = {
     "harness_discipline": "test-visible global state (re-key hooks, symbol, interaction setting) is restored to the OBSERVED predecessor value at test cleanup and by DisableUserInteraction's returned restore function, and the Keychain tests pass under shuffled execution order (three seeds)",
     "review_limitations_note": "This repair does not clear any area of the review; a fresh complete independent review (Astra Review #8) is required.",
 }
+qualification["review_repair_8"] = {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-8.md",
+    "independent_review_sha256": "sha256:7a197c7a29305972e6b9dec611f6c850983dc391f6acdce38dbb3b1ffc48fac3",
+    "disposition": "ACCEPTED (of the uncommitted Repair 7 candidate; see review_repair_9 -- acceptance did not extend to the later committed, rebuilt identity)",
+    "established": ["N17 closed for the reviewed package-publish signing path and audited immutable-generation consumers, confirmed by independent scratch reproduction (two independent mutations that each reopen N17 were both detected)", "candidate identities and the 125-file source manifest recomputed exactly", "the real-Keychain N16/re-key matrix executed and passed with PRAXIS_REQUIRE_KEYCHAIN=1"],
+    "not_cleared": ["bearer package approvals", "CheckAuthorityInForceInTx with no anchor configured", "state.Store.PublisherGeneration mutable state", "goalspublication recovery integration (needs PRAXIS_GOALS_QUALIFICATION_ASSETS)", "Keychain portability off the measured Darwin environment"],
+    "authorization_granted": "none beyond acceptance itself: no install, deploy, activation, Proposal v4 materialization, or Gate A/B/C decision",
+}
+qualification["review_repair_9"] = {
+    "independent_review": "docs/research/dogfood/praxis-human-interface/reviews/bootstrap-v4-kernel-astra-review-9.md",
+    "independent_review_sha256": "sha256:dbd9061183fa60fef6b5762699ed4eff0ddf6e3185b76b6d8de31dd43e684d8d",
+    "disposition_repaired": "REVISION_REQUIRED",
+    "findings_repaired": ["N18 the recorded artifact identities (core, plugin, package archive, package manifest) were not reproducible from a fresh clone of the exact committed source at a different absolute path: the build embedded the checkout path in compiled bytes (measured true with CGO_ENABLED=1); the documented go build invocation used no -trimpath or other location-normalization"],
+    "root_cause": "every prior 'independent rebuild' check in this evidence chain (Repairs 5, 6, 7, and the clean-commit transition) rebuilt in the SAME checkout directory with only GOCACHE varied, which tests cache-independence, not the location-independence 'reproducible' requires",
+    "fix": "verify/build_candidate_artifacts.sh: a single versioned build recipe using `go build -trimpath` for the core and plugin (measured sufficient alone, even with cgo, for this repository; no CGO_CFLAGS path-remap was needed); re-verified byte-identical, not merely hash-identical, between the real checkout and a genuine fresh clone at a different absolute path with a different GOCACHE, with an explicit check that neither binary's strings contain either checkout root",
+    "not_established": ["source-level findings (N17 currentness, N16/re-key) are unaffected -- the source did not change, only the build recipe -- but this is not itself independently re-confirmed beyond Review #9's own scoped re-run", "whether other, non-Darwin build environments or Go toolchain versions also reproduce these exact bytes was not tested"],
+    "review_limitations_note": "This repair does not clear any area of Review #8 or Review #9; a fresh complete independent review (Astra Review #10) is required.",
+}
 (BASE / "qualification-results.json").write_text(json.dumps(qualification, indent=2) + "\n")
 
 core = BASE / "artifacts/praxis-candidate"
@@ -237,8 +257,10 @@ activation = {
     "specification_bundle": previous["specification_bundle"],
     "specification_bundle_digest": spec["canonical_contract_digest"],
     "activation_blockers": [
-        "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_7",
-        "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414) and rebuilt from that clean tree; candidate_binary.vcs_modified is now false and this record's identities are recomputed from that committed, rebuilt state",
+        "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_8",
+        "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414, 392802f, a9da0c3) and rebuilt from that clean tree; candidate_binary.vcs_modified was false, but Astra Review #9 (sha256 dbd9061183fa60fef6b5762699ed4eff0ddf6e3185b76b6d8de31dd43e684d8d) found the rebuild was not reproducible from a fresh clone at a different absolute path (N18) -- see review_repair_9",
+        "COMPLETE: N18 fixed with verify/build_candidate_artifacts.sh (go build -trimpath); re-verified byte-identical against a genuine fresh clone at a different absolute path with a different build cache, with no checkout-path strings embedded in either binary -- this record's identities are recomputed from that location-independent rebuild",
+        "a fresh complete independent review (Astra Review #10) of this location-independent rebuild is required; Review #9 accepted the N17/N16 source-level findings on their own scope but did not review this exact artifact identity",
         "decide, as a separate human/product matter, how an installation whose authority records predate liveness records and the forward authority anchor migrates (a governed re-anchor plus fresh decisions); this candidate performs no backfill",
         "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
         "separate explicit human authorization for atomic core-binary replacement",

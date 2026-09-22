@@ -1,0 +1,33 @@
+# N18 fix verification: location-independent build (Astra Review #9)
+# source-identity commit: 25c73305fbca532e6b402b9d4aa1ed3412305169
+# built with verify/build_candidate_artifacts.sh (go build -trimpath, no other flag)
+
+## Real checkout (/Users/polliard/workspace/convergent-systems-co/praxis):
+42cb404ff30b77b375505a2593f5541b9be63587b39e87c1792d9231851de821  praxis-candidate
+08514f2078c0e4a7a9093e41b4a78ec72069f7053a6e5bf670ff426ec1888829  praxis-goals-plugin-candidate
+06e0ebaea3c0ad549d7efdf37f9894283360b36b9dfa4ccf8fa9e0a45d96cc62  package archive
+e8894b79d8e7589cff37e98f93e31e22adb7fba885a02c19ac46156e534111d2  package manifest
+
+## Fresh clone at a different absolute path (/private/tmp/claude-501/-Users-polliard-workspace-convergent-systems-co-praxis/22e5c5d9-551a-437b-828b-aac8196b6665/scratchpad/n18final/differentpath), different GOCACHE:
+42cb404ff30b77b375505a2593f5541b9be63587b39e87c1792d9231851de821  praxis-candidate
+08514f2078c0e4a7a9093e41b4a78ec72069f7053a6e5bf670ff426ec1888829  praxis-goals-plugin-candidate
+06e0ebaea3c0ad549d7efdf37f9894283360b36b9dfa4ccf8fa9e0a45d96cc62  package archive
+e8894b79d8e7589cff37e98f93e31e22adb7fba885a02c19ac46156e534111d2  package manifest
+
+## Byte-for-byte comparison (cmp), not hash-only:
+core: BYTE-IDENTICAL
+plugin: BYTE-IDENTICAL
+archive: BYTE-IDENTICAL
+manifest: BYTE-IDENTICAL
+
+## Absolute-path leak check (strings grep for both checkout roots):
+real-checkout binary: 0 matches
+fresh-clone binary: 0 matches
+
+	build	CGO_ENABLED=1
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	vcs=git
+	build	vcs.revision=25c73305fbca532e6b402b9d4aa1ed3412305169
+	build	vcs.time=2026-09-22T12:30:24Z
+	build	vcs.modified=false

@@ -2,23 +2,23 @@
   "version": "1",
   "status": "COMPLETE_PRE_ACTIVATION_CANDIDATE",
   "kernel_version": "praxis-human-interface-bootstrap-v4/1",
-  "source_commit": "40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9",
+  "source_commit": "25c73305fbca532e6b402b9d4aa1ed3412305169",
   "source_tree_digest": "sha256:65b3dd2ba52008c0ac48e185b7397a0e9d5dcb21211d033d188d745b653c1fd1",
   "build_modified": false,
   "intended_active_binary_path": "/Users/polliard/bin/praxis",
   "candidate_binary": {
     "path": "artifacts/praxis-candidate",
-    "sha256": "sha256:0aa27c1da3c26177f57ba30dfea69a4fe9582057c57bb1cacf7ba136e1c76856",
+    "sha256": "sha256:42cb404ff30b77b375505a2593f5541b9be63587b39e87c1792d9231851de821",
     "version": "2.0.0-dev",
-    "vcs_revision": "40ba4141fcfe57a6f5cfb823ead2b7ffbf6661f9",
+    "vcs_revision": "25c73305fbca532e6b402b9d4aa1ed3412305169",
     "vcs_modified": false
   },
   "candidate_goals_package": {
     "package_id": "praxis.package.goals",
     "version": "0.1.5",
-    "content_digest": "sha256:96bcd466ca8eeb43da301ff7152256c82359d81b59de8d02cebc164ddf1cb85a",
-    "manifest_digest": "sha256:e69beead490802288a4c478eb0b62c3c961a9b1b9b53df63399d39b664a99cd3",
-    "executable_digest": "sha256:a4c87cd2dbbb0e948fa1ddd5cc26661f0e01669685832bb9c83982f6b04b3c4c",
+    "content_digest": "sha256:06e0ebaea3c0ad549d7efdf37f9894283360b36b9dfa4ccf8fa9e0a45d96cc62",
+    "manifest_digest": "sha256:e8894b79d8e7589cff37e98f93e31e22adb7fba885a02c19ac46156e534111d2",
+    "executable_digest": "sha256:08514f2078c0e4a7a9093e41b4a78ec72069f7053a6e5bf670ff426ec1888829",
     "contract_digest": "sha256:5acebd861e0d87f9ea230201a3136bbe2798424a4fc30ffff7c49a1fd4e2f043",
     "manifest_path": "artifacts/package/praxis-package.json",
     "archive_path": "artifacts/package/praxis-package.tar.gz"
@@ -29,7 +29,7 @@
     "description_path": "validation-profile.json",
     "description_sha256": "sha256:12d3f0a1e97a33591d1a320213ba55e9db008bc9d234297c3057b45bc2d1a55a"
   },
-  "qualification_evidence_digest": "sha256:39a0ce0026592d698ab4a9cd10868f807c31155b08053ab5492113c71633bdb5",
+  "qualification_evidence_digest": "sha256:affdb9b1e3c8fd93c8f4c072b31536c3320a46e6b2e76ccfe8b6c3c2abd1b4fb",
   "specification_bundle": {
     "manifest_path": "specification-bundle/manifest.json",
     "manifest_sha256": "sha256:5a33e46f15f59978ea72972a91879d3feff39355581fe48cb451d30c03a96215",
@@ -40,8 +40,10 @@
   },
   "specification_bundle_digest": "sha256:17e36c3351d9e510e710c74d3cf4170441f08c150a780e030dbed0896a3cf40a",
   "activation_blockers": [
-    "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_7",
-    "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414) and rebuilt from that clean tree; candidate_binary.vcs_modified is now false and this record's identities are recomputed from that committed, rebuilt state",
+    "COMPLETE: fresh independent review (Astra Review #8, sha256 d1fd04448200cd13fb79716b0ea14f988e053966538a125699bb13393771d20c) reviewed the Repair 7 candidate and disposed ACCEPTED, not clearing bearer package approvals, no-anchor CheckAuthorityInForceInTx, mutable PublisherGeneration state, unexecuted goalspublication recovery integration, or Keychain portability off Darwin -- see review_repair_8",
+    "COMPLETE: the reviewed source and its evidence were committed (feature/intent-evolution commits d931809, 719fa52, fd68f8b, fea9528, 40ba414, 392802f, a9da0c3) and rebuilt from that clean tree; candidate_binary.vcs_modified was false, but Astra Review #9 (sha256 dbd9061183fa60fef6b5762699ed4eff0ddf6e3185b76b6d8de31dd43e684d8d) found the rebuild was not reproducible from a fresh clone at a different absolute path (N18) -- see review_repair_9",
+    "COMPLETE: N18 fixed with verify/build_candidate_artifacts.sh (go build -trimpath); re-verified byte-identical against a genuine fresh clone at a different absolute path with a different build cache, with no checkout-path strings embedded in either binary -- this record's identities are recomputed from that location-independent rebuild",
+    "a fresh complete independent review (Astra Review #10) of this location-independent rebuild is required; Review #9 accepted the N17/N16 source-level findings on their own scope but did not review this exact artifact identity",
     "decide, as a separate human/product matter, how an installation whose authority records predate liveness records and the forward authority anchor migrates (a governed re-anchor plus fresh decisions); this candidate performs no backfill",
     "expect the standard macOS Keychain access prompt for the anchor's password items (current and pending) the first time the installed core is a new binary (the anchor's dedicated Keychain is bound to the creating binary's identity); every anchor advance also re-keys the dedicated file through SecKeychainChangePassword, an undocumented Security.framework entry point measured only on macOS 26.6.2 arm64: where it is missing or refused, anchor advances fail closed as unavailable; allow prompts, never type the password of the dedicated Keychain, which Praxis generates and holds itself",
     "separate explicit human authorization for atomic core-binary replacement",

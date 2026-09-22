@@ -2,12 +2,15 @@ package goaldrive
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/packages/goals"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -116,6 +119,34 @@ type DeclaredValidator interface {
 	RunDeclaredValidation(context.Context) (string, error)
 }
 
+type BoundValidator interface {
+	DeclaredValidator
+	ValidationProfileDigest() (string, error)
+}
+
+// CheckpointValidator is the only validator a safety-bearing turn may use. Its
+// runs are bound to one exact checkpoint and validation-profile digest, before
+// and after execution.
+type CheckpointValidator interface {
+	BoundValidator
+	RunBoundValidation(ctx context.Context, checkpoint, profileDigest string, args ...string) (string, error)
+	// VerifyValidationBinding re-proves, without running anything, that the
+	// checkout is still exactly the checkpoint and profile a result names.
+	VerifyValidationBinding(ctx context.Context, checkpoint, profileDigest string) error
+}
+
+type CandidateConformanceValidator interface {
+	RunDeclaredValidationWith(context.Context, ...string) (string, error)
+}
+
+const CandidateValidationAcknowledgement = "PRAXIS-VALIDATION"
+
+// CheckpointArtifactReader returns exact bytes from the qualified checkpoint,
+// never from the mutable working tree.
+type CheckpointArtifactReader interface {
+	ReadCheckpointArtifact(context.Context, string, string) ([]byte, error)
+}
+
 // LocatedRepository exposes the exact path and branch a worker is bound to.
 type LocatedRepository interface{ Location() (path, branch string) }
 
@@ -217,6 +248,19 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if validator, ok := repo.(DeclaredValidator); ok {
 		req.DeclaredValidation, req.ValidationDeclared = validator.DeclaredValidation()
 	}
+	if req.GoalBaseline != nil && req.GoalBaseline.WorkPlan != nil && req.GoalBaseline.WorkPlan.Safety != nil {
+		validator, ok := repo.(CheckpointValidator)
+		if !ok || !req.ValidationDeclared {
+			return TurnRecord{}, preflight("validation-preflight", errors.New("safety-bearing WorkPlan requires a declared, digest-bound validator"))
+		}
+		digest, digestErr := validator.ValidationProfileDigest()
+		if digestErr != nil {
+			return TurnRecord{}, preflight("validation-preflight", digestErr)
+		}
+		if digest != req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest {
+			return TurnRecord{}, preflight("validation-preflight", fmt.Errorf("validation profile digest mismatch: got %s want %s", digest, req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest))
+		}
+	}
 	_, req, err = c.prepare(ctx, req)
 	if err != nil {
 		return TurnRecord{}, preflight("turn-preflight", err)
@@ -267,9 +311,27 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 		}
 		return record, workerErr
 	}
+	var qualification *unitQualification
 	if !req.NoPush {
 		if req.Lease != nil && !req.Lease.Held(ctx) {
 			return record, fmt.Errorf("%w: turn %s; checkpoint %s not published", ErrLeaseLost, req.TurnID, record.EndHead)
+		}
+		if isSafetyBearing(req.GoalBaseline) && record.Progress && record.CompletionClaim != "" {
+			// Candidate conformance is decided before publication so a
+			// checkpoint that fails it is never published.
+			if record.CompletionClaim != req.ChildObjective {
+				// A worker proposes completion only of the unit the controller
+				// selected for this turn; another unit's predicates and
+				// evidence are not this turn's to qualify or publish.
+				err = fmt.Errorf("completion claim %q is not the selected unit %q; no checkpoint is published", record.CompletionClaim, req.ChildObjective)
+			} else if selected, found := findCandidate(req.WorkCandidates, record.CompletionClaim); !found {
+				err = errors.New("completion claim does not name an accepted safety-bearing candidate")
+			} else {
+				var produced unitQualification
+				if produced, err = c.qualifySafetyUnit(ctx, req, repo, record, selected); err == nil {
+					qualification = &produced
+				}
+			}
 		}
 		if req.Recovery != nil && req.Recovery.RemoteHead != "" {
 			verifier, ok := repo.(CheckpointLineageVerifier)
@@ -282,6 +344,12 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 			if err == nil {
 				record.CheckpointEvidence = append(record.CheckpointEvidence, "repository:verified-recovery-lineage")
 			}
+		}
+		if err == nil && record.Progress {
+			// I10: publication is an outward effect. Every current predicate is
+			// established before it, and the effect is bound to the exact
+			// qualified checkpoint, not to whatever HEAD is by then.
+			err = c.authorizeEffect(ctx, req, "checkpoint-publication", repo, record)
 		}
 		if err == nil {
 			err = PublishCheckpoint(ctx, repo, record)
@@ -305,10 +373,32 @@ func (c Controller) ExecuteTurnWithRepository(ctx context.Context, req TurnReque
 	if record.Progress && !record.CheckpointPublished {
 		recordConsequence(ctx, repo, &record)
 	}
-	record, err = c.settleCompletion(ctx, req, repo, record)
+	settled, err := c.settleCompletion(ctx, req, repo, record, qualification)
 	if err != nil {
+		if record.CheckpointPublished && !errors.Is(err, ErrLeaseLost) {
+			// (A lost lease records nothing: reconciliation owns the
+			// disposition of a turn whose authority moved on.)
+			// The checkpoint is already outward. Governed completion was
+			// refused, so the turn is durably recorded as published but NOT
+			// governed: reality changed, and the record says so instead of
+			// returning an error that leaves no trace.
+			blocked := record
+			// The checkpoint did validate (Progress stays true, as the ledger
+			// requires of any published checkpoint); what was refused is the
+			// governed completion.
+			blocked.Outcome, blocked.UnitCompleted = OutcomeBlocked, false
+			blocked.Blocker = "checkpoint " + record.EndHead + " was published but governed completion was refused: " + err.Error()
+			if appendErr := c.recordTurn(ctx, &blocked); appendErr != nil {
+				return TurnRecord{}, fmt.Errorf("record published-but-ungoverned checkpoint: %w (refusal: %v)", appendErr, err)
+			}
+			if emitErr := c.emitTurnOutcome(ctx, req, blocked, err); emitErr != nil {
+				return TurnRecord{}, emitErr
+			}
+			return blocked, err
+		}
 		return TurnRecord{}, err
 	}
+	record = settled
 	if err := c.recordTurn(ctx, &record); err != nil {
 		return TurnRecord{}, err
 	}
@@ -444,7 +534,38 @@ func (c Controller) deriveRepositoryOutcome(ctx context.Context, req TurnRequest
 		claimStart = req.Recovery.BaseHead
 		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:validated-recovery-consequence")
 	}
-	if validator, ok := repo.(DeclaredValidator); ok {
+	if isSafetyBearing(req.GoalBaseline) {
+		// Validation is mandatory and exact for a safety-bearing plan. There
+		// is no "no declared validation" success: a validator that vanished
+		// after admission, lost its executable bit, or changed digest blocks
+		// the checkpoint, and the integrated run is bound to this exact
+		// checkpoint and profile before and after it executes.
+		bound, ok := repo.(CheckpointValidator)
+		if !ok {
+			base.Outcome, base.Blocker = OutcomeBlocked, "safety-bearing checkpoint lost its checkpoint-bound validator"
+			return base, errors.New(base.Blocker)
+		}
+		command, declared := bound.DeclaredValidation()
+		if !declared {
+			base.Outcome, base.Blocker = OutcomeBlocked, "required validator is missing or not executable after worker execution; no checkpoint is valid"
+			return base, errors.New(base.Blocker)
+		}
+		profile := req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest
+		if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "declared-validation", "command": command}); err != nil {
+			return TurnRecord{}, err
+		}
+		output, runErr := bound.RunBoundValidation(ctx, snapshot.Head, profile)
+		passed := runErr == nil
+		if err := c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "declared-validation", "command": command, "passed": fmt.Sprint(passed), "output": truncateForActivity(output)}); err != nil {
+			return TurnRecord{}, err
+		}
+		if !passed {
+			base.Outcome = OutcomeBlocked
+			base.Blocker = "bound declared validation failed or its binding drifted; the local commit is retained as evidence and no checkpoint is valid: " + runErr.Error()
+			return base, errors.New(base.Blocker)
+		}
+		base.CheckpointEvidence = append(base.CheckpointEvidence, "repository:declared-validation-passed")
+	} else if validator, ok := repo.(DeclaredValidator); ok {
 		if command, declared := validator.DeclaredValidation(); declared {
 			if err := c.emit(ctx, ActivityValidationStarted, req, map[string]string{"scope": "declared-validation", "command": command}); err != nil {
 				return TurnRecord{}, err
@@ -517,7 +638,7 @@ func bindRecoveryLineage(record *TurnRecord, recovery *WorkerRecoveryContext) {
 // validation passed on that checkpoint (or no validation is declared). A
 // failed validation never reaches here: the turn is BLOCKED without a
 // checkpoint.
-func unitCompletionPredicates(record TurnRecord) []string {
+func unitCompletionPredicates(record TurnRecord, safetyBearing bool) []string {
 	var missing []string
 	if !record.Progress {
 		missing = append(missing, "validated progress")
@@ -525,10 +646,61 @@ func unitCompletionPredicates(record TurnRecord) []string {
 	if !record.CheckpointPublished {
 		missing = append(missing, "published checkpoint")
 	}
-	if !containsEvidence(record.CheckpointEvidence, "repository:declared-validation-passed") && !containsEvidence(record.CheckpointEvidence, "repository:no-declared-validation") {
+	passed := containsEvidence(record.CheckpointEvidence, "repository:declared-validation-passed")
+	if !passed && !safetyBearing && containsEvidence(record.CheckpointEvidence, "repository:no-declared-validation") {
+		passed = true
+	}
+	if !passed {
 		missing = append(missing, "declared validation passed")
 	}
 	return missing
+}
+
+// authorizeEffect is the single I10 boundary. Every effect that changes the
+// world or records governed consequence for a safety-bearing generation (the
+// checkpoint push, a unit completion, a gate completion) establishes ALL of its
+// current predicates here, before the effect:
+//
+//   - the kernel activation still matches the running process and package;
+//   - the plan's governing authority is still effective;
+//   - the turn's lease is still held;
+//   - the validation results are still attributable to the exact checkpoint and
+//     profile (content identity, not working-tree cleanliness).
+//
+// Publication pushes the exact qualified commit, so a change after this check
+// cannot substitute different content; a revocation that lands in the remaining
+// interval is detected by the settlement re-check and recorded truthfully as
+// published-but-ungoverned (see ExecuteTurnWithRepository).
+func (c Controller) authorizeEffect(ctx context.Context, req TurnRequest, effect string, repo RepositoryAdapter, record TurnRecord) error {
+	if !isSafetyBearing(req.GoalBaseline) {
+		return nil
+	}
+	if c.SafetyActivation == nil {
+		return fmt.Errorf("%w: verifier is not configured (%s)", ErrSafetyActivation, effect)
+	}
+	if err := c.SafetyActivation.Verify(ctx, *req.GoalBaseline.WorkPlan.Safety); err != nil {
+		return fmt.Errorf("%w: %s: %v", ErrSafetyActivation, effect, err)
+	}
+	if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {
+		return fmt.Errorf("%s: %w", effect, err)
+	}
+	if req.Lease != nil && !req.Lease.Held(ctx) {
+		return fmt.Errorf("%w: turn %s; %s refused", ErrLeaseLost, req.TurnID, effect)
+	}
+	if repo != nil && record.EndHead != "" {
+		validator, ok := repo.(CheckpointValidator)
+		if !ok {
+			return fmt.Errorf("%s requires a checkpoint-bound validator", effect)
+		}
+		if err := validator.VerifyValidationBinding(ctx, record.EndHead, req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest); err != nil {
+			return fmt.Errorf("validation binding drifted before %s: %w", effect, err)
+		}
+	}
+	return nil
+}
+
+func isSafetyBearing(baseline *goals.GoalBaseline) bool {
+	return baseline != nil && baseline.WorkPlan != nil && baseline.WorkPlan.Safety != nil
 }
 
 func containsEvidence(items []string, want string) bool {
@@ -540,30 +712,138 @@ func containsEvidence(items []string, want string) bool {
 	return false
 }
 
+// unitQualification is the evidence one safety-bearing unit earns from bound
+// candidate-conformance runs and exact-checkpoint governed-output capture.
+type unitQualification struct {
+	evidence  []string
+	artifacts []contracts.GovernedArtifactEvidence
+}
+
+// qualifySafetyUnit runs every accepted candidate-conformance predicate and
+// captures every governed output, all against the one exact checkpoint and
+// validation profile of the turn. It performs no durable write, so it can run
+// before publication: a checkpoint that fails candidate conformance is never
+// published.
+func (c Controller) qualifySafetyUnit(ctx context.Context, req TurnRequest, repo RepositoryAdapter, record TurnRecord, selected contracts.WorkCandidate) (unitQualification, error) {
+	var out unitQualification
+	validator, ok := repo.(CheckpointValidator)
+	if !ok {
+		return out, errors.New("safety-bearing completion requires a checkpoint-bound validator")
+	}
+	if !containsEvidence(record.CheckpointEvidence, "repository:declared-validation-passed") {
+		return out, errors.New("safety-bearing completion requires integrated-pass evidence bound to the checkpoint")
+	}
+	profile := req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest
+	for _, predicate := range selected.QualificationPredicates {
+		output, err := validator.RunBoundValidation(ctx, record.EndHead, profile, predicate)
+		if err != nil {
+			return out, fmt.Errorf("candidate conformance %s: %w", predicate, err)
+		}
+		ack := CandidateValidationAcknowledgement + " " + predicate
+		acknowledged := false
+		for _, line := range strings.Split(output, "\n") {
+			if strings.TrimSpace(line) == ack {
+				acknowledged = true
+				break
+			}
+		}
+		if !acknowledged {
+			return out, fmt.Errorf("candidate conformance %s returned malformed or unhandled evidence", predicate)
+		}
+		sum := sha256.Sum256([]byte(output))
+		out.evidence = append(out.evidence, "conformance:"+predicate+":sha256:"+hex.EncodeToString(sum[:]))
+	}
+	var outputs []contracts.GovernedOutputContract
+	if len(selected.Specification) > 0 {
+		var parseErr error
+		outputs, parseErr = contracts.ParseGovernedOutputContracts(selected.Specification)
+		if parseErr != nil {
+			return out, fmt.Errorf("parse governed outputs: %w", parseErr)
+		}
+	}
+	if len(outputs) > 0 {
+		reader, ok := repo.(CheckpointArtifactReader)
+		if !ok {
+			return out, errors.New("governed outputs require exact checkpoint artifact resolution")
+		}
+		for _, output := range outputs {
+			body, readErr := reader.ReadCheckpointArtifact(ctx, record.EndHead, output.SourceRef)
+			if readErr != nil {
+				return out, fmt.Errorf("resolve governed output %s: %w", output.Role, readErr)
+			}
+			if len(body) == 0 || len(body) > contracts.MaxGovernedArtifactBytes {
+				return out, fmt.Errorf("governed output %s is missing or exceeds the byte bound", output.Role)
+			}
+			sum := sha256.Sum256(body)
+			out.artifacts = append(out.artifacts, contracts.GovernedArtifactEvidence{
+				ProducerCandidateID: selected.ID, ProducerSpecificationHash: selected.SourceDigest,
+				ValidationProfileDigest: profile, ConformanceQualified: true,
+				Checkpoint: record.EndHead, Role: output.Role, EvidenceClass: output.EvidenceClass,
+				SourceRef: output.SourceRef, SchemaID: output.SchemaID,
+				Digest: "sha256:" + hex.EncodeToString(sum[:]), Bytes: body,
+			})
+		}
+	}
+	return out, nil
+}
+
 // settleCompletion turns an accepted completion proposal into durable unit
 // completion evidence and, when the generation is thereby complete, into
 // the Goal-level COMPLETE outcome. The worker proposes; the controller
 // decides (#158).
-func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, repo RepositoryAdapter, record TurnRecord) (TurnRecord, error) {
+func (c Controller) settleCompletion(ctx context.Context, req TurnRequest, repo RepositoryAdapter, record TurnRecord, qualification *unitQualification) (TurnRecord, error) {
 	if record.CompletionClaim == "" {
 		return record, nil
+	}
+	if isSafetyBearing(req.GoalBaseline) && record.CompletionClaim != req.ChildObjective {
+		return record, fmt.Errorf("completion claim %q is not the selected unit %q", record.CompletionClaim, req.ChildObjective)
 	}
 	if err := c.emit(ctx, ActivityCompletionClaimed, req, map[string]string{"scope": "unit", "unit": record.CompletionClaim, "end_head": record.EndHead}); err != nil {
 		return record, err
 	}
-	if missing := unitCompletionPredicates(record); len(missing) > 0 {
+	safety := isSafetyBearing(req.GoalBaseline)
+	if missing := unitCompletionPredicates(record, safety); len(missing) > 0 {
 		return record, c.emit(ctx, ActivityValidationCompleted, req, map[string]string{"scope": "unit-completion", "unit": record.CompletionClaim, "passed": "false", "missing": strings.Join(missing, ", ")})
 	}
 	var requirements []string
+	var selected *contracts.WorkCandidate
 	for _, candidate := range req.WorkCandidates {
 		if candidate.ID == record.CompletionClaim {
+			candidateCopy := candidate
+			selected = &candidateCopy
 			for _, requirement := range candidate.Requirements {
 				requirements = append(requirements, requirement.ID)
 			}
 		}
 	}
 	completion := UnitCompletion{GoalID: req.GoalID, GoalVersion: req.GoalVersion, UnitID: record.CompletionClaim, InvocationID: req.InvocationID, TurnID: req.TurnID, EndHead: record.EndHead, Requirements: requirements, Evidence: append([]string{"checkpoint:" + record.EndHead}, record.CheckpointEvidence...), CompletedAt: time.Now().UTC()}
-	if err := c.Ledger.RecordCompletion(ctx, completion); err != nil {
+	if safety {
+		if selected == nil {
+			return record, errors.New("completion claim does not name an accepted safety-bearing candidate")
+		}
+		// Qualification normally ran before publication; it is repeated here
+		// only when it did not (never trusted from an earlier, unbound run).
+		if qualification == nil {
+			produced, err := c.qualifySafetyUnit(ctx, req, repo, record, *selected)
+			if err != nil {
+				return record, err
+			}
+			qualification = &produced
+		}
+		// A completion is a new safety-bearing consequence. Activation, the
+		// governing authority, the lease and the validation binding to the exact
+		// checkpoint must all hold at the instant it is recorded.
+		if err := c.authorizeEffect(ctx, req, "completion-record", repo, record); err != nil {
+			return record, err
+		}
+		completion.Evidence = append(completion.Evidence, qualification.evidence...)
+		completion.MechanismTestsPassed = true
+		completion.ConformanceQualified = true
+		completion.SpecificationDigest = selected.SourceDigest
+		completion.ValidationProfileDigest = req.GoalBaseline.WorkPlan.Safety.ValidationProfileDigest
+		completion.GovernedArtifacts = qualification.artifacts
+	}
+	if err := c.recordCompletion(ctx, req.GoalBaseline, completion); err != nil {
 		return record, fmt.Errorf("record unit completion: %w", err)
 	}
 	record.UnitCompleted = true
@@ -581,10 +861,11 @@ func (c Controller) deriveGoalCandidate(ctx context.Context, req TurnRequest, re
 	if req.GoalBaseline == nil {
 		return record, nil
 	}
-	completions, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)
+	effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)
 	if err != nil {
 		return record, err
 	}
+	completions := effective.Effective
 	assessment, err := AssessGoalCompletion(*req.GoalBaseline, completions)
 	if err != nil {
 		return record, err

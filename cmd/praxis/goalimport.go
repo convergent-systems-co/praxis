@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 	"time"
 
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
@@ -26,7 +26,7 @@ type baselineImportDocument struct {
 // Goal state, never a WorkPlan, authority, or provider selection.
 func importGoalBaseline(ctx context.Context, repo goalstore.Repository, path string, body []byte, now time.Time) (goals.GoalBaseline, error) {
 	var doc baselineImportDocument
-	if err := json.Unmarshal(body, &doc); err != nil {
+	if err := contracts.UnmarshalExactJSON(body, &doc, false); err != nil {
 		return goals.GoalBaseline{}, fmt.Errorf("decode Goal Baseline import: %w", err)
 	}
 	if doc.SchemaVersion != "1" || doc.SourceRef == "" || doc.SourceDigest == "" {

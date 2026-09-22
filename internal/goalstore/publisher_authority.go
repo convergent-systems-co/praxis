@@ -25,7 +25,12 @@ func (r Repository) ResolvePackagePublishAuthority(ctx context.Context, publishe
 	if publisherGenerationDigest == "" || packageID == "" {
 		return contracts.PackagePublishAuthorization{}, errors.New("publisher generation and package identity are required")
 	}
-	generations, err := r.ListAuthorityGenerations(ctx, now)
+	// N17: only CURRENT generations are candidates. The immutable record's
+	// State says what was enrolled, not whether it is still in force: a child
+	// retired by invalidation, missing its liveness record, retired by an
+	// anchored fact, or voided by a re-anchor must never authorize signing,
+	// however current its parent decision still is.
+	generations, err := r.currentAuthorityGenerations(ctx, now)
 	if err != nil {
 		return contracts.PackagePublishAuthorization{}, err
 	}
@@ -55,6 +60,13 @@ func (r Repository) ResolvePackagePublishAuthority(ctx context.Context, publishe
 			}
 			requestDigest, digestErr := request.DigestAt(now)
 			if digestErr != nil || requestDigest != decision.RequestDigest || generation.DelegationDigest == "" {
+				continue
+			}
+			// The whole lineage must be current, not only the child: the parent
+			// decision above is effective on its own liveness, but it says nothing
+			// about the root that issued it. A child of a superseded root, or with a
+			// retired ancestor, must never authorize signing.
+			if lineageErr := r.requireCurrentLineage(ctx, generation, now); lineageErr != nil {
 				continue
 			}
 			return contracts.PackagePublishAuthorization{Generation: generation, Request: request, Decision: decision}, nil

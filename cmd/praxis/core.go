@@ -187,6 +187,9 @@ func inspectAuthorityTopology(ctx context.Context, db *sql.DB, record *praxiscry
 		return authorityTopologyInspection{Status: "unqualified"}, err
 	}
 	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: digest}
+	// Topology inspection reads generations, not governance authority, so it
+	// does not require the anchor; it must not fail on an installation whose
+	// anchor is the very thing being diagnosed.
 	return inspectAuthorityTopologyWithRepository(ctx, repo, digest)
 }
 

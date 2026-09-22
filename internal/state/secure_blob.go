@@ -43,6 +43,9 @@ const RootAuthoritySuccessionReviewNamespace = "root_authority_succession_review
 const RootAuthoritySuccessionDecisionNamespace = "root_authority_succession_decision"
 const AuthorityGenerationInvalidationNamespace = "authority_generation_invalidation"
 
+// AuthorityRevocationNamespace holds the negative record of a revoked decision.
+const AuthorityRevocationNamespace = "authority_revocation"
+
 type Sensitivity string
 
 const (
@@ -255,11 +258,11 @@ func (s *Store) PutSecureBlobsUnlessRevoked(ctx context.Context, records []Secur
 		return errors.New("secure blob lock source is missing")
 	}
 	for _, check := range []struct{ namespace, id, version string }{{revocationNamespace, requestID, requestVersion}, {generationInvalidationNamespace, generationID, generationVersion}} {
-		var count int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, check.namespace, check.id, check.version).Scan(&count); err != nil {
+		revoked, err := revokedOrNotLiveInTx(ctx, tx, check.namespace, check.id, check.version)
+		if err != nil {
 			return err
 		}
-		if count != 0 {
+		if revoked {
 			return ErrAuthorityRevoked
 		}
 	}
@@ -282,14 +285,21 @@ func (s *Store) PutSecureBlobsUnlessRevoked(ctx context.Context, records []Secur
 // additionalRevocationNamespace may still legitimately reference
 // AuthorityGenerationNamespace as a read-only revocation-check target;
 // only record.Namespace, the write target, is reserved).
-func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {
+// live are liveness records (SealedLivenessRecord) inserted in the same
+// transaction, after the revocation and invalidation checks.
+func (s *Store) PutSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string, live ...SecureBlobRecord) error {
 	if record.Namespace == AuthorityGenerationNamespace {
 		return ErrAuthorityGenerationNamespaceReserved
 	}
-	return s.putSecureBlobUnlessRevoked(ctx, record, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion)
+	for _, item := range live {
+		if item.Namespace != AuthorityDecisionLiveNamespace && item.Namespace != AuthorityGenerationLiveNamespace {
+			return ErrNotLivenessNamespace
+		}
+	}
+	return s.putSecureBlobUnlessRevoked(ctx, record, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion, live...)
 }
 
-func (s *Store) putSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {
+func (s *Store) putSecureBlobUnlessRevoked(ctx context.Context, record SecureBlobRecord, revocationNamespace, requestID, requestVersion, additionalRevocationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string, live ...SecureBlobRecord) error {
 	if s == nil || s.db == nil {
 		return errors.New("state store is required")
 	}
@@ -319,16 +329,21 @@ func (s *Store) putSecureBlobUnlessRevoked(ctx context.Context, record SecureBlo
 		if namespace == "" {
 			continue
 		}
-		var revoked int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, id, version).Scan(&revoked); err != nil {
-			return fmt.Errorf("check authority revocation: %w", err)
+		revoked, err := revokedOrNotLiveInTx(ctx, tx, namespace, id, version, live...)
+		if err != nil {
+			return err
 		}
-		if revoked != 0 {
+		if revoked {
 			return ErrAuthorityRevoked
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO secure_blobs(namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest, string(record.Sensitivity), string(record.CryptoProfile), envelopeJSON, record.CreatedAt.UTC().Format(time.RFC3339Nano), nullableTime(record.ExpiresAt)); err != nil {
 		return fmt.Errorf("insert authority-bound secure blob: %w", err)
+	}
+	for _, item := range live {
+		if err := insertSecureBlobTx(ctx, tx, item); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit authority transition: %w", err)
@@ -350,9 +365,15 @@ type AuthorityGenerationWrite struct {
 	CreatedAt      time.Time
 	ExpiresAt      *time.Time
 	RelatedRecords []SecureBlobRecord
-	LockNamespace  string
-	LockID         string
-	LockVersion    string
+	// MarkLive writes the generation's liveness record in the same transaction
+	// as the generation, so no interrupted write can leave a live-looking
+	// generation without one, and no replay is ever needed to create it.
+	MarkLive bool
+	// AdmittedAtSeq stamps the generation's liveness record (see LivenessRecord).
+	AdmittedAtSeq uint64
+	LockNamespace string
+	LockID        string
+	LockVersion   string
 }
 
 // PutAuthorityGeneration validates the semantic AuthorityGeneration value,
@@ -428,13 +449,24 @@ func (s *Store) PutAuthorityGeneration(ctx context.Context, write AuthorityGener
 		CreatedAt:     write.CreatedAt,
 		ExpiresAt:     write.ExpiresAt,
 	}
-	if lockFields == 0 {
-		return s.putSecureBlob(ctx, record)
+	var live []SecureBlobRecord
+	if write.MarkLive {
+		liveRecord, err := SealedLivenessRecord(ctx, write.Crypto, write.KeyRef, write.Profile, write.Sensitivity, AuthorityGenerationLiveNamespace, write.Generation.Ref, write.Generation.Version, write.Generation.Digest, write.CreatedAt, write.AdmittedAtSeq)
+		if err != nil {
+			return err
+		}
+		live = append(live, liveRecord)
 	}
-	if len(write.RelatedRecords) == 0 {
+	if lockFields == 0 {
+		if len(live) == 0 {
+			return s.putSecureBlob(ctx, record)
+		}
+		return s.putSecureBlobsTx(ctx, append(live, record))
+	}
+	if len(write.RelatedRecords) == 0 && len(live) == 0 {
 		return s.putSecureBlobWithLock(ctx, record, write.LockNamespace, write.LockID, write.LockVersion)
 	}
-	records := append(append([]SecureBlobRecord(nil), write.RelatedRecords...), record)
+	records := append(append(append([]SecureBlobRecord(nil), write.RelatedRecords...), live...), record)
 	return s.putSecureBlobsWithLock(ctx, records, write.LockNamespace, write.LockID, write.LockVersion)
 }
 
@@ -463,14 +495,16 @@ func authorityGenerationHasInstallationRepair(generation contracts.AuthorityGene
 }
 
 type RootAuthoritySuccessionWrite struct {
-	Proposal    contracts.RootAuthoritySuccessionProposal
-	Review      contracts.RootAuthoritySuccessionReview
-	Decision    contracts.RootAuthoritySuccessionDecision
-	Crypto      praxiscrypto.EnvelopeService
-	KeyRef      string
-	Profile     contracts.CryptoProfile
-	Sensitivity Sensitivity
-	CreatedAt   time.Time
+	// AdmittedAtSeq stamps the successor's liveness record.
+	AdmittedAtSeq uint64
+	Proposal      contracts.RootAuthoritySuccessionProposal
+	Review        contracts.RootAuthoritySuccessionReview
+	Decision      contracts.RootAuthoritySuccessionDecision
+	Crypto        praxiscrypto.EnvelopeService
+	KeyRef        string
+	Profile       contracts.CryptoProfile
+	Sensitivity   Sensitivity
+	CreatedAt     time.Time
 }
 
 // PutRootAuthoritySuccessor is the sole production persistence boundary for a
@@ -581,6 +615,18 @@ func (s *Store) PutRootAuthoritySuccessor(ctx context.Context, write RootAuthori
 		if err := insertSecureBlobTx(ctx, tx, record); err != nil {
 			return err
 		}
+	}
+	// I12: the superseded root is retired and the successor made live in the
+	// same transaction that supersedes and admits them.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, AuthorityGenerationLiveNamespace, predecessor.Ref, predecessor.Version); err != nil {
+		return fmt.Errorf("retire root predecessor liveness: %w", err)
+	}
+	liveRecord, err := SealedLivenessRecord(ctx, write.Crypto, write.KeyRef, write.Profile, write.Sensitivity, AuthorityGenerationLiveNamespace, write.Proposal.Successor.Ref, write.Proposal.Successor.Version, write.Proposal.Successor.Digest, write.CreatedAt, write.AdmittedAtSeq)
+	if err != nil {
+		return err
+	}
+	if err := insertSecureBlobTx(ctx, tx, liveRecord); err != nil {
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit root-authority succession: %w", err)
@@ -729,9 +775,54 @@ func (s *Store) IsSecureBlobRevokedInTx(ctx context.Context, tx *sql.Tx, namespa
 	if namespace == "" || id == "" || version == "" {
 		return false, nil
 	}
+	return revokedOrNotLiveInTx(ctx, tx, namespace, id, version)
+}
+
+// revokedOrNotLiveInTx is the single in-transaction "is this decision or
+// generation out of force" predicate (I12). A decision or generation is in
+// force only if its negative record is absent AND its sealed liveness record is
+// present; absence of the negative record alone is never sufficient, so a
+// keyless DELETE of a revocation or invalidation row cannot restore anything.
+func revokedOrNotLiveInTx(ctx context.Context, tx *sql.Tx, namespace, id, version string, creating ...SecureBlobRecord) (bool, error) {
 	var count int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, id, version).Scan(&count); err != nil {
 		return false, fmt.Errorf("check authority revocation: %w", err)
+	}
+	if count != 0 {
+		return true, nil
+	}
+	liveNamespace := ""
+	switch namespace {
+	case AuthorityRevocationNamespace:
+		liveNamespace = AuthorityDecisionLiveNamespace
+	case AuthorityGenerationInvalidationNamespace:
+		liveNamespace = AuthorityGenerationLiveNamespace
+	default:
+		return false, nil
+	}
+	// A fact whose liveness record is being created by this very transaction
+	// is being admitted, not consumed: only its negative record can refuse it.
+	for _, record := range creating {
+		if record.Namespace == liveNamespace && record.ObjectID == id && record.ObjectVersion == version {
+			return false, nil
+		}
+	}
+	present, err := LivenessPresentInTx(ctx, tx, liveNamespace, id, version)
+	if err != nil {
+		return false, err
+	}
+	return !present, nil
+}
+
+// LivenessPresentInTx reports whether the liveness row of a decision or
+// generation exists, inside the caller's transaction.
+func LivenessPresentInTx(ctx context.Context, tx *sql.Tx, namespace, id, version string) (bool, error) {
+	if namespace != AuthorityDecisionLiveNamespace && namespace != AuthorityGenerationLiveNamespace {
+		return false, ErrNotLivenessNamespace
+	}
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, id, version).Scan(&count); err != nil {
+		return false, fmt.Errorf("check governance liveness: %w", err)
 	}
 	return count != 0, nil
 }
@@ -821,6 +912,10 @@ func (s *Store) ListSecureBlobsInNamespaces(ctx context.Context, namespaces []st
 	if s == nil || s.db == nil {
 		return nil, errors.New("state store is required")
 	}
+	return listSecureBlobs(ctx, s.db, namespaces, now)
+}
+
+func listSecureBlobs(ctx context.Context, q sqlQueryer, namespaces []string, now time.Time) ([]SecureBlobRecord, error) {
 	if len(namespaces) == 0 {
 		return nil, errors.New("secure blob namespace is required")
 	}
@@ -833,7 +928,7 @@ func (s *Store) ListSecureBlobsInNamespaces(ctx context.Context, namespaces []st
 		args = append(args, namespace)
 		marks = append(marks, "?")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace IN (`+strings.Join(marks, ",")+`) ORDER BY namespace,object_id,object_version`, args...)
+	rows, err := q.QueryContext(ctx, `SELECT namespace,object_id,object_version,object_digest,sensitivity,crypto_profile,envelope_json,created_at,expires_at FROM secure_blobs WHERE namespace IN (`+strings.Join(marks, ",")+`) ORDER BY namespace,object_id,object_version`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list secure blobs: %w", err)
 	}
@@ -874,4 +969,277 @@ func (s *Store) ListSecureBlobsInNamespaces(ctx context.Context, namespaces []st
 		return nil, err
 	}
 	return records, nil
+}
+
+// Liveness namespaces hold POSITIVE, sealed records whose presence is REQUIRED
+// for a governance fact to grant anything (I12, deletion-monotonicity). A
+// revocation or invalidation retires the record by deleting it. Because a
+// consequence-permitting predicate demands presence, a writer of the database
+// file who can only DELETE rows can never widen what is permitted: deleting the
+// revocation record leaves the decision without its liveness record, and
+// deleting the liveness record refuses. Restoring authority would require
+// inserting a previously copied sealed row (a replay), which is outside the
+// delete-only capability the accepted trust model denies.
+const (
+	AuthorityDecisionLiveNamespace   = "authority_decision_live"
+	AuthorityGenerationLiveNamespace = "authority_generation_live"
+)
+
+// ErrNotLivenessNamespace refuses deletion outside the liveness namespaces: the
+// rest of secure_blobs stays immutable.
+var ErrNotLivenessNamespace = errors.New("only liveness records may be retired")
+
+// DeleteLivenessRecord retires one liveness record. It is idempotent (a record
+// that is already absent is retired), and it refuses every other namespace.
+func (s *Store) DeleteLivenessRecord(ctx context.Context, namespace, objectID, objectVersion string) error {
+	if namespace != AuthorityDecisionLiveNamespace && namespace != AuthorityGenerationLiveNamespace {
+		return ErrNotLivenessNamespace
+	}
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if objectID == "" || objectVersion == "" {
+		return errors.New("liveness record identity is required")
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, objectID, objectVersion); err != nil {
+		return fmt.Errorf("retire liveness record: %w", err)
+	}
+	return nil
+}
+
+// LivenessRecord is the sealed payload of a liveness row: it names the exact
+// governance fact (identity and digest) it keeps alive.
+type LivenessRecord struct {
+	Namespace string `json:"namespace"`
+	ID        string `json:"id"`
+	Version   string `json:"version"`
+	Digest    string `json:"digest"`
+	// AdmittedAtSeq is the Forward Authority Anchor sequence at admission (0
+	// when the installation is unanchored). A governed re-anchor at sequence S
+	// voids every admission stamped below S, so restoring an older store never
+	// makes an older admission current again (I13).
+	AdmittedAtSeq uint64 `json:"admitted_at_seq,omitempty"`
+}
+
+// SealedLivenessRecord seals a liveness row for atomic insertion together with
+// the governance record it keeps alive. It refuses any other namespace.
+func SealedLivenessRecord(ctx context.Context, crypto praxiscrypto.EnvelopeService, keyRef string, profile contracts.CryptoProfile, sensitivity Sensitivity, namespace, id, version, digest string, createdAt time.Time, admittedAtSeq ...uint64) (SecureBlobRecord, error) {
+	if namespace != AuthorityDecisionLiveNamespace && namespace != AuthorityGenerationLiveNamespace {
+		return SecureBlobRecord{}, ErrNotLivenessNamespace
+	}
+	if id == "" || version == "" || digest == "" {
+		return SecureBlobRecord{}, errors.New("liveness identity and digest are required")
+	}
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	return sealedTypedRecord(ctx, crypto, keyRef, profile, sensitivity, namespace, id, version, LivenessRecord{Namespace: namespace, ID: id, Version: version, Digest: digest, AdmittedAtSeq: firstSeq(admittedAtSeq)}, createdAt)
+}
+
+func (s *Store) putSecureBlobsTx(ctx context.Context, records []SecureBlobRecord) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin secure blob transition: %w", err)
+	}
+	defer tx.Rollback()
+	for _, record := range records {
+		if err := insertSecureBlobTx(ctx, tx, record); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit secure blob transition: %w", err)
+	}
+	return nil
+}
+
+// PutSecureBlobsAtomically writes a record together with its liveness records
+// in one transaction. Every record other than the first must be a liveness
+// record, so this is not a generic multi-write; the reserved authority
+// generation namespace is refused.
+func (s *Store) PutSecureBlobsAtomically(ctx context.Context, records []SecureBlobRecord) error {
+	if len(records) == 0 {
+		return errors.New("secure blob records are required")
+	}
+	if records[0].Namespace == AuthorityGenerationNamespace {
+		return ErrAuthorityGenerationNamespaceReserved
+	}
+	for _, record := range records[1:] {
+		if record.Namespace != AuthorityDecisionLiveNamespace && record.Namespace != AuthorityGenerationLiveNamespace {
+			return ErrNotLivenessNamespace
+		}
+	}
+	for _, record := range records {
+		if err := record.Validate(); err != nil {
+			return err
+		}
+	}
+	return s.putSecureBlobsTx(ctx, records)
+}
+
+func firstSeq(v []uint64) uint64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[0]
+}
+
+// GovernanceFactNamespace holds the Forward Authority Anchor's fact chain: one
+// authenticated row per governance transition whose loss or replay would broaden
+// permission. Object id is the zero-padded sequence number.
+const GovernanceFactNamespace = "governance_fact"
+
+// GovernanceFactID is the object id of the fact with the given sequence.
+func GovernanceFactID(seq uint64) string { return fmt.Sprintf("%020d", seq) }
+
+// ListGovernanceFactRecords returns every fact row in one statement.
+func (s *Store) ListGovernanceFactRecords(ctx context.Context) ([]SecureBlobRecord, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("state store is required")
+	}
+	return listSecureBlobs(ctx, s.db, []string{GovernanceFactNamespace}, time.Unix(0, 0).UTC())
+}
+
+// ListGovernanceFactRecordsTx is ListGovernanceFactRecords inside the caller's
+// transaction, so a check made inside a governed write sees the same chain the
+// write will extend.
+func ListGovernanceFactRecordsTx(ctx context.Context, tx *sql.Tx) ([]SecureBlobRecord, error) {
+	if tx == nil {
+		return nil, errors.New("a transaction is required")
+	}
+	return listSecureBlobs(ctx, tx, []string{GovernanceFactNamespace}, time.Unix(0, 0).UTC())
+}
+
+// GovernanceFactBuilder builds the next fact row from the chain as it stands
+// inside the write lock. It authenticates and verifies that chain against the
+// anchor, seals the new fact and advances the anchor, then returns the row and
+// an undo that reverts the anchor if the database commit fails. Returning a nil
+// record with a nil error means the transition is already recorded and nothing
+// is written.
+type GovernanceFactBuilder func(ctx context.Context, tx *sql.Tx, existing []SecureBlobRecord) (SecureBlobRecord, func(context.Context), error)
+
+// AppendGovernanceFact runs build inside a write transaction (the SQLite writer
+// lock serialises every appender in every process), inserts the row build
+// returns and commits. The anchor is advanced by build BEFORE the commit, so a
+// crash between the two leaves the anchor ahead of the store: the store then
+// refuses to be consumed until a governed re-anchor, which is the fail-closed
+// direction. The reverse order would let a crash leave a store that has lost a
+// retirement the anchor never learned about.
+func (s *Store) AppendGovernanceFact(ctx context.Context, build GovernanceFactBuilder) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin governance fact transition: %w", err)
+	}
+	defer tx.Rollback()
+	// A write statement that matches nothing still takes the writer lock.
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=''`, GovernanceFactNamespace); err != nil {
+		return fmt.Errorf("lock governance fact chain: %w", err)
+	}
+	existing, err := ListGovernanceFactRecordsTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	record, undo, err := build(ctx, tx, existing)
+	if err != nil {
+		return err
+	}
+	if record.Namespace == "" {
+		return nil
+	}
+	if record.Namespace != GovernanceFactNamespace {
+		if undo != nil {
+			undo(ctx)
+		}
+		return errors.New("only governance facts may be appended through the fact chain")
+	}
+	if err := insertSecureBlobTx(ctx, tx, record); err != nil {
+		if undo != nil {
+			undo(ctx)
+		}
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		if undo != nil {
+			undo(ctx)
+		}
+		return fmt.Errorf("commit governance fact: %w", err)
+	}
+	return nil
+}
+
+// ReplaceLivenessRecord re-stamps a liveness record in one transaction (delete
+// then insert). It is used only by governed re-anchoring to re-admit the
+// installation root.
+func (s *Store) ReplaceLivenessRecord(ctx context.Context, record SecureBlobRecord) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	if record.Namespace != AuthorityDecisionLiveNamespace && record.Namespace != AuthorityGenerationLiveNamespace {
+		return ErrNotLivenessNamespace
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, record.Namespace, record.ObjectID, record.ObjectVersion); err != nil {
+		return err
+	}
+	if err := insertSecureBlobTx(ctx, tx, record); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ListSecureBlobsInNamespacesTx is ListSecureBlobsInNamespaces inside the
+// caller's transaction (the store uses a single connection, so a governed write
+// must read through its own transaction).
+func ListSecureBlobsInNamespacesTx(ctx context.Context, tx *sql.Tx, namespaces []string, now time.Time) ([]SecureBlobRecord, error) {
+	if tx == nil {
+		return nil, errors.New("a transaction is required")
+	}
+	return listSecureBlobs(ctx, tx, namespaces, now)
+}
+
+// DeleteSecureBlobInTx and InsertSecureBlobInTx let a governed re-anchor move
+// orphaned fact rows out of the chain in the same transaction that bridges it.
+func DeleteSecureBlobInTx(ctx context.Context, tx *sql.Tx, namespace, id, version string) error {
+	if namespace != GovernanceFactNamespace {
+		return errors.New("only governance fact rows may be moved by a re-anchor")
+	}
+	_, err := tx.ExecContext(ctx, `DELETE FROM secure_blobs WHERE namespace=? AND object_id=? AND object_version=?`, namespace, id, version)
+	return err
+}
+
+func InsertSecureBlobInTx(ctx context.Context, tx *sql.Tx, record SecureBlobRecord) error {
+	if record.Namespace != "governance_fact_orphan" {
+		return errors.New("only orphaned governance facts may be inserted by a re-anchor")
+	}
+	return insertSecureBlobTx(ctx, tx, record)
+}
+
+// WithWriteLock runs fn inside a write transaction (the store opens every
+// transaction with the writer lock, so this waits for every in-flight writer of
+// every process) and rolls it back. Its use is a barrier: inside it no write is
+// in flight, so a comparison of the fact chain with the anchor made through tx
+// cannot be confused by a concurrent append.
+func (s *Store) WithWriteLock(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	if s == nil || s.db == nil {
+		return errors.New("state store is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("take the governance write lock: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE secure_blobs SET object_digest=object_digest WHERE namespace=? AND object_id=''`, GovernanceFactNamespace); err != nil {
+		return fmt.Errorf("take the governance write lock: %w", err)
+	}
+	return fn(tx)
 }

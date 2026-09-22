@@ -50,8 +50,19 @@ func governedInstallationFixture(t *testing.T, ctx context.Context) (func(string
 	}
 	service := praxiscrypto.EnvelopeService{Wrapper: recoveryTestWrapper{}}
 	const keyRef = "fixture-retention-key"
-	repository := func(db *sql.DB) goalstore.Repository {
-		return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: keyRef, Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential, InstallationDigest: bootstrapDigest}
+	// Mirrors the production opener: every repository carries the same
+	// lifecycle activation verifier, derived from the invoking command's
+	// environment, so tests exercise the real persistence-boundary predicate.
+	repository := func(db *sql.DB, getenv func(string) string) goalstore.Repository {
+		repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: keyRef, Profile: contracts.CryptoClassicalCompatible, Sensitivity: state.SensitivityConfidential, InstallationDigest: bootstrapDigest, SafetyActivation: lifecycleSafetyActivation{getenv: getenv}}
+		// The production opener always attaches the forward authority anchor
+		// (through the same constructor helper); a fixture that did not would
+		// exercise an unanchored repository production never builds.
+		repo, err := withGovernanceAnchor(repo, getenv)
+		if err != nil {
+			panic(err)
+		}
+		return repo
 	}
 	owner, _ := contracts.InstallationOwnerPrincipal(bootstrapDigest)
 	scope, _ := contracts.InstallationGovernanceScope(bootstrapDigest)
@@ -64,7 +75,7 @@ func governedInstallationFixture(t *testing.T, ctx context.Context) (func(string
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository(writeDB).SaveAuthorityGeneration(ctx, root, root.EffectiveAt, nil); err != nil {
+	if err := repository(writeDB, nil).SaveAuthorityGeneration(ctx, root, root.EffectiveAt, nil); err != nil {
 		t.Fatal(err)
 	}
 	writeDB.Close()
@@ -74,7 +85,7 @@ func governedInstallationFixture(t *testing.T, ctx context.Context) (func(string
 		if err != nil {
 			return goalstore.Repository{}, nil, record, err
 		}
-		return repository(db), db, record, nil
+		return repository(db, getenv), db, record, nil
 	}
 	t.Cleanup(func() { openGovernedRepositoryReadOnly = original })
 	originalWrite := openGovernedRepository
@@ -83,7 +94,7 @@ func governedInstallationFixture(t *testing.T, ctx context.Context) (func(string
 		if err != nil {
 			return goalstore.Repository{}, nil, err
 		}
-		return repository(db), db, nil
+		return repository(db, getenv), db, nil
 	}
 	t.Cleanup(func() { openGovernedRepository = originalWrite })
 	t.Setenv("PRAXIS_DB", dbPath)

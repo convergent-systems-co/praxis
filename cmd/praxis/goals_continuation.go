@@ -69,7 +69,7 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 	}
 	if len(acceptances) == 1 {
 		for _, plan := range acceptances {
-			return attachContinuedPlan(ctx, repo, baseline, plan, result, now, []string{"attach_accepted_workplan"})
+			return attachContinuedPlan(ctx, repo, baseline, plan, result, getenv, now, []string{"attach_accepted_workplan"})
 		}
 	}
 
@@ -104,6 +104,17 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		if err != nil {
 			return nil, err
 		}
+		// Continuation is a second route to the same durable mutation as
+		// `accept`, so it enforces the identical activation predicate before
+		// anything is persisted. It must not depend on a later goal-drive refusal.
+		if proposal.Safety != nil {
+			if item.Request.CeremonyProfile != "interactive-os-owner-v1" || item.Request.ActivationManifestDigest != proposal.Safety.ActivationManifestDigest {
+				return nil, errors.New("protected WorkPlan acceptance lacks exact ceremony/activation binding")
+			}
+			if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+				return nil, err
+			}
+		}
 		acceptanceRef := "acceptance:" + item.Request.ID
 		plan, err := contracts.MaterializeAcceptedPlanCandidate(proposal, acceptanceRef, item.RequestDigest)
 		if err != nil {
@@ -113,7 +124,7 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		if err != nil {
 			return nil, err
 		}
-		return attachContinuedPlan(ctx, repo, baseline, accepted, result, now, []string{"accept_approved_workplan", "attach_accepted_workplan"})
+		return attachContinuedPlan(ctx, repo, baseline, accepted, result, getenv, now, []string{"accept_approved_workplan", "attach_accepted_workplan"})
 	}
 	if len(pending) > 0 {
 		entries := make([]map[string]any, 0, len(pending))
@@ -195,6 +206,16 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 		Reason: "accept the independently reviewed WorkPlan decomposition of " + baseline.ID + "/" + baseline.Version,
 		Status: contracts.AuthorityRequestPending,
 	}
+	if item.proposal.Safety != nil {
+		// Same protected request the direct `request` operation builds: the
+		// interactive ceremony and exact activation binding are part of the
+		// request identity, never added later.
+		if err := verifyLifecycleSafety(*item.proposal.Safety, getenv); err != nil {
+			return nil, err
+		}
+		request.CeremonyProfile = "interactive-os-owner-v1"
+		request.ActivationManifestDigest = item.proposal.Safety.ActivationManifestDigest
+	}
 	requestDigest, err := repo.SaveAuthorityRequest(ctx, request, now, nil)
 	if err != nil {
 		// A concurrent or restarted continuation may have completed this exact
@@ -218,7 +239,14 @@ func advanceGoalsLifecycle(ctx context.Context, repo goalstore.Repository, goalI
 	return result, nil
 }
 
-func attachContinuedPlan(ctx context.Context, repo goalstore.Repository, source goals.GoalBaseline, plan contracts.WorkPlan, result map[string]any, now time.Time, transitions []string) (map[string]any, error) {
+func attachContinuedPlan(ctx context.Context, repo goalstore.Repository, source goals.GoalBaseline, plan contracts.WorkPlan, result map[string]any, getenv func(string) string, now time.Time, transitions []string) (map[string]any, error) {
+	// Identical to direct `attach`: the activation predicate precedes both the
+	// replay observation and the successor write.
+	if plan.Safety != nil {
+		if err := verifyLifecycleSafety(*plan.Safety, getenv); err != nil {
+			return nil, err
+		}
+	}
 	n, err := strconv.Atoi(source.Version)
 	if err != nil {
 		return nil, fmt.Errorf("Goal generation %q is not numeric; deterministic continuation cannot derive its successor", source.Version)

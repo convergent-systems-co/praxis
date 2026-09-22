@@ -28,15 +28,21 @@ const unitCompletedEventType = "goal_drive.unit_completed"
 // derives from these records, never from worker assertion or from the
 // immutable plan's proposal-time metadata alone.
 type UnitCompletion struct {
-	GoalID       string    `json:"goal_id"`
-	GoalVersion  string    `json:"goal_version"`
-	UnitID       string    `json:"unit_id"`
-	InvocationID string    `json:"invocation_id"`
-	TurnID       string    `json:"turn_id"`
-	EndHead      string    `json:"end_head"`
-	Requirements []string  `json:"requirements,omitempty"`
-	Evidence     []string  `json:"evidence"`
-	CompletedAt  time.Time `json:"completed_at"`
+	GoalID                  string                               `json:"goal_id"`
+	GoalVersion             string                               `json:"goal_version"`
+	UnitID                  string                               `json:"unit_id"`
+	InvocationID            string                               `json:"invocation_id"`
+	TurnID                  string                               `json:"turn_id"`
+	EndHead                 string                               `json:"end_head"`
+	Requirements            []string                             `json:"requirements,omitempty"`
+	Evidence                []string                             `json:"evidence"`
+	CompletedAt             time.Time                            `json:"completed_at"`
+	MechanismTestsPassed    bool                                 `json:"mechanism_tests_passed,omitempty"`
+	ConformanceQualified    bool                                 `json:"conformance_qualified,omitempty"`
+	SpecificationDigest     string                               `json:"specification_digest,omitempty"`
+	ValidationProfileDigest string                               `json:"validation_profile_digest,omitempty"`
+	AuthorityGate           bool                                 `json:"authority_gate,omitempty"`
+	GovernedArtifacts       []contracts.GovernedArtifactEvidence `json:"governed_artifacts,omitempty"`
 	// Materialization is set only when the completion was derived after the
 	// turn ended by deterministic re-materialization (#164).
 	Materialization *CompletionMaterialization `json:"materialization,omitempty"`
@@ -48,6 +54,29 @@ func (c UnitCompletion) validate() error {
 	}
 	if len(c.Evidence) == 0 {
 		return errors.New("unit completion requires evidence")
+	}
+	if c.AuthorityGate {
+		if c.SpecificationDigest == "" {
+			return errors.New("authority-gate completion requires specification evidence")
+		}
+	} else if c.ConformanceQualified {
+		if !c.MechanismTestsPassed || c.SpecificationDigest == "" || c.ValidationProfileDigest == "" {
+			return errors.New("qualified completion requires mechanism, specification, and validation-profile evidence")
+		}
+	}
+	seenArtifacts := map[string]struct{}{}
+	for _, artifact := range c.GovernedArtifacts {
+		if err := artifact.Validate(); err != nil {
+			return fmt.Errorf("unit completion governed artifact: %w", err)
+		}
+		if artifact.ProducerCandidateID != c.UnitID || artifact.ProducerSpecificationHash != c.SpecificationDigest || artifact.ValidationProfileDigest != c.ValidationProfileDigest || artifact.Checkpoint != c.EndHead || !c.ConformanceQualified {
+			return errors.New("governed artifact is not bound to its qualified producer completion")
+		}
+		key := artifact.Role + "\x00" + artifact.EvidenceClass
+		if _, duplicate := seenArtifacts[key]; duplicate {
+			return errors.New("unit completion duplicates governed artifact role/evidence class")
+		}
+		seenArtifacts[key] = struct{}{}
 	}
 	return nil
 }
@@ -197,9 +226,13 @@ func (l Ledger) RecordCompletion(ctx context.Context, completion UnitCompletion)
 	return err
 }
 
-// ApplyCompletions overlays durable completion state on the immutable
-// plan's candidates: this is the "durable completion state supplied to the
-// evaluator" that SPEC-025 requires.
+// ApplyCompletions overlays durable completion state on the plan's
+// candidates ("the durable completion state supplied to the evaluator" SPEC-025
+// requires). A candidate with an explicit kind is a safety-kernel candidate:
+// its completion derives exclusively from generation-specific ledger records,
+// so any Completed value carried by the plan, an import, or a caller-supplied
+// slice is cleared and cannot survive the overlay. Kind-less predecessor
+// candidates keep their predecessor semantics.
 func ApplyCompletions(candidates []contracts.WorkCandidate, completions []UnitCompletion) []contracts.WorkCandidate {
 	complete := map[string]struct{}{}
 	for _, completion := range completions {
@@ -210,9 +243,48 @@ func ApplyCompletions(candidates []contracts.WorkCandidate, completions []UnitCo
 		out[i] = candidate
 		if _, ok := complete[candidate.ID]; ok {
 			out[i].Completed = true
+		} else if candidate.Kind != "" {
+			out[i].Completed = false
 		}
 	}
 	return out
+}
+
+// VerifyPlanCompletions proves that every ledger completion counted against
+// a safety-bearing plan is evidence the safety contract accepts: it names a
+// unit of the plan, is bound to that unit's exact accepted specification, and
+// carries the evidence class its kind requires (an ordinary unit needs
+// integrated mechanism-test success, conformance qualification and the plan's
+// exact validation profile; an authority gate needs the gate-completion
+// record). Non-safety plans keep their predecessor semantics.
+func VerifyPlanCompletions(plan *contracts.WorkPlan, completions []UnitCompletion) error {
+	if plan == nil || plan.Safety == nil {
+		return nil
+	}
+	units := make(map[string]contracts.WorkCandidate, len(plan.Candidates))
+	for _, candidate := range plan.Candidates {
+		units[candidate.ID] = candidate
+	}
+	for _, completion := range completions {
+		unit, ok := units[completion.UnitID]
+		if !ok {
+			return fmt.Errorf("completion names unit %q that is not in the accepted safety-bearing plan", completion.UnitID)
+		}
+		if completion.SpecificationDigest != unit.SourceDigest {
+			return fmt.Errorf("completion of %q is not bound to its accepted specification", completion.UnitID)
+		}
+		switch unit.Kind {
+		case contracts.WorkCandidateAuthorityGate:
+			if !completion.AuthorityGate || completion.MechanismTestsPassed || completion.ConformanceQualified {
+				return fmt.Errorf("completion of authority gate %q is not gate-decision evidence", completion.UnitID)
+			}
+		default:
+			if completion.AuthorityGate || !completion.MechanismTestsPassed || !completion.ConformanceQualified || completion.ValidationProfileDigest != plan.Safety.ValidationProfileDigest {
+				return fmt.Errorf("completion of %q lacks integrated mechanism, conformance, or exact validation-profile evidence", completion.UnitID)
+			}
+		}
+	}
+	return nil
 }
 
 // GoalCompletionAssessment is STRUCTURAL: every WorkPlan unit is durably
@@ -244,6 +316,9 @@ type CriterionCoverage struct {
 func AssessGoalCompletion(baseline goals.GoalBaseline, completions []UnitCompletion) (GoalCompletionAssessment, error) {
 	if baseline.WorkPlan == nil {
 		return GoalCompletionAssessment{}, ErrNoAcceptedGoalWorkPlan
+	}
+	if err := VerifyPlanCompletions(baseline.WorkPlan, completions); err != nil {
+		return GoalCompletionAssessment{}, err
 	}
 	candidates := ApplyCompletions(baseline.WorkPlan.Candidates, completions)
 	assessment := GoalCompletionAssessment{AllUnitsComplete: true}

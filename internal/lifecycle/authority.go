@@ -46,6 +46,11 @@ type TransactionalAuthorityGuard struct {
 	DecisionRecordDigest   string
 	GenerationRecordDigest string
 	Now                    func() time.Time
+	// Governance is the forward-authority-anchor currentness check for the
+	// decision and its issuing generation (I13). It runs in the same
+	// transaction as the effect it guards. internal/lifecycle cannot read the
+	// sealed fact chain itself, so the composition root supplies it.
+	Governance func(ctx context.Context, tx *sql.Tx) error
 }
 
 // NewTransactionalAuthorityGuard captures the exact durable decision and
@@ -105,6 +110,11 @@ func (g *TransactionalAuthorityGuard) RevalidateInTx(ctx context.Context, tx *sq
 	}
 	if invalidated {
 		return errors.New("repair authority generation is revoked or superseded")
+	}
+	if g.Governance != nil {
+		if err := g.Governance(ctx, tx); err != nil {
+			return fmt.Errorf("repair authority is not current against the forward authority anchor: %w", err)
+		}
 	}
 	return nil
 }

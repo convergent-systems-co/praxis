@@ -63,7 +63,7 @@ func put(t *testing.T, r goalstore.Repository, ns, id string, v any, at time.Tim
 		if !ok {
 			t.Fatalf("authority generation fixture has type %T", v)
 		}
-		must(t, r.Store.PutAuthorityGeneration(context.Background(), state.AuthorityGenerationWrite{Generation: generation, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: at, ExpiresAt: expiry}))
+		must(t, r.Store.PutAuthorityGeneration(context.Background(), state.AuthorityGenerationWrite{Generation: generation, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: at, ExpiresAt: expiry, MarkLive: true}))
 		return
 	}
 	must(t, r.Store.PutSecureBlob(context.Background(), record))
@@ -89,6 +89,13 @@ func fixture(t *testing.T) (goalstore.Repository, publicFixture, time.Time) {
 		Request  contracts.AuthorityRequest
 		Decision contracts.AuthorityDecision
 	}{req, dec}, dec.IssuedAt, dec.ExpiresAt)
+	// The fixture decision is a frozen historical record; like every decision
+	// admitted through SaveAuthorityDecision it carries its liveness record.
+	decisionDigest, e := dec.Digest()
+	must(t, e)
+	liveRecord, e := state.SealedLivenessRecord(ctx, r.Crypto, r.KeyRef, r.Profile, r.Sensitivity, state.AuthorityDecisionLiveNamespace, req.ID, "1", decisionDigest, dec.IssuedAt)
+	must(t, e)
+	must(t, r.Store.PutSecureBlob(ctx, liveRecord))
 	_, e = r.SaveSigningPreview(ctx, f.Preview, f.Preview.CreatedAt)
 	must(t, e)
 	// Fixed publisher bytes are enrolled as isolated fixture data, never regenerated.
@@ -927,7 +934,7 @@ func TestGenerationSubstitutionFailsEvenWithValidDigest(t *testing.T) {
 	auth.Generation.Capabilities = []string{"unexpected"}
 	auth.Generation.Digest, err = auth.Generation.ComputeDigest()
 	must(t, err)
-	_, err = r.Store.DB().Exec(`DELETE FROM secure_blobs WHERE namespace='authority_generation' AND object_id=?`, auth.Generation.Ref)
+	_, err = r.Store.DB().Exec(`DELETE FROM secure_blobs WHERE namespace IN ('authority_generation','authority_generation_live') AND object_id=?`, auth.Generation.Ref)
 	must(t, err)
 	put(t, r, "authority_generation", auth.Generation.Ref, auth.Generation, at, auth.Generation.ExpiresAt)
 	if _, err = r.LoadGoalsPublicationAuthorization(ctx, q.ID, at, at); err == nil {

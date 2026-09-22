@@ -99,6 +99,12 @@ func (r Repository) verifyHistoricalReRequestPredecessor(ctx context.Context, pr
 	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
 		return fmt.Errorf("check historical re-request revocation: %w", err)
 	}
+	// I12: a missing revocation record does not make a revoked decision merely
+	// expired. Only a decision whose liveness record survives (it expired; it
+	// was never retired) is eligible for an ordinary re-request.
+	if err := r.requireLiveIdentity(ctx, state.AuthorityDecisionLiveNamespace, prior.ID, prior.Version, time.Unix(0, 0).UTC()); err != nil {
+		return fmt.Errorf("re-request predecessor decision is not live: %w", err)
+	}
 	return nil
 }
 

@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -68,6 +70,10 @@ func runAuthorityPending(args []string, getenv func(string) string, out io.Write
 	return printJSONTo(out, map[string]any{"operation": "authority.pending", "requests": result})
 }
 
+// authenticatedOSUser resolves the OS user who is running the ceremony. It is
+// a variable only so tests can present a different authenticated user.
+var authenticatedOSUser = user.Current
+
 func runAuthorityDecide(args []string, getenv func(string) string, input io.Reader, output io.Writer) error {
 	return runAuthorityDecideWithTerminal(args, getenv, input, output, isInteractiveTerminal())
 }
@@ -84,12 +90,13 @@ func runAuthorityDecideWithTerminal(args []string, getenv func(string) string, i
 	f.SetOutput(output)
 	requestDigest := f.String("request", "", "exact durable AuthorityRequest digest")
 	outcome := f.String("outcome", "", "approve or reject")
+	alternative := f.String("alternative", "", "exact offered alternative for an approved human authority gate")
 	reason := f.String("reason", "", "optional human reason recorded with the decision")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 0 || *requestDigest == "" || (*outcome != string(contracts.AuthorityApprove) && *outcome != string(contracts.AuthorityReject)) {
-		return errors.New("usage: praxis authority decide --request <digest> --outcome approve|reject [--reason <text>] (interactive confirmation required)")
+		return errors.New("usage: praxis authority decide --request <digest> --outcome approve|reject [--alternative <exact offered alternative>] [--reason <text>] (interactive confirmation required)")
 	}
 	if !interactive {
 		return errAuthorityBootstrapConfirmation
@@ -111,6 +118,22 @@ func runAuthorityDecideWithTerminal(args []string, getenv func(string) string, i
 	if request.Delegation != nil {
 		return errors.New("delegation requests are resolved with `praxis authority delegate`, not decide")
 	}
+	if request.RequestedAuthority == "goal.gate.decide" {
+		if *outcome == string(contracts.AuthorityApprove) {
+			found := false
+			for _, offered := range request.Alternatives {
+				if *alternative == offered {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("--alternative must exactly match one offered gate alternative: %s", strings.Join(request.Alternatives, " | "))
+			}
+		} else if *alternative != "" {
+			return errors.New("--alternative is only valid when approving a goal gate")
+		}
+	}
 	if existing, err := repo.LoadAuthorityDecision(ctx, request.ID, request.Version, now); err == nil {
 		digest, _ := existing.Digest()
 		return printJSONTo(output, map[string]any{"operation": "authority.decide", "replay": true, "request_digest": *requestDigest, "decision": existing, "decision_digest": digest})
@@ -130,7 +153,7 @@ func runAuthorityDecideWithTerminal(args []string, getenv func(string) string, i
 	if err != nil {
 		return err
 	}
-	current, err := user.Current()
+	current, err := authenticatedOSUser()
 	if err != nil || current.Username == "" || !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+current.Username) {
 		return errors.New("authenticated root OS user does not match the enrolled installation root")
 	}
@@ -138,7 +161,17 @@ func runAuthorityDecideWithTerminal(args []string, getenv func(string) string, i
 		return fmt.Errorf("authority request scope %q is not the installation root scope %q; the root cannot decide it", request.RequestedScope, root.Scope)
 	}
 	confirmation := "DECIDE-" + strings.ToUpper(*outcome) + " " + *requestDigest
-	prompt := fmt.Sprintf("Record the installation owner's decision %q on exact authority request %s (%s, %s) using root %s/%s. Type %q to continue: ", *outcome, *requestDigest, request.RequestedAuthority, request.Reason, root.Ref, root.Version, confirmation)
+	if *alternative != "" {
+		confirmation += " ALTERNATIVE " + *alternative
+	}
+	subject := ""
+	if request.RequestedAuthority == "goal.gate.decide" {
+		// The authority is the installation root; the decision is about this
+		// exact Goal generation, gate, and dossier. Show all of it so the
+		// owner confirms the subject, not merely the request digest.
+		subject = fmt.Sprintf(" about %s, gate %s, dossier %s (%s), offered alternatives [%s]", request.SubjectScope, request.GateCandidateID, request.DossierDigest, request.DossierRef, strings.Join(request.Alternatives, " | "))
+	}
+	prompt := fmt.Sprintf("Record the installation owner's decision %q on exact authority request %s (%s, %s)%s using root %s/%s. Type %q to continue: ", *outcome, *requestDigest, request.RequestedAuthority, request.Reason, subject, root.Ref, root.Version, confirmation)
 	if _, err := io.WriteString(output, prompt); err != nil {
 		return err
 	}
@@ -150,11 +183,24 @@ func runAuthorityDecideWithTerminal(args []string, getenv func(string) string, i
 		return errAuthorityBootstrapConfirmation
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: request.Version, RequestDigest: *requestDigest, DecisionRef: "authority-decision:" + request.ID, DecisionVersion: "1", DecidedBy: owner, AuthorityRef: root.Ref, AuthorityVersion: root.Version, AuthorityGenerationDigest: root.Digest, GrantedScope: root.Scope, Outcome: contracts.AuthorityDecisionOutcome(*outcome), AuthorityDigest: root.AuthorityModelDigest, IssuedAt: now}
+	decision.SelectedAlternative = *alternative
 	writable, db2, err := openGovernedRepository(ctx, getenv)
 	if err != nil {
 		return err
 	}
 	defer db2.Close()
+	if request.CeremonyProfile != "" {
+		// The digest is not a free-form assertion: it names a durable ceremony
+		// record written here, after the typed confirmation, and re-resolved
+		// and re-matched by every consumer of the decision.
+		confirmationSum := sha256.Sum256([]byte(confirmation))
+		evidence := contracts.OwnerCeremonyEvidence{Profile: request.CeremonyProfile, RequestDigest: *requestDigest, Outcome: *outcome, SelectedAlternative: *alternative, Owner: owner, RootRef: root.Ref, RootVersion: root.Version, RootDigest: root.Digest, AuthenticatedOSUser: current.Username, ConfirmationDigest: "sha256:" + hex.EncodeToString(confirmationSum[:]), ConfirmedAt: now}
+		ceremonyDigest, err := writable.SaveOwnerCeremony(ctx, evidence, now)
+		if err != nil {
+			return fmt.Errorf("record owner ceremony evidence: %w", err)
+		}
+		decision.CeremonyEvidenceDigest = ceremonyDigest
+	}
 	if err := writable.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, now, nil); err != nil {
 		return err
 	}

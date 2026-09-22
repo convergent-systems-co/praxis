@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -11,8 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/bootstrapv4"
 	"github.com/convergent-systems-co/praxis/internal/client"
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
 	"github.com/convergent-systems-co/praxis/internal/goaldrive"
@@ -98,7 +101,7 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			BaselineID, BaselineVersion, ProposalVersion string
 			Proposal                                     contracts.WorkPlanProposal `json:"proposal"`
 		}
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
 		}
 		baseline, err := repo.Load(ctx, req.BaselineID, req.BaselineVersion, now)
@@ -109,9 +112,31 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		if err != nil {
 			return err
 		}
+		proposal.Safety = req.Proposal.Safety
+		proposal.Version = req.Proposal.Version
+		if proposal.Version == "" && proposal.Safety != nil {
+			proposal.Version = req.ProposalVersion
+		}
+		if proposal.Safety != nil {
+			if err := proposal.Validate(); err != nil {
+				return err
+			}
+			if err := resolveProposalSourceBytes(proposal, baseline); err != nil {
+				return err
+			}
+			if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+				return err
+			}
+		}
 		version := req.ProposalVersion
 		if version == "" {
-			version = "1"
+			version = proposal.Version
+			if version == "" {
+				version = "1"
+			}
+		}
+		if proposal.Version != "" && proposal.Version != version {
+			return errors.New("proposal contract version and record version differ")
 		}
 		digest, err := repo.SaveWorkPlanProposal(ctx, proposal, version, now, nil)
 		if err != nil {
@@ -132,15 +157,20 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 					selector.ReviewerGeneration = root.Ref + "/" + root.Version + "@" + root.Digest
 				}
 			}
+			proposal, _, err := repo.LoadWorkPlanProposalByDigest(ctx, selector.ProposalDigest, now)
+			if err != nil {
+				return err
+			}
+			if proposal.Safety != nil {
+				if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+					return err
+				}
+			}
 			review, proposalID, proposalVersion, err := reviewFromSelector(ctx, repo, selector, now)
 			if err != nil {
 				return err
 			}
 			if err := repo.SaveWorkPlanReview(ctx, proposalID, proposalVersion, review, "1", now, nil); err != nil {
-				return err
-			}
-			proposal, _, err := repo.LoadWorkPlanProposalByDigest(ctx, selector.ProposalDigest, now)
-			if err != nil {
 				return err
 			}
 			result := map[string]any{"operation": operation, "review": review, "review_ref": review.ReviewRef, "review_digest": review.ReviewDigest, "proposal_digest": review.ProposalDigest}
@@ -153,8 +183,17 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			ProposalID, ProposalVersion, ReviewVersion string
 			Review                                     contracts.WorkPlanProposalReview `json:"review"`
 		}
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
+		}
+		proposal, err := repo.LoadWorkPlanProposal(ctx, req.ProposalID, req.ProposalVersion, now)
+		if err != nil {
+			return err
+		}
+		if proposal.Safety != nil {
+			if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+				return err
+			}
 		}
 		if err := repo.SaveWorkPlanReview(ctx, req.ProposalID, req.ProposalVersion, req.Review, req.ReviewVersion, now, nil); err != nil {
 			return err
@@ -173,6 +212,11 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			proposal, proposalVersion, err := repo.LoadWorkPlanProposalByDigest(ctx, selector.ProposalDigest, now)
 			if err != nil {
 				return err
+			}
+			if proposal.Safety != nil {
+				if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+					return err
+				}
 			}
 			if proposal.GoalID != baseline.ID || proposal.GoalVersion != baseline.Version || proposal.BaselineDigest != baseline.Digest {
 				return errors.New("proposal is not bound to this exact Goal generation")
@@ -193,6 +237,10 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 				reason = "accept the reviewed WorkPlan decomposition of " + baseline.ID + "/" + baseline.Version
 			}
 			req := contracts.AuthorityRequest{ID: "workplan-accept:" + baseline.ID + "/" + baseline.Version + ":" + strconv.FormatInt(now.UnixNano(), 10), Version: "1", BaselineID: baseline.ID, BaselineVersion: baseline.Version, BaselineDigest: baseline.Digest, ProposalID: proposal.ID, ProposalVersion: proposalVersion, ProposalDigest: selector.ProposalDigest, ReviewRef: review.ReviewRef, ReviewVersion: reviewVersion, ReviewDigest: review.ReviewDigest, RequestedAuthority: "workplan.accept", RequestedScope: root.Scope, Reason: reason, Status: contracts.AuthorityRequestPending}
+			if proposal.Safety != nil {
+				req.CeremonyProfile = "interactive-os-owner-v1"
+				req.ActivationManifestDigest = proposal.Safety.ActivationManifestDigest
+			}
 			digest, err := repo.SaveAuthorityRequest(ctx, req, now, nil)
 			if err != nil {
 				return err
@@ -200,8 +248,22 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			return printJSON(map[string]any{"operation": operation, "request": req, "request_digest": digest, "resolve_with": decideCommand(digest, "approve"), "reject_with": decideCommand(digest, "reject")})
 		}
 		var req contracts.AuthorityRequest
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
+		}
+		if req.ProposalID != "" {
+			proposal, loadErr := repo.LoadWorkPlanProposal(ctx, req.ProposalID, req.ProposalVersion, now)
+			if loadErr != nil {
+				return loadErr
+			}
+			if proposal.Safety != nil {
+				if req.CeremonyProfile != "interactive-os-owner-v1" || req.ActivationManifestDigest != proposal.Safety.ActivationManifestDigest {
+					return errors.New("protected request lacks ceremony/activation binding")
+				}
+				if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+					return err
+				}
+			}
 		}
 		digest, err := repo.SaveAuthorityRequest(ctx, req, now, nil)
 		if err != nil {
@@ -213,13 +275,14 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			RequestID, RequestVersion string
 			Decision                  contracts.AuthorityDecision `json:"decision"`
 		}
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
 		}
-		if err := repo.SaveAuthorityDecision(ctx, req.RequestID, req.RequestVersion, req.Decision, now, nil); err != nil {
-			return err
+		decision, err := repo.LoadAuthorityDecision(ctx, req.RequestID, req.RequestVersion, now)
+		if err != nil {
+			return errors.New("goals-lifecycle decide is read-only; record new decisions with interactive `praxis authority decide`")
 		}
-		return printJSON(map[string]any{"operation": operation, "decision": req.Decision})
+		return printJSON(map[string]any{"operation": operation, "decision": decision, "replay": true})
 	case "accept", "bind":
 		if selector, ok := lifecycleSelectorFor(in.Options, input); ok {
 			if selector.RequestDigest == "" {
@@ -235,6 +298,14 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			proposal, err := repo.LoadWorkPlanProposal(ctx, request.ProposalID, request.ProposalVersion, now)
 			if err != nil {
 				return err
+			}
+			if proposal.Safety != nil {
+				if request.CeremonyProfile != "interactive-os-owner-v1" || request.ActivationManifestDigest != proposal.Safety.ActivationManifestDigest {
+					return errors.New("protected WorkPlan acceptance lacks exact ceremony/activation binding")
+				}
+				if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+					return err
+				}
 			}
 			acceptanceRef := selector.AcceptanceRef
 			if acceptanceRef == "" {
@@ -254,8 +325,21 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			RequestID, RequestVersion, AcceptanceRef, AcceptanceVersion string
 			Plan                                                        contracts.WorkPlan `json:"plan"`
 		}
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
+		}
+		request, err := repo.LoadAuthorityRequest(ctx, req.RequestID, req.RequestVersion, now)
+		if err != nil {
+			return err
+		}
+		proposal, err := repo.LoadWorkPlanProposal(ctx, request.ProposalID, request.ProposalVersion, now)
+		if err != nil {
+			return err
+		}
+		if proposal.Safety != nil {
+			if err := verifyLifecycleSafety(*proposal.Safety, getenv); err != nil {
+				return err
+			}
 		}
 		plan, err := repo.SaveAcceptedWorkPlanFromAuthorityDecision(ctx, req.RequestID, req.RequestVersion, req.Plan, req.AcceptanceRef, req.AcceptanceVersion, now, nil)
 		if err != nil {
@@ -275,6 +359,15 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 			source, err := repo.Load(ctx, goalID, goalVersion, now)
 			if err != nil {
 				return err
+			}
+			accepted, err := repo.LoadAcceptedWorkPlan(ctx, selector.AcceptanceRef, "1", now)
+			if err != nil {
+				return err
+			}
+			if accepted.Safety != nil {
+				if err := verifyLifecycleSafety(*accepted.Safety, getenv); err != nil {
+					return err
+				}
 			}
 			next, err := strconv.Atoi(goalVersion)
 			if err != nil {
@@ -297,11 +390,20 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 		var req struct {
 			GoalID, GoalVersion, BaselineDigest, AcceptanceRef, AcceptanceVersion, SuccessorVersion string
 		}
-		if err := json.Unmarshal(input, &req); err != nil {
+		if err := contracts.UnmarshalExactJSON(input, &req, false); err != nil {
 			return err
 		}
 		if req.AcceptanceVersion == "" {
 			req.AcceptanceVersion = "1"
+		}
+		accepted, err := repo.LoadAcceptedWorkPlan(ctx, req.AcceptanceRef, req.AcceptanceVersion, now)
+		if err != nil {
+			return err
+		}
+		if accepted.Safety != nil {
+			if err := verifyLifecycleSafety(*accepted.Safety, getenv); err != nil {
+				return err
+			}
 		}
 		successor, err := repo.AttachAcceptedWorkPlan(ctx, req.GoalID, req.GoalVersion, req.BaselineDigest, req.AcceptanceRef, req.AcceptanceVersion, req.SuccessorVersion, now, nil)
 		if err != nil {
@@ -313,6 +415,173 @@ func dispatchGoalsLifecycle(ctx context.Context, in client.ResolvedInvocation, g
 	}
 }
 
+func verifyLifecycleSafety(binding contracts.WorkPlanSafetyBinding, getenv func(string) string) error {
+	path := ""
+	if getenv != nil {
+		path = getenv("PRAXIS_BOOTSTRAP_ACTIVATION_MANIFEST")
+	}
+	if path == "" {
+		return errors.New("PRAXIS_BOOTSTRAP_ACTIVATION_MANIFEST is required for safety-bearing WorkPlan lifecycle mutation")
+	}
+	dbPath := ""
+	if getenv != nil {
+		dbPath = getenv("PRAXIS_DB")
+	}
+	if dbPath == "" {
+		return errors.New("PRAXIS_DB is required to verify active goals package identity")
+	}
+	db, err := state.OpenSQLiteReadOnly(context.Background(), dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	identity, err := activeGoalsPackageIdentity(context.Background(), state.New(db))
+	if err != nil {
+		return err
+	}
+	return verifyActivationManifest(path, binding, identity)
+}
+
+// verifyActivationManifest is the process-image activation check. It is a
+// variable only so tests can substitute the executable/VCS-identity portion,
+// which a `go test` binary cannot satisfy; every other predicate (manifest
+// bytes, plan bindings, active package identity) still runs for real.
+var verifyActivationManifest = bootstrapv4.VerifyFile
+
+// lifecycleSafetyActivation adapts the process-environment activation
+// evidence to the GoalStore persistence-boundary predicate, so the identical
+// check guards every lifecycle mutation whichever command reaches it.
+type lifecycleSafetyActivation struct{ getenv func(string) string }
+
+func (v lifecycleSafetyActivation) Verify(_ context.Context, binding contracts.WorkPlanSafetyBinding) error {
+	return verifyLifecycleSafety(binding, v.getenv)
+}
+
+func activeGoalsPackageIdentity(ctx context.Context, store *state.Store) (bootstrapv4.ActivePackageIdentity, error) {
+	installed, err := store.SelectedPackage(ctx, goals.PackageID)
+	if err != nil {
+		return bootstrapv4.ActivePackageIdentity{}, fmt.Errorf("load active goals package: %w", err)
+	}
+	if installed.State != "active" {
+		return bootstrapv4.ActivePackageIdentity{}, fmt.Errorf("goals package is %s, not active", installed.State)
+	}
+	contractBytes, err := json.Marshal(installed.Manifest.Invocations)
+	if err != nil {
+		return bootstrapv4.ActivePackageIdentity{}, err
+	}
+	contractDigest := bytesDigestString(contractBytes)
+	executableDigest := ""
+	for _, binding := range installed.Manifest.ExecutableBindings {
+		if binding.EntryPointID == goals.LifecycleInvocation().EntryPointID {
+			executableDigest = binding.ExecutableDigest
+			break
+		}
+	}
+	if executableDigest == "" {
+		return bootstrapv4.ActivePackageIdentity{}, errors.New("active goals package lacks lifecycle executable binding")
+	}
+	return bootstrapv4.ActivePackageIdentity{ID: installed.Manifest.PackageID, Version: installed.Manifest.Version, ContentDigest: installed.Manifest.ContentDigest, ExecutableDigest: executableDigest, ContractDigest: contractDigest}, nil
+}
+
+func resolveProposalSourceBytes(proposal contracts.WorkPlanProposal, baseline goals.GoalBaseline) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	root, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		return fmt.Errorf("resolve repository root: %w", err)
+	}
+	verify := func(kind, ref, digest string, preserved []byte) error {
+		if ref == "" || filepath.IsAbs(ref) {
+			return fmt.Errorf("%s source_ref must be a repository-relative path", kind)
+		}
+		clean := filepath.Clean(ref)
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("%s source_ref escapes repository", kind)
+		}
+		resolved, err := filepath.EvalSymlinks(clean)
+		if err != nil {
+			return fmt.Errorf("resolve %s source bytes: %w", kind, err)
+		}
+		absolute, err := filepath.Abs(resolved)
+		if err != nil {
+			return err
+		}
+		if absolute != root && !strings.HasPrefix(absolute, root+string(filepath.Separator)) {
+			return fmt.Errorf("%s source_ref resolves outside repository", kind)
+		}
+		body, err := os.ReadFile(absolute)
+		if err != nil {
+			return fmt.Errorf("resolve %s source bytes: %w", kind, err)
+		}
+		sum := sha256.Sum256(body)
+		got := "sha256:" + hex.EncodeToString(sum[:])
+		if got != digest {
+			return fmt.Errorf("%s source digest mismatch: got %s want %s", kind, got, digest)
+		}
+		if !bytes.Equal(body, preserved) {
+			return fmt.Errorf("%s preserved specification differs from resolved source bytes", kind)
+		}
+		return nil
+	}
+	for _, candidate := range proposal.Candidates {
+		if err := verify("candidate "+candidate.ID, candidate.SourceRef, candidate.SourceDigest, candidate.Specification); err != nil {
+			return err
+		}
+		for _, requirement := range candidate.Requirements {
+			text, err := baselineRequirementBytes(baseline, requirement.SourceRef)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(text, requirement.Specification) {
+				return fmt.Errorf("requirement %s preserved bytes differ from exact Goal element", requirement.ID)
+			}
+			if err := requirement.ValidateSpecification(); err != nil {
+				return err
+			}
+		}
+	}
+	for _, relationship := range proposal.Relationships {
+		if err := verify("relationship "+relationship.Dependent+" -> "+relationship.Prerequisite, relationship.SourceRef, relationship.SourceDigest, relationship.Specification); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func baselineRequirementBytes(baseline goals.GoalBaseline, ref string) ([]byte, error) {
+	prefix := "goal:" + baseline.ID + "/" + baseline.Version + "#"
+	if !strings.HasPrefix(ref, prefix) {
+		return nil, fmt.Errorf("requirement source_ref %q is not bound to exact Goal generation", ref)
+	}
+	parts := strings.Split(strings.TrimPrefix(ref, prefix), "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid requirement source_ref %q", ref)
+	}
+	index, err := strconv.Atoi(parts[1])
+	if err != nil || index < 1 {
+		return nil, fmt.Errorf("invalid requirement index in %q", ref)
+	}
+	var values []string
+	switch parts[0] {
+	case "success_criteria":
+		values = baseline.SuccessCriteria
+	case "constraints":
+		values = baseline.Constraints
+	case "non_goals":
+		values = baseline.NonGoals
+	case "assumptions":
+		values = baseline.Assumptions
+	default:
+		return nil, fmt.Errorf("unknown requirement kind in %q", ref)
+	}
+	if index > len(values) {
+		return nil, fmt.Errorf("requirement source_ref %q exceeds Goal element count", ref)
+	}
+	return []byte(values[index-1]), nil
+}
+
 // openGovernedRepository is a variable so governed CLI qualification can open
 // fixture installations without the platform bootstrap backend.
 var openGovernedRepository = openGovernedRepositoryFromBootstrap
@@ -322,14 +591,10 @@ func openGovernedRepositoryFromBootstrap(ctx context.Context, getenv func(string
 		getenv = os.Getenv
 	}
 	bootstrapPath, dbPath := getenv("PRAXIS_BOOTSTRAP_RECORD"), getenv("PRAXIS_DB")
-	if bootstrapPath == "" || dbPath == "" {
+	if bootstrapPath == "" {
 		return goalstore.Repository{}, nil, errors.New("PRAXIS_BOOTSTRAP_RECORD and PRAXIS_DB are required for governed Goals lifecycle operations")
 	}
 	record, err := praxiscrypto.LoadBootstrapRecord(bootstrapPath)
-	if err != nil {
-		return goalstore.Repository{}, nil, err
-	}
-	installationDigest, err := record.Digest()
 	if err != nil {
 		return goalstore.Repository{}, nil, err
 	}
@@ -349,12 +614,38 @@ func openGovernedRepositoryFromBootstrap(ctx context.Context, getenv func(string
 	if err != nil {
 		return goalstore.Repository{}, nil, err
 	}
+	if dbPath == "" {
+		return goalstore.Repository{}, nil, errors.New("PRAXIS_BOOTSTRAP_RECORD and PRAXIS_DB are required for governed Goals lifecycle operations")
+	}
 	db, err := state.OpenSQLite(ctx, dbPath)
 	if err != nil {
 		return goalstore.Repository{}, nil, err
 	}
-	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest}
+	repo, err := newGovernedRepository(record, service, db, getenv)
+	if err != nil {
+		_ = db.Close()
+		return goalstore.Repository{}, nil, err
+	}
 	return repo, db, nil
+}
+
+// newGovernedRepository is the single constructor of a writable governed
+// GoalStore. Lifecycle commands and the native Goal-drive runtime both build
+// their repository here, so the verified bootstrap identity and the live
+// (per-call, uncached) activation provider always reach every consumer,
+// including the authority-gate coordinator.
+func newGovernedRepository(record praxiscrypto.BootstrapRecord, service praxiscrypto.EnvelopeService, db *sql.DB, getenv func(string) string) (goalstore.Repository, error) {
+	installationDigest, err := record.Digest()
+	if err != nil {
+		return goalstore.Repository{}, err
+	}
+	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest, SafetyActivation: lifecycleSafetyActivation{getenv: getenv}}
+	repo, err = withGovernanceAnchor(repo, getenv)
+	if err != nil {
+		return goalstore.Repository{}, err
+	}
+	repo.AuthorityGeneration = repo
+	return repo, nil
 }
 
 func inspectGoalsLifecycle(ctx context.Context, options map[string]string, getenv func(string) string) error {
@@ -441,21 +732,37 @@ func inspectGoalsLifecycle(ctx context.Context, options map[string]string, geten
 		result["turns"] = len(turns)
 		result["blocked_turns"] = recoverableTurns(baseline, turns)
 		ledger := goaldrive.Ledger{Store: state.NewSQLiteEventStore(db), Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}
-		completions, err := ledger.LoadCompletions(ctx, goalID, version)
-		if err != nil {
-			return fmt.Errorf("load unit completions: %w", err)
-		}
+		// I11: the status view consumes completions through the same
+		// authenticating boundary the controller does. A completion that cannot
+		// be authenticated is never displayed as progress; the view reports why
+		// and the generation is not drivable. Authentic completions whose
+		// governing authority is no longer effective are shown as history only.
+		effective, authErr := goaldrive.LoadEffectiveCompletions(ctx, ledger, repo, &baseline, goalID, version)
+		completions := effective.Effective
 		workSet, err := workSetState(baseline, completions)
 		if err != nil {
 			return err
+		}
+		if authErr != nil {
+			workSet["completion_authentication_error"] = authErr.Error()
+		}
+		if len(effective.Historical) > 0 {
+			historical := make([]map[string]any, 0, len(effective.Historical))
+			for _, completion := range effective.Historical {
+				historical = append(historical, map[string]any{"unit": completion.UnitID, "turn_id": completion.TurnID, "checkpoint": completion.EndHead, "completed_at": completion.CompletedAt, "meaning": "authentic history; its governing authority is no longer effective, so it does not make work eligible"})
+			}
+			workSet["historical_completions"] = historical
 		}
 		goalState, err := ledger.LoadGoalCompletion(ctx, goalID, version)
 		if err != nil {
 			return fmt.Errorf("load Goal completion state: %w", err)
 		}
 		stateName, drivable := governingState(true, goalState)
+		if authErr != nil {
+			drivable = false
+		}
 		result["governing_state"], result["drivable"] = stateName, drivable
-		result["turn_records"] = turnRecordEntries(turns, completions)
+		result["turn_records"] = turnRecordEntries(turns, append(append([]goaldrive.UnitCompletion(nil), effective.Effective...), effective.Historical...))
 		if goalState.Candidate != nil {
 			workSet["goal_completion_candidate"] = map[string]any{"turn_id": goalState.Candidate.TurnID, "final_head": goalState.Candidate.FinalHead, "candidate_at": goalState.Candidate.CandidateAt, "authoritative": false, "meaning": "the accepted decomposition has been executed; evidence for Goal completion, never proof of it"}
 		}
@@ -574,6 +881,9 @@ func continueCommand(goalID, goalVersion string) string {
 func workSetState(baseline goals.GoalBaseline, completions []goaldrive.UnitCompletion) (map[string]any, error) {
 	candidates, relationships, err := goaldrive.MaterializeGoalWork(baseline)
 	if err != nil {
+		return nil, err
+	}
+	if err := goaldrive.VerifyPlanCompletions(baseline.WorkPlan, completions); err != nil {
 		return nil, err
 	}
 	candidates = goaldrive.ApplyCompletions(candidates, completions)

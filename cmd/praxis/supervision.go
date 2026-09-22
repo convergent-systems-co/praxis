@@ -285,6 +285,17 @@ func appendHumanIntervention(args supervisionArgs, typ goaldrive.ActivityType) e
 	}
 	defer db.Close()
 	log := goaldrive.ActivityLog{Store: state.NewSQLiteEventStore(db), Actor: args.actor}
+	if typ == goaldrive.ActivitySuspendRequested || typ == goaldrive.ActivityCancelRequested {
+		events, loadErr := log.Load(ctx, args.invocationID, args.turnID, 0)
+		if loadErr != nil {
+			return loadErr
+		}
+		for _, event := range events {
+			if event.Type == goaldrive.ActivityTurnAllocated && event.Data["safety_kernel"] == contracts.WorkPlanSafetyKernelVersion {
+				return errors.New("unauthenticated suspend/cancel is forbidden for a safety-bearing turn before Gate C authority")
+			}
+		}
+	}
 	data := map[string]string{}
 	if args.text != "" {
 		data["text"] = args.text

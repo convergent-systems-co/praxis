@@ -48,11 +48,18 @@ func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest st
 	// Generations and invalidations are read from one snapshot: a succession
 	// committing between two statements must never make a concurrent reader
 	// see the predecessor invalidated and the successor absent.
-	generations, invalidated, err := r.listAuthorityGenerationsSnapshot(ctx, now)
+	// The anchor and the fact chain are consulted first: a root of a store that
+	// is not current against the forward authority anchor is never resolved.
+	snap, err := r.governanceSnapshot(ctx)
+	if err != nil && requireGovernanceScope {
+		return contracts.AuthorityGeneration{}, err
+	}
+	generations, invalidated, live, err := r.listAuthorityGenerationsSnapshot(ctx, now)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
 	var active []contracts.AuthorityGeneration
+	notLive := 0
 	for _, generation := range generations {
 		if generation.Ref != scope || generation.Principal != owner || generation.ParentRef != "" || generation.DelegatedBy != (contracts.PrincipalRef{}) || generation.ProvenanceDigest != bootstrapDigest {
 			continue
@@ -63,7 +70,27 @@ func (r Repository) loadInstallationRoot(ctx context.Context, bootstrapDigest st
 		if invalidated[generation.Ref+"@"+generation.Version] {
 			continue
 		}
+		// I12: a current-form root is current only while its liveness record
+		// names it. Absence of an invalidation record is not enough: deleting
+		// the successor and the predecessor's supersession would otherwise
+		// leave the predecessor as the sole "active" root. Succession retires
+		// the predecessor's liveness record and admits the successor's in the
+		// same transaction, and the liveness records are read in the same
+		// snapshot as the generations, so a concurrent succession is never
+		// observed half-applied. The pre-delegation root read under a
+		// source-schema migration view predates liveness records and is
+		// verified against its own persisted bytes instead.
+		if requireGovernanceScope {
+			stored := live[generation.Ref+"@"+generation.Version]
+			if stored.Digest != generation.Digest || snap.retired(state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest) || snap.admissionVoid(stored.AdmittedAtSeq) {
+				notLive++
+				continue
+			}
+		}
 		active = append(active, generation)
+	}
+	if len(active) == 0 && notLive > 0 {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("installation root: %w", ErrLivenessMissing)
 	}
 	if len(active) != 1 {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("expected exactly one active installation root, found %d", len(active))
@@ -275,7 +302,18 @@ func (r Repository) AcceptRootAuthoritySuccession(ctx context.Context, proposalD
 	if _, err := decision.Digest(); err != nil {
 		return contracts.AuthorityGeneration{}, contracts.RootAuthoritySuccessionDecision{}, err
 	}
-	err = r.Store.PutRootAuthoritySuccessor(ctx, state.RootAuthoritySuccessionWrite{Proposal: proposal, Review: review, Decision: decision, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: now})
+	// I13: the supersession is anchored first (write-ahead), so restoring an
+	// earlier store cannot make the superseded root current again. A failed
+	// succession transaction leaves the predecessor retired by fact; the retry of
+	// the same acceptance completes it.
+	if err := r.anchorGenerationRetired(ctx, predecessor.Ref, predecessor.Version, predecessor.Digest, "superseded", now); err != nil {
+		return contracts.AuthorityGeneration{}, contracts.RootAuthoritySuccessionDecision{}, err
+	}
+	stamp, err := r.admissionStamp(ctx)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, contracts.RootAuthoritySuccessionDecision{}, err
+	}
+	err = r.Store.PutRootAuthoritySuccessor(ctx, state.RootAuthoritySuccessionWrite{AdmittedAtSeq: stamp, Proposal: proposal, Review: review, Decision: decision, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: now})
 	if err != nil {
 		// Commit-boundary re-resolution: if another process committed this
 		// exact transition between our pre-check and our transaction, the

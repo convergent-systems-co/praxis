@@ -110,6 +110,9 @@ func (r Repository) CheckGoalsPublicationInvalidation(ctx context.Context, ref, 
 		if !errors.Is(e, state.ErrSecureBlobNotFound) {
 			return e
 		}
+		if e := r.requireLiveIdentity(ctx, state.AuthorityGenerationLiveNamespace, ref, version, now); e != nil {
+			return e
+		}
 	}
 	if requestID != "" {
 		_, e := r.LoadAuthorityRevocation(ctx, requestID, requestVersion, now)
@@ -117,6 +120,9 @@ func (r Repository) CheckGoalsPublicationInvalidation(ctx context.Context, ref, 
 			return errors.New("publication authority decision is revoked")
 		}
 		if !errors.Is(e, state.ErrSecureBlobNotFound) {
+			return e
+		}
+		if e := r.requireLiveIdentity(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion, now); e != nil {
 			return e
 		}
 	}

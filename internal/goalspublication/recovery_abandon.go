@@ -107,16 +107,9 @@ func (e RecoveryExecution) buildRecoveryAbandonment(ctx context.Context, request
 	if err != nil {
 		return nil, err
 	}
-	gens, err := e.Repository.ListAuthorityGenerations(ctx, e.now())
+	ownerOK, err := requireCurrentOwnerOSUser(ctx, e.Repository, e.now(), osUser)
 	if err != nil {
 		return nil, err
-	}
-	ownerOK := false
-	for _, g := range gens {
-		if g.ParentRef == "" && g.Principal == root && strings.HasSuffix(g.ProvenanceRef, ":os-user:"+osUser) {
-			ownerOK = true
-			break
-		}
 	}
 	if !ownerOK {
 		return nil, errors.New("current OS user is not installation owner")

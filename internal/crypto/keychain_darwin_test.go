@@ -13,11 +13,13 @@ import (
 )
 
 func TestMacOSKeychainBootstrapUnlockRestartAndMissingKeyFailClosed(t *testing.T) {
+	requireKeychain(t)
 	backend := NewMacOSKeychainBackend()
-	request := BootstrapRequest{ProviderID: backend.ProviderID(), KeyID: "test-goal-kek-" + strings.ReplaceAll(t.Name(), "/", "-"), Owner: "test-user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible}
+	request := BootstrapRequest{ProviderID: backend.ProviderID(), KeyID: uniqueService("test-goal-kek-" + strings.ReplaceAll(t.Name(), "/", "-")), Owner: "test-user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible}
 	record, wrapper, err := backend.Bootstrap(context.Background(), request)
 	if errors.Is(err, ErrKeychainUnavailable) {
-		t.Skipf("native Keychain unavailable in this execution environment: %v", err)
+		// The probe passed, so this is not a missing capability.
+		t.Fatalf("native Keychain became unavailable after the probe passed (an unexpected interaction requirement?): %v", err)
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -55,11 +57,13 @@ func TestMacOSKeychainBootstrapUnlockRestartAndMissingKeyFailClosed(t *testing.T
 }
 
 func TestMacOSKeychainRejectsSubstitutionAndImplicitFallback(t *testing.T) {
+	requireKeychain(t)
 	backend := NewMacOSKeychainBackend()
-	request := BootstrapRequest{ProviderID: backend.ProviderID(), KeyID: "test-substitution-" + strings.ReplaceAll(t.Name(), "/", "-"), Owner: "test-user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible}
+	request := BootstrapRequest{ProviderID: backend.ProviderID(), KeyID: uniqueService("test-substitution-" + strings.ReplaceAll(t.Name(), "/", "-")), Owner: "test-user", Purpose: "goalstore", Profile: contracts.CryptoClassicalCompatible}
 	record, wrapper, err := backend.Bootstrap(context.Background(), request)
 	if errors.Is(err, ErrKeychainUnavailable) {
-		t.Skipf("native Keychain unavailable in this execution environment: %v", err)
+		// The probe passed, so this is not a missing capability.
+		t.Fatalf("native Keychain became unavailable after the probe passed (an unexpected interaction requirement?): %v", err)
 	}
 	if err != nil {
 		t.Fatal(err)

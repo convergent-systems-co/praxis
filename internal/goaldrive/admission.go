@@ -103,6 +103,38 @@ func admissionAggregate(goalID, version string) string {
 	return "goal-drive-admission:" + goalID + ":" + version
 }
 
+// UnreleasedOtherGenerationAdmissions is the conservative pre-Gate-C fence:
+// a safety-bearing successor cannot govern a shared consequence while any
+// other generation still has an unresolved admission, whether live or lost.
+func (l Ledger) UnreleasedOtherGenerationAdmissions(ctx context.Context, goalID, version string) ([]TurnAdmission, error) {
+	lister, ok := l.Store.(eventstore.AggregateLister)
+	if !ok {
+		return nil, errors.New("event store cannot enumerate predecessor admissions")
+	}
+	prefix := "goal-drive-admission:" + goalID + ":"
+	aggregates, err := lister.ListAggregates(ctx, "goal_drive_admission", prefix)
+	if err != nil {
+		return nil, err
+	}
+	var unresolved []TurnAdmission
+	for _, aggregate := range aggregates {
+		otherVersion := strings.TrimPrefix(aggregate, prefix)
+		if otherVersion == "" || otherVersion == version {
+			continue
+		}
+		state, err := l.LoadAdmissions(ctx, goalID, otherVersion)
+		if err != nil {
+			return nil, err
+		}
+		for _, admission := range state.Admissions {
+			if _, released := state.Releases[admission.TurnID]; !released {
+				unresolved = append(unresolved, admission)
+			}
+		}
+	}
+	return unresolved, nil
+}
+
 // ScopeKey names the consequence scope of a checkout.
 func ScopeKey(repositoryPath, branch string) string {
 	abs, err := filepath.Abs(repositoryPath)

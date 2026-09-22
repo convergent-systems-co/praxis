@@ -45,6 +45,10 @@ func runAuthorityCommand(args []string) error {
 		return runAuthorityPending(args[1:], os.Getenv, os.Stdout)
 	case "decide":
 		return runAuthorityDecide(args[1:], os.Getenv, os.Stdin, os.Stdout)
+	case "governance-status":
+		return runGovernanceStatus(args[1:], os.Getenv, os.Stdout)
+	case "governance-reanchor":
+		return runGovernanceReanchor(args[1:], os.Getenv, os.Stdin, os.Stdout)
 	case "request-inspect":
 		return runAuthorityRequestInspect(args[1:], os.Getenv, os.Stdout)
 	case "package-deploy-preview":
@@ -79,7 +83,7 @@ func runAuthorityCommand(args []string) error {
 }
 
 func writeAuthorityHelp(output io.Writer) error {
-	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate|request-inspect|root-successor-preview|root-successor-proposal|root-successor-review|root-successor-accept|installation-repair-request|installation-repair-approve> [options]\n\n"); err != nil {
+	if _, err := io.WriteString(output, "usage: praxis authority <bootstrap|delegate|request-inspect|root-successor-preview|root-successor-proposal|root-successor-review|root-successor-accept|installation-repair-request|installation-repair-approve|governance-status|governance-reanchor> [options]\n\n"); err != nil {
 		return err
 	}
 	if err := writeAuthorityBootstrapHelp(output); err != nil {
@@ -96,6 +100,10 @@ Root succession and repair authority:
   root-successor-accept        Atomically supersede the root and persist lineage.
   installation-repair-request Create one exact operation-scoped repair request.
   installation-repair-approve Approve one exact durable repair request.
+
+Governance freshness (forward authority anchor):
+  governance-status            Show whether the store is current against the anchor (read-only).
+  governance-reanchor          Governed owner recovery of a restored, reset or interrupted store.
 `)
 	return err
 }
@@ -211,9 +219,11 @@ func runAuthorityDelegate(args []string, getenv func(string) string, input io.Re
 			return err
 		}
 	}
-	parent, err := repo.LoadAuthorityGeneration(context.Background(), request.Delegation.ParentRef, request.Delegation.ParentVersion, now)
+	// The delegating parent must be CURRENT before its enrolled OS user is trusted
+	// (N17 equivalent path): a retired or superseded root authenticates nobody.
+	parent, err := repo.LoadCurrentAuthorityGeneration(context.Background(), request.Delegation.ParentRef, request.Delegation.ParentVersion, now)
 	if err != nil {
-		return fmt.Errorf("load delegation parent: %w", err)
+		return fmt.Errorf("load current delegation parent: %w", err)
 	}
 	current, err := user.Current()
 	if err != nil || current.Username == "" || !strings.HasSuffix(parent.ProvenanceRef, ":os-user:"+current.Username) {
@@ -429,7 +439,14 @@ func runAuthorityBootstrapWithTerminal(args []string, getenv func(string) string
 	if err != nil {
 		return err
 	}
-	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
+	repo := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: recordDigest}
+	// Enrollment creates the installation's forward authority anchor together
+	// with its first (root) generation; an existing store without an anchor is
+	// refused and needs a governed re-anchor instead.
+	repo, err = withGovernanceAnchor(repo, getenv)
+	if err != nil {
+		return err
+	}
 	ctx := context.Background()
 	generations, err := repo.ListAuthorityGenerations(ctx, time.Now().UTC())
 	if err != nil {

@@ -1,17 +1,34 @@
 package contracts
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 )
 
 // RequirementRef binds a proposed child to an authoritative requirement
 // record. It is traceability, not execution authority.
 type RequirementRef struct {
-	ID           string `json:"id"`
-	SourceRef    string `json:"source_ref"`
-	SourceDigest string `json:"source_digest"`
+	ID            string `json:"id"`
+	SourceRef     string `json:"source_ref"`
+	SourceDigest  string `json:"source_digest"`
+	Specification []byte `json:"specification,omitempty"`
+}
+
+func (r RequirementRef) ValidateSpecification() error {
+	if len(r.Specification) == 0 {
+		return fmt.Errorf("requirement %q has no preserved specification bytes", r.ID)
+	}
+	sum := sha256.Sum256(r.Specification)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+	if digest != r.SourceDigest || !strings.HasSuffix(r.ID, ":"+digest) {
+		return fmt.Errorf("requirement %q content-derived identity or digest mismatch", r.ID)
+	}
+	return nil
 }
 
 func (r RequirementRef) Validate() error {
@@ -25,15 +42,29 @@ func (r RequirementRef) Validate() error {
 // selection. Lower Priority and Sequence values win; equal values are
 // ambiguous and fail closed rather than depending on input order.
 type WorkCandidate struct {
-	ID           string                 `json:"id"`
-	Completed    bool                   `json:"completed"`
-	Priority     int                    `json:"priority"`
-	Sequence     int                    `json:"sequence"`
-	SourceRef    string                 `json:"source_ref"`
-	SourceDigest string                 `json:"source_digest"`
-	Provenance   RelationshipProvenance `json:"provenance"`
-	Requirements []RequirementRef       `json:"requirements,omitempty"`
+	ID                      string                 `json:"id"`
+	Kind                    WorkCandidateKind      `json:"kind,omitempty"`
+	Completed               bool                   `json:"completed"`
+	Priority                int                    `json:"priority"`
+	Sequence                int                    `json:"sequence"`
+	SourceRef               string                 `json:"source_ref"`
+	SourceDigest            string                 `json:"source_digest"`
+	Provenance              RelationshipProvenance `json:"provenance"`
+	Requirements            []RequirementRef       `json:"requirements,omitempty"`
+	QualificationPredicates []string               `json:"qualification_predicates,omitempty"`
+	Responsibility          string                 `json:"responsibility,omitempty"`
+	Exclusions              []string               `json:"exclusions,omitempty"`
+	// Specification is the exact source byte sequence accepted for this
+	// candidate. Safety-kernel plans never re-read a mutable path at dispatch.
+	Specification []byte `json:"specification,omitempty"`
 }
+
+type WorkCandidateKind string
+
+const (
+	WorkCandidateOrdinary      WorkCandidateKind = "work"
+	WorkCandidateAuthorityGate WorkCandidateKind = "authority_gate"
+)
 
 var (
 	ErrNoRunnableWork        = errors.New("no authoritative runnable work candidate")
@@ -66,13 +97,97 @@ func (c WorkCandidate) Validate() error {
 		return fmt.Errorf("%w: candidate identity and provenance are required", ErrInvalidWorkRelationship)
 	}
 	switch c.Provenance {
-	case ProvenanceADR, ProvenanceSPEC, ProvenancePLAN, ProvenanceContract, ProvenanceIssue:
+	case ProvenanceADR, ProvenanceSPEC, ProvenancePLAN, ProvenanceContract, ProvenanceIssue, ProvenanceAuthorityGate:
+		if c.Kind == WorkCandidateAuthorityGate && c.Provenance != ProvenanceAuthorityGate {
+			return fmt.Errorf("%w: authority gate %q lacks authority_gate provenance", ErrInvalidWorkRelationship, c.ID)
+		}
+		if c.Provenance == ProvenanceAuthorityGate && c.Kind != WorkCandidateAuthorityGate {
+			return fmt.Errorf("%w: authority_gate provenance requires authority_gate kind", ErrInvalidWorkRelationship)
+		}
 		return nil
 	case ProvenanceModelProposal:
+		return ErrInferredWorkSelection
+	case ProvenanceModelGateProposal:
 		return ErrInferredWorkSelection
 	default:
 		return fmt.Errorf("%w: unknown candidate provenance %q", ErrInvalidWorkRelationship, c.Provenance)
 	}
+}
+
+// ValidateSpecification validates a proposal-time candidate: the preserved
+// specification bytes must describe the executable record exactly.
+func (c WorkCandidate) ValidateSpecification() error { return c.validateSpecification(false) }
+
+// ValidateAcceptedSpecification validates a candidate of an accepted plan.
+// Acceptance is the only transition that rewrites an executable record's
+// provenance (model_proposal -> plan, model_gate_proposal -> authority_gate);
+// the immutable specification bytes keep their proposal-time provenance. Every
+// other field must still match exactly, and no other provenance pairing is
+// admitted.
+func (c WorkCandidate) ValidateAcceptedSpecification() error { return c.validateSpecification(true) }
+
+func (c WorkCandidate) validateSpecification(accepted bool) error {
+	if len(c.Specification) == 0 {
+		return fmt.Errorf("candidate %q has no preserved specification bytes", c.ID)
+	}
+	sum := sha256.Sum256(c.Specification)
+	if got := "sha256:" + hex.EncodeToString(sum[:]); got != c.SourceDigest {
+		return fmt.Errorf("candidate %q specification digest mismatch: got %s want %s", c.ID, got, c.SourceDigest)
+	}
+	var spec struct {
+		ID                      string                 `json:"id"`
+		Kind                    WorkCandidateKind      `json:"kind"`
+		Provenance              RelationshipProvenance `json:"provenance"`
+		Priority                int                    `json:"priority"`
+		Sequence                int                    `json:"sequence"`
+		QualificationPredicates []string               `json:"qualification_predicates"`
+		Responsibility          string                 `json:"responsibility"`
+		Exclusions              []string               `json:"exclusions"`
+		Requirements            []RequirementRef       `json:"requirements"`
+	}
+	if err := UnmarshalExactJSON(c.Specification, &spec, false); err != nil {
+		return fmt.Errorf("candidate %q specification is not valid JSON: %w", c.ID, err)
+	}
+	if spec.ID != c.ID || spec.Kind != c.Kind || !specificationProvenanceMatches(spec.Provenance, c.Provenance, accepted) || spec.Priority != c.Priority || spec.Sequence != c.Sequence || spec.Responsibility != c.Responsibility || !slices.Equal(spec.Exclusions, c.Exclusions) || !slices.Equal(spec.QualificationPredicates, c.QualificationPredicates) || !sameRequirementIdentities(spec.Requirements, c.Requirements) {
+		return fmt.Errorf("candidate %q specification content does not match executable record", c.ID)
+	}
+	if c.Kind == WorkCandidateOrdinary && len(c.QualificationPredicates) == 0 {
+		return fmt.Errorf("candidate %q has no conformance qualification predicates", c.ID)
+	}
+	if c.Responsibility == "" || len(c.Exclusions) == 0 {
+		return fmt.Errorf("candidate %q lacks bounded responsibility or exclusions", c.ID)
+	}
+	if c.Kind == WorkCandidateAuthorityGate {
+		if _, err := ParseAuthorityGateContract(c.Specification); err != nil {
+			return fmt.Errorf("authority gate %q: %w", c.ID, err)
+		}
+	}
+	if _, err := ParseGovernedOutputContracts(c.Specification); err != nil {
+		return fmt.Errorf("candidate %q governed outputs: %w", c.ID, err)
+	}
+	seen := map[string]struct{}{}
+	for _, predicate := range c.QualificationPredicates {
+		if predicate == "" {
+			return fmt.Errorf("candidate %q has an empty qualification predicate", c.ID)
+		}
+		if _, duplicate := seen[predicate]; duplicate {
+			return fmt.Errorf("candidate %q duplicates qualification predicate %q", c.ID, predicate)
+		}
+		seen[predicate] = struct{}{}
+	}
+	return nil
+}
+
+func sameRequirementIdentities(a, b []RequirementRef) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].ID != b[i].ID || a[i].SourceRef != b[i].SourceRef || a[i].SourceDigest != b[i].SourceDigest {
+			return false
+		}
+	}
+	return true
 }
 
 // SelectRunnableWork evaluates only authoritative readiness and chooses one
@@ -156,4 +271,18 @@ func AssessWorkCandidates(candidates []WorkCandidate, relationships []WorkRelati
 	selected := ready[0]
 	assessment.Selected = &selected
 	return assessment, nil
+}
+
+// specificationProvenanceMatches is exact for proposal-time records. For an
+// accepted plan it additionally admits precisely the two provenance rewrites
+// that acceptance performs, and nothing else.
+func specificationProvenanceMatches(specified, executable RelationshipProvenance, accepted bool) bool {
+	if specified == executable {
+		return true
+	}
+	if !accepted {
+		return false
+	}
+	return (specified == ProvenanceModelProposal && executable == ProvenancePLAN) ||
+		(specified == ProvenanceModelGateProposal && executable == ProvenanceAuthorityGate)
 }

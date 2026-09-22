@@ -168,9 +168,18 @@ func TestGoalsLifecycleGovernsAWorkPlanToADrivableGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	decision := contracts.AuthorityDecision{RequestID: request.ID, RequestVersion: "1", RequestDigest: requestDigest, DecisionRef: "decision:scratch-weather", DecisionVersion: "1", DecidedBy: root.Principal, AuthorityRef: root.Ref, AuthorityVersion: root.Version, AuthorityGenerationDigest: root.Digest, GrantedScope: root.Scope, Outcome: contracts.AuthorityApprove, AuthorityDigest: root.AuthorityModelDigest, IssuedAt: time.Now().UTC()}
-	if err := runDynamicInvocation(ctx, []string{"goals-lifecycle", "--operation=decide", "--input=" + writeLifecycleInput(t, dir, "decide.json", map[string]any{"RequestID": request.ID, "RequestVersion": "1", "decision": decision})}, governed); err != nil {
-		t.Fatalf("decide: %v", err)
+	if err := runDynamicInvocation(ctx, []string{"goals-lifecycle", "--operation=decide", "--input=" + writeLifecycleInput(t, dir, "decide.json", map[string]any{"RequestID": request.ID, "RequestVersion": "1", "decision": decision})}, governed); err == nil {
+		t.Fatal("non-interactive goals-lifecycle decide must not persist authority")
 	}
+	repository, decisionDB, err := openGovernedRepository(ctx, governed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.SaveAuthorityDecision(ctx, request.ID, request.Version, decision, time.Now().UTC(), nil); err != nil {
+		decisionDB.Close()
+		t.Fatal(err)
+	}
+	decisionDB.Close()
 	plan := contracts.WorkPlan{Candidates: []contracts.WorkCandidate{candidate}}
 	if err := runDynamicInvocation(ctx, []string{"goals-lifecycle", "--operation=accept", "--input=" + writeLifecycleInput(t, dir, "accept.json", map[string]any{"RequestID": request.ID, "RequestVersion": "1", "AcceptanceRef": "acceptance:scratch-weather", "AcceptanceVersion": "1", "plan": plan})}, governed); err != nil {
 		t.Fatalf("accept: %v", err)

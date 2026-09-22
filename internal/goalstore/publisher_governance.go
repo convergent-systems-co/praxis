@@ -711,19 +711,8 @@ func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDig
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherGeneration{}, errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
-	gens, err := r.ListAuthorityGenerations(ctx, now)
-	if err != nil {
+	if err := r.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, osUser, now); err != nil {
 		return contracts.PublisherGeneration{}, err
-	}
-	rootFound := false
-	for _, root := range gens {
-		if root.ParentRef == "" && root.Principal == owner && strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
-			rootFound = true
-			break
-		}
-	}
-	if !rootFound {
-		return contracts.PublisherGeneration{}, errors.New("authenticated installation root is unavailable")
 	}
 	publicKey, err := signer.PublicKey(ctx)
 	if err != nil {
@@ -756,6 +745,21 @@ func (r Repository) decryptGovernanceRecord(ctx context.Context, record statepkg
 	return payload, nil
 }
 
+// requireCurrentInstallationOwner requires the CURRENT installation root (N17
+// equivalent path): an immutable root-shaped record that was retired or
+// superseded authenticates nobody. When osUser is non-empty the root must also
+// be the one enrolled for that OS user.
+func (r Repository) requireCurrentInstallationOwner(ctx context.Context, bootstrapDigest string, owner contracts.PrincipalRef, osUser string, now time.Time) error {
+	root, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
+	if err != nil || root.ParentRef != "" || root.Principal != owner {
+		return errors.New("installation governance root is unavailable")
+	}
+	if osUser != "" && !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+		return errors.New("authenticated installation root is unavailable")
+	}
+	return nil
+}
+
 func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {
 	previewDigest, err := preview.Digest()
 	if err != nil {
@@ -775,19 +779,8 @@ func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview cont
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
-	gens, err := r.ListAuthorityGenerations(ctx, now)
-	if err != nil {
+	if err := r.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "", now); err != nil {
 		return contracts.PublisherEnrollmentApproval{}, "", err
-	}
-	rootFound := false
-	for _, generation := range gens {
-		if generation.ParentRef == "" && generation.Principal == owner {
-			rootFound = true
-			break
-		}
-	}
-	if !rootFound {
-		return contracts.PublisherEnrollmentApproval{}, "", errors.New("installation governance root is unavailable")
 	}
 	approval := contracts.PublisherEnrollmentApproval{ID: "publisher-enrollment-approval:" + previewDigest, Version: "1", Kind: "publisher-enrollment-approval", PreviewDigest: previewDigest, BootstrapDigest: preview.BootstrapDigest, OwnerID: preview.OwnerID, OwnerKind: preview.OwnerKind, AuthorityModel: preview.AuthorityModel, AuthorityModelVersion: preview.AuthorityModelVersion, AuthorityModelDigest: preview.AuthorityModelDigest, GenerationTemplateDigest: preview.GenerationDigest, PublisherPrincipal: preview.PublisherPrincipal, PublicKeyDigest: preview.PublicKeyDigest, KeyID: preview.KeyID, Algorithm: preview.Algorithm, Namespace: preview.Namespace, Generation: preview.Generation, Predecessor: preview.Predecessor, GenerationRecord: preview.GenerationRecord, ApproverID: owner.ID, ApproverKind: owner.Kind, IssuedAt: now.UTC()}
 	approvalDigest, err := approval.Digest()

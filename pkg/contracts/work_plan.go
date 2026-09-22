@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,34 +14,37 @@ import (
 // baseline. A model may propose candidates, but only a plan persisted with an
 // authority reference can be materialized for controller selection.
 type WorkPlan struct {
-	BaselineDigest            string             `json:"baseline_digest"`
-	AuthorityRef              string             `json:"authority_ref"`
-	AuthorityDigest           string             `json:"authority_digest"`
-	AcceptanceRef             string             `json:"acceptance_ref"`
-	AcceptanceDigest          string             `json:"acceptance_digest"`
-	AcceptedBy                PrincipalRef       `json:"accepted_by"`
-	ProposalDigest            string             `json:"proposal_digest"`
-	AuthorityRequestID        string             `json:"authority_request_id,omitempty"`
-	AuthorityRequestVersion   string             `json:"authority_request_version,omitempty"`
-	AuthorityDecisionRef      string             `json:"authority_decision_ref,omitempty"`
-	AuthorityDecisionVersion  string             `json:"authority_decision_version,omitempty"`
-	AuthorityVersion          string             `json:"authority_version,omitempty"`
-	AuthorityGenerationDigest string             `json:"authority_generation_digest,omitempty"`
-	Candidates                []WorkCandidate    `json:"candidates,omitempty"`
-	Relationships             []WorkRelationship `json:"relationships,omitempty"`
+	BaselineDigest            string                 `json:"baseline_digest"`
+	AuthorityRef              string                 `json:"authority_ref"`
+	AuthorityDigest           string                 `json:"authority_digest"`
+	AcceptanceRef             string                 `json:"acceptance_ref"`
+	AcceptanceDigest          string                 `json:"acceptance_digest"`
+	AcceptedBy                PrincipalRef           `json:"accepted_by"`
+	ProposalDigest            string                 `json:"proposal_digest"`
+	AuthorityRequestID        string                 `json:"authority_request_id,omitempty"`
+	AuthorityRequestVersion   string                 `json:"authority_request_version,omitempty"`
+	AuthorityDecisionRef      string                 `json:"authority_decision_ref,omitempty"`
+	AuthorityDecisionVersion  string                 `json:"authority_decision_version,omitempty"`
+	AuthorityVersion          string                 `json:"authority_version,omitempty"`
+	AuthorityGenerationDigest string                 `json:"authority_generation_digest,omitempty"`
+	Candidates                []WorkCandidate        `json:"candidates,omitempty"`
+	Relationships             []WorkRelationship     `json:"relationships,omitempty"`
+	Safety                    *WorkPlanSafetyBinding `json:"safety,omitempty"`
 }
 
 // WorkPlanProposal is advisory decomposition. It may contain model-derived
 // candidates and edges, but it is never selector input.
 type WorkPlanProposal struct {
-	ID                 string             `json:"id"`
-	GoalID             string             `json:"goal_id"`
-	GoalVersion        string             `json:"goal_version"`
-	BaselineDigest     string             `json:"baseline_digest"`
-	ProposedBy         PrincipalRef       `json:"proposed_by"`
-	ProposerGeneration string             `json:"proposer_generation"`
-	Candidates         []WorkCandidate    `json:"candidates,omitempty"`
-	Relationships      []WorkRelationship `json:"relationships,omitempty"`
+	ID                 string                 `json:"id"`
+	Version            string                 `json:"version,omitempty"`
+	GoalID             string                 `json:"goal_id"`
+	GoalVersion        string                 `json:"goal_version"`
+	BaselineDigest     string                 `json:"baseline_digest"`
+	ProposedBy         PrincipalRef           `json:"proposed_by"`
+	ProposerGeneration string                 `json:"proposer_generation"`
+	Candidates         []WorkCandidate        `json:"candidates,omitempty"`
+	Relationships      []WorkRelationship     `json:"relationships,omitempty"`
+	Safety             *WorkPlanSafetyBinding `json:"safety,omitempty"`
 }
 
 type WorkPlanAcceptance struct {
@@ -67,6 +71,13 @@ type WorkPlanAcceptance struct {
 var ErrUnacceptedWorkPlan = errors.New("work plan is not an accepted authoritative decomposition")
 
 func (p WorkPlan) Validate() error {
+	if p.Safety != nil {
+		if err := p.Safety.Validate(); err != nil {
+			return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+		}
+	} else if err := RejectKernelShapedWithoutSafety(p.Candidates, p.Relationships); err != nil {
+		return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+	}
 	if p.BaselineDigest == "" || p.AuthorityRef == "" || p.AuthorityDigest == "" || p.AcceptanceRef == "" || p.AcceptanceDigest == "" || p.ProposalDigest == "" {
 		return fmt.Errorf("%w: authority, acceptance, and proposal bindings are required", ErrUnacceptedWorkPlan)
 	}
@@ -105,10 +116,29 @@ func (p WorkPlan) Validate() error {
 			return fmt.Errorf("%w: relationship prerequisite %q is not a candidate", ErrUnacceptedWorkPlan, relationship.Prerequisite)
 		}
 	}
+	if p.Safety != nil {
+		if err := validateSafetyGraph(p.Candidates, p.Relationships, false); err != nil {
+			return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+		}
+		digest, err := ComputeSpecificationBundleDigest(p.Candidates, p.Relationships)
+		if err != nil || digest != p.Safety.SpecificationBundleDigest {
+			return fmt.Errorf("%w: specification bundle digest mismatch", ErrUnacceptedWorkPlan)
+		}
+	}
 	return nil
 }
 
 func (p WorkPlanProposal) Validate() error {
+	if p.Safety != nil {
+		if p.Version == "" {
+			return fmt.Errorf("%w: safety-bearing proposal version is required", ErrUnacceptedWorkPlan)
+		}
+		if err := p.Safety.Validate(); err != nil {
+			return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+		}
+	} else if err := RejectKernelShapedWithoutSafety(p.Candidates, p.Relationships); err != nil {
+		return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+	}
 	if p.ID == "" || p.GoalID == "" || p.GoalVersion == "" || p.BaselineDigest == "" {
 		return fmt.Errorf("%w: proposal and baseline identity are required", ErrUnacceptedWorkPlan)
 	}
@@ -135,10 +165,13 @@ func (p WorkPlanProposal) Validate() error {
 				return err
 			}
 		}
-		if candidate.Provenance != ProvenanceModelProposal {
+		if candidate.Provenance != ProvenanceModelProposal && candidate.Provenance != ProvenanceModelGateProposal {
 			if err := candidate.Validate(); err != nil {
 				return err
 			}
+		}
+		if candidate.Provenance == ProvenanceModelGateProposal && candidate.Kind != WorkCandidateAuthorityGate {
+			return fmt.Errorf("%w: model_gate_proposal candidate %q must be an authority gate", ErrUnacceptedWorkPlan, candidate.ID)
 		}
 	}
 	for _, relationship := range p.Relationships {
@@ -165,6 +198,15 @@ func (p WorkPlanProposal) Validate() error {
 		}
 		if err := relationship.Validate(); err != nil {
 			return err
+		}
+	}
+	if p.Safety != nil {
+		if err := validateSafetyGraph(p.Candidates, p.Relationships, true); err != nil {
+			return fmt.Errorf("%w: %v", ErrUnacceptedWorkPlan, err)
+		}
+		digest, err := ComputeSpecificationBundleDigest(p.Candidates, p.Relationships)
+		if err != nil || digest != p.Safety.SpecificationBundleDigest {
+			return fmt.Errorf("%w: specification bundle digest mismatch", ErrUnacceptedWorkPlan)
 		}
 	}
 	return nil
@@ -292,20 +334,27 @@ func MaterializeAcceptedPlanCandidate(proposal WorkPlanProposal, authorityRef, a
 	plan := WorkPlan{
 		Candidates:    append([]WorkCandidate(nil), proposal.Candidates...),
 		Relationships: append([]WorkRelationship(nil), proposal.Relationships...),
+		Safety:        proposal.Safety,
 	}
 	for i := range plan.Candidates {
 		plan.Candidates[i].Requirements = append([]RequirementRef(nil), plan.Candidates[i].Requirements...)
-		if plan.Candidates[i].Provenance == ProvenanceModelProposal {
+		if plan.Candidates[i].Provenance == ProvenanceModelGateProposal {
+			plan.Candidates[i].Provenance = ProvenanceAuthorityGate
+		} else if plan.Candidates[i].Provenance == ProvenanceModelProposal {
 			plan.Candidates[i].Provenance = ProvenancePLAN
-			plan.Candidates[i].SourceRef = authorityRef + "#candidate:" + plan.Candidates[i].ID
-			plan.Candidates[i].SourceDigest = authorityDigest
+			if proposal.Safety == nil {
+				plan.Candidates[i].SourceRef = authorityRef + "#candidate:" + plan.Candidates[i].ID
+				plan.Candidates[i].SourceDigest = authorityDigest
+			}
 		}
 	}
 	for i := range plan.Relationships {
 		if plan.Relationships[i].Provenance == ProvenanceModelProposal {
 			plan.Relationships[i].Provenance = ProvenancePLAN
-			plan.Relationships[i].SourceRef = authorityRef + "#relationship:" + plan.Relationships[i].Dependent + ":" + plan.Relationships[i].Prerequisite
-			plan.Relationships[i].SourceDigest = authorityDigest
+			if proposal.Safety == nil {
+				plan.Relationships[i].SourceRef = authorityRef + "#relationship:" + plan.Relationships[i].Dependent + ":" + plan.Relationships[i].Prerequisite
+				plan.Relationships[i].SourceDigest = authorityDigest
+			}
 		}
 	}
 	return plan, nil
@@ -348,6 +397,9 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 	if len(accepted.Candidates) == 0 {
 		return WorkPlan{}, fmt.Errorf("%w: accepted plan must contain candidates", ErrUnacceptedWorkPlan)
 	}
+	if (proposal.Safety == nil) != (accepted.Safety == nil) || (proposal.Safety != nil && *proposal.Safety != *accepted.Safety) {
+		return WorkPlan{}, fmt.Errorf("%w: accepted plan changed safety bindings", ErrUnacceptedWorkPlan)
+	}
 	proposalIDs := make(map[string]WorkCandidate, len(proposal.Candidates))
 	for _, candidate := range proposal.Candidates {
 		proposalIDs[candidate.ID] = candidate
@@ -364,6 +416,9 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 		if !sameRequirements(candidate.Requirements, proposed.Requirements) {
 			return WorkPlan{}, fmt.Errorf("%w: accepted candidate %q changed requirement provenance", ErrUnacceptedWorkPlan, candidate.ID)
 		}
+		if proposal.Safety != nil && (candidate.Kind != proposed.Kind || candidate.SourceRef != proposed.SourceRef || candidate.SourceDigest != proposed.SourceDigest || !bytes.Equal(candidate.Specification, proposed.Specification)) {
+			return WorkPlan{}, fmt.Errorf("%w: accepted candidate %q changed its specification", ErrUnacceptedWorkPlan, candidate.ID)
+		}
 		if candidate.Provenance == ProvenanceModelProposal {
 			return WorkPlan{}, ErrInferredWorkSelection
 		}
@@ -372,6 +427,13 @@ func AcceptWorkPlan(proposal WorkPlanProposal, accepted WorkPlan, decision WorkP
 		key := relationship.Dependent + "\x00" + relationship.Prerequisite + "\x00" + string(relationship.Kind)
 		if _, ok := proposalRelationships[key]; !ok {
 			return WorkPlan{}, fmt.Errorf("%w: accepted relationship was not proposed", ErrUnacceptedWorkPlan)
+		}
+		for _, proposed := range proposal.Relationships {
+			if proposed.Dependent == relationship.Dependent && proposed.Prerequisite == relationship.Prerequisite && proposed.Kind == relationship.Kind {
+				if proposal.Safety != nil && (proposed.SourceRef != relationship.SourceRef || proposed.SourceDigest != relationship.SourceDigest || !bytes.Equal(proposed.Specification, relationship.Specification)) {
+					return WorkPlan{}, fmt.Errorf("%w: accepted relationship changed its specification", ErrUnacceptedWorkPlan)
+				}
+			}
 		}
 	}
 	accepted.BaselineDigest = proposal.BaselineDigest
@@ -398,7 +460,7 @@ func sameRequirements(a, b []RequirementRef) bool {
 	sort.Slice(left, func(i, j int) bool { return left[i].ID < left[j].ID })
 	sort.Slice(right, func(i, j int) bool { return right[i].ID < right[j].ID })
 	for i := range left {
-		if left[i] != right[i] {
+		if left[i].ID != right[i].ID || left[i].SourceRef != right[i].SourceRef || left[i].SourceDigest != right[i].SourceDigest || !bytes.Equal(left[i].Specification, right[i].Specification) {
 			return false
 		}
 	}

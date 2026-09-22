@@ -54,6 +54,12 @@ func (r Repository) DerivePackageDeploymentApproval(ctx context.Context, request
 	if err != nil || generation.Digest != decision.OperationalAuthorityGenerationDigest {
 		return "", errors.New("package-deploy decision does not bind its exact operational authority generation")
 	}
+	// Approval derivation is the last gate before a bearer approval exists: the
+	// package-manager generation must be current with its whole lineage (N17
+	// equivalent path).
+	if err := r.requireCurrentLineage(ctx, generation, now); err != nil {
+		return "", fmt.Errorf("package-deploy operational authority is not current: %w", err)
+	}
 	if generation.Principal != contracts.PackageManagerPrincipal() || generation.DelegationProfile != contracts.DelegationProfilePackageDeploy || !containsAuthority(generation.Authorities, contracts.GovernedPackageDeploy) || generation.ParentDigest != request.InstallationDigest {
 		return "", errors.New("package-deploy authority is not the exact installation-bound package manager")
 	}

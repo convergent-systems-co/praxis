@@ -295,7 +295,39 @@ type AuthorityRequest struct {
 	// ReRequestOf records the immutable predecessor authority chain when this
 	// request is a fresh solicitation for the same ActionIntent. It is
 	// lineage, not authority, and is never interpreted as a renewed grant.
-	ReRequestOf *AuthorityReRequestLineage `json:"re_request_of,omitempty"`
+	ReRequestOf              *AuthorityReRequestLineage `json:"re_request_of,omitempty"`
+	CeremonyProfile          string                     `json:"ceremony_profile,omitempty"`
+	ActivationManifestDigest string                     `json:"activation_manifest_digest,omitempty"`
+	GateCandidateID          string                     `json:"gate_candidate_id,omitempty"`
+	GateSpecificationDigest  string                     `json:"gate_specification_digest,omitempty"`
+	DossierRef               string                     `json:"dossier_ref,omitempty"`
+	DossierDigest            string                     `json:"dossier_digest,omitempty"`
+	DossierProducerCandidate string                     `json:"dossier_producer_candidate,omitempty"`
+	DossierRole              string                     `json:"dossier_role,omitempty"`
+	DossierEvidenceClass     string                     `json:"dossier_evidence_class,omitempty"`
+	DossierSchemaID          string                     `json:"dossier_schema_id,omitempty"`
+	DossierCheckpoint        string                     `json:"dossier_checkpoint,omitempty"`
+	// SubjectScope names the governed resource a decision is about. It is
+	// distinct from RequestedScope, which names the authority that must
+	// decide. A goal gate is decided by the installation-governance authority
+	// (RequestedScope) about exactly one Goal generation (SubjectScope); the
+	// two are never conflated and neither may stand in for the other.
+	SubjectScope string `json:"subject_scope,omitempty"`
+}
+
+// GoalGateSubjectScope is the sole canonical subject scope of a goal gate:
+// the exact Goal generation whose WorkPlan gate is being decided.
+func GoalGateSubjectScope(baselineID, baselineVersion string) string {
+	return "goal:" + baselineID + "/" + baselineVersion
+}
+
+// GoalGateOwnerPrincipal derives the only principal that may decide a goal
+// gate from the installation governance scope that authorizes the decision.
+func GoalGateOwnerPrincipal(requestedScope string) (PrincipalRef, error) {
+	if !strings.HasPrefix(requestedScope, InstallationGovernanceScopePrefix) {
+		return PrincipalRef{}, errors.New("goal gate authority scope must be the installation governance scope")
+	}
+	return InstallationOwnerPrincipal(strings.TrimPrefix(requestedScope, InstallationGovernanceScopePrefix))
 }
 
 // AuthorityReRequestLineage binds a fresh request to one exact historical
@@ -500,8 +532,31 @@ func (r AuthorityRequest) ValidateAt(at time.Time) error {
 		return errors.New("authority request identity and decision scope are required")
 	}
 	isRepair := r.RequestedAuthority == GovernedInstallationRepairStorageSchema || r.RequestedAuthority == GovernedInstallationRepairRuntimeState
-	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && r.RequestedAuthority != GovernedPackageDeploy && !isRepair && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
+	isGoalGate := r.RequestedAuthority == "goal.gate.decide"
+	if r.RequestedAuthority != AuthorityDelegateCapability && r.RequestedAuthority != GovernedPackagePublish && r.RequestedAuthority != GovernedPackageDeploy && !isRepair && !isGoalGate && (r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.ProposalID == "" || r.ProposalVersion == "" || r.ProposalDigest == "" || r.ReviewRef == "" || r.ReviewVersion == "" || r.ReviewDigest == "") {
 		return errors.New("authority request requires exact evidence and decision scope")
+	}
+	if isGoalGate {
+		if r.BaselineID == "" || r.BaselineVersion == "" || r.BaselineDigest == "" || r.GateCandidateID == "" || len(r.Alternatives) < 2 || r.DossierRef == "" || r.DossierProducerCandidate == "" || r.DossierRole == "" || r.DossierEvidenceClass == "" || r.DossierSchemaID == "" || r.DossierCheckpoint == "" {
+			return errors.New("goal gate request requires exact baseline, candidate, alternatives, and qualified dossier lineage")
+		}
+		if err := ValidateSHA256Digest(r.GateSpecificationDigest); err != nil {
+			return fmt.Errorf("goal gate specification: %w", err)
+		}
+		if err := ValidateSHA256Digest(r.DossierDigest); err != nil {
+			return fmt.Errorf("goal gate dossier: %w", err)
+		}
+		if r.CeremonyProfile != "interactive-os-owner-v1" {
+			return errors.New("goal gate request requires interactive OS-owner ceremony")
+		}
+		if _, err := GoalGateOwnerPrincipal(r.RequestedScope); err != nil {
+			return err
+		}
+		if r.SubjectScope != GoalGateSubjectScope(r.BaselineID, r.BaselineVersion) {
+			return errors.New("goal gate subject scope must be exactly the Goal generation being decided")
+		}
+	} else if r.SubjectScope != "" {
+		return errors.New("subject scope is defined only for goal gate requests")
 	}
 	if isRepair {
 		if r.Repair == nil || r.Repair.Operation != r.RequestedAuthority || r.Repair.RootRef == "" || r.Repair.RootVersion == "" || r.Repair.RootDigest == "" || r.InstallationDigest != r.Repair.BootstrapDigest {
@@ -549,6 +604,14 @@ func (r AuthorityRequest) ValidateAt(at time.Time) error {
 			return errors.New("package-deploy request intent mismatch")
 		}
 	}
+	if r.CeremonyProfile != "" || r.ActivationManifestDigest != "" {
+		if r.CeremonyProfile != "interactive-os-owner-v1" {
+			return errors.New("protected authority request requires interactive-os-owner-v1 ceremony")
+		}
+		if err := ValidateSHA256Digest(r.ActivationManifestDigest); err != nil {
+			return fmt.Errorf("protected authority activation manifest: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -585,6 +648,16 @@ type AuthorityDecision struct {
 	IssuedAt                             time.Time                `json:"issued_at"`
 	ExpiresAt                            *time.Time               `json:"expires_at,omitempty"`
 	Delegation                           *DelegationRequest       `json:"delegation,omitempty"`
+	CeremonyEvidenceDigest               string                   `json:"ceremony_evidence_digest,omitempty"`
+	SelectedAlternative                  string                   `json:"selected_alternative,omitempty"`
+}
+
+// AuthorityGateResult is the controller-facing projection of one durable
+// gate request and its exact approved decision, if one exists.
+type AuthorityGateResult struct {
+	Request        AuthorityRequest `json:"request"`
+	Approved       bool             `json:"approved"`
+	DecisionDigest string           `json:"decision_digest,omitempty"`
 }
 
 func (d AuthorityDecision) Digest() (string, error) {
@@ -634,6 +707,39 @@ func (d AuthorityDecision) Validate(request AuthorityRequest, now time.Time) err
 	digest, err := request.DigestAt(now)
 	if err != nil {
 		return err
+	}
+	if request.CeremonyProfile != "" {
+		if err := ValidateSHA256Digest(d.CeremonyEvidenceDigest); err != nil {
+			return fmt.Errorf("protected decision ceremony evidence: %w", err)
+		}
+	}
+	if request.RequestedAuthority == "goal.gate.decide" {
+		if d.DecidedBy.Kind != "human" {
+			return errors.New("goal gate decision requires a human principal")
+		}
+		owner, err := GoalGateOwnerPrincipal(request.RequestedScope)
+		if err != nil {
+			return err
+		}
+		if d.DecidedBy != owner {
+			return errors.New("goal gate decision must be made by the installation owner that the governance scope names")
+		}
+		if d.AuthorityRef == "" || d.AuthorityVersion == "" || d.AuthorityGenerationDigest == "" {
+			return errors.New("goal gate decision requires exact installation-root authority lineage")
+		}
+		found := false
+		for _, alternative := range request.Alternatives {
+			if d.SelectedAlternative == alternative {
+				found = true
+				break
+			}
+		}
+		if d.Outcome == AuthorityApprove && !found {
+			return errors.New("approved goal gate decision must select one exact offered alternative")
+		}
+		if d.Outcome != AuthorityApprove && d.SelectedAlternative != "" {
+			return errors.New("rejected goal gate decision cannot select an implementation alternative")
+		}
 	}
 	validScope := d.GrantedScope == request.RequestedScope
 	if request.RequestedAuthority == AuthorityDelegateCapability && d.Delegation != nil {

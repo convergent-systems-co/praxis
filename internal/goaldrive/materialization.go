@@ -74,6 +74,11 @@ func (c Controller) MaterializeTurnCompletion(ctx context.Context, goalID, versi
 	if baseline.ID != goalID || baseline.Version != version {
 		return Materialization{}, fmt.Errorf("baseline %s/%s is not Goal %s/%s", baseline.ID, baseline.Version, goalID, version)
 	}
+	if safety, safetyErr := c.safetyBearing(ctx, &baseline); safetyErr != nil {
+		return Materialization{}, safetyErr
+	} else if safety {
+		return Materialization{}, errors.New("safety-bearing completion cannot be reconstructed without its original conformance run; a fresh governed turn is required")
+	}
 	if by.ID == "" {
 		return Materialization{}, errors.New("materialization requires the acting principal")
 	}
@@ -93,7 +98,7 @@ func (c Controller) MaterializeTurnCompletion(ctx context.Context, goalID, versi
 	if record.Outcome != OutcomeContinue || record.ChildObjective == "" || record.EndHead == "" {
 		return Materialization{}, fmt.Errorf("%w: turn %s ended %s for %q", ErrTurnNotQualified, turnID, record.Outcome, record.ChildObjective)
 	}
-	if missing := unitCompletionPredicates(*record); len(missing) > 0 {
+	if missing := unitCompletionPredicates(*record, false); len(missing) > 0 {
 		return Materialization{}, fmt.Errorf("%w: turn %s lacks %s", ErrTurnNotQualified, turnID, strings.Join(missing, ", "))
 	}
 	if record.UnitCompleted {

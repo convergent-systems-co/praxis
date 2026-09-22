@@ -153,12 +153,23 @@ type WorkerGoalContext struct {
 }
 
 type WorkerUnitContext struct {
-	ID            string                     `json:"id"`
-	Requirements  []contracts.RequirementRef `json:"requirements"`
-	Prerequisites []string                   `json:"prerequisites,omitempty"`
-	Dependents    []string                   `json:"dependents,omitempty"`
-	Provenance    string                     `json:"provenance"`
-	SourceRef     string                     `json:"source_ref"`
+	ID             string                      `json:"id"`
+	Requirements   []contracts.RequirementRef  `json:"requirements"`
+	Prerequisites  []string                    `json:"prerequisites,omitempty"`
+	Dependents     []string                    `json:"dependents,omitempty"`
+	Relationships  []WorkerRelationshipContext `json:"relationships,omitempty"`
+	Provenance     string                      `json:"provenance"`
+	SourceRef      string                      `json:"source_ref"`
+	Responsibility string                      `json:"responsibility,omitempty"`
+	Exclusions     []string                    `json:"exclusions,omitempty"`
+	Specification  []byte                      `json:"specification,omitempty"`
+}
+
+type WorkerRelationshipContext struct {
+	Other     string `json:"other"`
+	Kind      string `json:"kind"`
+	Direction string `json:"direction"`
+	Blocking  bool   `json:"blocking"`
 }
 
 type WorkerRepositoryContext struct {
@@ -252,17 +263,33 @@ func BuildWorkerContext(baseline *goals.GoalBaseline, candidates []contracts.Wor
 	if unit == nil {
 		return nil, fmt.Errorf("objective %q is not a candidate of the accepted WorkPlan", objective)
 	}
-	unitContext := WorkerUnitContext{ID: unit.ID, Requirements: append([]contracts.RequirementRef(nil), unit.Requirements...), Provenance: string(unit.Provenance), SourceRef: unit.SourceRef}
+	unitContext := WorkerUnitContext{ID: unit.ID, Requirements: append([]contracts.RequirementRef(nil), unit.Requirements...), Provenance: string(unit.Provenance), SourceRef: unit.SourceRef, Responsibility: unit.Responsibility, Exclusions: append([]string(nil), unit.Exclusions...), Specification: append([]byte(nil), unit.Specification...)}
 	for _, relationship := range relationships {
 		if relationship.Dependent == unit.ID {
-			unitContext.Prerequisites = append(unitContext.Prerequisites, relationship.Prerequisite)
+			unitContext.Relationships = append(unitContext.Relationships, WorkerRelationshipContext{Other: relationship.Prerequisite, Kind: string(relationship.Kind), Direction: "prerequisite", Blocking: relationship.Kind == contracts.RelationshipHardDependency})
+			if relationship.Kind == contracts.RelationshipHardDependency {
+				unitContext.Prerequisites = append(unitContext.Prerequisites, relationship.Prerequisite)
+			}
 		}
 		if relationship.Prerequisite == unit.ID {
-			unitContext.Dependents = append(unitContext.Dependents, relationship.Dependent)
+			unitContext.Relationships = append(unitContext.Relationships, WorkerRelationshipContext{Other: relationship.Dependent, Kind: string(relationship.Kind), Direction: "dependent", Blocking: relationship.Kind == contracts.RelationshipHardDependency})
+			if relationship.Kind == contracts.RelationshipHardDependency {
+				unitContext.Dependents = append(unitContext.Dependents, relationship.Dependent)
+			}
 		}
 	}
 	sort.Strings(unitContext.Prerequisites)
 	sort.Strings(unitContext.Dependents)
+	sort.Slice(unitContext.Relationships, func(i, j int) bool {
+		left, right := unitContext.Relationships[i], unitContext.Relationships[j]
+		if left.Direction != right.Direction {
+			return left.Direction < right.Direction
+		}
+		if left.Kind != right.Kind {
+			return left.Kind < right.Kind
+		}
+		return left.Other < right.Other
+	})
 	predicates := []string{
 		"the repository working tree is clean when you finish (every intended change staged and committed, nothing left untracked or modified)",
 		"exactly the bounded changes for this unit are committed locally on branch " + repository.Branch + " on top of " + repository.StartHead,

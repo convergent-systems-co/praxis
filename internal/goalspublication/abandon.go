@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/goalstore"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
@@ -194,16 +195,9 @@ func (e Execution) buildAbandonmentPayload(ctx context.Context, requestID, osUse
 	if err != nil {
 		return nil, err
 	}
-	gens, err := e.Repository.ListAuthorityGenerations(ctx, e.now())
+	ownerOK, err := requireCurrentOwnerOSUser(ctx, e.Repository, e.now(), osUser)
 	if err != nil {
 		return nil, err
-	}
-	ownerOK := false
-	for _, g := range gens {
-		if g.ParentRef == "" && g.Principal == root && strings.HasSuffix(g.ProvenanceRef, ":os-user:"+osUser) {
-			ownerOK = true
-			break
-		}
 	}
 	if !ownerOK {
 		return nil, errors.New("current OS user is not the authenticated installation owner")
@@ -240,4 +234,25 @@ func (e Execution) buildAbandonmentPayload(ctx context.Context, requestID, osUse
 	p := abandonmentPayload{Version: "1", RequestID: requestID, RequestDigest: reqDigest, IntentID: sp.Intent.ID, IntentDigest: intentDigest, AuthorityRef: sp.Authority.Generation.Ref, AuthorityVersion: sp.Authority.Generation.Version, AuthorityDigest: sp.Authority.Generation.Digest, ExecutionID: key, Effects: effects, ReconciliationEvents: recs, Owner: root, OSUser: osUser, Reason: reason, ExecutionStatus: "abandoned", CompletionEstablished: false, CreatedAt: createdAt.UTC().Format(time.RFC3339Nano)}
 	b, _ := json.Marshal(p)
 	return b, nil
+}
+
+// requireCurrentOwnerOSUser authenticates the OS user against the installation
+// owner's CURRENT root-shaped generation only (N17 equivalent path): a retired or
+// superseded root-shaped record must not authenticate anyone. Both abandonment
+// paths use it.
+func requireCurrentOwnerOSUser(ctx context.Context, repository goalstore.Repository, now time.Time, osUser string) (bool, error) {
+	owner, err := contracts.InstallationOwnerPrincipal(contracts.GoalsPublicationBootstrap)
+	if err != nil {
+		return false, err
+	}
+	gens, err := repository.ListCurrentAuthorityGenerations(ctx, now)
+	if err != nil {
+		return false, err
+	}
+	for _, g := range gens {
+		if g.ParentRef == "" && g.Principal == owner && strings.HasSuffix(g.ProvenanceRef, ":os-user:"+osUser) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

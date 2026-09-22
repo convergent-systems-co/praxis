@@ -80,6 +80,19 @@ func (r Runtime) Execute(ctx context.Context, invocation InvocationRequest) (Tur
 	if err != nil {
 		return TurnRecord{}, fmt.Errorf("recover exact Goal Baseline: %w", err)
 	}
+	safety, err := r.Controller.safetyBearing(ctx, &baseline)
+	if err != nil {
+		return TurnRecord{}, err
+	}
+	if safety {
+		unresolved, err := r.Controller.Ledger.UnreleasedOtherGenerationAdmissions(ctx, baseline.ID, baseline.Version)
+		if err != nil {
+			return TurnRecord{}, fmt.Errorf("predecessor admission fence: %w", err)
+		}
+		if len(unresolved) != 0 {
+			return TurnRecord{}, fmt.Errorf("predecessor admission fence: %w: %s/%s turn %s", ErrLostTurnUnreconciled, unresolved[0].GoalID, unresolved[0].GoalVersion, unresolved[0].TurnID)
+		}
+	}
 	if invocation.Mode == ModeSupervised {
 		r.Recovery = cloneRecoveryContext(r.Recovery)
 		return r.executeOne(ctx, invocation, baseline)
@@ -167,7 +180,11 @@ func (r Runtime) executeOne(ctx context.Context, invocation InvocationRequest, b
 		// Durable before the announcement: the announced observe command
 		// must always find at least this event (#155).
 		request := WorkerRequest{GoalID: invocation.Input.GoalID, GoalVersion: invocation.GoalVersion, InvocationID: invocation.InvocationID, TurnID: turnID, ProviderID: invocation.ProviderID, GraphID: r.GraphID, GraphVersion: r.GraphVersion}
-		if _, err := r.Activity.Emit(ctx, ActivityTurnAllocated, request, r.Controller.Ledger.Actor, contracts.TrustObserved, "praxis.controller", map[string]string{"mode": string(invocation.Mode)}); err != nil {
+		data := map[string]string{"mode": string(invocation.Mode)}
+		if isSafetyBearing(&baseline) {
+			data["safety_kernel"] = baseline.WorkPlan.Safety.KernelVersion
+		}
+		if _, err := r.Activity.Emit(ctx, ActivityTurnAllocated, request, r.Controller.Ledger.Actor, contracts.TrustObserved, "praxis.controller", data); err != nil {
 			return TurnRecord{}, fmt.Errorf("record turn allocation: %w", err)
 		}
 	}

@@ -23,5 +23,14 @@ graphify-out
 ### END: ignored/graphify-out
 
 ### START: ignored/.praxis
-.praxis
+.praxis/*
+!.praxis/validate
 ### END: ignored/.praxis
+
+### START: ignored/bootstrap-v4-artifacts
+# Reproducible build output (core, plugin, package archive/manifest): the source
+# to rebuild it byte-identically is committed; the binaries are not, to avoid
+# committing large rebuildable artifacts into repository history. Their SHA-256
+# identity is independently fixed in the evidence chain (reports, reviews).
+docs/research/dogfood/praxis-human-interface/bootstrap-v4/**/artifacts/
+### END: ignored/bootstrap-v4-artifacts

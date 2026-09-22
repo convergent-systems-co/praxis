@@ -57,7 +57,12 @@ func openGovernedRepositoryReadOnlyFromBootstrap(ctx context.Context, getenv fun
 	if err != nil {
 		return goalstore.Repository{}, nil, record, err
 	}
-	return goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest}, db, record, nil
+	repo, err := withGovernanceAnchor(goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential, InstallationDigest: installationDigest}, getenv)
+	if err != nil {
+		db.Close()
+		return goalstore.Repository{}, nil, record, err
+	}
+	return repo, db, record, nil
 }
 
 func adoptionFromRepository(ctx context.Context, repo goalstore.Repository, record praxiscrypto.BootstrapRecord, now time.Time) (contracts.AuthorityModelAdoption, error) {

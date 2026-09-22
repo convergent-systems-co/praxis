@@ -22,7 +22,9 @@ func (r Repository) ResolvePackageManagerAuthority(ctx context.Context, installa
 	if !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelDeploymentVersion) {
 		return contracts.AuthorityGeneration{}, errors.New("adopted authority model does not retain v3 deployment semantics")
 	}
-	generations, err := r.ListAuthorityGenerations(ctx, now)
+	// Only CURRENT generations are candidates (N17): the immutable State is not
+	// evidence that the generation is still in force.
+	generations, err := r.currentAuthorityGenerations(ctx, now)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
@@ -36,6 +38,11 @@ func (r Repository) ResolvePackageManagerAuthority(ctx context.Context, installa
 		}
 		if generation.ExpiresAt != nil && !now.Before(generation.ExpiresAt.UTC()) {
 			return contracts.AuthorityGeneration{}, errors.New("package-manager authority is expired")
+		}
+		// The whole lineage must be current: a manager generation whose root was
+		// superseded, or with a retired ancestor, is not deployment authority.
+		if lineageErr := r.requireCurrentLineage(ctx, generation, now); lineageErr != nil {
+			continue
 		}
 		return generation, nil
 	}

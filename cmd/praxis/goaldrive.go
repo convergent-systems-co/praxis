@@ -15,8 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
-
 	"github.com/convergent-systems-co/praxis/internal/client"
 	"github.com/convergent-systems-co/praxis/internal/goaldrive"
 	"github.com/convergent-systems-co/praxis/internal/goalstore"
@@ -117,37 +115,15 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	bootstrapPath := getenv("PRAXIS_BOOTSTRAP_RECORD")
-	if bootstrapPath == "" {
+	if getenv("PRAXIS_BOOTSTRAP_RECORD") == "" {
 		return goaldrive.Runtime{}, nil, fmt.Errorf("%w: PRAXIS_BOOTSTRAP_RECORD is required; initialize an explicit provider first", errGoalDriveDispatchDependencies)
 	}
-	record, err := praxiscrypto.LoadBootstrapRecord(bootstrapPath)
-	if err != nil {
-		return goaldrive.Runtime{}, nil, fmt.Errorf("load bootstrap metadata: %w", err)
-	}
-	registry, err := praxiscrypto.NewFirstPartyBootstrapRegistry()
-	if err != nil {
-		return goaldrive.Runtime{}, nil, fmt.Errorf("construct bootstrap registry: %w", err)
-	}
-	wrapper, err := registry.Open(ctx, record)
-	if err != nil {
-		return goaldrive.Runtime{}, nil, fmt.Errorf("open configured bootstrap provider: %w", err)
-	}
-	keyProviders := praxiscrypto.NewProviderRegistry()
-	if err := keyProviders.Register(record.ProviderID, wrapper); err != nil {
-		return goaldrive.Runtime{}, nil, err
-	}
-	service, err := keyProviders.Service(record.ProviderID, praxiscrypto.EnvelopePolicy{})
+	// The native runtime's GoalStore is built by the same constructor as every
+	// lifecycle command, so the verified bootstrap identity and the live
+	// activation provider reach the authority-gate coordinator too.
+	store, db, err := openGovernedRepository(ctx, getenv)
 	if err != nil {
 		return goaldrive.Runtime{}, nil, err
-	}
-	dbPath := getenv("PRAXIS_DB")
-	if dbPath == "" {
-		return goaldrive.Runtime{}, nil, errors.New("PRAXIS_DB is required for the encrypted GoalStore and durable ledger")
-	}
-	db, err := state.OpenSQLite(ctx, dbPath)
-	if err != nil {
-		return goaldrive.Runtime{}, nil, fmt.Errorf("open authoritative Praxis state: %w", err)
 	}
 	closeOnError := true
 	defer func() {
@@ -155,8 +131,6 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 			_ = db.Close()
 		}
 	}()
-	store := goalstore.Repository{Store: state.New(db), Crypto: service, KeyRef: record.KeyID, Profile: record.Profile, Sensitivity: state.SensitivityConfidential}
-	store.AuthorityGeneration = store
 	activityStore := state.NewSQLiteEventStore(db)
 	activity := &goaldrive.ActivityLog{Store: activityStore, Actor: contracts.PrincipalRef{ID: "praxis-goal-drive", Kind: "controller"}}
 	allowDetached := false
@@ -214,7 +188,7 @@ func buildGoalDriveRuntime(ctx context.Context, out normalizedOutput, invocation
 		}
 		leaseTTL = parsed
 	}
-	runtime := goaldrive.Runtime{Controller: goaldrive.Controller{Ledger: ledger, Activity: activity, Providers: providers, AuthorityRequests: store, NoProgressLimit: invocation.NoProgressLimit}, Baselines: store, Repository: repository, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity, Recovery: recovery, Leases: state.New(db), LeaseTTL: leaseTTL}
+	runtime := goaldrive.Runtime{Controller: newGoalDriveController(ledger, activity, providers, store, invocation.NoProgressLimit, getenv), Baselines: store, Repository: repository, GraphID: out.GraphID, GraphVersion: out.GraphVersion, Activity: activity, Recovery: recovery, Leases: state.New(db), LeaseTTL: leaseTTL}
 	closeOnError = false
 	return runtime, db, nil
 }
@@ -463,4 +437,14 @@ func announceBlockedConsequence(ctx context.Context, w io.Writer, repository goa
 	if encoded, err := json.Marshal(announcement); err == nil {
 		fmt.Fprintln(w, string(encoded))
 	}
+}
+
+// newGoalDriveController is the single constructor of the native controller's
+// safety seams. Activation is resolved at every protected boundary, never
+// cached: the verifier re-reads the manifest, re-resolves the selected goals
+// package from installed state, and re-verifies the running image on each
+// call. The GoalStore doubles as the authority-request reader, the
+// authority-gate coordinator, and the governing-authority verifier.
+func newGoalDriveController(ledger goaldrive.Ledger, activity *goaldrive.ActivityLog, providers *goaldrive.Registry, store goalstore.Repository, noProgressLimit int, getenv func(string) string) goaldrive.Controller {
+	return goaldrive.Controller{Ledger: ledger, Activity: activity, Providers: providers, AuthorityRequests: store, AuthorityGates: store, GoverningAuthority: store, NoProgressLimit: noProgressLimit, SafetyActivation: lifecycleSafetyActivation{getenv: getenv}}
 }

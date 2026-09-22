@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/convergent-systems-co/praxis/pkg/contracts"
 	"io"
 	"os"
 	"os/exec"
@@ -114,13 +115,8 @@ func (w CommandWorker) Execute(ctx context.Context, request WorkerRequest) (Work
 		return WorkerResult{}, errors.New("worker result exceeds configured output limit")
 	}
 	var result WorkerResult
-	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
-	if err := decoder.Decode(&result); err != nil {
-		return WorkerResult{}, fmt.Errorf("decode worker %s result: %w", w.ProviderID, err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return WorkerResult{}, errors.New("worker result must contain exactly one JSON object")
+	if err := contracts.UnmarshalExactJSON(stdout.Bytes(), &result, false); err != nil {
+		return WorkerResult{}, fmt.Errorf("decode worker %s result (exactly one unambiguous JSON object required): %w", w.ProviderID, err)
 	}
 	result.ExecutorID = w.ProviderID
 	return result, nil

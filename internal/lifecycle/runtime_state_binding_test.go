@@ -419,6 +419,146 @@ func TestRuntimeStateTransactionalGuardObservesGenerationInvalidationAfterPrepar
 	}
 }
 
+func TestRuntimeStateTransactionalGuardConsultsTheForwardAuthorityAnchor(t *testing.T) {
+	db := newRuntimeFixtureDB(t, runtimeFixture{entry: "ep", packageID: "pkg", version: "1", digest: migrationDigest("a"), active: true, provenance: true, existing: true})
+	ctx := context.Background()
+	prepared, plan := preparedRuntimePlan(t, db)
+	now := time.Now().UTC()
+	service := praxiscrypto.EnvelopeService{Wrapper: lifecycleAuthorityTestWrapper{}}
+	store := state.New(db)
+	decision := runtimeStateAuthorityDecision(t)
+	generation := persistLifecycleRepairRoot(t, db, service, now)
+	var err error
+	expires := now.Add(time.Hour)
+	decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest = generation.Ref, generation.Version, generation.Digest
+	decision.IssuedAt, decision.ExpiresAt = now, &expires
+	decisionRecord := sealedLifecycleAuthorityRecord(t, service, authorityDecisionNamespace, decision.RequestID, decision.RequestVersion, migrationDigest("8"), now)
+	if err := store.PutSecureBlob(ctx, decisionRecord); err != nil {
+		t.Fatal(err)
+	}
+	guard, err := NewTransactionalAuthorityGuard(ctx, store, decision, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard.Now = func() time.Time { return now }
+	// The decision and generation carry the liveness records every admitted
+	// authority has, so the ONLY thing under test here is the anchor hook.
+	for _, live := range []struct{ namespace, id, version, digest string }{
+		{state.AuthorityDecisionLiveNamespace, decision.RequestID, decision.RequestVersion, migrationDigest("8")},
+	} {
+		record, err := state.SealedLivenessRecord(ctx, service, "test-key", contracts.CryptoClassicalCompatible, state.SensitivityConfidential, live.namespace, live.id, live.version, live.digest, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.PutSecureBlob(ctx, record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Steps[1].Authority.DecisionRef, plan.Steps[1].Authority.DecisionVersion, plan.Steps[1].Authority.DecisionDigest = decision.DecisionRef, decision.DecisionVersion, decisionDigest
+	plan.Steps[1].Authority.AuthorityRef, plan.Steps[1].Authority.AuthorityVersion, plan.Steps[1].Authority.AuthorityGenerationDigest = generation.Ref, generation.Version, generation.Digest
+	plan.Digest = ""
+	plan.Digest, err = plan.ComputeDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := newRuntimeJournal(t, db, plan)
+	qualifyStorage(t, db, journal, plan)
+	before := bindingBytes(t, db)
+	// I13: the decision and generation are current by every row, but the store
+	// is not current against the forward authority anchor (a restored backup).
+	// The guard must refuse inside the transaction, before any mutation.
+	guard.Governance = func(context.Context, *sql.Tx) error {
+		return errors.New("governance state is not consumable: the store is behind the anchor")
+	}
+	precondition, err := prepared.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := RunRequest{Plan: plan, StepID: plan.Steps[1].ID, PreconditionDigest: precondition, SnapshotDigest: migrationDigest("b"), Authority: migrationAuthority{decision: decision}, Now: now}
+	driver := &RuntimeStateDriver{DB: db, Journal: journal, Guard: guard, Prepared: prepared}
+	if err := RunStep(ctx, journal, req, driver); err == nil {
+		t.Fatal("runtime_state accepted authority the forward authority anchor refuses")
+	}
+	if !reflect.DeepEqual(before, bindingBytes(t, db)) {
+		t.Fatal("runtime authority refusal occurred after mutation")
+	}
+	history := mustLoadHistory(t, journal)
+	if history[len(history)-1].State != contracts.LifecycleApplying {
+		t.Fatalf("runtime authority refusal appended an outcome: %+v", history)
+	}
+}
+
+func TestRuntimeStateTransactionalGuardWithACurrentAnchorAppliesTheStep(t *testing.T) {
+	db := newRuntimeFixtureDB(t, runtimeFixture{entry: "ep", packageID: "pkg", version: "1", digest: migrationDigest("a"), active: true, provenance: true, existing: true})
+	ctx := context.Background()
+	prepared, plan := preparedRuntimePlan(t, db)
+	now := time.Now().UTC()
+	service := praxiscrypto.EnvelopeService{Wrapper: lifecycleAuthorityTestWrapper{}}
+	store := state.New(db)
+	decision := runtimeStateAuthorityDecision(t)
+	generation := persistLifecycleRepairRoot(t, db, service, now)
+	var err error
+	expires := now.Add(time.Hour)
+	decision.AuthorityRef, decision.AuthorityVersion, decision.AuthorityGenerationDigest = generation.Ref, generation.Version, generation.Digest
+	decision.IssuedAt, decision.ExpiresAt = now, &expires
+	decisionRecord := sealedLifecycleAuthorityRecord(t, service, authorityDecisionNamespace, decision.RequestID, decision.RequestVersion, migrationDigest("8"), now)
+	if err := store.PutSecureBlob(ctx, decisionRecord); err != nil {
+		t.Fatal(err)
+	}
+	guard, err := NewTransactionalAuthorityGuard(ctx, store, decision, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard.Now = func() time.Time { return now }
+	// The decision and generation carry the liveness records every admitted
+	// authority has, so the ONLY thing under test here is the anchor hook.
+	for _, live := range []struct{ namespace, id, version, digest string }{
+		{state.AuthorityDecisionLiveNamespace, decision.RequestID, decision.RequestVersion, migrationDigest("8")},
+	} {
+		record, err := state.SealedLivenessRecord(ctx, service, "test-key", contracts.CryptoClassicalCompatible, state.SensitivityConfidential, live.namespace, live.id, live.version, live.digest, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.PutSecureBlob(ctx, record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Steps[1].Authority.DecisionRef, plan.Steps[1].Authority.DecisionVersion, plan.Steps[1].Authority.DecisionDigest = decision.DecisionRef, decision.DecisionVersion, decisionDigest
+	plan.Steps[1].Authority.AuthorityRef, plan.Steps[1].Authority.AuthorityVersion, plan.Steps[1].Authority.AuthorityGenerationDigest = generation.Ref, generation.Version, generation.Digest
+	plan.Digest = ""
+	plan.Digest, err = plan.ComputeDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := newRuntimeJournal(t, db, plan)
+	qualifyStorage(t, db, journal, plan)
+	before := bindingBytes(t, db)
+	// I13: the decision and generation are current by every row, but the store
+	// is not current against the forward authority anchor (a restored backup).
+	// The guard must refuse inside the transaction, before any mutation.
+	guard.Governance = func(context.Context, *sql.Tx) error {
+		return nil
+	}
+	precondition, err := prepared.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := RunRequest{Plan: plan, StepID: plan.Steps[1].ID, PreconditionDigest: precondition, SnapshotDigest: migrationDigest("b"), Authority: migrationAuthority{decision: decision}, Now: now}
+	driver := &RuntimeStateDriver{DB: db, Journal: journal, Guard: guard, Prepared: prepared}
+	if err := RunStep(ctx, journal, req, driver); err != nil {
+		t.Fatalf("with a current anchor the step must apply (the refusal in the sibling test is the anchor's, not another rule's): %v", err)
+	}
+	_ = before
+}
+
 func TestRuntimeStateRejectsProposedResultMismatch(t *testing.T) {
 	db := newRuntimeFixtureDB(t, runtimeFixture{entry: "ep", packageID: "pkg", version: "1", digest: migrationDigest("a"), active: true, provenance: true, existing: true})
 	prepared, _ := preparedRuntimePlan(t, db)

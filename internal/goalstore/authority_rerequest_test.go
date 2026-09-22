@@ -70,6 +70,20 @@ func TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges(t *te
 			t.Fatal(err)
 		}
 	}
+	// The decision was admitted (and merely expired); it carries the liveness
+	// record every admitted decision has, which is what makes it eligible for an
+	// ordinary re-request. Without it the predecessor would read as retired.
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	liveRecord, err := state.SealedLivenessRecord(ctx, repo.Crypto, repo.KeyRef, repo.Profile, repo.Sensitivity, state.AuthorityDecisionLiveNamespace, prior.ID, prior.Version, decisionDigest, decision.IssuedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Store.PutSecureBlob(ctx, liveRecord); err != nil {
+		t.Fatal(err)
+	}
 	eligibility := contracts.AuthorityReRequestEligibility{Now: now, FreshExpiresAt: now.Add(time.Hour), EffectState: contracts.AuthorityReRequestNoEffect, IntentCurrent: true}
 	fresh, digest, err := repo.SaveAuthorityReRequest(ctx, prior, decision, child, eligibility)
 	if err != nil {
@@ -93,5 +107,12 @@ func TestSaveAuthorityReRequestUsesImmutableHistoricalEvidenceAndConverges(t *te
 	forged.Intent = &contracts.ActionIntent{Version: intent.Version, ID: intent.ID, Actor: intent.Actor, Operation: intent.Operation, Target: "target:substituted", Scope: intent.Scope}
 	if _, _, err := restarted.SaveAuthorityReRequest(ctx, forged, decision, child, eligibility); err == nil {
 		t.Fatal("caller-substituted predecessor was accepted")
+	}
+	// I12: a predecessor whose liveness record is gone (a revoked decision whose
+	// revocation row was deleted reads exactly like this) is not an expired
+	// decision and is not eligible for an ordinary re-request.
+	keylessDelete(t, restarted.Store, state.AuthorityDecisionLiveNamespace, prior.ID, prior.Version)
+	if _, _, err := restarted.SaveAuthorityReRequest(ctx, prior, decision, child, eligibility); err == nil {
+		t.Fatal("a decision without a liveness record was re-requested as merely expired")
 	}
 }

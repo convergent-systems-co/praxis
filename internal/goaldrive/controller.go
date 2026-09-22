@@ -18,7 +18,43 @@ var (
 	ErrGoalCompletionPending  = errors.New("Goal completion candidate awaits evaluation and settlement")
 	ErrSupervisedTerminated   = errors.New("supervised Goal-drive invocation terminated after its persisted checkpoint")
 	ErrInvocationModeMismatch = errors.New("Goal-drive invocation mode cannot change across turns")
+	ErrHumanAuthorityGate     = errors.New("HUMAN_AUTHORITY_REQUIRED: authority gate cannot be executed by a worker")
+	ErrSafetyActivation       = errors.New("WorkPlan safety activation is absent or inconsistent")
+	ErrPlanAuthority          = errors.New("WorkPlan governing authority is absent, revoked, or inconsistent")
 )
+
+// PlanAuthorityVerifier proves that the authority governing a safety-bearing
+// accepted WorkPlan is currently effective. Historical authority evidence
+// stays immutable and inspectable, but only current authority may govern a new
+// selection, execution, completion, or gate request.
+//
+// The same store is also the authenticated root for the two other facts a
+// safety-bearing generation must not take from a self-declared or plaintext
+// source: whether a Goal is safety-bearing at all (I9) and whether a ledger
+// completion is genuine (I11). One interface, one trust root: the GoalStore's
+// installation-storage-key-authenticated records.
+type PlanAuthorityVerifier interface {
+	VerifyGoverningAuthority(context.Context, goals.GoalBaseline, time.Time) error
+	// GoalSafetyClassified reports durable, authenticated Goal classification.
+	GoalSafetyClassified(context.Context, string) (bool, error)
+	// SealCompletion authenticates the exact bytes of a qualified completion.
+	SealCompletion(context.Context, goals.GoalBaseline, []byte, time.Time) (string, error)
+	// LoadSealedCompletion returns the sealed bytes for a completion digest or
+	// contracts.ErrCompletionUnauthenticated.
+	LoadSealedCompletion(context.Context, goals.GoalBaseline, string, time.Time) ([]byte, error)
+	// VerifyGateCompletion re-resolves a gate completion's request, decision,
+	// dossier and ceremony lineage; contracts.ErrGateAuthorityNotEffective
+	// marks an authentic but no-longer-current decision.
+	VerifyGateCompletion(context.Context, goals.GoalBaseline, contracts.WorkCandidate, []contracts.GovernedArtifactEvidence, string, string, time.Time) error
+}
+
+type SafetyActivationVerifier interface {
+	Verify(context.Context, contracts.WorkPlanSafetyBinding) error
+}
+
+type AuthorityGateCoordinator interface {
+	ReconcileAuthorityGate(context.Context, goals.GoalBaseline, contracts.WorkCandidate, []contracts.GovernedArtifactEvidence, time.Time) (contracts.AuthorityGateResult, error)
+}
 
 type AuthorityRequestReader interface {
 	PendingAuthorityRequests(context.Context, string, string, time.Time) ([]contracts.AuthorityRequest, error)
@@ -83,6 +119,56 @@ type Controller struct {
 	AuthorityRequests AuthorityRequestReader
 	NoProgressLimit   int
 	Activity          *ActivityLog
+	SafetyActivation  SafetyActivationVerifier
+	// GoverningAuthority is required for safety-bearing plans and is applied
+	// at every turn boundary, so restart, recovery and continuous subsequent
+	// turns all re-establish current authority.
+	GoverningAuthority PlanAuthorityVerifier
+	AuthorityGates     AuthorityGateCoordinator
+}
+
+// verifyGoverningAuthority is the shared execution-boundary predicate.
+func (c Controller) verifyGoverningAuthority(ctx context.Context, baseline *goals.GoalBaseline) error {
+	if !isSafetyBearing(baseline) {
+		return nil
+	}
+	if c.GoverningAuthority == nil {
+		return fmt.Errorf("%w: verifier is not configured", ErrPlanAuthority)
+	}
+	if err := c.GoverningAuthority.VerifyGoverningAuthority(ctx, *baseline, time.Now().UTC()); err != nil {
+		return fmt.Errorf("%w: %v", ErrPlanAuthority, err)
+	}
+	return nil
+}
+
+func findCandidate(candidates []contracts.WorkCandidate, id string) (contracts.WorkCandidate, bool) {
+	for _, candidate := range candidates {
+		if candidate.ID == id {
+			return candidate, true
+		}
+	}
+	return contracts.WorkCandidate{}, false
+}
+
+// refuseGateDispatch is the provider-dispatch fence. Every route to a worker
+// resolves it through Controller.worker, so an authority-gate objective can
+// never reach a provider however the objective was supplied (selection,
+// explicit, recovery, pinned, continuation). It classifies against the
+// immutable accepted plan as well as the materialized candidates, so it does
+// not depend on the caller having populated WorkCandidates.
+func refuseGateDispatch(req TurnRequest) error {
+	if req.ChildObjective == "" {
+		return nil
+	}
+	if req.GoalBaseline != nil && req.GoalBaseline.WorkPlan != nil {
+		if candidate, ok := findCandidate(req.GoalBaseline.WorkPlan.Candidates, req.ChildObjective); ok && candidate.Kind == contracts.WorkCandidateAuthorityGate {
+			return fmt.Errorf("%w: %s", ErrHumanAuthorityGate, candidate.ID)
+		}
+	}
+	if candidate, ok := findCandidate(req.WorkCandidates, req.ChildObjective); ok && candidate.Kind == contracts.WorkCandidateAuthorityGate {
+		return fmt.Errorf("%w: %s", ErrHumanAuthorityGate, candidate.ID)
+	}
+	return nil
 }
 
 func (c Controller) ExecuteTurn(ctx context.Context, req TurnRequest) (TurnRecord, error) {
@@ -119,6 +205,28 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	if req.Mode != ModeSupervised && req.Mode != ModeContinuous {
 		return nil, TurnRequest{}, fmt.Errorf("unsupported Goal-drive execution mode %q", req.Mode)
 	}
+	safety, err := c.safetyBearing(ctx, req.GoalBaseline)
+	if err != nil {
+		return nil, TurnRequest{}, err
+	}
+	if safety {
+		if c.SafetyActivation == nil {
+			return nil, TurnRequest{}, fmt.Errorf("%w: verifier is not configured", ErrSafetyActivation)
+		}
+		if err := c.SafetyActivation.Verify(ctx, *req.GoalBaseline.WorkPlan.Safety); err != nil {
+			return nil, TurnRequest{}, fmt.Errorf("%w: %v", ErrSafetyActivation, err)
+		}
+		if err := c.verifyGoverningAuthority(ctx, req.GoalBaseline); err != nil {
+			return nil, TurnRequest{}, err
+		}
+		// Selector input for a safety-bearing plan derives only from the
+		// baseline's accepted plan (whose exact bytes the authority verifier
+		// just proved equal to the persisted generation), never from a
+		// caller-supplied candidate slice.
+		plan := req.GoalBaseline.WorkPlan
+		req.WorkCandidates = append([]contracts.WorkCandidate(nil), plan.Candidates...)
+		req.WorkRelationships = append([]contracts.WorkRelationship(nil), plan.Relationships...)
+	}
 	if req.ChildObjective == "" {
 		if len(req.WorkCandidates) == 0 && req.GoalBaseline != nil {
 			candidates, relationships, err := MaterializeGoalWork(*req.GoalBaseline)
@@ -129,10 +237,13 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 		}
 		// Eligibility derives from durable, controller-recorded unit
 		// completions overlaid on the immutable plan (#158).
-		completions, err := c.Ledger.LoadCompletions(ctx, req.GoalID, req.GoalVersion)
+		// Completions are consumed only through the authenticating boundary:
+		// sealed evidence, gate lineage re-resolved, current authority.
+		effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)
 		if err != nil {
 			return nil, TurnRequest{}, fmt.Errorf("load unit completions: %w", err)
 		}
+		completions := effective.Effective
 		req.WorkCandidates = ApplyCompletions(req.WorkCandidates, completions)
 		goalState, err := c.Ledger.LoadGoalCompletion(ctx, req.GoalID, req.GoalVersion)
 		if err != nil {
@@ -160,7 +271,51 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 			}
 			return nil, TurnRequest{}, err
 		}
+		if candidate.Kind == contracts.WorkCandidateAuthorityGate {
+			return nil, TurnRequest{}, c.coordinateGate(ctx, req, candidate, completions)
+		}
 		req.ChildObjective = candidate.ID
+	} else if req.GoalBaseline != nil && req.GoalBaseline.WorkPlan != nil {
+		// An explicit objective (caller-supplied, pinned, or recovered) is
+		// materialized and classified against the accepted plan before any
+		// provider is resolved, exactly like a selected one.
+		candidate, found := findCandidate(req.GoalBaseline.WorkPlan.Candidates, req.ChildObjective)
+		if safety && !found {
+			return nil, TurnRequest{}, fmt.Errorf("objective %q is not a candidate of the accepted safety-bearing plan", req.ChildObjective)
+		}
+		if found && (candidate.Kind == contracts.WorkCandidateAuthorityGate || safety) {
+			effective, err := c.effectiveCompletions(ctx, req.GoalBaseline, req.GoalID, req.GoalVersion)
+			if err != nil {
+				return nil, TurnRequest{}, fmt.Errorf("load unit completions: %w", err)
+			}
+			completions := effective.Effective
+			for _, completion := range completions {
+				if completion.UnitID == candidate.ID {
+					return nil, TurnRequest{}, fmt.Errorf("objective %q is already complete (turn %s)", candidate.ID, completion.TurnID)
+				}
+			}
+			req.WorkCandidates = ApplyCompletions(req.WorkCandidates, completions)
+			if candidate.Kind == contracts.WorkCandidateAuthorityGate {
+				return nil, TurnRequest{}, c.coordinateGate(ctx, req, candidate, completions)
+			}
+			// I3/I11: an explicit, pinned or recovered objective is new work
+			// like a selected one. It must be runnable against the current,
+			// authenticated completion state, so a unit whose hard prerequisite
+			// (a gate whose decision was revoked, or an incomplete gate) is not
+			// currently decided cannot be resumed on the strength of history.
+			assessment, assessErr := contracts.AssessWorkCandidates(req.WorkCandidates, req.WorkRelationships)
+			if assessErr != nil {
+				return nil, TurnRequest{}, assessErr
+			}
+			for _, item := range assessment.Candidates {
+				if item.Candidate.ID == candidate.ID && item.Readiness != contracts.WorkReady {
+					return nil, TurnRequest{}, fmt.Errorf("objective %q is not currently runnable: blocked by %s", candidate.ID, strings.Join(item.BlockedBy, ", "))
+				}
+			}
+		}
+	}
+	if err := refuseGateDispatch(req); err != nil {
+		return nil, TurnRequest{}, err
 	}
 	worker, err := c.worker(req)
 	if err != nil {
@@ -246,7 +401,46 @@ func (c Controller) prepare(ctx context.Context, req TurnRequest) ([]TurnRecord,
 	return turns, req, nil
 }
 
+// coordinateGate routes an authority-gate objective, however it arrived, to
+// controller-owned gate coordination. It never resolves a provider. It always
+// returns a non-nil error: a pending request, a recorded completion (start a
+// fresh turn), or a refusal.
+func (c Controller) coordinateGate(ctx context.Context, req TurnRequest, candidate contracts.WorkCandidate, completions []UnitCompletion) error {
+	if c.AuthorityGates == nil || req.GoalBaseline == nil {
+		return fmt.Errorf("%w: %s", ErrHumanAuthorityGate, candidate.ID)
+	}
+	var artifacts []contracts.GovernedArtifactEvidence
+	for _, completion := range completions {
+		artifacts = append(artifacts, completion.GovernedArtifacts...)
+	}
+	result, gateErr := c.AuthorityGates.ReconcileAuthorityGate(ctx, *req.GoalBaseline, candidate, artifacts, time.Now().UTC())
+	if gateErr != nil {
+		return gateErr
+	}
+	if !result.Approved {
+		if emitErr := c.emit(ctx, ActivityAuthorityRequired, req, map[string]string{"gate": candidate.ID}); emitErr != nil {
+			return emitErr
+		}
+		return &AuthorityRequiredError{Requests: []contracts.AuthorityRequest{result.Request}}
+	}
+	// Recording a completion is a new consequence: every current predicate the
+	// effect requires must hold at this instant, not only inside the
+	// coordinator that just answered.
+	if err := c.authorizeEffect(ctx, req, "gate-completion", nil, TurnRecord{}); err != nil {
+		return err
+	}
+	requestDigest, _ := result.Request.Digest()
+	completion := UnitCompletion{GoalID: req.GoalID, GoalVersion: req.GoalVersion, UnitID: candidate.ID, InvocationID: req.InvocationID, TurnID: req.TurnID, EndHead: "authority:" + result.DecisionDigest, CompletedAt: time.Now().UTC(), AuthorityGate: true, SpecificationDigest: candidate.SourceDigest, Evidence: []string{"dossier:" + result.Request.DossierDigest, "authority-request:" + requestDigest, "authority-decision:" + result.DecisionDigest}}
+	if err := c.recordCompletion(ctx, req.GoalBaseline, completion); err != nil {
+		return fmt.Errorf("record authority gate completion: %w", err)
+	}
+	return fmt.Errorf("%w: %s resolved and recorded; start a fresh turn", ErrHumanAuthorityGate, candidate.ID)
+}
+
 func (c Controller) worker(req TurnRequest) (Worker, error) {
+	if err := refuseGateDispatch(req); err != nil {
+		return nil, err
+	}
 	if c.Providers != nil {
 		return c.Providers.Resolve(req.ProviderID)
 	}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	praxiscrypto "github.com/convergent-systems-co/praxis/internal/crypto"
+	"github.com/convergent-systems-co/praxis/internal/faa"
 	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/packages/goals"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
@@ -45,6 +46,22 @@ type Repository struct {
 	// self-consistent root identity supplied by durable request data.
 	InstallationDigest  string
 	AuthorityGeneration AuthorityGenerationValidator
+	// SafetyActivation is the fail-closed activation predicate enforced at
+	// every persistence boundary whose correctness depends on the pre-v4
+	// safety kernel. Leaving it nil refuses such mutations; it never means
+	// "not required".
+	SafetyActivation SafetyActivationVerifier
+	// FAA is the Forward Authority Anchor: forward-only governance freshness
+	// state outside the mutable store (I13, I14). Production constructors always
+	// set it and refuse to build a governed repository without one; nil means an
+	// unanchored repository, which exists only so unit tests of unrelated store
+	// behaviour need not stand up an anchor.
+	FAA faa.Anchor
+	// faaLagAttempts and faaLagDelay tune how long a reader waits out the
+	// one-write lag between the anchor and the store (zero means the defaults).
+	// They exist so exhaustive adversarial tests do not spend their time waiting.
+	faaLagAttempts int
+	faaLagDelay    time.Duration
 }
 
 // AuthorityGenerationValidator is the cross-registry authority boundary.
@@ -68,6 +85,25 @@ func (r Repository) Save(ctx context.Context, baseline goals.GoalBaseline, creat
 	}
 	if err := baseline.Validate(); err != nil {
 		return goals.GoalBaseline{}, err
+	}
+	// Generic baseline persistence (Save, Import, Finalize, establish) is
+	// baseline-only. A safety-bearing WorkPlan enters a generation solely
+	// through AttachAcceptedWorkPlan, which reloads the durable acceptance,
+	// re-verifies current authority and activation, and is revocation-fenced.
+	if baseline.WorkPlan != nil {
+		if baseline.WorkPlan.Safety != nil {
+			return goals.GoalBaseline{}, ErrSafetyPlanRequiresAttachment
+		}
+		// I9: whether a plan is safety-bearing must not depend on the plan
+		// carrying the safety binding. A Goal that durable, authenticated
+		// state classifies as safety-bearing can never receive a plan through
+		// this generic surface (Import, Finalize and establish included), so
+		// stripping or omitting the binding cannot downgrade it.
+		if kernel, classified, err := r.GoalSafetyKernel(ctx, baseline.ID); err != nil {
+			return goals.GoalBaseline{}, err
+		} else if classified {
+			return goals.GoalBaseline{}, fmt.Errorf("%w: Goal %s (kernel %s); a plan enters only through the authenticated accepted-plan attachment transaction", ErrSafetyDowngrade, baseline.ID, kernel)
+		}
 	}
 	digest, err := baseline.ComputeDigest()
 	if err != nil {
@@ -117,7 +153,7 @@ func (r Repository) Load(ctx context.Context, id, version string, now time.Time)
 		return goals.GoalBaseline{}, fmt.Errorf("decrypt Goal Baseline: %w", err)
 	}
 	var baseline goals.GoalBaseline
-	if err := json.Unmarshal(payload, &baseline); err != nil {
+	if err := contracts.UnmarshalExactJSON(payload, &baseline, false); err != nil {
 		return goals.GoalBaseline{}, fmt.Errorf("decode Goal Baseline: %w", err)
 	}
 	if baseline.ID != id || baseline.Version != version || baseline.Digest != record.ObjectDigest {
@@ -148,12 +184,30 @@ func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, source
 	if successorVersion == "" || successorVersion == source.Version {
 		return goals.GoalBaseline{}, errors.New("successor Goal Baseline version must be distinct")
 	}
-	plan, err := r.LoadAcceptedWorkPlan(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC())
+	plan, acceptedProposal, err := r.loadAcceptedWorkPlanRecord(ctx, acceptanceRef, acceptanceVersion, time.Now().UTC())
 	if err != nil {
 		return goals.GoalBaseline{}, fmt.Errorf("load accepted WorkPlan: %w", err)
 	}
 	if plan.BaselineDigest != source.Digest {
 		return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan source baseline differs: %w", goals.ErrBaselineDigestMismatch)
+	}
+	// The baseline digest does not cover Goal identity, so an acceptance
+	// granted for one Goal must not attach to a different Goal that happens to
+	// have identical content.
+	if acceptedProposal.GoalID != source.ID || acceptedProposal.GoalVersion != source.Version {
+		return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan was accepted for Goal %s/%s, not %s/%s", acceptedProposal.GoalID, acceptedProposal.GoalVersion, source.ID, source.Version)
+	}
+	if err := r.requireSafetyActivation(ctx, plan.Safety); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if err := r.requireSafetyConsistent(ctx, source.ID, plan.Safety); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if err := r.markGoalSafetyBearing(ctx, source.ID, plan.Safety, createdAt); err != nil {
+		return goals.GoalBaseline{}, err
+	}
+	if plan.Safety != nil && plan.AuthorityRequestID == "" {
+		return goals.GoalBaseline{}, errors.New("safety-bearing WorkPlan requires authority-backed acceptance; legacy acceptance cannot attach")
 	}
 	if plan.AuthorityRequestID != "" {
 		if plan.AuthorityRequestVersion == "" || plan.AuthorityDecisionRef == "" || plan.AuthorityDecisionVersion == "" {
@@ -170,6 +224,9 @@ func (r Repository) AttachAcceptedWorkPlan(ctx context.Context, sourceID, source
 	successor.WorkPlan = &plan
 	if err := successor.Validate(); err != nil {
 		return goals.GoalBaseline{}, err
+	}
+	if err := r.verifyPlanAuthorityLineage(ctx, plan, time.Now().UTC()); err != nil {
+		return goals.GoalBaseline{}, fmt.Errorf("accepted WorkPlan authority is not currently effective: %w", err)
 	}
 	digest, err := successor.ComputeDigest()
 	if err != nil {
@@ -272,6 +329,18 @@ func (r Repository) SaveWorkPlanProposal(ctx context.Context, proposal contracts
 	if version == "" {
 		return "", errors.New("work plan proposal version is required")
 	}
+	if err := r.requireSafetyActivation(ctx, proposal.Safety); err != nil {
+		return "", err
+	}
+	// I9: a legacy proposal cannot be introduced for a Goal that is already
+	// classified safety-bearing, and a safety-bearing proposal classifies its
+	// Goal durably before the proposal itself exists.
+	if err := r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety); err != nil {
+		return "", err
+	}
+	if err := r.markGoalSafetyBearing(ctx, proposal.GoalID, proposal.Safety, createdAt); err != nil {
+		return "", err
+	}
 	digest, err := proposal.Digest()
 	if err != nil {
 		return "", err
@@ -331,6 +400,12 @@ func (r Repository) SaveWorkPlanReview(ctx context.Context, proposalID, proposal
 	if err != nil {
 		return fmt.Errorf("load proposal for review: %w", err)
 	}
+	if err := r.requireSafetyActivation(ctx, proposal.Safety); err != nil {
+		return err
+	}
+	if err := r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety); err != nil {
+		return err
+	}
 	if err := review.Validate(proposal); err != nil {
 		return err
 	}
@@ -377,6 +452,12 @@ func (r Repository) SaveAcceptedWorkPlan(ctx context.Context, proposalID, propos
 	proposal, err := r.LoadWorkPlanProposal(ctx, proposalID, proposalVersion, time.Now().UTC())
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("load proposal for acceptance: %w", err)
+	}
+	if proposal.Safety != nil {
+		return contracts.WorkPlan{}, errors.New("legacy acceptance cannot admit a safety-bearing WorkPlan; use the authority-backed acceptance bridge")
+	}
+	if err := r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety); err != nil {
+		return contracts.WorkPlan{}, err
 	}
 	review, err := r.LoadWorkPlanReview(ctx, decision.ReviewRef, decision.ReviewVersion, time.Now().UTC())
 	if err != nil {
@@ -438,6 +519,20 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 	if err != nil {
 		return contracts.WorkPlan{}, fmt.Errorf("load proposal for authority-backed acceptance: %w", err)
 	}
+	if err := r.requireSafetyActivation(ctx, proposal.Safety); err != nil {
+		return contracts.WorkPlan{}, err
+	}
+	if err := r.requireSafetyConsistent(ctx, proposal.GoalID, proposal.Safety); err != nil {
+		return contracts.WorkPlan{}, err
+	}
+	if proposal.Safety != nil {
+		if request.CeremonyProfile != "interactive-os-owner-v1" || request.ActivationManifestDigest != proposal.Safety.ActivationManifestDigest {
+			return contracts.WorkPlan{}, errors.New("safety-bearing WorkPlan acceptance requires exact interactive ceremony and activation binding")
+		}
+		if err := r.validateOwnerDecisionAuthority(ctx, request, authorityDecision, time.Now().UTC(), false); err != nil {
+			return contracts.WorkPlan{}, fmt.Errorf("safety-bearing WorkPlan acceptance lacks authentic owner authority: %w", err)
+		}
+	}
 	proposalDigest, err := proposal.Digest()
 	if err != nil {
 		return contracts.WorkPlan{}, err
@@ -497,25 +592,32 @@ func (r Repository) SaveAcceptedWorkPlanFromAuthorityDecision(ctx context.Contex
 }
 
 func (r Repository) LoadAcceptedWorkPlan(ctx context.Context, acceptanceRef, version string, now time.Time) (contracts.WorkPlan, error) {
+	plan, _, err := r.loadAcceptedWorkPlanRecord(ctx, acceptanceRef, version, now)
+	return plan, err
+}
+
+// loadAcceptedWorkPlanRecord additionally returns the exact proposal the
+// acceptance was granted for, so attachment can bind Goal identity.
+func (r Repository) loadAcceptedWorkPlanRecord(ctx context.Context, acceptanceRef, version string, now time.Time) (contracts.WorkPlan, contracts.WorkPlanProposal, error) {
 	payload, record, err := r.loadWorkPlanBlob(ctx, workPlanAcceptanceNamespace, acceptanceRef, version, now)
 	if err != nil {
-		return contracts.WorkPlan{}, err
+		return contracts.WorkPlan{}, contracts.WorkPlanProposal{}, err
 	}
 	var stored acceptedWorkPlanRecord
 	if err := json.Unmarshal(payload, &stored); err != nil {
-		return contracts.WorkPlan{}, fmt.Errorf("decode accepted WorkPlan: %w", err)
+		return contracts.WorkPlan{}, contracts.WorkPlanProposal{}, fmt.Errorf("decode accepted WorkPlan: %w", err)
 	}
 	if stored.Decision.AcceptanceRef != acceptanceRef || payloadDigest(payload) != record.ObjectDigest {
-		return contracts.WorkPlan{}, errors.New("accepted WorkPlan identity or record digest mismatch")
+		return contracts.WorkPlan{}, contracts.WorkPlanProposal{}, errors.New("accepted WorkPlan identity or record digest mismatch")
 	}
 	if err := stored.Review.Validate(stored.Proposal); err != nil || stored.Review.ReviewDigest != stored.Decision.ReviewDigest || stored.Review.Status != contracts.ReviewAcceptableForAuthority {
-		return contracts.WorkPlan{}, fmt.Errorf("%w: persisted acceptance review is not valid", contracts.ErrUnacceptedWorkPlan)
+		return contracts.WorkPlan{}, contracts.WorkPlanProposal{}, fmt.Errorf("%w: persisted acceptance review is not valid", contracts.ErrUnacceptedWorkPlan)
 	}
 	plan, err := contracts.AcceptWorkPlan(stored.Proposal, stored.Plan, stored.Decision)
 	if err != nil {
-		return contracts.WorkPlan{}, fmt.Errorf("validate accepted WorkPlan: %w", err)
+		return contracts.WorkPlan{}, contracts.WorkPlanProposal{}, fmt.Errorf("validate accepted WorkPlan: %w", err)
 	}
-	return plan, nil
+	return plan, stored.Proposal, nil
 }
 
 // SaveAuthorityRevocation appends an immutable revocation record for one exact
@@ -545,6 +647,21 @@ func (r Repository) SaveAuthorityRevocation(ctx context.Context, requestID, requ
 	lockNamespace, lockID, lockVersion := authorityRequestNamespace, requestID, requestVersion
 	if decision.AuthorityRef != "" && decision.AuthorityVersion != "" {
 		lockNamespace, lockID, lockVersion = authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion
+	}
+	// I13: the retirement is anchored FIRST, as a fact in the chain the forward
+	// authority anchor pins, so neither deleting the revocation row nor replaying
+	// the earlier liveness row nor restoring an earlier store can make the
+	// decision current again. The liveness row is then retired (I12) and the
+	// revocation written; a crash between leaves the decision retired by fact.
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		return err
+	}
+	if err := r.anchorDecisionRetired(ctx, requestID, requestVersion, decisionDigest, "revoked", createdAt); err != nil {
+		return err
+	}
+	if err := r.retireLive(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion); err != nil {
+		return err
 	}
 	if err := r.putWorkPlanBlobWithLock(ctx, authorityRevocationNamespace, requestID, requestVersion, payload, createdAt, expiresAt, lockNamespace, lockID, lockVersion); err != nil {
 		return fmt.Errorf("persist authority revocation: %w", err)
@@ -594,6 +711,22 @@ func (r Repository) SaveAuthorityRequest(ctx context.Context, request contracts.
 	digest, err := request.Digest()
 	if err != nil {
 		return "", err
+	}
+	if request.RequestedAuthority == "goal.gate.decide" {
+		scope, scopeErr := contracts.InstallationGovernanceScope(r.InstallationDigest)
+		if scopeErr != nil || request.RequestedScope != scope {
+			return "", errors.New("authority gate request is not scoped to this installation's governance authority")
+		}
+	}
+	binding, err := r.safetyBindingForRequest(ctx, request)
+	if err != nil {
+		return "", err
+	}
+	if err := r.requireSafetyActivation(ctx, binding); err != nil {
+		return "", err
+	}
+	if binding != nil && (request.CeremonyProfile != "interactive-os-owner-v1" || request.ActivationManifestDigest != binding.ActivationManifestDigest) {
+		return "", errors.New("protected authority request lacks exact interactive ceremony and activation binding")
 	}
 	payload, err := json.Marshal(request)
 	if err != nil {
@@ -726,6 +859,20 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 			return fmt.Errorf("validate issuing authority generation: %w", err)
 		}
 	}
+	binding, err := r.safetyBindingForRequest(ctx, request)
+	if err != nil {
+		return err
+	}
+	if err := r.requireSafetyActivation(ctx, binding); err != nil {
+		return err
+	}
+	if request.RequestedAuthority == "goal.gate.decide" {
+		if err := r.validateGateDecisionAuthority(ctx, request, decision, time.Now().UTC()); err != nil {
+			return err
+		}
+	} else if err := r.verifyDecisionCeremony(ctx, request, decision, time.Now().UTC()); err != nil {
+		return err
+	}
 	if request.RequestedAuthority == contracts.GovernedPackageDeploy && request.Delegation == nil {
 		if err := r.validatePackageDeploymentDecision(ctx, request, decision, time.Now().UTC()); err != nil {
 			return err
@@ -736,10 +883,24 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 			return errors.New("installation-repair decision lacks exact successor-root lineage")
 		}
 	}
-	if existing, err := r.LoadAuthorityDecision(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
+	if existing, err := r.LoadAuthorityDecisionEvidence(ctx, requestID, requestVersion, time.Now().UTC()); err == nil {
+		if _, revokedErr := r.LoadAuthorityRevocation(ctx, requestID, requestVersion, time.Now().UTC()); revokedErr == nil {
+			return fmt.Errorf("check existing authority decision: %w", ErrAuthorityDecisionRevoked)
+		}
 		left, _ := json.Marshal(existing)
 		right, _ := json.Marshal(decision)
 		if bytes.Equal(left, right) {
+			// An exact replay never recreates a liveness record: it is written
+			// atomically with the decision, so its absence means the decision
+			// was retired or the governing state was lost, and neither may be
+			// undone by resubmitting the same bytes.
+			digest, digestErr := decision.Digest()
+			if digestErr != nil {
+				return digestErr
+			}
+			if err := r.requireLive(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion, digest, time.Now().UTC()); err != nil {
+				return fmt.Errorf("%w: %w", ErrAuthorityDecisionNotLive, err)
+			}
 			return nil
 		}
 		return errors.New("conflicting authority decision already exists")
@@ -751,10 +912,24 @@ func (r Repository) SaveAuthorityDecision(ctx context.Context, requestID, reques
 		return fmt.Errorf("encode authority decision: %w", err)
 	}
 	var persistErr error
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		return err
+	}
+	stamp, err := r.admissionStamp(ctx)
+	if err != nil {
+		return err
+	}
+	liveRecord, err := state.SealedLivenessRecord(ctx, r.Crypto, r.KeyRef, r.Profile, r.Sensitivity, state.AuthorityDecisionLiveNamespace, requestID, requestVersion, decisionDigest, createdAt, stamp)
+	if err != nil {
+		return fmt.Errorf("seal decision liveness: %w", err)
+	}
 	if decision.AuthorityRef != "" && decision.AuthorityVersion != "" && decision.AuthorityGenerationDigest != "" {
-		persistErr = r.putWorkPlanBlobUnlessRevoked(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt, requestID, requestVersion, decision.AuthorityRef, decision.AuthorityVersion, authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion)
+		persistErr = r.putWorkPlanBlobUnlessRevoked(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt, requestID, requestVersion, decision.AuthorityRef, decision.AuthorityVersion, authorityGenerationNamespace, decision.AuthorityRef, decision.AuthorityVersion, liveRecord)
 	} else {
-		persistErr = r.putWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt)
+		// Without an issuing generation there is no lock source; the decision
+		// and its liveness record still commit together.
+		persistErr = r.putWorkPlanBlobsAtomically(ctx, authorityDecisionNamespace, requestID, requestVersion, payload, createdAt, expiresAt, liveRecord)
 	}
 	if persistErr != nil {
 		return fmt.Errorf("persist authority decision: %w", persistErr)
@@ -781,18 +956,42 @@ func (r Repository) validatePackageDeploymentDecision(ctx context.Context, reque
 	if operational.Digest != decision.OperationalAuthorityGenerationDigest || operational.Principal != contracts.PackageManagerPrincipal() || operational.DelegationProfile != contracts.DelegationProfilePackageDeploy || operational.AuthorityModelVersion != contracts.AuthorityModelDeploymentVersion || operational.AuthorityModelDigest != contracts.AuthorityModelDeploymentDigest() || operational.ParentDigest != request.InstallationDigest || !containsAuthority(operational.Authorities, contracts.GovernedPackageDeploy) {
 		return errors.New("package-deploy decision does not bind exact operational authority")
 	}
+	// The operational generation must be current, with its whole lineage (N17
+	// equivalent path): it was compared field by field but never asked whether it
+	// was still in force.
+	if err := r.requireCurrentLineage(ctx, operational, now); err != nil {
+		return fmt.Errorf("package-deploy operational authority is not current: %w", err)
+	}
 	return nil
 }
 
 func (r Repository) LoadAuthorityDecision(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityDecision, error) {
-	decision, err := r.LoadAuthorityDecisionEvidence(ctx, requestID, requestVersion, now)
+	// I13: a store that is not current against the forward authority anchor
+	// yields no effective decision, whatever else it contains.
+	if _, err := r.governanceSnapshot(ctx); err != nil {
+		return contracts.AuthorityDecision{}, err
+	}
+	stored, err := r.loadAuthorityDecisionRecord(ctx, requestID, requestVersion, now)
 	if err != nil {
 		return contracts.AuthorityDecision{}, err
 	}
+	decision := stored.Decision
 	if _, err := r.LoadAuthorityRevocation(ctx, requestID, requestVersion, now); err == nil {
 		return contracts.AuthorityDecision{}, ErrAuthorityDecisionRevoked
 	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
 		return contracts.AuthorityDecision{}, fmt.Errorf("check authority revocation: %w", err)
+	}
+	// I12: a decision grants nothing unless its authenticated liveness record
+	// is present. Absence of a revocation record is never, on its own,
+	// evidence that the decision is still in force: revocation retired the
+	// liveness record, so deleting the revocation row cannot restore authority,
+	// and deleting the liveness record refuses.
+	digest, digestErr := decision.Digest()
+	if digestErr != nil {
+		return contracts.AuthorityDecision{}, digestErr
+	}
+	if err := r.requireLive(ctx, state.AuthorityDecisionLiveNamespace, requestID, requestVersion, digest, now); err != nil {
+		return contracts.AuthorityDecision{}, fmt.Errorf("%w: %w", ErrAuthorityDecisionNotLive, err)
 	}
 	return decision, nil
 }
@@ -801,21 +1000,29 @@ func (r Repository) LoadAuthorityDecision(ctx context.Context, requestID, reques
 // after revocation, for audit. Callers seeking effective authority must use
 // LoadAuthorityDecision, which applies expiry and revocation.
 func (r Repository) LoadAuthorityDecisionEvidence(ctx context.Context, requestID, requestVersion string, now time.Time) (contracts.AuthorityDecision, error) {
-	payload, record, err := r.loadWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, now)
+	stored, err := r.loadAuthorityDecisionRecord(ctx, requestID, requestVersion, now)
 	if err != nil {
 		return contracts.AuthorityDecision{}, err
 	}
+	return stored.Decision, nil
+}
+
+func (r Repository) loadAuthorityDecisionRecord(ctx context.Context, requestID, requestVersion string, now time.Time) (authorityDecisionRecord, error) {
+	payload, record, err := r.loadWorkPlanBlob(ctx, authorityDecisionNamespace, requestID, requestVersion, now)
+	if err != nil {
+		return authorityDecisionRecord{}, err
+	}
 	var stored authorityDecisionRecord
 	if err := json.Unmarshal(payload, &stored); err != nil {
-		return contracts.AuthorityDecision{}, fmt.Errorf("decode authority decision: %w", err)
+		return authorityDecisionRecord{}, fmt.Errorf("decode authority decision: %w", err)
 	}
 	if stored.Request.ID != requestID || stored.Request.Version != requestVersion || payloadDigest(payload) != record.ObjectDigest {
-		return contracts.AuthorityDecision{}, errors.New("authority decision identity or digest mismatch")
+		return authorityDecisionRecord{}, errors.New("authority decision identity or digest mismatch")
 	}
 	if err := stored.Decision.Validate(stored.Request, now); err != nil {
-		return contracts.AuthorityDecision{}, fmt.Errorf("validate authority decision: %w", err)
+		return authorityDecisionRecord{}, fmt.Errorf("validate authority decision: %w", err)
 	}
-	return stored.Decision, nil
+	return stored, nil
 }
 
 func (r Repository) validateWorkPlanStore() error {
@@ -832,9 +1039,20 @@ func (r Repository) validateWorkPlanStore() error {
 }
 
 func (r Repository) SaveAuthorityGeneration(ctx context.Context, generation contracts.AuthorityGeneration, createdAt time.Time, expiresAt *time.Time) error {
+	// A fresh installation's first generation creates its anchor; an existing
+	// store without one is refused (a governed re-anchor is required).
+	if err := r.InitializeGovernanceAnchor(ctx); err != nil {
+		return err
+	}
+	stamp, err := r.admissionStamp(ctx)
+	if err != nil {
+		return err
+	}
+	// I12: the generation's liveness record commits in the same transaction.
 	return r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
 		Generation: generation, Crypto: r.Crypto, KeyRef: r.KeyRef,
 		Profile: r.Profile, Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: expiresAt,
+		MarkLive: true, AdmittedAtSeq: stamp,
 	})
 }
 
@@ -930,6 +1148,9 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation request: %w", err)
 	}
+	if request.CeremonyProfile != "" {
+		return contracts.AuthorityGeneration{}, errors.New("a ceremony-protected request cannot be decided through the delegation path")
+	}
 	if (request.RequestedAuthority != contracts.AuthorityDelegateCapability && request.RequestedAuthority != contracts.GovernedPackagePublish && request.RequestedAuthority != contracts.GovernedPackageDeploy) || request.Delegation == nil {
 		return contracts.AuthorityGeneration{}, errors.New("request is not a delegation request")
 	}
@@ -943,6 +1164,11 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	parent, err := r.LoadAuthorityGeneration(ctx, delegation.ParentRef, delegation.ParentVersion, createdAt)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation parent: %w", err)
+	}
+	// A retired or superseded parent cannot mint a child: the immutable record
+	// says what was enrolled, not that it is still in force (N17).
+	if err := r.requireCurrentGeneration(ctx, parent, createdAt); err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("delegation parent is not current: %w", err)
 	}
 	if parent.Digest != delegation.ParentDigest || decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal {
 		return contracts.AuthorityGeneration{}, errors.New("delegation decision does not bind the exact parent generation")
@@ -962,9 +1188,13 @@ func (r Repository) SaveDelegatedAuthorityGeneration(ctx context.Context, reques
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("derive delegated generation digest: %w", err)
 	}
+	childStamp, err := r.admissionStamp(ctx)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
 	if err := r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
 		Generation: child, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile,
-		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt,
+		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt, MarkLive: true, AdmittedAtSeq: childStamp,
 		LockNamespace: authorityRequestNamespace, LockID: request.ID, LockVersion: request.Version,
 	}); err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegated generation: %w", err)
@@ -983,6 +1213,9 @@ func (r Repository) SaveAuthorityDecisionAndDelegatedAuthorityGeneration(ctx con
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation request: %w", err)
 	}
+	if request.CeremonyProfile != "" {
+		return contracts.AuthorityGeneration{}, errors.New("a ceremony-protected request cannot be decided through the delegation path")
+	}
 	if request.Status != contracts.AuthorityRequestPending || request.Delegation == nil {
 		return contracts.AuthorityGeneration{}, errors.New("authority request is not pending delegation")
 	}
@@ -993,6 +1226,11 @@ func (r Repository) SaveAuthorityDecisionAndDelegatedAuthorityGeneration(ctx con
 	parent, err := r.LoadAuthorityGeneration(ctx, delegation.ParentRef, delegation.ParentVersion, createdAt)
 	if err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("load delegation parent: %w", err)
+	}
+	// A retired or superseded parent cannot mint a child: the immutable record
+	// says what was enrolled, not that it is still in force (N17).
+	if err := r.requireCurrentGeneration(ctx, parent, createdAt); err != nil {
+		return contracts.AuthorityGeneration{}, fmt.Errorf("delegation parent is not current: %w", err)
 	}
 	if parent.Digest != delegation.ParentDigest || decision.AuthorityRef != parent.Ref || decision.AuthorityVersion != parent.Version || decision.AuthorityGenerationDigest != parent.Digest || decision.DecidedBy != parent.Principal {
 		return contracts.AuthorityGeneration{}, errors.New("delegation decision does not bind the exact parent generation")
@@ -1031,10 +1269,22 @@ func (r Repository) SaveAuthorityDecisionAndDelegatedAuthorityGeneration(ctx con
 	if err != nil {
 		return contracts.AuthorityGeneration{}, err
 	}
+	decisionDigest, err := decision.Digest()
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	stamp, err := r.admissionStamp(ctx)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
+	decisionLive, err := state.SealedLivenessRecord(ctx, r.Crypto, r.KeyRef, r.Profile, r.Sensitivity, state.AuthorityDecisionLiveNamespace, request.ID, request.Version, decisionDigest, createdAt, stamp)
+	if err != nil {
+		return contracts.AuthorityGeneration{}, err
+	}
 	if err := r.Store.PutAuthorityGeneration(ctx, state.AuthorityGenerationWrite{
 		Generation: child, Crypto: r.Crypto, KeyRef: r.KeyRef, Profile: r.Profile,
-		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt,
-		RelatedRecords: []state.SecureBlobRecord{decisionRecord},
+		Sensitivity: r.Sensitivity, CreatedAt: createdAt, ExpiresAt: &delegation.ExpiresAt, MarkLive: true, AdmittedAtSeq: stamp,
+		RelatedRecords: []state.SecureBlobRecord{decisionRecord, decisionLive},
 		LockNamespace:  authorityRequestNamespace, LockID: request.ID, LockVersion: request.Version,
 	}); err != nil {
 		return contracts.AuthorityGeneration{}, fmt.Errorf("persist delegation decision and generation: %w", err)
@@ -1149,7 +1399,7 @@ func (r Repository) ListProviderWorkspaces(ctx context.Context, now time.Time) (
 // enrollment to reject a second installation root rather than silently
 // creating a competing principal.
 func (r Repository) ListAuthorityGenerations(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, error) {
-	generations, _, err := r.listAuthorityGenerationsSnapshot(ctx, now)
+	generations, _, _, err := r.listAuthorityGenerationsSnapshot(ctx, now)
 	return generations, err
 }
 
@@ -1157,20 +1407,44 @@ func (r Repository) ListAuthorityGenerations(ctx context.Context, now time.Time)
 // with the set of generation identities that carry an invalidation record,
 // both read from one statement so a concurrent succession commit can never
 // be observed as "generation present, invalidation present, successor
-// absent". Keys are ref + "@" + version.
-func (r Repository) listAuthorityGenerationsSnapshot(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, map[string]bool, error) {
+// absent". Keys are ref + "@" + version. The generation liveness records
+// (I12) are part of the same statement for the same reason: a succession
+// retires the predecessor's and admits the successor's liveness record in the
+// transaction that supersedes it, so a reader must never pair one snapshot of
+// the generations with a later read of their liveness. live maps a generation
+// to the digest its authenticated liveness record names.
+func (r Repository) listAuthorityGenerationsSnapshot(ctx context.Context, now time.Time) ([]contracts.AuthorityGeneration, map[string]bool, map[string]livenessRecord, error) {
 	if err := r.validateWorkPlanStore(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	all, err := r.Store.ListSecureBlobsInNamespaces(ctx, []string{authorityGenerationNamespace, authorityGenerationInvalidationNamespace}, now)
+	all, err := r.Store.ListSecureBlobsInNamespaces(ctx, []string{authorityGenerationNamespace, authorityGenerationInvalidationNamespace, state.AuthorityGenerationLiveNamespace}, now)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+	return r.decodeGenerationSnapshot(ctx, all)
+}
+
+// decodeGenerationSnapshot authenticates and decodes one statement's worth of
+// generation, invalidation and liveness rows.
+func (r Repository) decodeGenerationSnapshot(ctx context.Context, all []state.SecureBlobRecord) ([]contracts.AuthorityGeneration, map[string]bool, map[string]livenessRecord, error) {
 	invalidated := map[string]bool{}
+	live := map[string]livenessRecord{}
 	records := make([]state.SecureBlobRecord, 0, len(all))
 	for _, record := range all {
-		if record.Namespace == authorityGenerationInvalidationNamespace {
+		switch record.Namespace {
+		case authorityGenerationInvalidationNamespace:
 			invalidated[record.ObjectID+"@"+record.ObjectVersion] = true
+			continue
+		case state.AuthorityGenerationLiveNamespace:
+			payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("decrypt generation liveness %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+			}
+			var stored livenessRecord
+			if err := json.Unmarshal(payload, &stored); err != nil || stored.Namespace != record.Namespace || stored.ID != record.ObjectID || stored.Version != record.ObjectVersion || stored.Digest == "" {
+				return nil, nil, nil, fmt.Errorf("generation liveness %s/%s is inconsistent", record.ObjectID, record.ObjectVersion)
+			}
+			live[record.ObjectID+"@"+record.ObjectVersion] = stored
 			continue
 		}
 		records = append(records, record)
@@ -1179,24 +1453,24 @@ func (r Repository) listAuthorityGenerationsSnapshot(ctx context.Context, now ti
 	for _, record := range records {
 		payload, err := r.Crypto.Open(ctx, record.Envelope, state.SecureBlobAAD(record.Namespace, record.ObjectID, record.ObjectVersion, record.ObjectDigest))
 		if err != nil {
-			return nil, nil, fmt.Errorf("decrypt authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+			return nil, nil, nil, fmt.Errorf("decrypt authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
 		}
 		var generation contracts.AuthorityGeneration
 		if err := json.Unmarshal(payload, &generation); err != nil {
-			return nil, nil, fmt.Errorf("decode authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
+			return nil, nil, nil, fmt.Errorf("decode authority generation %s/%s: %w", record.ObjectID, record.ObjectVersion, err)
 		}
 		if generation.Ref != record.ObjectID || generation.Version != record.ObjectVersion || payloadDigest(payload) != record.ObjectDigest {
-			return nil, nil, errors.New("authority generation identity or digest mismatch")
+			return nil, nil, nil, errors.New("authority generation identity or digest mismatch")
 		}
 		if err := generation.Validate(); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if err := generation.VerifyDigest(); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		generations = append(generations, generation)
 	}
-	return generations, invalidated, nil
+	return generations, invalidated, live, nil
 }
 
 func (r Repository) SaveAuthorityGenerationInvalidation(ctx context.Context, invalidation contracts.AuthorityGenerationInvalidation, createdAt time.Time, expiresAt *time.Time) error {
@@ -1214,6 +1488,13 @@ func (r Repository) SaveAuthorityGenerationInvalidation(ctx context.Context, inv
 	if err != nil {
 		return fmt.Errorf("encode authority generation invalidation: %w", err)
 	}
+	// I13: anchor the retirement first, then retire the liveness record (I12).
+	if err := r.anchorGenerationRetired(ctx, generation.Ref, generation.Version, generation.Digest, invalidation.Kind, createdAt); err != nil {
+		return err
+	}
+	if err := r.retireLive(ctx, state.AuthorityGenerationLiveNamespace, invalidation.Ref, invalidation.Version); err != nil {
+		return err
+	}
 	return r.putWorkPlanBlobWithLock(ctx, authorityGenerationInvalidationNamespace, invalidation.Ref, invalidation.Version, payload, createdAt, expiresAt, authorityGenerationNamespace, invalidation.Ref, invalidation.Version)
 }
 
@@ -1228,12 +1509,7 @@ func (r Repository) ValidateAuthorityGeneration(ctx context.Context, decision co
 	if generation.Digest != decision.AuthorityGenerationDigest || generation.Principal != decision.DecidedBy || generation.Scope != decision.GrantedScope {
 		return errors.New("authority decision does not match current authority generation")
 	}
-	if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
-		return errors.New("authority generation is revoked or superseded")
-	} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
-		return err
-	}
-	return nil
+	return r.requireCurrentGeneration(ctx, generation, now)
 }
 
 func (r Repository) putWorkPlanBlob(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time) error {
@@ -1262,7 +1538,7 @@ func (r Repository) workPlanSecureRecord(ctx context.Context, namespace, objectI
 	return state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}, nil
 }
 
-func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string) error {
+func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, requestID, requestVersion, additionalID, additionalVersion, lockNamespace, lockID, lockVersion string, live ...state.SecureBlobRecord) error {
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
 	}
@@ -1273,7 +1549,7 @@ func (r Repository) putWorkPlanBlobUnlessRevoked(ctx context.Context, namespace,
 		return fmt.Errorf("encrypt authority-bound WorkPlan record: %w", err)
 	}
 	record := state.SecureBlobRecord{Namespace: namespace, ObjectID: objectID, ObjectVersion: version, ObjectDigest: digest, Sensitivity: r.Sensitivity, CryptoProfile: r.Profile, Envelope: envelope, CreatedAt: createdAt, ExpiresAt: expiresAt}
-	return r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, requestID, requestVersion, authorityGenerationInvalidationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion)
+	return r.Store.PutSecureBlobUnlessRevoked(ctx, record, authorityRevocationNamespace, requestID, requestVersion, authorityGenerationInvalidationNamespace, additionalID, additionalVersion, lockNamespace, lockID, lockVersion, live...)
 }
 
 func (r Repository) putWorkPlanBlobWithLock(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, lockNamespace, lockID, lockVersion string) error {
@@ -1345,6 +1621,9 @@ func (r Repository) ValidateAuthorityGenerationLineage(ctx context.Context, ref,
 		if _, _, err := r.loadWorkPlanBlob(ctx, authorityGenerationInvalidationNamespace, generation.Ref, generation.Version, now); err == nil {
 			return generation, errors.New("authority generation is revoked or superseded")
 		} else if !errors.Is(err, state.ErrSecureBlobNotFound) && !errors.Is(err, state.ErrSecureBlobExpired) {
+			return generation, err
+		}
+		if err := r.requireLive(ctx, state.AuthorityGenerationLiveNamespace, generation.Ref, generation.Version, generation.Digest, now); err != nil {
 			return generation, err
 		}
 		if generation.ParentRef == "" {
@@ -1451,4 +1730,14 @@ func (r Repository) SaveReplanningSuccessor(ctx context.Context, sourceID, sourc
 		return goals.GoalBaseline{}, fmt.Errorf("persist successor Goal Baseline: %w", err)
 	}
 	return successor, nil
+}
+
+// putWorkPlanBlobsAtomically writes one sealed record together with related
+// (liveness) records in a single transaction.
+func (r Repository) putWorkPlanBlobsAtomically(ctx context.Context, namespace, objectID, version string, payload []byte, createdAt time.Time, expiresAt *time.Time, related ...state.SecureBlobRecord) error {
+	record, err := r.workPlanSecureRecord(ctx, namespace, objectID, version, payload, createdAt, expiresAt)
+	if err != nil {
+		return err
+	}
+	return r.Store.PutSecureBlobsAtomically(ctx, append([]state.SecureBlobRecord{record}, related...))
 }

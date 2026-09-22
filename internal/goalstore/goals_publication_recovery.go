@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/convergent-systems-co/praxis/internal/state"
 	"github.com/convergent-systems-co/praxis/pkg/contracts"
 )
 
@@ -521,6 +522,33 @@ func (r Repository) RevalidateGoalsPublicationRecoveryAuthorizationTx(ctx contex
 	} else if revoked {
 		return errors.New("recovery authority decision was revoked before durable admission")
 	}
+	// I13: the store must be current against the forward authority anchor and
+	// none of the authorities may be retired by an anchored fact or admitted
+	// before the latest governed re-anchor.
+	if r.anchorEnabled() {
+		snap, err := r.governanceSnapshotTx(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if err := r.requireLiveInTx(ctx, tx, snap, state.AuthorityDecisionLiveNamespace, auth.Request.ID, auth.Request.Version); err != nil {
+			return err
+		}
+		for _, generation := range []struct{ ref, version string }{{auth.Generation.ParentRef, auth.Generation.ParentVersion}, {auth.Generation.Ref, auth.Generation.Version}} {
+			if generation.ref == "" {
+				continue
+			}
+			if err := r.requireLiveInTx(ctx, tx, snap, state.AuthorityGenerationLiveNamespace, generation.ref, generation.version); err != nil {
+				return err
+			}
+		}
+	}
+	// I12: absence of the revocation record is not evidence of force; the
+	// decision and every generation it rests on must still be positively live.
+	if live, err := exists(state.AuthorityDecisionLiveNamespace, auth.Request.ID, auth.Request.Version); err != nil {
+		return err
+	} else if !live {
+		return errors.New("recovery authority decision has no live authorization record")
+	}
 	if auth.Generation.ParentRef != "" {
 		if invalidated, err := exists(authorityGenerationInvalidationNamespace, auth.Generation.ParentRef, auth.Generation.ParentVersion); err != nil {
 			return err
@@ -532,6 +560,16 @@ func (r Repository) RevalidateGoalsPublicationRecoveryAuthorizationTx(ctx contex
 		return err
 	} else if invalidated {
 		return errors.New("recovery delegated authority generation was invalidated before durable admission")
+	}
+	for _, generation := range []struct{ ref, version string }{{auth.Generation.ParentRef, auth.Generation.ParentVersion}, {auth.Generation.Ref, auth.Generation.Version}} {
+		if generation.ref == "" {
+			continue
+		}
+		if live, err := exists(state.AuthorityGenerationLiveNamespace, generation.ref, generation.version); err != nil {
+			return err
+		} else if !live {
+			return errors.New("recovery authority generation has no live authorization record")
+		}
 	}
 	return nil
 }

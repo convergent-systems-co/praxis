@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -54,7 +53,7 @@ func runGoalEvaluate(ctx context.Context, options map[string]string, input []byt
 		return errors.New("Goal evaluation requires --input <evaluation.json> with the evaluator, the bound candidate identity, and findings")
 	}
 	var doc evaluationDocument
-	if err := json.Unmarshal(input, &doc); err != nil {
+	if err := contracts.UnmarshalExactJSON(input, &doc, false); err != nil {
 		return fmt.Errorf("decode evaluation document: %w", err)
 	}
 	repo, db, err := openGovernedRepository(ctx, getenv)
@@ -77,6 +76,9 @@ func runGoalEvaluate(ctx context.Context, options map[string]string, input []byt
 	}
 	if goalState.Decision != nil {
 		return fmt.Errorf("Goal %s/%s completion is already settled (%s); evaluation is closed", goalID, version, goalState.Decision.Status)
+	}
+	if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {
+		return fmt.Errorf("Goal %s/%s evaluation refused: %w", goalID, version, err)
 	}
 	latest := goalState.Latest()
 	if latest == nil {
@@ -184,6 +186,9 @@ func runGoalCompleteWithTerminal(ctx context.Context, options map[string]string,
 	}
 	if goalState.Candidate == nil {
 		return fmt.Errorf("Goal %s/%s has no completion candidate: goal-drive records one when every WorkPlan unit is durably complete", goalID, version)
+	}
+	if err := goaldrive.VerifyCandidateCompletions(ctx, ledger, repo, &baseline, *goalState.Candidate); err != nil {
+		return fmt.Errorf("Goal %s/%s cannot be settled: %w", goalID, version, err)
 	}
 	latest := goalState.Latest()
 	if latest == nil {

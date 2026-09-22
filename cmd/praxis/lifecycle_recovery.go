@@ -193,7 +193,7 @@ func runLifecycleRecoveryTransition(operation string, args []string, getenv func
 		}
 		req := lifecycle.RunRequest{Plan: plan, StepID: plan.Steps[0].ID, PreconditionDigest: preconditionDigest, SnapshotDigest: snapshotDigest, Authority: validator, RetryFailedRecoverable: true, Now: now}
 		driver := &lifecycle.StorageSchemaDriver{DB: db, Journal: journal, Prepared: built.StoragePrepared, GuardFactory: func(ctx context.Context, decision contracts.AuthorityDecision) (lifecycle.AuthorityGuard, error) {
-			return lifecycle.NewTransactionalAuthorityGuard(ctx, repo.Store, decision, time.Now().UTC())
+			return governedRepairGuard(ctx, repo, decision)
 		}}
 		if err := lifecycle.RunStep(ctx, journal, req, driver); err != nil {
 			return err
@@ -205,7 +205,7 @@ func runLifecycleRecoveryTransition(operation string, args []string, getenv func
 		}
 		req := lifecycle.RunRequest{Plan: plan, StepID: plan.Steps[1].ID, PreconditionDigest: preconditionDigest, SnapshotDigest: snapshotDigest, Authority: validator, RetryFailedRecoverable: true, Now: now}
 		driver := &lifecycle.RuntimeStateDriver{DB: db, Journal: journal, Prepared: prepared, GuardFactory: func(ctx context.Context, decision contracts.AuthorityDecision) (lifecycle.AuthorityGuard, error) {
-			return lifecycle.NewTransactionalAuthorityGuard(ctx, repo.Store, decision, time.Now().UTC())
+			return governedRepairGuard(ctx, repo, decision)
 		}}
 		if err := lifecycle.RunStep(ctx, journal, req, driver); err != nil {
 			return err
@@ -509,4 +509,17 @@ func lifecycleAuthorityRequirement(request contracts.AuthorityRequest, decision 
 		return contracts.LifecycleAuthorityRequirement{}, err
 	}
 	return contracts.LifecycleAuthorityRequirement{Required: true, Operation: request.RequestedAuthority, Scope: request.RequestedScope, RequestRef: request.ID, RequestVersion: request.Version, RequestDigest: requestDigest, DecisionRef: decision.DecisionRef, DecisionVersion: decision.DecisionVersion, DecisionDigest: decisionDigest, AuthorityRef: decision.AuthorityRef, AuthorityVersion: decision.AuthorityVersion, AuthorityGenerationDigest: decision.AuthorityGenerationDigest}, nil
+}
+
+// governedRepairGuard binds the durable decision and adds the forward authority
+// anchor currentness check (I13) to the guard's in-transaction revalidation.
+func governedRepairGuard(ctx context.Context, repo goalstore.Repository, decision contracts.AuthorityDecision) (*lifecycle.TransactionalAuthorityGuard, error) {
+	guard, err := lifecycle.NewTransactionalAuthorityGuard(ctx, repo.Store, decision, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	guard.Governance = func(ctx context.Context, tx *sql.Tx) error {
+		return repo.CheckAuthorityInForceInTx(ctx, tx, decision.RequestID, decision.RequestVersion, decision.AuthorityRef, decision.AuthorityVersion)
+	}
+	return guard, nil
 }

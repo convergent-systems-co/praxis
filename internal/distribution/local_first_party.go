@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/convergent-systems-co/praxis/internal/packagecatalog"
 )
@@ -71,6 +72,15 @@ func localDigest(b []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// versionDir resolves the on-disk directory for one package id/version and
+// requires it to remain a descendant of Root. repo and version are attacker
+// influenced (a package.PackageID has no character restriction, and repo is
+// taken directly from a package.deploy-intent-preview CLI argument), so
+// filepath.Join alone is not a containment guarantee: a crafted "../"-shaped
+// segment can walk outside Root. This is resolved with filepath.Abs on both
+// Root and the joined candidate and a filepath.Rel containment check,
+// refusing (not merely warning) whenever the resolved directory is not
+// exactly Root or a descendant of it.
 func (a LocalFirstParty) versionDir(repo, version string) (string, error) {
 	if a.Root == "" {
 		return "", errors.New("local-first-party adapter requires an explicit Root")
@@ -78,7 +88,19 @@ func (a LocalFirstParty) versionDir(repo, version string) (string, error) {
 	if repo == "" || version == "" {
 		return "", errors.New("local-first-party package id and version are required")
 	}
-	return filepath.Join(a.Root, repo, version), nil
+	root, err := filepath.Abs(a.Root)
+	if err != nil {
+		return "", fmt.Errorf("resolve local-first-party root: %w", err)
+	}
+	dir, err := filepath.Abs(filepath.Join(root, repo, version))
+	if err != nil {
+		return "", fmt.Errorf("resolve local package %s/%s directory: %w", repo, version, err)
+	}
+	rel, err := filepath.Rel(root, dir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("local package %s/%s resolves outside the configured local package root", repo, version)
+	}
+	return dir, nil
 }
 
 // load reads, pins, and cross-checks one local package version. Every

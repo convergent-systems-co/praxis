@@ -300,3 +300,64 @@ func TestLocalInvalidSignatureStillFailsVerification(t *testing.T) {
 		t.Fatal("a local package signed by an untrusted key must be refused, exactly like any other transport")
 	}
 }
+
+// TestLocalFirstPartyRefusesPathTraversalEvenWithMatchingManifestID
+// reproduces the exact counterexample independent Review 1 found: the
+// identity-binding check alone (manifest.PackageID == ref.Repo) does not
+// stop traversal, because packagecatalog.Manifest.Validate places no
+// character restriction on PackageID -- a manifest can declare a PackageID
+// that is itself the traversal string, matching whatever ref.Repo the
+// caller supplies. This proves versionDir's own containment check refuses
+// it regardless of what the manifest claims.
+func TestLocalFirstPartyRefusesPathTraversalEvenWithMatchingManifestID(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "configured-root")
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// The traversal target sits as a sibling of root, entirely outside it.
+	traversal := "../outside-root/victim"
+	victimDir := filepath.Join(base, "outside-root", "victim", "1")
+	if err := os.MkdirAll(victimDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	artifact := []byte("bytes planted outside the configured root")
+	manifest := packagecatalog.Manifest{ContractVersion: packagecatalog.ManifestContractCurrentVersion(), PackageID: traversal, Version: "1", ContentDigest: sha256Digest(artifact)}
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(victimDir, "manifest.json"), manifestBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(victimDir, "artifact.tar.gz"), artifact, 0600); err != nil {
+		t.Fatal(err)
+	}
+	identity := localPinnedIdentity{ManifestDigest: sha256Digest(manifestBytes), ArtifactDigest: manifest.ContentDigest}
+	identityBytes, err := json.Marshal(identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(victimDir, "identity.json"), identityBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// filepath.Join(root, traversal, "1") resolves (after Clean) to exactly
+	// victimDir -- confirm the test's own geometry before asserting on the
+	// adapter, so a future refactor of this test cannot silently stop
+	// testing what it claims to.
+	if got := filepath.Join(root, traversal, "1"); got != victimDir {
+		t.Fatalf("test setup error: filepath.Join(root, traversal, \"1\") = %q, want %q", got, victimDir)
+	}
+	adapter := LocalFirstParty{Root: root}
+	ref := PackageRef{Source: SourceLocalFirstParty, Owner: "local", Repo: traversal}
+	if _, err := adapter.Resolve(context.Background(), ref, "1"); err == nil {
+		t.Fatal("Resolve escaped the configured Root via a manifest.PackageID that matches a traversal-shaped ref.Repo")
+	}
+	if _, err := adapter.Info(context.Background(), ref, "1"); err == nil {
+		t.Fatal("Info escaped the configured Root via a manifest.PackageID that matches a traversal-shaped ref.Repo")
+	}
+	dep := packagecatalog.Dependency{PackageID: traversal, Version: "1", Digest: manifest.ContentDigest, SourceKind: SourceLocalFirstParty, SourceRef: traversal}
+	if _, err := adapter.ResolveLocked(context.Background(), dep); err == nil {
+		t.Fatal("ResolveLocked escaped the configured Root via a traversal-shaped dependency PackageID")
+	}
+}

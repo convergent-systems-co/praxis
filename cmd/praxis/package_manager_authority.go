@@ -341,6 +341,18 @@ func runPackageManagerDeploymentApprove(args []string, getenv func(string) strin
 // owner/repo[@tag] reference. An argument that matches neither recognized
 // form fails closed through parseGitHubPackageRef's own format error; there
 // is no silent default transport.
+// containsPathTraversalSegment reports whether any "/"-delimited segment of
+// s is exactly "..". It does not reject "." or an empty segment, and it does
+// not reject "/" itself -- only the traversal shape.
+func containsPathTraversalSegment(s string) bool {
+	for _, segment := range strings.Split(s, "/") {
+		if segment == ".." {
+			return true
+		}
+	}
+	return false
+}
+
 func parsePackageDeployRef(raw string, getenv func(string) string) (distribution.PackageRef, string, distribution.RootAdapter, error) {
 	if strings.HasPrefix(raw, "local:") {
 		spec := strings.TrimPrefix(raw, "local:")
@@ -349,6 +361,14 @@ func parsePackageDeployRef(raw string, getenv func(string) string) (distribution
 			return distribution.PackageRef{}, "", nil, fmt.Errorf("local package reference must be local:<package-id>@<version>, got %q", raw)
 		}
 		packageID, version := spec[:at], spec[at+1:]
+		// Defense in depth alongside distribution.LocalFirstParty's own path
+		// containment check: neither a package id nor a version may contain a
+		// ".." path segment. A legitimate package id may still contain "/"
+		// (this codebase's own package ids do, e.g. "shared/graph"), so this
+		// only rejects the traversal shape, not slashes generally.
+		if containsPathTraversalSegment(packageID) || containsPathTraversalSegment(version) {
+			return distribution.PackageRef{}, "", nil, fmt.Errorf("local package reference must not contain a path-traversal segment, got %q", raw)
+		}
 		root := getenv("PRAXIS_LOCAL_PACKAGES_DIR")
 		if root == "" {
 			return distribution.PackageRef{}, "", nil, errors.New("PRAXIS_LOCAL_PACKAGES_DIR is required for a local-first-party package reference")

@@ -74,3 +74,23 @@ func TestParsePackageDeployRefRejectsUnrecognizedForm(t *testing.T) {
 		t.Fatal("expected an unrecognized reference form to fail closed")
 	}
 }
+
+// TestParsePackageDeployRefRejectsPathTraversal is defense in depth for the
+// same containment property distribution.LocalFirstParty enforces itself
+// (see internal/distribution/local_first_party_test.go's
+// TestLocalFirstPartyRefusesPathTraversalEvenWithMatchingManifestID): a
+// traversal-shaped package id or version must never even reach the adapter.
+func TestParsePackageDeployRefRejectsPathTraversal(t *testing.T) {
+	getenv := fixedEnv(map[string]string{"PRAXIS_LOCAL_PACKAGES_DIR": "/tmp/local-packages"})
+	for _, raw := range []string{"local:../outside/victim@1", "local:package-id@../1", "local:../..@1"} {
+		if _, _, _, err := parsePackageDeployRef(raw, getenv); err == nil {
+			t.Fatalf("expected %q to be rejected as a path-traversal-shaped local reference", raw)
+		}
+	}
+	// A package id containing "/" but no ".." segment must still be allowed
+	// -- this codebase's own package ids use "/" as a namespace separator
+	// (e.g. "shared/graph" in internal/distribution/resolver_test.go).
+	if _, _, _, err := parsePackageDeployRef("local:shared/graph@2", getenv); err != nil {
+		t.Fatalf("a slash-namespaced package id with no traversal segment must be accepted: %v", err)
+	}
+}

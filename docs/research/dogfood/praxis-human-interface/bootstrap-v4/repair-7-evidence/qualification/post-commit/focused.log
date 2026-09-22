@@ -1,0 +1,13 @@
+ok  	github.com/convergent-systems-co/praxis/pkg/contracts	0.526s
+ok  	github.com/convergent-systems-co/praxis/internal/bootstrapv4	23.037s
+ok  	github.com/convergent-systems-co/praxis/internal/goaldrive	143.695s
+ok  	github.com/convergent-systems-co/praxis/internal/goalstore	50.003s
+ok  	github.com/convergent-systems-co/praxis/internal/state	3.251s
+ok  	github.com/convergent-systems-co/praxis/internal/goalspublication	31.109s
+ok  	github.com/convergent-systems-co/praxis/internal/publisher	2.439s
+ok  	github.com/convergent-systems-co/praxis/internal/lifecycle	5.741s
+ok  	github.com/convergent-systems-co/praxis/internal/faa	1.777s
+?   	github.com/convergent-systems-co/praxis/internal/faa/faatest	[no test files]
+ok  	github.com/convergent-systems-co/praxis/internal/crypto	26.118s
+ok  	github.com/convergent-systems-co/praxis/packages/goals	2.085s
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	97.011s

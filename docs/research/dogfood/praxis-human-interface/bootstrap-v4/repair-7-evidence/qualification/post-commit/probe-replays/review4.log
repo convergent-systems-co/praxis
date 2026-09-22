@@ -1,0 +1,26 @@
+$ go test -overlay=/var/folders/2x/bksy24jx7g70txrtq_636s100000gn/T/tmpmbsuyusj/overlay.json ./cmd/praxis -run TestReview4 -count=1 -v
+=== RUN   TestReview4N8RevocationDeletionCreatesNewGovernedGateCompletion
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review4_row_deletion_test.go:39: CONTROL: durable revocation refuses fresh-controller drive; only producer completion exists
+    review4_row_deletion_test.go:51: resurrected decision: authority decision has no live authorization record (revoked, or governing state was lost): authority decision is revoked: governance liveness record is missing or does not match: authority_decision_live goal-gate:7197c40a2b812f6860f3be326b5361379ecb6eb024f2cbe15127d1f7c68e39e9/1
+--- FAIL: TestReview4N8RevocationDeletionCreatesNewGovernedGateCompletion (0.09s)
+=== RUN   TestReview4N9ClassificationDeletionAllowsCLIImportAndWorker
+{
+  "baseline_digest": "sha256:275194ef34be081150d3e0dbde71a415aac5939bebe6efb603541e24413a7b6b",
+  "goal_id": "goal:pending-surface",
+  "goal_version": "1",
+  "operation": "import",
+  "status": "authoritative"
+}
+    review4_row_deletion_test.go:68: CONTROL: classified Goal refuses stripped CLI import with activation absent
+    review4_row_deletion_test.go:73: stripped import after delete: import Goal Baseline: Goal is classified safety-bearing; a plan without the safety binding is a downgrade: Goal goal:pending-surface (kernel praxis-human-interface-bootstrap-v4/1); a plan enters only through the authenticated accepted-plan attachment transaction
+--- FAIL: TestReview4N9ClassificationDeletionAllowsCLIImportAndWorker (0.06s)
+FAIL
+FAIL	github.com/convergent-systems-co/praxis/cmd/praxis	0.619s
+FAIL

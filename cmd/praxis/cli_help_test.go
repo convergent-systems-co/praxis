@@ -46,8 +46,9 @@ func TestCLIHelpContractAcrossCommandHierarchy(t *testing.T) {
 		{"authority preview help", []string{"publisher", "authority-preview", "--help"}, "--output <file>"},
 		{"authority model preview help", []string{"authority", "model-preview", "--help"}, "--output <file>"},
 		{"authority model adopt help", []string{"authority", "model-adopt", "--help"}, "--preview-file <file>"},
-		{"install help", []string{"install", "--help"}, "<owner/repo[@tag]>"},
+		{"install help", []string{"install", "--help"}, "local:<package-id>@<version>"},
 		{"install approval selector help", []string{"install", "--help"}, "PRAXIS_PACKAGE_APPROVAL_ID"},
+		{"local update help", []string{"update", "--help"}, "--to local:<package-id>@<version>"},
 		{"migration preview help", []string{"migration", "preview", "--help"}, "--output <file>"},
 		{"other family", []string{"migration", "execute", "--help"}, "usage: praxis migration execute --preview-file <path>"},
 	}

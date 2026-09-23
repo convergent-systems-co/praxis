@@ -61,15 +61,15 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		ref, version, err := parseGitHubPackageRef(refArg)
+		ref, version, source, err := parsePackageDeployRef(refArg, os.Getenv)
 		if err != nil {
 			return err
 		}
-		release, err := adapter.Resolve(ctx, ref, version)
+		release, err := source.Resolve(ctx, ref, version)
 		if err != nil {
 			return err
 		}
-		artifact, err := adapter.FetchArtifact(ctx, release)
+		artifact, err := source.FetchArtifact(ctx, release)
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		resolution, err := resolveReleasePackages(ctx, adapter, release, artifact, os.Getenv, allowFallback, at)
+		resolution, err := resolveReleasePackages(ctx, source, release, artifact, os.Getenv, allowFallback, at)
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func runPackageCommand(command string, args []string) error {
 		}
 		return printJSON(map[string]any{"installed": release.Manifest.PackageID, "version": release.Manifest.Version, "digest": release.Manifest.ContentDigest, "signature_keys": signatureKeyIDs(release.Signature), "signature_profile": release.Signature.Profile, "dependency_resolution": resolution.Order, "entry_points": release.Manifest.Invocations, "contents": release.Manifest.Contents})
 	case "update":
-		packageID, acceptChanges, allowFallback, err := parseUpdateArgs(args)
+		packageID, targetRef, acceptChanges, allowFallback, err := parseUpdateArgs(args)
 		if err != nil {
 			return err
 		}
@@ -119,13 +119,48 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return fmt.Errorf("active package %q: %w", packageID, err)
 		}
-		ref, _, err := parseGitHubPackageRef(installed.SourceRef)
-		if err != nil {
-			return fmt.Errorf("installed source: %w", err)
-		}
-		latest, changed, err := adapter.CheckUpdate(ctx, ref, installed.Manifest.Version)
-		if err != nil {
-			return err
+		var latest distribution.Release
+		var changed bool
+		var source distribution.RootAdapter
+		switch installed.SourceKind {
+		case distribution.SourceLocalFirstParty:
+			if targetRef == "" {
+				return errors.New("local package update requires --to local:<package-id>@<version>; local sources have no moving latest")
+			}
+			ref, version, selected, err := parsePackageDeployRef(targetRef, os.Getenv)
+			if err != nil {
+				return err
+			}
+			if ref.Source != distribution.SourceLocalFirstParty || ref.Repo != packageID || version == "" {
+				return errors.New("local update target must pin the same package id and an explicit version")
+			}
+			if version == installed.Manifest.Version {
+				return errors.New("local update target must name a different version; use rollback for an earlier generation")
+			}
+			source = selected
+			latest, err = source.Resolve(ctx, ref, version)
+			if err != nil {
+				return err
+			}
+			changed = true
+		case distribution.SourceGitHubReleases:
+			if targetRef != "" {
+				return errors.New("--to is only supported for an installed local-first-party package")
+			}
+			ref, _, selected, err := parsePackageDeployRef(installed.SourceRef, os.Getenv)
+			if err != nil {
+				return fmt.Errorf("installed source: %w", err)
+			}
+			if ref.Source != distribution.SourceGitHubReleases {
+				return errors.New("installed source is not a GitHub package reference")
+			}
+			source = selected
+			latest, changed, err = source.CheckUpdate(ctx, ref, installed.Manifest.Version)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported installed package source %q", installed.SourceKind)
 		}
 		if !changed {
 			return printJSON(map[string]any{"package_id": packageID, "up_to_date": true, "version": installed.Manifest.Version})
@@ -134,7 +169,7 @@ func runPackageCommand(command string, args []string) error {
 		if review.RequiresReauthorization && !acceptChanges {
 			return fmt.Errorf("update requires explicit review/reauthorization: added_capabilities=%v enforcement_changed=%v crypto_changed=%v; rerun with --accept-permission-changes after review", review.AddedCapabilities, review.EnforcementChanged, review.CryptoProfileChanged)
 		}
-		artifact, err := adapter.FetchArtifact(ctx, latest)
+		artifact, err := source.FetchArtifact(ctx, latest)
 		if err != nil {
 			return err
 		}
@@ -143,7 +178,7 @@ func runPackageCommand(command string, args []string) error {
 		if err != nil {
 			return err
 		}
-		resolution, err := resolveReleasePackages(ctx, adapter, latest, artifact, os.Getenv, allowFallback, at)
+		resolution, err := resolveReleasePackages(ctx, source, latest, artifact, os.Getenv, allowFallback, at)
 		if err != nil {
 			return err
 		}
@@ -219,7 +254,7 @@ func runPackageCommand(command string, args []string) error {
 
 func parseInstallArgs(args []string) (string, bool, error) {
 	if len(args) < 1 || len(args) > 2 {
-		return "", false, errors.New("usage: praxis install <owner/repo[@tag]> [--allow-classical-signature-fallback]")
+		return "", false, errors.New("usage: praxis install <owner/repo[@tag]|local:<package-id>@<version>> [--allow-classical-signature-fallback]")
 	}
 	allow := false
 	if len(args) == 2 {
@@ -231,22 +266,29 @@ func parseInstallArgs(args []string) (string, bool, error) {
 	return args[0], allow, nil
 }
 
-func parseUpdateArgs(args []string) (string, bool, bool, error) {
-	if len(args) < 1 || len(args) > 3 {
-		return "", false, false, errors.New("usage: praxis update <package-id> [--accept-permission-changes] [--allow-classical-signature-fallback]")
+func parseUpdateArgs(args []string) (string, string, bool, bool, error) {
+	if len(args) < 1 || len(args) > 5 {
+		return "", "", false, false, errors.New("usage: praxis update <package-id> [--to local:<package-id>@<version>] [--accept-permission-changes] [--allow-classical-signature-fallback]")
 	}
-	accept, fallback := false, false
-	for _, arg := range args[1:] {
+	accept, fallback, target := false, false, ""
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
 		switch arg {
+		case "--to":
+			if target != "" || i+1 >= len(args) || args[i+1] == "" {
+				return "", "", false, false, errors.New("update --to requires one exact package reference")
+			}
+			i++
+			target = args[i]
 		case "--accept-permission-changes":
 			accept = true
 		case "--allow-classical-signature-fallback":
 			fallback = true
 		default:
-			return "", false, false, fmt.Errorf("unknown update option %q", arg)
+			return "", "", false, false, fmt.Errorf("unknown update option %q", arg)
 		}
 	}
-	return args[0], accept, fallback, nil
+	return args[0], target, accept, fallback, nil
 }
 
 func openPackageDB(ctx context.Context) (*sql.DB, error) {

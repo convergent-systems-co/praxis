@@ -50,12 +50,16 @@ def main() -> None:
             candidate_binary = root / "praxis-candidate"
             checked(["go", "build", "-o", str(base_binary), "./cmd/praxis"], base_worktree, env)
             checked(["go", "build", "-o", str(candidate_binary), "./cmd/praxis"], repo, env)
+            # The old CLI misroutes local: through GitHub. Force its network
+            # attempt to a closed loopback proxy so the negative probe is
+            # read-only and cannot contact a remote service.
+            base_env = dict(env, HTTPS_PROXY="http://127.0.0.1:1", HTTP_PROXY="http://127.0.0.1:1", ALL_PROXY="http://127.0.0.1:1", NO_PROXY="")
             negatives = {
-                "base-negative-install.txt": ([str(base_binary), "install", "local:probe/dynamic@1"], "GitHub package reference"),
+                "base-negative-install.txt": ([str(base_binary), "install", "local:probe/dynamic@1"], "api.github.com"),
                 "base-negative-update.txt": ([str(base_binary), "update", "probe/dynamic", "--to", "local:probe/dynamic@2"], "unknown update option"),
             }
             for name, (cmd, expected) in negatives.items():
-                result = command(cmd, base_worktree, env)
+                result = command(cmd, base_worktree, base_env)
                 (output / name).write_text(result.stdout, encoding="utf-8")
                 if result.returncode == 0 or expected not in result.stdout:
                     raise RuntimeError(f"unchanged base did not reject {name}: {result.returncode} {result.stdout}")

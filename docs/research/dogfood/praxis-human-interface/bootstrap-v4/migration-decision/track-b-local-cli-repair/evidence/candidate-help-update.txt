@@ -1,0 +1,7 @@
+usage: praxis update <package-id> [--to local:<package-id>@<version>] [--accept-permission-changes] [--allow-classical-signature-fallback]
+
+Description:
+  Update an installed package through the governed lifecycle.
+
+Options:
+  Local packages require --to with the same package ID and an exact version; there is no moving latest. GitHub packages retain automatic update lookup. An exact approval is required.

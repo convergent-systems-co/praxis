@@ -1,0 +1,21 @@
+{
+  "base_commit": "434eeedb98df44350b0bb00b5bb1b9071d3a5486",
+  "base_tree": "afe01347594a18a85a73e383edb4ffe7fef3c093",
+  "bounds": [
+    "offline disposable fixtures",
+    "ephemeral signing keys and governed approval rows",
+    "no live signing, publisher enrollment, FAA, Keychain, package deployment, core replacement, or activation"
+  ],
+  "files": {
+    "base-negative-install.txt": "sha256:c68814160f56a35f648dc514f97a050ad7aa8a64b80248e4d3e9697fcc4a6a94",
+    "base-negative-update.txt": "sha256:31fd72d6854def33db29b12629f4b025bf65f77f4b105686ad19b906c14ea2c7",
+    "candidate-help-install.txt": "sha256:c5bb030472da5d9212ad09008895f1324b49ede2f921d8766f863282c43350f2",
+    "candidate-help-update.txt": "sha256:f647b1d2efb24d36ecb1a01b30ae4a710904e19f580aab1cba4626587109d728",
+    "candidate-test.log": "sha256:f332799c8cb342f5f0344912a121462bc83867c4edd958f0dbdbbff1f095ff77"
+  },
+  "probe_digest": "sha256:9d0bd33d8128262ad8ed509365fac3f7b53d89efb4ba583014375d9e1ae8f4e9",
+  "receipt_digest": "sha256:104c30f82d1addd4ea6edac3c2dfa30393fab1bf9da9e81e44b53488fa0f252d",
+  "source_commit": "8fe74e9b9c08c9a661209155e1b80eb3cbb22908",
+  "source_tree": "7add83949f7d26d30705abe13917315b11eaf79e",
+  "status": "BOUNDED_SCRATCH_PASS"
+}

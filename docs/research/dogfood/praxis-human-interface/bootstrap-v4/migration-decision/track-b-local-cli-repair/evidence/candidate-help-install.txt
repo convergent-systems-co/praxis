@@ -1,0 +1,7 @@
+usage: praxis install <owner/repo[@tag]|local:<package-id>@<version>> [--allow-classical-signature-fallback]
+
+Description:
+  Install a verified package through the governed package lifecycle.
+
+Options:
+  Local references require PRAXIS_LOCAL_PACKAGES_DIR and an exact version. Optional: --allow-classical-signature-fallback. Selectors: PRAXIS_DB, PRAXIS_TRUSTED_KEYS, and PRAXIS_PACKAGE_APPROVAL_ID; GITHUB_TOKEN is optional for GitHub transport.

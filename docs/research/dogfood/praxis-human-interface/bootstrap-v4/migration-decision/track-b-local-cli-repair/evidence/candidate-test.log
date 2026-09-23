@@ -1,0 +1,128 @@
+=== RUN   TestLocalCLIInstallUpdateAndRemovalScratch
+{
+  "contents": null,
+  "dependency_resolution": [
+    {
+      "package_id": "probe/dynamic",
+      "package_version": "1",
+      "content_digest": "sha256:eff644de0d869052e527b01c8b7a993026cc61564cebaf88e55e4fd0c8fda31d",
+      "verification_id": "package-verification:sha256:ca7a3b02759698bc570972ae8e0e53831ef43fabc3c70478c368f6247264b870"
+    }
+  ],
+  "digest": "sha256:eff644de0d869052e527b01c8b7a993026cc61564cebaf88e55e4fd0c8fda31d",
+  "entry_points": [
+    {
+      "version": "v1",
+      "package_id": "probe/dynamic",
+      "package_version": "1",
+      "graph_id": "probe/dynamic.graph",
+      "graph_version": "1",
+      "entry_point_id": "probe/dynamic.run",
+      "aliases": [
+        "probe-one"
+      ],
+      "options": [
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "safe"
+        }
+      ]
+    }
+  ],
+  "installed": "probe/dynamic",
+  "signature_keys": [
+    "publisher-1"
+  ],
+  "signature_profile": "classical-compatible",
+  "version": "1"
+}
+{
+  "entry_point_id": "probe/dynamic.run",
+  "package_id": "probe/dynamic",
+  "package_version": "1",
+  "package_digest": "sha256:eff644de0d869052e527b01c8b7a993026cc61564cebaf88e55e4fd0c8fda31d",
+  "graph_id": "probe/dynamic.graph",
+  "graph_version": "1",
+  "options": {
+    "mode": "deep"
+  }
+}
+usage: praxis <command|installed-entry-point> [arguments] [options]
+
+Description:
+  Praxis control plane and installed package entry points.
+
+Options:
+  Commands: discover, info, install, update, rollback, disable, uninstall, list, status, resume, cancel, supervise, providers, doctor, key-bootstrap, state-init, migration, authority, publisher, version, help
+  Installed entry points: probe-one
+usage: praxis probe-one [--option=value ...]
+
+Description:
+  Installed entry point "probe/dynamic.run" of package probe/dynamic@1 (graph probe/dynamic.graph@1); aliases: probe-one.
+
+Options:
+  --mode <string> [default: safe]
+{
+  "entry_point_id": "probe/dynamic.run",
+  "package_id": "probe/dynamic",
+  "package_version": "1",
+  "package_digest": "sha256:eff644de0d869052e527b01c8b7a993026cc61564cebaf88e55e4fd0c8fda31d",
+  "graph_id": "probe/dynamic.graph",
+  "graph_version": "1",
+  "options": {
+    "mode": "deep"
+  }
+}
+{
+  "dependency_resolution": [
+    {
+      "package_id": "probe/dynamic",
+      "package_version": "2",
+      "content_digest": "sha256:69ce6efded9bbfbc2e999af64ced647ccb30393ebf492410a556e477414a7272",
+      "verification_id": "package-verification:sha256:7cb6eae8f077e861c571b2ea9028bbbd751f066c4bce5b7381370d40d2fcf313"
+    }
+  ],
+  "from": "1",
+  "review": {
+    "AddedCapabilities": [
+      "network.read"
+    ],
+    "RemovedCapabilities": null,
+    "EnforcementChanged": false,
+    "CryptoProfileChanged": false,
+    "RequiresReauthorization": true
+  },
+  "signature_keys": [
+    "publisher-1"
+  ],
+  "signature_profile": "classical-compatible",
+  "to": "2",
+  "updated": "probe/dynamic"
+}
+{
+  "entry_point_id": "probe/dynamic.run",
+  "package_id": "probe/dynamic",
+  "package_version": "2",
+  "package_digest": "sha256:69ce6efded9bbfbc2e999af64ced647ccb30393ebf492410a556e477414a7272",
+  "graph_id": "probe/dynamic.graph",
+  "graph_version": "2",
+  "options": {
+    "mode": "deep"
+  }
+}
+{
+  "durable_history_preserved": true,
+  "package_id": "probe/dynamic",
+  "state": "disable"
+}
+{
+  "durable_history_preserved": true,
+  "package_id": "probe/dynamic",
+  "state": "remove"
+}
+--- PASS: TestLocalCLIInstallUpdateAndRemovalScratch (0.11s)
+=== RUN   TestLocalCLIUpdateRequiresExplicitPinnedTarget
+--- PASS: TestLocalCLIUpdateRequiresExplicitPinnedTarget (0.00s)
+PASS
+ok  	github.com/convergent-systems-co/praxis/cmd/praxis	0.527s

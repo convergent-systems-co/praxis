@@ -137,6 +137,13 @@ func runPackageCommand(command string, args []string) error {
 			if version == installed.Manifest.Version {
 				return errors.New("local update target must name a different version; use rollback for an earlier generation")
 			}
+			historical, err := store.PackageVersionWasInstalled(ctx, packageID, version)
+			if err != nil {
+				return err
+			}
+			if historical {
+				return errors.New("local update target is a previously installed version; use rollback for an earlier generation")
+			}
 			source = selected
 			latest, err = source.Resolve(ctx, ref, version)
 			if err != nil {

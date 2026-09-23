@@ -263,6 +263,22 @@ func TestLocalCLIInstallUpdateAndRemovalScratch(t *testing.T) {
 	if active.SourceKind != distribution.SourceLocalFirstParty || active.Manifest.Version != "2" {
 		t.Fatalf("local source lost after CLI update: %+v", active)
 	}
+	var receiptsBefore int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM package_activation_receipts WHERE package_id=?`, "probe/dynamic").Scan(&receiptsBefore); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"update", "probe/dynamic", "--to", "local:probe/dynamic@1", "--accept-permission-changes"}); err == nil || !strings.Contains(err.Error(), "use rollback") {
+		t.Fatalf("historical local generation accepted through update: %v", err)
+	}
+	var receiptsAfter int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM package_activation_receipts WHERE package_id=?`, "probe/dynamic").Scan(&receiptsAfter); err != nil || receiptsAfter != receiptsBefore {
+		t.Fatalf("rejected historical update changed activation receipts: before=%d after=%d err=%v", receiptsBefore, receiptsAfter, err)
+	}
+	active, err = state.New(db).ActivePackage(ctx, "probe/dynamic")
+	if err != nil || active.Manifest.Version != "2" {
+		t.Fatalf("rejected historical update changed active generation: %+v %v", active, err)
+	}
+	assertAlias("probe-two", "2")
 	t.Setenv("PRAXIS_AUTHORITY_ID", "scratch-operator")
 	t.Setenv("PRAXIS_AUTHORITY_KIND", "user")
 	t.Setenv("PRAXIS_PACKAGE_APPROVAL_ID", localCLITransitionApproval(t, db, active.Manifest, packagecatalog.TransitionDisable))

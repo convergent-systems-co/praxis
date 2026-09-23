@@ -224,6 +224,17 @@ func (s *Store) ActivePackage(ctx context.Context, packageID string) (InstalledP
 	return p, nil
 }
 
+// PackageVersionWasInstalled includes superseded and removed generations so
+// update cannot reactivate historical bytes through the deployment path.
+func (s *Store) PackageVersionWasInstalled(ctx context.Context, packageID, version string) (bool, error) {
+	if s == nil || s.db == nil || packageID == "" || version == "" {
+		return false, errors.New("state store, package id and version are required")
+	}
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM installed_packages WHERE package_id=? AND package_version=?)`, packageID, version).Scan(&exists)
+	return exists, err
+}
+
 // SelectedPackage returns the generation currently governing package
 // lifecycle operations. Disabled packages remain selectable for governed
 // removal; removed and superseded installed generations do not.

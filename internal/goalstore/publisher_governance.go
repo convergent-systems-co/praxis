@@ -618,15 +618,12 @@ func (r Repository) LoadPublisherAuthorityReviewByDigest(ctx context.Context, wa
 	}
 	return contracts.PublisherAuthorityReview{}, statepkg.ErrSecureBlobNotFound
 }
+
+// SavePublisherEnrollmentApproval is sealed: only ApprovePublisherEnrollment
+// can establish the owner, confirmation, and current-root preconditions before
+// writing a new approval. Kept as a fail-closed compatibility entry point.
 func (r Repository) SavePublisherEnrollmentApproval(ctx context.Context, a contracts.PublisherEnrollmentApproval, now time.Time) (string, error) {
-	d, e := a.Digest()
-	if e != nil {
-		return "", e
-	}
-	if _, e = r.savePublisherGovernance(ctx, a.ID, a.Version, a, now, nil); e != nil {
-		return "", e
-	}
-	return d, nil
+	return "", errors.New("publisher enrollment approvals require guarded owner approval")
 }
 
 func (r Repository) LoadPublisherEnrollmentApproval(ctx context.Context, previewDigest string, now time.Time) (contracts.PublisherEnrollmentApproval, error) {
@@ -634,10 +631,18 @@ func (r Repository) LoadPublisherEnrollmentApproval(ctx context.Context, preview
 		return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment preview digest is required")
 	}
 	var approval contracts.PublisherEnrollmentApproval
-	if err := r.loadPublisherGovernance(ctx, "publisher-enrollment-approval:"+previewDigest, "1", now, &approval); err != nil {
-		return approval, err
+	id := "publisher-enrollment-approval:" + previewDigest
+	version := contracts.PublisherEnrollmentApprovalVersion
+	if err := r.loadPublisherGovernance(ctx, id, version, now, &approval); err != nil {
+		if !errors.Is(err, statepkg.ErrSecureBlobNotFound) {
+			return contracts.PublisherEnrollmentApproval{}, err
+		}
+		version = "1"
+		if err := r.loadPublisherGovernance(ctx, id, "1", now, &approval); err != nil {
+			return contracts.PublisherEnrollmentApproval{}, err
+		}
 	}
-	if _, err := approval.Digest(); err != nil || approval.PreviewDigest != previewDigest {
+	if _, err := approval.Digest(); err != nil || approval.PreviewDigest != previewDigest || approval.ID != id || approval.Version != version {
 		return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment approval digest mismatch")
 	}
 	return approval, nil
@@ -665,6 +670,9 @@ func (r Repository) LoadPublisherEnrollmentApprovalByDigest(ctx context.Context,
 		var approval contracts.PublisherEnrollmentApproval
 		if err := json.Unmarshal(payload, &approval); err != nil {
 			return contracts.PublisherEnrollmentApproval{}, err
+		}
+		if approval.ID != record.ObjectID || approval.Version != record.ObjectVersion {
+			return contracts.PublisherEnrollmentApproval{}, errors.New("publisher enrollment approval storage identity mismatch")
 		}
 		digest, err := approval.Digest()
 		if err != nil {
@@ -697,6 +705,12 @@ func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDig
 	if err != nil {
 		return contracts.PublisherGeneration{}, err
 	}
+	if approval.Version != contracts.PublisherEnrollmentApprovalVersion {
+		return contracts.PublisherGeneration{}, errors.New("legacy publisher enrollment approval cannot authorize enrollment")
+	}
+	if strings.TrimSpace(osUser) == "" || approval.ApproverOSUser != osUser {
+		return contracts.PublisherGeneration{}, errors.New("publisher enrollment approval OS user does not match")
+	}
 	if approval.BootstrapDigest != bootstrapDigest || approval.OwnerID != owner.ID || approval.OwnerKind != owner.Kind || approval.ApproverID != owner.ID || approval.ApproverKind != owner.Kind || approval.AuthorityModel != contracts.AuthorityModelID || approval.AuthorityModelVersion != contracts.AuthorityModelSuccessorVersion || approval.AuthorityModelDigest != contracts.AuthorityModelSuccessorDigest() {
 		return contracts.PublisherGeneration{}, errors.New("publisher enrollment approval is not bound to the current installation owner/model")
 	}
@@ -711,8 +725,12 @@ func (r Repository) EnrollPublisherFromApproval(ctx context.Context, approvalDig
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherGeneration{}, errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
-	if err := r.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, osUser, now); err != nil {
+	root, err := r.currentInstallationOwnerRoot(ctx, bootstrapDigest, owner, osUser, now)
+	if err != nil {
 		return contracts.PublisherGeneration{}, err
+	}
+	if root.Ref != approval.ApprovalRootRef || root.Version != approval.ApprovalRootVersion || root.Digest != approval.ApprovalRootDigest || root.ProvenanceRef != approval.ApprovalRootProvenanceRef || root.ProvenanceDigest != approval.ApprovalRootProvenanceDigest {
+		return contracts.PublisherGeneration{}, errors.New("publisher enrollment approval root is no longer current")
 	}
 	publicKey, err := signer.PublicKey(ctx)
 	if err != nil {
@@ -745,22 +763,31 @@ func (r Repository) decryptGovernanceRecord(ctx context.Context, record statepkg
 	return payload, nil
 }
 
-// requireCurrentInstallationOwner requires the CURRENT installation root (N17
-// equivalent path): an immutable root-shaped record that was retired or
-// superseded authenticates nobody. When osUser is non-empty the root must also
-// be the one enrolled for that OS user.
-func (r Repository) requireCurrentInstallationOwner(ctx context.Context, bootstrapDigest string, owner contracts.PrincipalRef, osUser string, now time.Time) error {
+// currentInstallationOwnerRoot requires the CURRENT OS-user-bound installation
+// root; a retired or superseded root authenticates nobody.
+func (r Repository) currentInstallationOwnerRoot(ctx context.Context, bootstrapDigest string, owner contracts.PrincipalRef, osUser string, now time.Time) (contracts.AuthorityGeneration, error) {
+	if strings.TrimSpace(osUser) == "" {
+		return contracts.AuthorityGeneration{}, errors.New("authenticated installation OS user is unavailable")
+	}
 	root, err := r.LoadCurrentInstallationRoot(ctx, bootstrapDigest, now)
 	if err != nil || root.ParentRef != "" || root.Principal != owner {
-		return errors.New("installation governance root is unavailable")
+		return contracts.AuthorityGeneration{}, errors.New("installation governance root is unavailable")
 	}
-	if osUser != "" && !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
-		return errors.New("authenticated installation root is unavailable")
+	if !strings.HasSuffix(root.ProvenanceRef, ":os-user:"+osUser) {
+		return contracts.AuthorityGeneration{}, errors.New("authenticated installation root is unavailable")
 	}
-	return nil
+	return root, nil
 }
 
-func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {
+func (r Repository) requireCurrentInstallationOwner(ctx context.Context, bootstrapDigest string, owner contracts.PrincipalRef, osUser string, now time.Time) error {
+	_, err := r.currentInstallationOwnerRoot(ctx, bootstrapDigest, owner, osUser, now)
+	return err
+}
+
+func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview contracts.PublisherEnrollmentPreview, bootstrapDigest, ownerID, osUser, confirmation string, now time.Time) (contracts.PublisherEnrollmentApproval, string, error) {
+	if strings.TrimSpace(osUser) == "" {
+		return contracts.PublisherEnrollmentApproval{}, "", errors.New("authenticated installation OS user is unavailable")
+	}
 	previewDigest, err := preview.Digest()
 	if err != nil {
 		return contracts.PublisherEnrollmentApproval{}, "", err
@@ -779,10 +806,11 @@ func (r Repository) ApprovePublisherEnrollment(ctx context.Context, preview cont
 	if err != nil || !contracts.AuthorityModelStateRetains(model, contracts.AuthorityModelSuccessorVersion) {
 		return contracts.PublisherEnrollmentApproval{}, "", errors.New("publisher enrollment requires currently adopted authority-model v2")
 	}
-	if err := r.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "", now); err != nil {
+	root, err := r.currentInstallationOwnerRoot(ctx, bootstrapDigest, owner, osUser, now)
+	if err != nil {
 		return contracts.PublisherEnrollmentApproval{}, "", err
 	}
-	approval := contracts.PublisherEnrollmentApproval{ID: "publisher-enrollment-approval:" + previewDigest, Version: "1", Kind: "publisher-enrollment-approval", PreviewDigest: previewDigest, BootstrapDigest: preview.BootstrapDigest, OwnerID: preview.OwnerID, OwnerKind: preview.OwnerKind, AuthorityModel: preview.AuthorityModel, AuthorityModelVersion: preview.AuthorityModelVersion, AuthorityModelDigest: preview.AuthorityModelDigest, GenerationTemplateDigest: preview.GenerationDigest, PublisherPrincipal: preview.PublisherPrincipal, PublicKeyDigest: preview.PublicKeyDigest, KeyID: preview.KeyID, Algorithm: preview.Algorithm, Namespace: preview.Namespace, Generation: preview.Generation, Predecessor: preview.Predecessor, GenerationRecord: preview.GenerationRecord, ApproverID: owner.ID, ApproverKind: owner.Kind, IssuedAt: now.UTC()}
+	approval := contracts.PublisherEnrollmentApproval{ID: "publisher-enrollment-approval:" + previewDigest, Version: contracts.PublisherEnrollmentApprovalVersion, Kind: "publisher-enrollment-approval", PreviewDigest: previewDigest, BootstrapDigest: preview.BootstrapDigest, OwnerID: preview.OwnerID, OwnerKind: preview.OwnerKind, AuthorityModel: preview.AuthorityModel, AuthorityModelVersion: preview.AuthorityModelVersion, AuthorityModelDigest: preview.AuthorityModelDigest, GenerationTemplateDigest: preview.GenerationDigest, PublisherPrincipal: preview.PublisherPrincipal, PublicKeyDigest: preview.PublicKeyDigest, KeyID: preview.KeyID, Algorithm: preview.Algorithm, Namespace: preview.Namespace, Generation: preview.Generation, Predecessor: preview.Predecessor, GenerationRecord: preview.GenerationRecord, ApproverID: owner.ID, ApproverKind: owner.Kind, ApproverOSUser: osUser, ApprovalRootRef: root.Ref, ApprovalRootVersion: root.Version, ApprovalRootDigest: root.Digest, ApprovalRootProvenanceRef: root.ProvenanceRef, ApprovalRootProvenanceDigest: root.ProvenanceDigest, IssuedAt: now.UTC()}
 	approvalDigest, err := approval.Digest()
 	if err != nil {
 		return contracts.PublisherEnrollmentApproval{}, "", err

@@ -61,7 +61,7 @@ func TestRetiredInstallationRootCannotApproveAPublisherEnrollment(t *testing.T) 
 	if err != nil {
 		t.Fatalf("premise: the installation has a current root: %v", err)
 	}
-	if _, _, err := repo.ApprovePublisherEnrollment(ctx, preview, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER "+previewDigest, now); err != nil {
+	if _, _, err := repo.ApprovePublisherEnrollment(ctx, preview, bootstrapDigest, owner.ID, "test", "APPROVE-PUBLISHER "+previewDigest, now); err != nil {
 		t.Fatalf("control: a current root must approve: %v", err)
 	}
 	invalidation := contracts.AuthorityGenerationInvalidation{Ref: root.Ref, Version: root.Version, GenerationDigest: root.Digest, InvalidationRef: "retire-root", InvalidationVersion: "1", Kind: "revoked", InvalidatedBy: root.Principal, EffectiveAt: time.Now().UTC(), Reason: "test retirement"}
@@ -74,7 +74,7 @@ func TestRetiredInstallationRootCannotApproveAPublisherEnrollment(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := repo.ApprovePublisherEnrollment(ctx, preview2, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER "+preview2Digest, now.Add(2*time.Second)); err == nil {
+	if _, _, err := repo.ApprovePublisherEnrollment(ctx, preview2, bootstrapDigest, owner.ID, "test", "APPROVE-PUBLISHER "+preview2Digest, now.Add(2*time.Second)); err == nil {
 		t.Fatal("G7: a retired installation root approved a publisher enrollment")
 	}
 }
@@ -185,13 +185,13 @@ func TestCurrentInstallationOwnerCheckRequiresTheCurrentRootOwnerAndOSUser(t *te
 	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, osUser, now); err != nil {
 		t.Fatalf("control: the current root's owner and OS user must pass: %v", err)
 	}
-	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "", now); err != nil {
-		t.Fatalf("control: an approval (no OS user) by the current owner must pass: %v", err)
+	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "", now); err == nil {
+		t.Fatal("approval without an OS user must fail closed")
 	}
 	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "someone-else", now); err == nil {
 		t.Fatal("enrollment accepted an OS user that is not the root's enrolled user")
 	}
-	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, contracts.PrincipalRef{ID: "installation-owner:other", Kind: "human"}, "", now); err == nil {
+	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, contracts.PrincipalRef{ID: "installation-owner:other", Kind: "human"}, osUser, now); err == nil {
 		t.Fatal("another principal was accepted as the installation owner")
 	}
 	invalidation := contracts.AuthorityGenerationInvalidation{Ref: root.Ref, Version: root.Version, GenerationDigest: root.Digest, InvalidationRef: "retire-root", InvalidationVersion: "1", Kind: "revoked", InvalidatedBy: root.Principal, EffectiveAt: time.Now().UTC(), Reason: "test retirement"}
@@ -201,7 +201,7 @@ func TestCurrentInstallationOwnerCheckRequiresTheCurrentRootOwnerAndOSUser(t *te
 	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, osUser, now.Add(time.Second)); err == nil {
 		t.Fatal("a retired root authenticated its enrolled OS user for enrollment")
 	}
-	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, "", now.Add(time.Second)); err == nil {
+	if err := repo.requireCurrentInstallationOwner(ctx, bootstrapDigest, owner, osUser, now.Add(time.Second)); err == nil {
 		t.Fatal("a retired root approved as installation owner")
 	}
 }

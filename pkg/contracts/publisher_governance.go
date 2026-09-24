@@ -16,6 +16,7 @@ const (
 	PublisherEnrollmentProposalKind        = "publisher-enrollment-proposal"
 	PublisherAuthorityProposalKind         = "publisher-authority-proposal"
 	PublisherAuthorityReviewKind           = "publisher-authority-review"
+	PublisherEnrollmentApprovalVersion     = "2"
 )
 
 type AuthorityModelState struct{ Version, ActiveModel, ActiveVersion, ActiveDigest, AdoptionDigest, State string }
@@ -61,6 +62,12 @@ type PublisherEnrollmentApproval struct {
 	GenerationTemplateDigest, PublisherPrincipal, PublicKeyDigest, KeyID, Algorithm, Namespace, Generation, Predecessor, ApproverID, ApproverKind string
 	GenerationRecord                                                                                                                              PublisherGeneration
 	IssuedAt                                                                                                                                      time.Time
+	ApproverOSUser                                                                                                                                string `json:"ApproverOSUser,omitempty"`
+	ApprovalRootRef                                                                                                                               string `json:"ApprovalRootRef,omitempty"`
+	ApprovalRootVersion                                                                                                                           string `json:"ApprovalRootVersion,omitempty"`
+	ApprovalRootDigest                                                                                                                            string `json:"ApprovalRootDigest,omitempty"`
+	ApprovalRootProvenanceRef                                                                                                                     string `json:"ApprovalRootProvenanceRef,omitempty"`
+	ApprovalRootProvenanceDigest                                                                                                                  string `json:"ApprovalRootProvenanceDigest,omitempty"`
 }
 type PublisherAuthorityProposal struct {
 	ID, Version, Kind, BootstrapDigest, OwnerID, OwnerKind, AuthorityModel, AuthorityModelVersion, AuthorityModelDigest                          string
@@ -111,8 +118,11 @@ func (r PublisherAuthorityReview) Digest() (string, error) {
 	return digestCanonical(r)
 }
 func (p PublisherEnrollmentApproval) Digest() (string, error) {
-	if p.ID == "" || p.Version == "" || p.Kind != "publisher-enrollment-approval" || p.PreviewDigest == "" || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel == "" || p.AuthorityModelVersion == "" || p.AuthorityModelDigest == "" || p.GenerationTemplateDigest == "" || p.PublisherPrincipal == "" || p.PublicKeyDigest == "" || p.KeyID == "" || p.Algorithm == "" || p.Namespace == "" || p.Generation == "" || p.ApproverID == "" || p.ApproverKind == "" || p.IssuedAt.IsZero() {
+	if p.ID == "" || (p.Version != "1" && p.Version != PublisherEnrollmentApprovalVersion) || p.Kind != "publisher-enrollment-approval" || p.PreviewDigest == "" || p.BootstrapDigest == "" || p.OwnerID == "" || p.OwnerKind == "" || p.AuthorityModel == "" || p.AuthorityModelVersion == "" || p.AuthorityModelDigest == "" || p.GenerationTemplateDigest == "" || p.PublisherPrincipal == "" || p.PublicKeyDigest == "" || p.KeyID == "" || p.Algorithm == "" || p.Namespace == "" || p.Generation == "" || p.ApproverID == "" || p.ApproverKind == "" || p.IssuedAt.IsZero() {
 		return "", errors.New("publisher enrollment approval is incomplete")
+	}
+	if p.Version == PublisherEnrollmentApprovalVersion && (strings.TrimSpace(p.ApproverOSUser) == "" || p.ApprovalRootRef == "" || p.ApprovalRootVersion == "" || p.ApprovalRootDigest == "" || p.ApprovalRootProvenanceRef == "" || p.ApprovalRootProvenanceDigest != p.BootstrapDigest || !strings.HasSuffix(p.ApprovalRootProvenanceRef, ":os-user:"+p.ApproverOSUser)) {
+		return "", errors.New("publisher enrollment approval root and OS-user provenance is incomplete")
 	}
 	actual, err := p.GenerationRecord.Digest()
 	if err != nil || actual != p.GenerationTemplateDigest {

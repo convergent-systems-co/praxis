@@ -145,7 +145,7 @@ func runPublisherEnrollmentApprove(args []string, out io.Writer) error {
 	}
 	defer db.Close()
 	now := time.Now().UTC()
-	approval, approvalDigest, err := repo.ApprovePublisherEnrollment(context.Background(), envelope.Preview, bootstrapDigest, owner.ID, "APPROVE-PUBLISHER "+digest, now)
+	approval, approvalDigest, err := repo.ApprovePublisherEnrollment(context.Background(), envelope.Preview, bootstrapDigest, owner.ID, current.Username, "APPROVE-PUBLISHER "+digest, now)
 	if err != nil {
 		return err
 	}
@@ -212,6 +212,9 @@ func runCanonicalPublisherEnroll(args []string, getenv func(string) string, out 
 	approval, err := repo.LoadPublisherEnrollmentApprovalByDigest(context.Background(), *approvalDigest, time.Now().UTC())
 	if err != nil {
 		return err
+	}
+	if approval.Version != contracts.PublisherEnrollmentApprovalVersion {
+		return errors.New("legacy publisher enrollment approval cannot authorize enrollment")
 	}
 	signer, err := publisherBackend().Open(context.Background(), approval.GenerationRecord.KeyID)
 	if err != nil {
